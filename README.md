@@ -1,7 +1,7 @@
 # One-footed-bride-tuning
 
 A compact implementation of Harry Partch's "One-Footed Bride" tonality diamond tuning applied to Bach chorales.
-[![One‑footed Bride](/one-footed-bride-pic.jpeg)](/one-footed-bride-pic.jpeg)
+<a href="one-footed-bride-pic.jpeg"><img src="one-footed-bride-pic.jpeg" alt="One‑footed Bride" width="400"/></a>
 
 ## Overview ✅
 This project finds cent tunings for four-note chords that favor low-number rational intervals (small numerator+denominator). It uses:
