@@ -64,6 +64,7 @@ Configuration is in `WreckingCrew.py` and supporting helper modules (e.g., `diam
 - Typical useful tonality diamond limits: 19, 23, or 31 (experiment with smaller/larger limits)
 - If adjacent chords produce slight cent differences for the same MIDI pitch, the pipeline applies short slides (glissandi) to smooth transitions
 - Caching and compressing unique chords dramatically speeds tuning (often >80% cache hit rates)
+- I originally created WreckingCrew.py for a sample library that included orchestral instruments from the McGill University Master Samples library. I can't distribute the samples that use those files. In this github repo I only included percussion samples of finger pianos and guitar strings. As a result, the pieces generated just from these have limited appeal. 
 
 ## Contributing & License
 If you find bugs or want to propose improvements, open an issue or a PR. See the LICENSE file for licensing details.
