@@ -40,16 +40,18 @@ np.set_printoptions(legacy='1.21', precision=3) # don't print the datatypes (np.
 # np.set_printoptions(legacy=False) # don't print the datatypes (np.str_, np.float64() etc, and only 3 decimal places)
 flats = True # set this to False if the key uses sharps. It will later get set based on reading the key signature from the corpus.
 keys = atu.set_accidentals(flats)
-CSD_FILE = numpy_dir + '/ball9.csd'
-CSD_C_FILE = numpy_dir + '/ball9c.csd' 
-JUPYTER_LOG = numpy_dir + '/slide_tuning.log'
+# Use local directory for all files
+local_dir = os.path.dirname(os.path.abspath(__file__))
+CSD_FILE = os.path.join(local_dir, 'ball9.csd')
+CSD_C_FILE = os.path.join(local_dir, 'ball9c.csd')
+JUPYTER_LOG = os.path.join(local_dir, 'slide_tuning.log')
 dmu.start_logger(JUPYTER_LOG, log_level = 'info')
 CS_LOGNAME = 'slide_tuning.log' # this doesn't need any directory. 
 MIDI_DIR = '.' 
 UPLOADS_DIR = base_dir + '/Uploads'
-TRIM_SCRIPT = numpy_dir + '/trim.sh'
-CS_SOURCE_DIR = numpy_dir
-numpy_dir = "/home/prent/Dropbox/Tutorials/TonicNet/Archive/opt"
+TRIM_SCRIPT = os.path.join(local_dir, 'trim.sh')
+CS_SOURCE_DIR = local_dir
+numpy_dir = os.path.join(local_dir, 'Archive', 'opt')
 
 
 # In[815]:
