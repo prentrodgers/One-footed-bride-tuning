@@ -18,14 +18,33 @@ This project finds cent tunings for four-note chords that favor low-number ratio
 - Exports data for visualization and Csound performance
 
 ## Quick start ▶️
-Requirements: Python 3.10+, numpy, scipy, matplotlib, (Csound optional)
+**Prerequisites:** Python 3.10+, numpy, scipy, matplotlib, sox (audio processing), Csound (optional, for audio synthesis)
+
+### Install system dependencies
+
+**Ubuntu/Debian:**
+```bash
+sudo apt-get update
+sudo apt-get install -y python3.10 python3-pip sox csound
+```
+
+**Fedora/RHEL:**
+```bash
+sudo dnf install -y python3 python3-pip sox
+# Csound must be built from source on Fedora
+# See: https://github.com/csound/csound
+# Or install via conda: mamba install -c conda-forge csound
+```
+
+### Python environment
 
 1. Recommended: create a minimal mamba environment (fast and reproducible):
    ```bash
    # first install miniforge: https://github.com/conda-forge/miniforge
-   # then if you want to realize the resulting .csd files, install csound: https://github.com/csound/csound
    mamba create -n csound python jupyterlab matplotlib numpy scipy music21
    mamba activate csound
+   # Optional: install Csound via conda (works on all distros)
+   mamba install -c conda-forge csound
    ```
 
 2. Or install dependencies with pip (project root or this subfolder):
@@ -38,7 +57,7 @@ Requirements: Python 3.10+, numpy, scipy, matplotlib, (Csound optional)
    python WreckingCrew.py
    ```
 
-4. Examples
+### Usage examples
    - Quick run (default list of Bach Wedding Chorales bwv253 through bwv264). It uses pre-tuned cent values:
      ```bash
      python WreckingCrew.py 
@@ -50,7 +69,7 @@ Requirements: Python 3.10+, numpy, scipy, matplotlib, (Csound optional)
    - Show generated plots and volumes (saved to `plots/`):
      Run `python WreckingCrew.py` and inspect `plots/{version}.jpg`
 
-5. Use the notebook `Chorale-info.ipynb` for exploration and printing results.
+4. Use the notebook `Chorale-info.ipynb` for exploration and printing results.
 
 Configuration is in `WreckingCrew.py` and supporting helper modules (e.g., `diamond_music_utils.py`, `adaptive_tuning_util.py`). Tweak limits and annealing parameters to experiment.
 
