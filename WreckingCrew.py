@@ -10,11 +10,13 @@ from datetime import datetime
 user = 'prent'
 base_dir = os.path.join('/home', user, 'Dropbox') 
 WAVE_DIR = os.path.join('/home', user, 'Music', 'sflib')
-numpy_dir = os.path.join(base_dir, 'Tutorials', 'TonicNet')
-diamond_dir = os.path.join(base_dir, 'Tutorials', 'Diamond_Music')
+# Helper libraries now live in this directory
+local_dir = os.path.dirname(os.path.abspath(__file__))
+numpy_dir = local_dir
+diamond_dir = local_dir
 print(f'{numpy_dir = }\n{diamond_dir = }')
 sys.path.insert(0, numpy_dir )
-sys.path.insert(0, diamond_dir) # on the host
+sys.path.insert(0, diamond_dir)
 import adaptive_tuning_util as atu 
 import diamond_music_utils as dmu 
 import numpy as np
