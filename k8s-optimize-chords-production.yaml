@@ -1,0 +1,106 @@
+# Kubernetes Job - Production Chord Tuning with Optimal Parameters
+# Based on grid search results: tolerance=2, limit_max=29, max_iterations=400
+#
+# This is the final optimized configuration after testing 60 + 24 parameter combinations
+# Best results achieved:
+#   - bwv262: mean 47.8 (target ~49)
+#   - bwv264: mean 48.3
+#   - bwv263: mean 49.1
+#   - Average: 52.2
+#
+# Usage:
+#   kubectl apply -f k8s-optimize-chords-production.yaml
+#   kubectl get job optimize-chords-sa-production -w
+#   kubectl delete job optimize-chords-sa-production
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: optimize-chords-sa-production
+  labels:
+    app: optimize-chords-sa-production
+spec:
+  completions: 1
+  parallelism: 1
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 3600
+  
+  template:
+    metadata:
+      labels:
+        app: optimize-chords-sa-production
+    spec:
+      restartPolicy: OnFailure
+      securityContext:
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+      
+      containers:
+      - name: optimize-chords
+        image: quay.io/prentrodgers/python-music:0.4
+        imagePullPolicy: IfNotPresent
+        workingDir: /home/prent/Dropbox/Tutorials/TonicNet
+        
+        env:
+        - name: PYTHONUNBUFFERED
+          value: "1"
+        - name: HOME
+          value: "/home/prent"
+        - name: TZ
+          value: "America/Los_Angeles"
+        
+        resources:
+          requests:
+            cpu: "500m"
+            memory: "512Mi"
+          limits:
+            cpu: "16"
+            memory: "6Gi"
+        
+        volumeMounts:
+        - mountPath: /home/prent
+          name: dropbox-storage
+        
+        # Run optimization with optimal parameters
+        command: ["/bin/bash", "-c"]
+        args:
+          - |
+            set -euxo pipefail
+            cd /home/prent/Dropbox/Tutorials/TonicNet
+            
+            echo "Starting chord tuning optimization (Production - Optimal Parameters)"
+            echo "This produces files here: {version}-sa-opt.npy (e.g., bwv261-sa-opt.npy)"
+
+            CHORALES="bwv253 bwv254 bwv255 bwv256 bwv257 bwv258 bwv259 bwv260 bwv261 bwv262 bwv263 bwv264"
+            NUM_RUNS=25
+
+            for run in $(seq 1 $NUM_RUNS); do
+              echo "=== Run $run of $NUM_RUNS ==="
+              
+              # Launch all chorales in parallel
+              for c in $CHORALES; do
+                python optimize_chords_sa_v2.py --chorale $c &
+              done
+              
+              # Wait for all parallel jobs to complete
+              wait
+              
+              echo "Run $run complete"
+            done
+            
+            echo "Optimization complete - $NUM_RUNS runs finished"
+      
+            echo "Applying horizontal adjustments to saved files:"
+            for c in $CHORALES; do
+              python horizontal_transpose.py --destination Archive/opt/$c-trans-sa-opt-best.npy Archive/opt/$c-sa-opt.npy
+            done
+
+            echo "All transposed files saved to Archive/opt/{version}-sa-opt-best.npy"
+      volumes:
+      - name: dropbox-storage
+        persistentVolumeClaim:
+          claimName: dropbox-pvc
+          readOnly: false
+      
+      imagePullSecrets:
+      - name: regcred

@@ -1,0 +1,12 @@
+# Minimal environment for the project using mamba
+# To create and activate the environment run:
+#   mamba create -n csound python jupyterlab matplotlib numpy scipy music21
+#   mamba activate csound
+
+jupyterlab
+python
+matplotlib
+numpy
+scipy
+music21
+# Note: Csound is a system package and should be installed separately if you want to render audio with it.

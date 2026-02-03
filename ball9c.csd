@@ -1,0 +1,41 @@
+<CsoundSynthesizer>
+; modified 07/12/12 10:55am - removed option -+y - not compatible with Csound 5
+; created ???? first used for shuffle9.wav - Omar & Los Bandelero's
+<CsOptions>
+-W -m2 -G -o ball9a-c.wav -3
+; -o dac -W -G -m0 
+</CsOptions>
+
+<CsInstruments>
+ sr = 44100
+ ksmps = 1 ; any higher than 10 and I hear clicks - can this line be eliminated?
+ nchnls = 2
+
+  instr 1
+
+    imix = p4 ; Wet/dry mix. long reverb needs mix=.005, to make it wetter, try .007
+    idel = p5 ; Required delay to align dry audio with output of convolve. length of convolv input file
+
+    adryl,adryr  soundin "/home/prent/Music/sflib/ball9.wav"       ; input (dry) audio 
+;     convolv with the impulse response from Teatro Alcorcon in Madrid from Angelo Farina
+    awetlr,awetll convolve adryl,"/home/prent/Dropbox/csound/Impulse/alcorcon.cv" ; stereo convolved (wet) audio
+    awetrr,awetrl convolve adryr,"/home/prent/Dropbox/csound/Impulse/alcorcon.cv" ; stereo convolved (wet) audio
+
+    adrydell     delay   (1-imix)*adryl,idel  ; Delay dry signal, to align it with convolved one
+    adrydelr     delay   (1-imix)*adryr,idel  ; Delay dry signal, to align it with convolved one
+
+    outs adrydell+imix*awetll+imix*awetrl, adrydelr+imix*awetrr+imix*awetlr ; mix dry and wet for both channels
+
+  endin
+
+</CsInstruments>
+
+<CsScore>
+;  start 
+;  | + length in seconds plus length of impulse response file - this is replaced with the actual length needed
+;  | |         + percentage of reverb vs live sound .0075 is pretty wet now
+;  | |         |       + Length of impulse response file Teatro Alcorcon in Madrid is 1.811...
+;  | |         |       |
+i1 0 @replaceme@   .0090   1.811247165532
+</CsScore>
+</CsoundSynthesizer>
