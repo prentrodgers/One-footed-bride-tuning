@@ -1576,6 +1576,7 @@ def mainline(chorale_override=None):
       # set the instrument sections you want to include to True in the following dictionary
       just_sustained = False # for debugging purposes if you only want the sustained instruments to play
       just_fp = False # for debugging purposes if you only want the finger pianos to play
+      just_prent_samples = True # this is set so that I have a version that runs without the McGill samples
       if short_repeats:
             include_sections = {
                   # The above code appears to be defining a dictionary in Python where each key
@@ -1605,6 +1606,17 @@ def mainline(chorale_override=None):
                   'bass_section':  [False, np.array(['bfin3', 'bfin4', 'celp3', 'celp4', 'bgui3', 'bgui2', 'long2', 'long3'])],
                   'melody_section':[True, np.array(['flut2', 'flut3', 'clar2', 'vibp1', 'oboe3', 'basn4', 'trmp5', 'frnh3'])]}
       elif just_fp:
+            include_sections = {
+                  # section --      play or not --    instruments in the section
+                  'finger_pianos': [False, np.array(['fing1', 'fing2', 'fing3', 'fing4', 'fing5', 'fing6', 'bfin1', 'bfin2'])],
+                  'wood_winds':    [False, np.array([])],
+                  'pizz_strings':  [True, np.array(['ebss1', 'ebss2', 'ebss3', 'ebss4', 'ebss5', 'ebss6', 'ebss7', 'ebss8'])],
+                  'bowed_strings': [False, np.array([])],
+                  'brass_section': [False, np.array([])], 
+                  'perc_guitar':   [True, np.array(['bgui1', 'bgui2', 'bgui3', 'bgui4', 'bgui5', 'bgui6', 'bgui7', 'bgui8'])],
+                  'bass_section':  [True, np.array(['bfin1', 'bfin2', 'bfin3', 'bfin4', 'bfin5', 'bfin6', 'bfin7', 'bfin8'])], 
+                  'melody_section':[False, np.array([])]}
+      elif just_prent_samples:
             include_sections = {
                   # section --      play or not --    instruments in the section
                   'finger_pianos': [False, np.array(['fing1', 'fing2', 'fing3', 'fing4', 'fing5', 'fing6', 'bfin1', 'bfin2'])],

@@ -392,509 +392,168 @@ f1192 0 128 -17 0 1196 25 1197 27 1198 30 1199 32 1200 34 1201 36 1202 38 1203 4
 f1193 0 64 -2 0  24  26  29  31  33  35  37  39  41  43  45  47  49  51  53  55 
 f1194 0 64 -2 0 +6  +2  +5  0   +2  +3  +2  -6  +1  0   +2  +3  0   +2  +1  +4  
 f1195 0 64 -2 0 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 
-f605 0 0 1 "samples/Partition I/FingerP/c1.aif" 0 0 0
-f606 0 0 1 "samples/Partition I/FingerP/e1.aif" 0 0 0
-f607 0 0 1 "samples/Partition I/FingerP/g1.aif" 0 0 0
-f608 0 0 1 "samples/Partition I/FingerP/a1.aif" 0 0 0
-f609 0 0 1 "samples/Partition I/FingerP/c2.aif" 0 0 0
-f610 0 0 1 "samples/Partition I/FingerP/d2.aif" 0 0 0
-f611 0 0 1 "samples/Partition I/FingerP/f2.aif" 0 0 0
-f612 0 0 1 "samples/Partition I/FingerP/g2.aif" 0 0 0
-f613 0 0 1 "samples/Partition I/FingerP/a2.aif" 0 0 0
-f614 0 0 1 "samples/Partition I/FingerP/c3.aif" 0 0 0
-f615 0 0 1 "samples/Partition I/FingerP/d3.aif" 0 0 0
-f616 0 0 1 "samples/Partition I/FingerP/e3.aif" 0 0 0
-f617 0 0 1 "samples/Partition I/FingerP/g3.aif" 0 0 0
-f618 0 0 1 "samples/Partition I/FingerP/a3.aif" 0 0 0
-f619 0 0 1 "samples/Partition I/FingerP/c4.aif" 0 0 0
-f620 0 0 1 "samples/Partition I/FingerP/d4.aif" 0 0 0
-f621 0 0 1 "samples/Partition I/FingerP/e4.aif" 0 0 0
-f622 0 0 1 "samples/Partition I/FingerP/f4.aif" 0 0 0
-f623 0 0 1 "samples/Partition I/FingerP/g4.aif" 0 0 0
-f624 0 0 1 "samples/Partition I/FingerP/c5.aif" 0 0 0
-f625 0 0 1 "samples/Partition I/FingerP/d5.aif" 0 0 0
-f626 0 0 1 "samples/Partition I/FingerP/f5.aif" 0 0 0
-f627 0 0 1 "samples/Partition I/FingerP/g5.aif" 0 0 0
-f628 0 0 1 "samples/Partition I/FingerP/a5.aif" 0 0 0
-f629 0 0 1 "samples/Partition I/FingerP/c6.aif" 0 0 0
-f634 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLIN-PIZZ/VIOLINP G3.aif" 0 0 0
-f635 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLIN-PIZZ/VIOLINP B3.aif" 0 0 0
-f636 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLIN-PIZZ/VIOLINPC#4.aif" 0 0 0
-f637 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLIN-PIZZ/VIOLINPD#4.aif" 0 0 0
-f638 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLIN-PIZZ/VIOLINP F4.aif" 0 0 0
-f639 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLIN-PIZZ/VIOLINP G4.aif" 0 0 0
-f640 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLIN-PIZZ/VIOLINP A4.aif" 0 0 0
-f641 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLIN-PIZZ/VIOLINP B4.aif" 0 0 0
-f642 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLIN-PIZZ/VIOLINPC#5.aif" 0 0 0
-f643 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLIN-PIZZ/VIOLINPD#5.aif" 0 0 0
-f644 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLIN-PIZZ/VIOLINP F5.aif" 0 0 0
-f645 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLIN-PIZZ/VIOLINP G5.aif" 0 0 0
-f646 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLIN-PIZZ/VIOLINP A5.aif" 0 0 0
-f647 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLIN-PIZZ/VIOLINP B5.aif" 0 0 0
-f648 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLIN-PIZZ/VIOLINPC#6.aif" 0 0 0
-f649 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLIN-PIZZ/VIOLINPD#6.aif" 0 0 0
-f650 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLIN-PIZZ/VIOLINP F6.aif" 0 0 0
-f651 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLIN-PIZZ/VIOLINP G6.aif" 0 0 0
-f656 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLA-PIZZ/VIOLAPZC3.aif" 0 0 0
-f657 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLA-PIZZ/VIOLAPZD#3.aif" 0 0 0
-f658 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLA-PIZZ/VIOLAPZF#3.aif" 0 0 0
-f659 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLA-PIZZ/VIOLAPZA3.aif" 0 0 0
-f660 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLA-PIZZ/VIOLAPZD#4.aif" 0 0 0
-f661 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLA-PIZZ/VIOLAPZF#4.aif" 0 0 0
-f662 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLA-PIZZ/VIOLAPZA4.aif" 0 0 0
-f663 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLA-PIZZ/VIOLAPZC5.aif" 0 0 0
-f664 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLA-PIZZ/VIOLAPZD#5.aif" 0 0 0
-f665 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLA-PIZZ/VIOLAPZF#5.aif" 0 0 0
-f666 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLA-PIZZ/VIOLAPZA5.aif" 0 0 0
-f671 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/CELLO PIZZ/P CELLOC2.aif" 0 0 0
-f672 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/CELLO PIZZ/P CELLOE2.aif" 0 0 0
-f673 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/CELLO PIZZ/P CELLOA2.aif" 0 0 0
-f674 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/CELLO PIZZ/P CELLOC#3.aif" 0 0 0
-f675 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/CELLO PIZZ/P CELLOE3.aif" 0 0 0
-f676 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/CELLO PIZZ/P CELLOB3.aif" 0 0 0
-f677 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/CELLO PIZZ/P CELLOC4.aif" 0 0 0
-f678 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/CELLO PIZZ/P CELLOE4.aif" 0 0 0
-f679 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/CELLO PIZZ/P CELLOF#4.aif" 0 0 0
-f680 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/CELLO PIZZ/P CELLOG#4.aif" 0 0 0
-f681 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/CELLO PIZZ/P CELLOB4.aif" 0 0 0
-f682 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/CELLO PIZZ/P CELLOD5.aif" 0 0 0
-f687 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition C/MARIMBA/MARIMBA F2.aif" 0 0 0
-f688 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition C/MARIMBA/MARIMBAG#2.aif" 0 0 0
-f689 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition C/MARIMBA/MARIMBA B2-f.aif" 0 0 0
-f690 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition C/MARIMBA/MARIMBA D3-f.aif" 0 0 0
-f691 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition C/MARIMBA/MARIMBAG#3-f.aif" 0 0 0
-f692 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition C/MARIMBA/MARIMBA B3-f.aif" 0 0 0
-f693 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition C/MARIMBA/MARIMBA D4-f.aif" 0 0 0
-f694 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition C/MARIMBA/MARIMBA F4-f.aif" 0 0 0
-f695 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition C/MARIMBA/MARIMBAG#4-f.aif" 0 0 0
-f696 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition C/MARIMBA/MARIMBA B4-f.aif" 0 0 0
-f697 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition C/MARIMBA/MARIMBA D5-f.aif" 0 0 0
-f698 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition C/MARIMBA/MARIMBA F5-f.aif" 0 0 0
-f699 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition C/MARIMBA/MARIMBAG#5.aif" 0 0 0
-f700 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition C/MARIMBA/MARIMBA C6-f.aif" 0 0 0
-f701 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition C/MARIMBA/MARIMBA D6-f.aif" 0 0 0
-f702 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition C/MARIMBA/MARIMBA F6-f.aif" 0 0 0
-f703 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition C/MARIMBA/MARIMBAG#6.aif" 0 0 0
-f704 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition C/MARIMBA/MARIMBA B6-f.aif" 0 0 0
-f709 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition G/XYLOPHONE/XYLO F4.aif" 0 0 0
-f710 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition G/XYLOPHONE/XYLO G4.aif" 0 0 0
-f711 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition G/XYLOPHONE/XYLO A4.aif" 0 0 0
-f712 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition G/XYLOPHONE/XYLO B4.aif" 0 0 0
-f713 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition G/XYLOPHONE/XYLO C#5.aif" 0 0 0
-f714 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition G/XYLOPHONE/XYLO D#5.aif" 0 0 0
-f715 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition G/XYLOPHONE/XYLO F5.aif" 0 0 0
-f716 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition G/XYLOPHONE/XYLO G5.aif" 0 0 0
-f717 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition G/XYLOPHONE/XYLO A5.aif" 0 0 0
-f718 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition G/XYLOPHONE/XYLO B5.aif" 0 0 0
-f719 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition G/XYLOPHONE/XYLO C#6.aif" 0 0 0
-f720 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition G/XYLOPHONE/XYLO D#6.aif" 0 0 0
-f721 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition G/XYLOPHONE/XYLO F6.aif" 0 0 0
-f722 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition G/XYLOPHONE/XYLO G6.aif" 0 0 0
-f723 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition G/XYLOPHONE/XYLO A6.aif" 0 0 0
-f724 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition G/XYLOPHONE/XYLO B6.aif" 0 0 0
-f725 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition G/XYLOPHONE/XYLO C#7.aif" 0 0 0
-f730 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIBRAPHONE/VIBES F3.aif" 0 0 0
-f731 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIBRAPHONE/VIBES A3.aif" 0 0 0
-f732 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIBRAPHONE/VIBES C#4.aif" 0 0 0
-f733 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIBRAPHONE/VIBES D#4.aif" 0 0 0
-f734 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIBRAPHONE/VIBES F#4.aif" 0 0 0
-f735 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIBRAPHONE/VIBES A4.aif" 0 0 0
-f736 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIBRAPHONE/VIBES C5.aif" 0 0 0
-f737 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIBRAPHONE/VIBES D#5.aif" 0 0 0
-f738 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIBRAPHONE/VIBES F#5.aif" 0 0 0
-f739 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIBRAPHONE/VIBES A#5.aif" 0 0 0
-f740 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIBRAPHONE/VIBES C#6.aif" 0 0 0
-f741 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIBRAPHONE/VIBES F6.aif" 0 0 0
-f746 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition C/HARP/HARP C#1.aif" 0 0 0
-f747 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition C/HARP/HARP D#1.aif" 0 0 0
-f748 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition C/HARP/HARP F1.aif" 0 0 0
-f749 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition C/HARP/HARP G#1.aif" 0 0 0
-f750 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition C/HARP/HARP B1.aif" 0 0 0
-f751 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition C/HARP/HARP D#2.aif" 0 0 0
-f752 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition C/HARP/HARP F2.aif" 0 0 0
-f753 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition C/HARP/HARP A#2.aif" 0 0 0
-f754 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition C/HARP/HARP E3.aif" 0 0 0
-f755 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition C/HARP/HARP G3.aif" 0 0 0
-f756 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition C/HARP/HARP A#3.aif" 0 0 0
-f757 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition C/HARP/HARP C#4.aif" 0 0 0
-f758 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition C/HARP/HARP E4.aif" 0 0 0
-f759 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition C/HARP/HARP G#4.aif" 0 0 0
-f760 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition C/HARP/HARP C5.aif" 0 0 0
-f761 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition C/HARP/HARP E5.aif" 0 0 0
-f762 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition C/HARP/HARP G5.aif" 0 0 0
-f763 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition C/HARP/HARP D#6.aif" 0 0 0
-f764 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition C/HARP/HARP G6.aif" 0 0 0
-f765 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition C/HARP/HARP B6.aif" 0 0 0
-f770 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLIN-MART/VIOLINM G3.aif" 0 0 0
-f771 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLIN-MART/VIOLINM A3.aif" 0 0 0
-f772 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLIN-MART/VIOLINM B3.aif" 0 0 0
-f773 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLIN-MART/VIOLINMC#4.aif" 0 0 0
-f774 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLIN-MART/VIOLINMD#4.aif" 0 0 0
-f775 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLIN-MART/VIOLINM F4.aif" 0 0 0
-f776 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLIN-MART/VIOLINM G4.aif" 0 0 0
-f777 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLIN-MART/VIOLINM A4.aif" 0 0 0
-f778 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLIN-MART/VIOLINM B4.aif" 0 0 0
-f779 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLIN-MART/VIOLINMC#5.aif" 0 0 0
-f780 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLIN-MART/VIOLINMD#5.aif" 0 0 0
-f781 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLIN-MART/VIOLINM F5.aif" 0 0 0
-f782 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLIN-MART/VIOLINM G5.aif" 0 0 0
-f783 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLIN-MART/VIOLINM A5.aif" 0 0 0
-f784 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLIN-MART/VIOLINM B5.aif" 0 0 0
-f785 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLIN-MART/VIOLINMC#6.aif" 0 0 0
-f786 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLIN-MART/VIOLINMD#6.aif" 0 0 0
-f791 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLA-MARTEL/VIOLAMC3.aif" 0 0 0
-f792 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLA-MARTEL/VIOLAMD3.aif" 0 0 0
-f793 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLA-MARTEL/VIOLAME3.aif" 0 0 0
-f794 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLA-MARTEL/VIOLAMF#3.aif" 0 0 0
-f795 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLA-MARTEL/VIOLAMA3.aif" 0 0 0
-f796 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLA-MARTEL/VIOLAMC4.aif" 0 0 0
-f797 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLA-MARTEL/VIOLAMD4.aif" 0 0 0
-f798 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLA-MARTEL/VIOLAME4.aif" 0 0 0
-f799 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLA-MARTEL/VIOLAMF#4.aif" 0 0 0
-f800 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLA-MARTEL/VIOLAMA4.aif" 0 0 0
-f801 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLA-MARTEL/VIOLAMB4.aif" 0 0 0
-f802 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLA-MARTEL/VIOLAMC#5.aif" 0 0 0
-f803 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLA-MARTEL/VIOLAMD#5.aif" 0 0 0
-f804 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLA-MARTEL/VIOLAMG#5.aif" 0 0 0
-f805 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLA-MARTEL/VIOLAMA#5.aif" 0 0 0
-f806 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLA-MARTEL/VIOLAMC6.aif" 0 0 0
-f811 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/CELLOMARTELE/CELLO M C2.aif" 0 0 0
-f812 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/CELLOMARTELE/CELLO M D2.aif" 0 0 0
-f813 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/CELLOMARTELE/CELLO M E2.aif" 0 0 0
-f814 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/CELLOMARTELE/CELLO M F#2.aif" 0 0 0
-f815 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/CELLOMARTELE/CELLO M G#2.aif" 0 0 0
-f816 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/CELLOMARTELE/CELLO M A#2.aif" 0 0 0
-f817 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/CELLOMARTELE/CELLO M C3.aif" 0 0 0
-f818 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/CELLOMARTELE/CELLO M D3.aif" 0 0 0
-f819 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/CELLOMARTELE/CELLO M E3.aif" 0 0 0
-f820 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/CELLOMARTELE/CELLO M F#3.aif" 0 0 0
-f821 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/CELLOMARTELE/CELLO M A#3.aif" 0 0 0
-f822 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/CELLOMARTELE/CELLO M C4.aif" 0 0 0
-f823 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/CELLOMARTELE/CELLO M D4.aif" 0 0 0
-f824 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/CELLOMARTELE/CELLO M E4.aif" 0 0 0
-f825 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/CELLOMARTELE/CELLO M F#4.aif" 0 0 0
-f826 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/CELLOMARTELE/CELLO M G#4.aif" 0 0 0
-f827 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/CELLOMARTELE/CELLO M A#4.aif" 0 0 0
-f828 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/CELLOMARTELE/CELLO M C5.aif" 0 0 0
-f829 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/CELLOMARTELE/CELLO M D5.aif" 0 0 0
-f834 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/BASSOON/BASSOON A#1.aif" 0 0 0
-f835 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/BASSOON/BASSOON C2.aif" 0 0 0
-f836 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/BASSOON/BASSOON D2.aif" 0 0 0
-f837 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/BASSOON/BASSOON E2.aif" 0 0 0
-f838 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/BASSOON/BASSOON F#2.aif" 0 0 0
-f839 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/BASSOON/BASSOON G#2.aif" 0 0 0
-f840 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/BASSOON/BASS A#2.aif" 0 0 0
-f841 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/BASSOON/BASS C3.aif" 0 0 0
-f842 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/BASSOON/BASS D3.aif" 0 0 0
-f843 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/BASSOON/BASS E3.aif" 0 0 0
-f844 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/BASSOON/BASS F#3.aif" 0 0 0
-f845 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/BASSOON/BASS G#3.aif" 0 0 0
-f846 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/BASSOON/BASS A#3.aif" 0 0 0
-f847 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/BASSOON/BASS C4.aif" 0 0 0
-f848 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/BASSOON/BASS D4.aif" 0 0 0
-f849 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/BASSOON/BASS E4.aif" 0 0 0
-f854 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/B- CLARINET/CLARBB D3-f.aif" 0 0 0
-f855 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/B- CLARINET/CLARBB E3-f.aif" 0 0 0
-f856 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/B- CLARINET/CLARBB F#3-f.aif" 0 0 0
-f857 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/B- CLARINET/CLARBB G#3-f.aif" 0 0 0
-f858 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/B- CLARINET/CLARBB A#3-f.aif" 0 0 0
-f859 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/B- CLARINET/CLARBB C4-f.aif" 0 0 0
-f860 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/B- CLARINET/CLARBB E4-f.aif" 0 0 0
-f861 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/B- CLARINET/CLARBB F#4-f.aif" 0 0 0
-f862 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/B- CLARINET/CLARBB G#4-f.aif" 0 0 0
-f863 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/B- CLARINET/CLARBB A#4-f.aif" 0 0 0
-f864 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/B- CLARINET/CLARBB C5-f.aif" 0 0 0
-f865 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/B- CLARINET/CLARBB D5-f.aif" 0 0 0
-f866 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/B- CLARINET/CLARBB E5-f.aif" 0 0 0
-f867 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/B- CLARINET/CLARBB F#5-f.aif" 0 0 0
-f868 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/B- CLARINET/CLARBB G#5-f.aif" 0 0 0
-f869 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/B- CLARINET/CLARBB A#5-f.aif" 0 0 0
-f870 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/B- CLARINET/CLARBB C6-f.aif" 0 0 0
-f871 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/B- CLARINET/CLARBB D6-f.aif" 0 0 0
-f876 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition B/FLUTE NO-VIB/FLUTENV C3.aif" 0 0 0
-f877 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition B/FLUTE NO-VIB/FLUTENV D3.aif" 0 0 0
-f878 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition B/FLUTE NO-VIB/FLUTENVF#3.aif" 0 0 0
-f879 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition B/FLUTE NO-VIB/FLUTENVA#3.aif" 0 0 0
-f880 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition B/FLUTE NO-VIB/FLUTENV E4.aif" 0 0 0
-f881 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition B/FLUTE NO-VIB/FLUTENV A4.aif" 0 0 0
-f882 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition B/FLUTE NO-VIB/FLUTENV B4.aif" 0 0 0
-f883 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition B/FLUTE NO-VIB/FLUTENVC#5.aif" 0 0 0
-f884 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition B/FLUTE NO-VIB/FLUTENVD#5.aif" 0 0 0
-f885 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition B/FLUTE NO-VIB/FLUTENV F5.aif" 0 0 0
-f886 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition B/FLUTE NO-VIB/FLUTENV G5.aif" 0 0 0
-f887 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition B/FLUTE NO-VIB/FLUTENV A5.aif" 0 0 0
-f888 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition B/FLUTE NO-VIB/FLUTENV B5.aif" 0 0 0
-f889 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition B/FLUTE NO-VIB/FLUTENV C6.aif" 0 0 0
-f894 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition C/OBOE/OBOE A#3-f.aif" 0 0 0
-f895 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition C/OBOE/OBOE C4.aif" 0 0 0
-f896 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition C/OBOE/OBOE D4-f.aif" 0 0 0
-f897 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition C/OBOE/OBOE E4-f.aif" 0 0 0
-f898 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition C/OBOE/OBOE F#4.aif" 0 0 0
-f899 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition C/OBOE/OBOE G#4-f.aif" 0 0 0
-f900 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition C/OBOE/OBOE A#4-f.aif" 0 0 0
-f901 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition C/OBOE/OBOE C5-f.aif" 0 0 0
-f902 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition C/OBOE/OBOE D5-f.aif" 0 0 0
-f903 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition C/OBOE/OBOE E5.aif" 0 0 0
-f904 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition C/OBOE/OBOE G#5.aif" 0 0 0
-f905 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition C/OBOE/OBOE A#5-f.aif" 0 0 0
-f906 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition C/OBOE/OBOE C6-f.aif" 0 0 0
-f907 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition C/OBOE/OBOE D6-f.aif" 0 0 0
-f908 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition C/OBOE/OBOE E6-f.aif" 0 0 0
-f913 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition B/FRENCH HORN/F.HORN D2.aif" 0 0 0
-f914 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition B/FRENCH HORN/F.HORN E2.aif" 0 0 0
-f915 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition B/FRENCH HORN/F.HORN F#2.aif" 0 0 0
-f916 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition B/FRENCH HORN/F.HORN G#2.aif" 0 0 0
-f917 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition B/FRENCH HORN/F.HORN A#2.aif" 0 0 0
-f918 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition B/FRENCH HORN/F.HORN D3.aif" 0 0 0
-f919 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition B/FRENCH HORN/F.HORN E3.aif" 0 0 0
-f920 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition B/FRENCH HORN/F.HORN F#3.aif" 0 0 0
-f921 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition B/FRENCH HORN/F.HORN G#3.aif" 0 0 0
-f922 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition B/FRENCH HORN/F.HORN A#3.aif" 0 0 0
-f923 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition B/FRENCH HORN/F.HORN C4.aif" 0 0 0
-f924 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition B/FRENCH HORN/F.HORN D4.aif" 0 0 0
-f925 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition B/FRENCH HORN/F.HORN E4.aif" 0 0 0
-f926 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition B/FRENCH HORN/F.HORN F#4.aif" 0 0 0
-f927 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition B/FRENCH HORN/F.HORN A#4.aif" 0 0 0
-f928 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition B/FRENCH HORN/F.HORN C5.aif" 0 0 0
-f929 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition B/FRENCH HORN/F.HORN D5-f.aif" 0 0 0
-f934 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLIN W-VIB/VIOLING#3.aif" 0 0 0
-f935 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLIN W-VIB/VIOLINA#3.aif" 0 0 0
-f936 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLIN W-VIB/VIOLINC4.aif" 0 0 0
-f937 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLIN W-VIB/VIOLIND4.aif" 0 0 0
-f938 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLIN W-VIB/VIOLINE4.aif" 0 0 0
-f939 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLIN W-VIB/VIOLINF#4.aif" 0 0 0
-f940 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLIN W-VIB/VIOLING#4.aif" 0 0 0
-f941 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLIN W-VIB/VIOLINA#4.aif" 0 0 0
-f942 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLIN W-VIB/VIOLINC#5.aif" 0 0 0
-f943 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLIN W-VIB/VIOLIND#5.aif" 0 0 0
-f944 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLIN W-VIB/VIOLINF5.aif" 0 0 0
-f945 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLIN W-VIB/VIOLING5.aif" 0 0 0
-f946 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLIN W-VIB/VIOLINA5.aif" 0 0 0
-f947 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLIN W-VIB/VIOLINB5.aif" 0 0 0
-f948 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLIN W-VIB/VIOLINC#6.aif" 0 0 0
-f949 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLIN W-VIB/VIOLIND#6.aif" 0 0 0
-f950 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLIN W-VIB/VIOLINF6.aif" 0 0 0
-f951 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLIN W-VIB/VIOLING6.aif" 0 0 0
-f952 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLIN W-VIB/VIOLINA6.aif" 0 0 0
-f957 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLA W-VIB/VIOLAV C#3.aif" 0 0 0
-f958 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLA W-VIB/VIOLAV D3.aif" 0 0 0
-f959 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLA W-VIB/VIOLAV E3.aif" 0 0 0
-f960 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLA W-VIB/VIOLAV F#3.aif" 0 0 0
-f961 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLA W-VIB/VIOLAV G#3.aif" 0 0 0
-f962 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLA W-VIB/VIOLAV A#3.aif" 0 0 0
-f963 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLA W-VIB/VIOLAV C4.aif" 0 0 0
-f964 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLA W-VIB/VIOLAV D4.aif" 0 0 0
-f965 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLA W-VIB/VIOLAV E4.aif" 0 0 0
-f966 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLA W-VIB/VIOLAV F#4.aif" 0 0 0
-f967 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLA W-VIB/VIOLAV G#4.aif" 0 0 0
-f968 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLA W-VIB/VIOLAV A#4.aif" 0 0 0
-f969 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLA W-VIB/VIOLAV C5.aif" 0 0 0
-f970 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLA W-VIB/VIOLAV D#5.aif" 0 0 0
-f971 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLA W-VIB/VIOLAV F#5.aif" 0 0 0
-f972 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLA W-VIB/VIOLAV A5.aif" 0 0 0
-f973 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLA W-VIB/VIOLAV B5.aif" 0 0 0
-f974 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition F/VIOLA W-VIB/VIOLAV C#6.aif" 0 0 0
-f979 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/CELLO W-VIB/CELLOV C#2.aif" 0 0 0
-f980 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/CELLO W-VIB/CELLOV D#2.aif" 0 0 0
-f981 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/CELLO W-VIB/CELLOV F2.aif" 0 0 0
-f982 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/CELLO W-VIB/CELLOV G2.aif" 0 0 0
-f983 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/CELLO W-VIB/CELLOV A2.aif" 0 0 0
-f984 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/CELLO W-VIB/CELLOV B2.aif" 0 0 0
-f985 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/CELLO W-VIB/CELLOV C#3.aif" 0 0 0
-f986 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/CELLO W-VIB/CELLOV D#3.aif" 0 0 0
-f987 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/CELLO W-VIB/CELLOV F3.aif" 0 0 0
-f988 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/CELLO W-VIB/CELLOV G3.aif" 0 0 0
-f989 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/CELLO W-VIB/CELLOV A3.aif" 0 0 0
-f990 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/CELLO W-VIB/CELLOV B3.aif" 0 0 0
-f991 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/CELLO W-VIB/CELLOV C#4.aif" 0 0 0
-f992 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/CELLO W-VIB/CELLOV D#4.aif" 0 0 0
-f993 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/CELLO W-VIB/CELLOV F4.aif" 0 0 0
-f994 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/CELLO W-VIB/CELLOV G4.aif" 0 0 0
-f995 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/CELLO W-VIB/CELLOV A4.aif" 0 0 0
-f996 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/CELLO W-VIB/CELLOV B4.aif" 0 0 0
-f997 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/CELLO W-VIB/CELLOV C#5.aif" 0 0 0
-f998 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition A/CELLO W-VIB/CELLOV D#5.aif" 0 0 0
-f1003 0 0 1 "samples/Partition I/Baritone Guitar/H1B-19b.wav" 0 0 0
-f1004 0 0 1 "samples/Partition I/Baritone Guitar/H2C#-6.wav" 0 0 0
-f1005 0 0 1 "samples/Partition I/Baritone Guitar/H2D#-6.wav" 0 0 0
-f1006 0 0 1 "samples/Partition I/Baritone Guitar/H2E-15.wav" 0 0 0
-f1007 0 0 1 "samples/Partition I/Baritone Guitar/H2F#-2.wav" 0 0 0
-f1008 0 0 1 "samples/Partition I/Baritone Guitar/H2G#-7.wav" 0 0 0
-f1009 0 0 1 "samples/Partition I/Baritone Guitar/H2A-8.wav" 0 0 0
-f1010 0 0 1 "samples/Partition I/Baritone Guitar/H2B+3.wav" 0 0 0
-f1011 0 0 1 "samples/Partition I/Baritone Guitar/H3C#-4.wav" 0 0 0
-f1012 0 0 1 "samples/Partition I/Baritone Guitar/H3D-12.wav" 0 0 0
-f1013 0 0 1 "samples/Partition I/Baritone Guitar/H3E-11.wav" 0 0 0
-f1014 0 0 1 "samples/Partition I/Baritone Guitar/H3F#-5.wav" 0 0 0
-f1015 0 0 1 "samples/Partition I/Baritone Guitar/H3G#-6.wav" 0 0 0
-f1016 0 0 1 "samples/Partition I/Baritone Guitar/H3A#+2.wav" 0 0 0
-f1017 0 0 1 "samples/Partition I/Baritone Guitar/H3B-16.wav" 0 0 0
-f1018 0 0 1 "samples/Partition I/Baritone Guitar/H4C#+3.wav" 0 0 0
-f1019 0 0 1 "samples/Partition I/Baritone Guitar/H4D#+0.wav" 0 0 0
-f1020 0 0 1 "samples/Partition I/Baritone Guitar/H4F+24.wav" 0 0 0
-f1021 0 0 1 "samples/Partition I/Baritone Guitar/H4G+5.wav" 0 0 0
-f1022 0 0 1 "samples/Partition I/Baritone Guitar/H4A-5.wav" 0 0 0
-f1023 0 0 1 "samples/Partition I/Baritone Guitar/H4B+3.wav" 0 0 0
-f1024 0 0 1 "samples/Partition I/Baritone Guitar/H5C#+0.wav" 0 0 0
-f1025 0 0 1 "samples/Partition I/Baritone Guitar/H5D#+0.wav" 0 0 0
-f1026 0 0 1 "samples/Partition I/Baritone Guitar/H5F+0.wav" 0 0 0
-f1027 0 0 1 "samples/Partition I/Baritone Guitar/H5G+0.wav" 0 0 0
-f1028 0 0 1 "samples/Partition I/Baritone Guitar/H5A-5.wav" 0 0 0
-f1029 0 0 1 "samples/Partition I/Baritone Guitar/H5B+13.wav" 0 0 0
-f1034 0 0 1 "samples/Partition I/ErnieBall-038/2Em9s.aif" 0 0 0
-f1035 0 0 1 "samples/Partition I/ErnieBall-038/2F#p0s.aif" 0 0 0
-f1036 0 0 1 "samples/Partition I/ErnieBall-038/2G#m3.aif" 0 0 0
-f1037 0 0 1 "samples/Partition I/ErnieBall-030/2Am4.aif" 0 0 0
-f1038 0 0 1 "samples/Partition I/ErnieBall-030/2Bm3.aif" 0 0 0
-f1039 0 0 1 "samples/Partition I/ErnieBall-030/3C#m10s.aif" 0 0 0
-f1040 0 0 1 "samples/Partition I/ErnieBall-022/3Dm3.aif" 0 0 0
-f1041 0 0 1 "samples/Partition I/ErnieBall-022/3Em4.aif" 0 0 0
-f1042 0 0 1 "samples/Partition I/ErnieBall-022/3F#m4.aif" 0 0 0
-f1043 0 0 1 "samples/Partition I/ErnieBall-014/3Gm6.aif" 0 0 0
-f1044 0 0 1 "samples/Partition I/ErnieBall-014/3Ap0.aif" 0 0 0
-f1045 0 0 1 "samples/Partition I/ErnieBall-011/3Bm5.aif" 0 0 0
-f1046 0 0 1 "samples/Partition I/ErnieBall-011/4Cp1.aif" 0 0 0
-f1047 0 0 1 "samples/Partition I/ErnieBall-011/4Dm2.aif" 0 0 0
-f1048 0 0 1 "samples/Partition I/ErnieBall-011/4Em5.aif" 0 0 0
-f1049 0 0 1 "samples/Partition I/ErnieBall-011/4F#m5.aif" 0 0 0
-f1050 0 0 1 "samples/Partition I/ErnieBall-011/4G#p0.aif" 0 0 0
-f1051 0 0 1 "samples/Partition I/ErnieBall-011/4A#m2.aif" 0 0 0
-f1052 0 0 1 "samples/Partition I/ErnieBall-011/5Cp0.aif" 0 0 0
-f1053 0 0 1 "samples/Partition I/ErnieBall-011/5Dp0.aif" 0 0 0
-f1054 0 0 1 "samples/Partition I/ErnieBall-011/5Ep0.aif" 0 0 0
-f1055 0 0 1 "samples/Partition I/ErnieBall-011/5F#p2.aif" 0 0 0
-f1056 0 0 1 "samples/Partition I/ErnieBall-011/5G#m2.aif" 0 0 0
-f1057 0 0 1 "samples/Partition I/ErnieBall-011/5A#m3.aif" 0 0 0
-f1058 0 0 1 "samples/Partition I/ErnieBall-011/6Cp0.aif" 0 0 0
-f1059 0 0 1 "samples/Partition I/ErnieBall-011/6Dp1.aif" 0 0 0
-f1060 0 0 1 "samples/Partition I/ErnieBall-011/6Em1.aif" 0 0 0
-f1061 0 0 1 "samples/Partition I/ErnieBall-011/6F#p0.aif" 0 0 0
-f1062 0 0 1 "samples/Partition I/ErnieBall-011/6G#p0.aif" 0 0 0
-f1063 0 0 1 "samples/Partition I/ErnieBall-008/6A#m13.aif" 0 0 0
-f1064 0 0 1 "samples/Partition I/ErnieBall-008/7Cm15.aif" 0 0 0
-f1065 0 0 1 "samples/Partition I/ErnieBall-008/7Dm29.aif" 0 0 0
-f1066 0 0 1 "samples/Partition I/ErnieBall-008/7F#m16.aif" 0 0 0
-f1067 0 0 1 "samples/Partition I/ErnieBall-008/7G#m47.aif" 0 0 0
-f1068 0 0 1 "samples/Partition I/ErnieBall-008/7A#p28.aif" 0 0 0
-f1069 0 0 1 "samples/Partition I/ErnieBall-008/8Cm37.aif" 0 0 0
-f1074 0 0 1 "samples/Partition I/LongString-024/String0Bp1.aif" 0 0 0
-f1075 0 0 1 "samples/Partition I/LongString-024/String1Cp1.aif" 0 0 0
-f1076 0 0 1 "samples/Partition I/LongString-024/String1Dm3.aif" 0 0 0
-f1077 0 0 1 "samples/Partition I/LongString-024/String1Em1.aif" 0 0 0
-f1078 0 0 1 "samples/Partition I/LongString-024/String1Fp1.aif" 0 0 0
-f1079 0 0 1 "samples/Partition I/LongString-024/String1Gm2.aif" 0 0 0
-f1080 0 0 1 "samples/Partition I/LongString-024/String1Ap0.aif" 0 0 0
-f1081 0 0 1 "samples/Partition I/LongString-024/String1Bp0.aif" 0 0 0
-f1082 0 0 1 "samples/Partition I/LongString-024/String2Cp0.aif" 0 0 0
-f1083 0 0 1 "samples/Partition I/LongString-024/String2Dp0.aif" 0 0 0
-f1084 0 0 1 "samples/Partition I/LongString-024/String2Ep0.aif" 0 0 0
-f1085 0 0 1 "samples/Partition I/LongString-024/String2Fp2.aif" 0 0 0
-f1086 0 0 1 "samples/Partition I/LongString-024/String2Gp5.aif" 0 0 0
-f1087 0 0 1 "samples/Partition I/LongString-024/String2Ap0.aif" 0 0 0
-f1088 0 0 1 "samples/Partition I/LongString-024/String2Bp0.aif" 0 0 0
-f1089 0 0 1 "samples/Partition I/LongString-024/String3Cp0.aif" 0 0 0
-f1090 0 0 1 "samples/Partition I/LongString-024/String3Dp0.aif" 0 0 0
-f1091 0 0 1 "samples/Partition I/LongString-024/String3Em2.aif" 0 0 0
-f1092 0 0 1 "samples/Partition I/LongString-024/String3Fm5.aif" 0 0 0
-f1093 0 0 1 "samples/Partition I/LongString-024/String3Gp0.aif" 0 0 0
-f1094 0 0 1 "samples/Partition I/LongString-024/String3Ap1.aif" 0 0 0
-f1095 0 0 1 "samples/Partition I/LongString-024/String3Bm1.aif" 0 0 0
-f1096 0 0 1 "samples/Partition I/LongString-024/String4Cm1.aif" 0 0 0
-f1097 0 0 1 "samples/Partition I/LongString-024/String4Dp0.aif" 0 0 0
-f1098 0 0 1 "samples/Partition I/LongString-024/String4Ep0.aif" 0 0 0
-f1099 0 0 1 "samples/Partition I/LongString-024/String4Fm5.aif" 0 0 0
-f1100 0 0 1 "samples/Partition I/LongString-024/String4Gm5.aif" 0 0 0
-f1101 0 0 1 "samples/Partition I/LongString-024/String4Ap0.aif" 0 0 0
-f1102 0 0 1 "samples/Partition I/LongString-024/String4Bp3.aif" 0 0 0
-f1103 0 0 1 "samples/Partition I/LongString-024/String5Cm3.aif" 0 0 0
-f1108 0 0 1 "samples/Partition I/Strings/String3D#m49.aif" 0 0 0
-f1109 0 0 1 "samples/Partition I/Strings/String3Fm44.aif" 0 0 0
-f1110 0 0 1 "samples/Partition I/Strings/String3G#m9.aif" 0 0 0
-f1111 0 0 1 "samples/Partition I/Strings/String3Ap23.aif" 0 0 0
-f1112 0 0 1 "samples/Partition I/Strings/String3A#p22.aif" 0 0 0
-f1113 0 0 1 "samples/Partition I/Strings/String3Bm5.aif" 0 0 0
-f1114 0 0 1 "samples/Partition I/Strings/String4Cp16.aif" 0 0 0
-f1115 0 0 1 "samples/Partition I/Strings/String4C#p10.aif" 0 0 0
-f1116 0 0 1 "samples/Partition I/Strings/String4Dm22.aif" 0 0 0
-f1117 0 0 1 "samples/Partition I/Strings/String4D#m17.aif" 0 0 0
-f1118 0 0 1 "samples/Partition I/Strings/String4Em5.aif" 0 0 0
-f1119 0 0 1 "samples/Partition I/Strings/String4F#p2.aif" 0 0 0
-f1120 0 0 1 "samples/Partition I/Strings/String4G#m3.aif" 0 0 0
-f1121 0 0 1 "samples/Partition I/Strings/String4A#p2.aif" 0 0 0
-f1122 0 0 1 "samples/Partition I/Strings/String5Cm27.aif" 0 0 0
-f1123 0 0 1 "samples/Partition I/Strings/String5Dm30.aif" 0 0 0
-f1124 0 0 1 "samples/Partition I/Strings/String5Em5.aif" 0 0 0
-f1125 0 0 1 "samples/Partition I/Strings/String5F#p6.aif" 0 0 0
-f1126 0 0 1 "samples/Partition I/Strings/String5G#m3.aif" 0 0 0
-f1127 0 0 1 "samples/Partition I/Strings/String5Bp10.aif" 0 0 0
-f1128 0 0 1 "samples/Partition I/Strings/String6C#m11.aif" 0 0 0
-f1129 0 0 1 "samples/Partition I/Strings/String6D#p0.aif" 0 0 0
-f1134 0 0 1 "samples/Partition I/Bass FingerP/Piano 0 G +4.aif" 0 0 0
-f1135 0 0 1 "samples/Partition I/Bass FingerP/Piano 0 G# -30.aif" 0 0 0
-f1136 0 0 1 "samples/Partition I/Bass FingerP/Piano 0 A# -21.aif" 0 0 0
-f1137 0 0 1 "samples/Partition I/Bass FingerP/Piano 1 C -11.aif" 0 0 0
-f1138 0 0 1 "samples/Partition I/Bass FingerP/Piano 1 D +9.aif" 0 0 0
-f1139 0 0 1 "samples/Partition I/Bass FingerP/Piano 1 G +17.aif" 0 0 0
-f1140 0 0 1 "samples/Partition I/Bass FingerP/Piano 1 A +22.aif" 0 0 0
-f1141 0 0 1 "samples/Partition I/Bass FingerP/Piano 2 C -10.aif" 0 0 0
-f1142 0 0 1 "samples/Partition I/Bass FingerP/Piano 2 D -38.aif" 0 0 0
-f1143 0 0 1 "samples/Partition I/Bass FingerP/Piano 2 E +14.aif" 0 0 0
-f1144 0 0 1 "samples/Partition I/Bass FingerP/Piano 2 F# +17.aif" 0 0 0
-f1145 0 0 1 "samples/Partition I/Bass FingerP/Piano 2 A -32.aif" 0 0 0
-f1146 0 0 1 "samples/Partition I/Bass FingerP/Piano 2 A# -1.aif" 0 0 0
-f1147 0 0 1 "samples/Partition I/Bass FingerP/Piano 3 C +16.aif" 0 0 0
-f1148 0 0 1 "samples/Partition I/Bass FingerP/Piano 3 D +46.aif" 0 0 0
-f1149 0 0 1 "samples/Partition I/Bass FingerP/Piano 3 F -30.aif" 0 0 0
-f1150 0 0 1 "samples/Partition I/Bass FingerP/Piano 3 G# -1.aif" 0 0 0
-f1151 0 0 1 "samples/Partition I/Bass FingerP/Piano 3 A# +39.aif" 0 0 0
-f1152 0 0 1 "samples/Partition I/Bass FingerP/Piano 4 D -5.aif" 0 0 0
-f1153 0 0 1 "samples/Partition I/Bass FingerP/Piano 4 F# -2.aif" 0 0 0
-f1154 0 0 1 "samples/Partition I/Bass FingerP/Piano 4 A +32.aif" 0 0 0
-f1155 0 0 1 "samples/Partition I/Bass FingerP/Piano 5 D -41.aif" 0 0 0
-f1160 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition E/TRUMPET-C/TRUMPETC F#3.aif" 0 0 0
-f1161 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition E/TRUMPET-C/TRUMPETC G#3.aif" 0 0 0
-f1162 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition E/TRUMPET-C/TRUMPETC A#3.aif" 0 0 0
-f1163 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition E/TRUMPET-C/TRUMPETCC4.aif" 0 0 0
-f1164 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition E/TRUMPET-C/TRUMPETCD4.aif" 0 0 0
-f1165 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition E/TRUMPET-C/TRUMPETCE4.aif" 0 0 0
-f1166 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition E/TRUMPET-C/TRUMPETC F#4.aif" 0 0 0
-f1167 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition E/TRUMPET-C/TRUMPETC G#4.aif" 0 0 0
-f1168 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition E/TRUMPET-C/TRUMPETC A#4.aif" 0 0 0
-f1169 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition E/TRUMPET-C/TRUMPETCC5.aif" 0 0 0
-f1170 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition E/TRUMPET-C/TRUMPETCD5.aif" 0 0 0
-f1171 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition E/TRUMPET-C/TRUMPETCE5.aif" 0 0 0
-f1172 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition E/TRUMPET-C/TRUMPETC F#5.aif" 0 0 0
-f1173 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition E/TRUMPET-C/TRUMPETC G#5.aif" 0 0 0
-f1174 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition E/TRUMPET-C/TRUMPETC A#5.aif" 0 0 0
-f1175 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition E/TRUMPET-C/TRUMPETCC6.aif" 0 0 0
-f1176 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition E/TRUMPET-C/TRUMPETCD6.aif" 0 0 0
-f1181 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition E/TROMBONE-TNR/TNRBONEE2.aif" 0 0 0
-f1182 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition E/TROMBONE-TNR/TNRBONEG2.aif" 0 0 0
-f1183 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition E/TROMBONE-TNR/TNRBONEA#2.aif" 0 0 0
-f1184 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition E/TROMBONE-TNR/TNRBONEC#3.aif" 0 0 0
-f1185 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition E/TROMBONE-TNR/TNRBONEE3.aif" 0 0 0
-f1186 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition E/TROMBONE-TNR/TNRBONEG3.aif" 0 0 0
-f1187 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition E/TROMBONE-TNR/TNRBONEA#3.aif" 0 0 0
-f1188 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition E/TROMBONE-TNR/TNRBONEC#4.aif" 0 0 0
-f1189 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition E/TROMBONE-TNR/TNRBONEE4.aif" 0 0 0
-f1190 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition E/TROMBONE-TNR/TNRBONEG4.aif" 0 0 0
-f1191 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition E/TROMBONE-TNR/TNRBONEA#4.aif" 0 0 0
-f1196 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition E/TUBA/TUBA C2.aif" 0 0 0
-f1197 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition E/TUBA/TUBA D2.aif" 0 0 0
-f1198 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition E/TUBA/TUBA F2.aif" 0 0 0
-f1199 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition E/TUBA/TUBA G2.aif" 0 0 0
-f1200 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition E/TUBA/TUBA A2.aif" 0 0 0
-f1201 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition E/TUBA/TUBA B2.aif" 0 0 0
-f1202 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition E/TUBA/TUBA C#3.aif" 0 0 0
-f1203 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition E/TUBA/TUBA D#3.aif" 0 0 0
-f1204 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition E/TUBA/TUBA F3.aif" 0 0 0
-f1205 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition E/TUBA/TUBA G3.aif" 0 0 0
-f1206 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition E/TUBA/TUBA A3.aif" 0 0 0
-f1207 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition E/TUBA/TUBA B3.aif" 0 0 0
-f1208 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition E/TUBA/TUBA C#4.aif" 0 0 0
-f1209 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition E/TUBA/TUBA D#4.aif" 0 0 0
-f1210 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition E/TUBA/TUBA F4.aif" 0 0 0
-f1211 0 0 1 "/home/prent/Dropbox/csound/McGill/Partition E/TUBA/TUBA G4.aif" 0 0 0
+f605 0 0 1 "samples/FingerP/c1.aif" 0 0 0
+f606 0 0 1 "samples/FingerP/e1.aif" 0 0 0
+f607 0 0 1 "samples/FingerP/g1.aif" 0 0 0
+f608 0 0 1 "samples/FingerP/a1.aif" 0 0 0
+f609 0 0 1 "samples/FingerP/c2.aif" 0 0 0
+f610 0 0 1 "samples/FingerP/d2.aif" 0 0 0
+f611 0 0 1 "samples/FingerP/f2.aif" 0 0 0
+f612 0 0 1 "samples/FingerP/g2.aif" 0 0 0
+f613 0 0 1 "samples/FingerP/a2.aif" 0 0 0
+f614 0 0 1 "samples/FingerP/c3.aif" 0 0 0
+f615 0 0 1 "samples/FingerP/d3.aif" 0 0 0
+f616 0 0 1 "samples/FingerP/e3.aif" 0 0 0
+f617 0 0 1 "samples/FingerP/g3.aif" 0 0 0
+f618 0 0 1 "samples/FingerP/a3.aif" 0 0 0
+f619 0 0 1 "samples/FingerP/c4.aif" 0 0 0
+f620 0 0 1 "samples/FingerP/d4.aif" 0 0 0
+f621 0 0 1 "samples/FingerP/e4.aif" 0 0 0
+f622 0 0 1 "samples/FingerP/f4.aif" 0 0 0
+f623 0 0 1 "samples/FingerP/g4.aif" 0 0 0
+f624 0 0 1 "samples/FingerP/c5.aif" 0 0 0
+f625 0 0 1 "samples/FingerP/d5.aif" 0 0 0
+f626 0 0 1 "samples/FingerP/f5.aif" 0 0 0
+f627 0 0 1 "samples/FingerP/g5.aif" 0 0 0
+f628 0 0 1 "samples/FingerP/a5.aif" 0 0 0
+f629 0 0 1 "samples/FingerP/c6.aif" 0 0 0
+f1003 0 0 1 "samples/Baritone Guitar/H1B-19b.wav" 0 0 0
+f1004 0 0 1 "samples/Baritone Guitar/H2C#-6.wav" 0 0 0
+f1005 0 0 1 "samples/Baritone Guitar/H2D#-6.wav" 0 0 0
+f1006 0 0 1 "samples/Baritone Guitar/H2E-15.wav" 0 0 0
+f1007 0 0 1 "samples/Baritone Guitar/H2F#-2.wav" 0 0 0
+f1008 0 0 1 "samples/Baritone Guitar/H2G#-7.wav" 0 0 0
+f1009 0 0 1 "samples/Baritone Guitar/H2A-8.wav" 0 0 0
+f1010 0 0 1 "samples/Baritone Guitar/H2B+3.wav" 0 0 0
+f1011 0 0 1 "samples/Baritone Guitar/H3C#-4.wav" 0 0 0
+f1012 0 0 1 "samples/Baritone Guitar/H3D-12.wav" 0 0 0
+f1013 0 0 1 "samples/Baritone Guitar/H3E-11.wav" 0 0 0
+f1014 0 0 1 "samples/Baritone Guitar/H3F#-5.wav" 0 0 0
+f1015 0 0 1 "samples/Baritone Guitar/H3G#-6.wav" 0 0 0
+f1016 0 0 1 "samples/Baritone Guitar/H3A#+2.wav" 0 0 0
+f1017 0 0 1 "samples/Baritone Guitar/H3B-16.wav" 0 0 0
+f1018 0 0 1 "samples/Baritone Guitar/H4C#+3.wav" 0 0 0
+f1019 0 0 1 "samples/Baritone Guitar/H4D#+0.wav" 0 0 0
+f1020 0 0 1 "samples/Baritone Guitar/H4F+24.wav" 0 0 0
+f1021 0 0 1 "samples/Baritone Guitar/H4G+5.wav" 0 0 0
+f1022 0 0 1 "samples/Baritone Guitar/H4A-5.wav" 0 0 0
+f1023 0 0 1 "samples/Baritone Guitar/H4B+3.wav" 0 0 0
+f1024 0 0 1 "samples/Baritone Guitar/H5C#+0.wav" 0 0 0
+f1025 0 0 1 "samples/Baritone Guitar/H5D#+0.wav" 0 0 0
+f1026 0 0 1 "samples/Baritone Guitar/H5F+0.wav" 0 0 0
+f1027 0 0 1 "samples/Baritone Guitar/H5G+0.wav" 0 0 0
+f1028 0 0 1 "samples/Baritone Guitar/H5A-5.wav" 0 0 0
+f1029 0 0 1 "samples/Baritone Guitar/H5B+13.wav" 0 0 0
+f1034 0 0 1 "samples/ErnieBall-038/2Em9s.aif" 0 0 0
+f1035 0 0 1 "samples/ErnieBall-038/2F#p0s.aif" 0 0 0
+f1036 0 0 1 "samples/ErnieBall-038/2G#m3.aif" 0 0 0
+f1037 0 0 1 "samples/ErnieBall-030/2Am4.aif" 0 0 0
+f1038 0 0 1 "samples/ErnieBall-030/2Bm3.aif" 0 0 0
+f1039 0 0 1 "samples/ErnieBall-030/3C#m10s.aif" 0 0 0
+f1040 0 0 1 "samples/ErnieBall-022/3Dm3.aif" 0 0 0
+f1041 0 0 1 "samples/ErnieBall-022/3Em4.aif" 0 0 0
+f1042 0 0 1 "samples/ErnieBall-022/3F#m4.aif" 0 0 0
+f1043 0 0 1 "samples/ErnieBall-014/3Gm6.aif" 0 0 0
+f1044 0 0 1 "samples/ErnieBall-014/3Ap0.aif" 0 0 0
+f1045 0 0 1 "samples/ErnieBall-011/3Bm5.aif" 0 0 0
+f1046 0 0 1 "samples/ErnieBall-011/4Cp1.aif" 0 0 0
+f1047 0 0 1 "samples/ErnieBall-011/4Dm2.aif" 0 0 0
+f1048 0 0 1 "samples/ErnieBall-011/4Em5.aif" 0 0 0
+f1049 0 0 1 "samples/ErnieBall-011/4F#m5.aif" 0 0 0
+f1050 0 0 1 "samples/ErnieBall-011/4G#p0.aif" 0 0 0
+f1051 0 0 1 "samples/ErnieBall-011/4A#m2.aif" 0 0 0
+f1052 0 0 1 "samples/ErnieBall-011/5Cp0.aif" 0 0 0
+f1053 0 0 1 "samples/ErnieBall-011/5Dp0.aif" 0 0 0
+f1054 0 0 1 "samples/ErnieBall-011/5Ep0.aif" 0 0 0
+f1055 0 0 1 "samples/ErnieBall-011/5F#p2.aif" 0 0 0
+f1056 0 0 1 "samples/ErnieBall-011/5G#m2.aif" 0 0 0
+f1057 0 0 1 "samples/ErnieBall-011/5A#m3.aif" 0 0 0
+f1058 0 0 1 "samples/ErnieBall-011/6Cp0.aif" 0 0 0
+f1059 0 0 1 "samples/ErnieBall-011/6Dp1.aif" 0 0 0
+f1060 0 0 1 "samples/ErnieBall-011/6Em1.aif" 0 0 0
+f1061 0 0 1 "samples/ErnieBall-011/6F#p0.aif" 0 0 0
+f1062 0 0 1 "samples/ErnieBall-011/6G#p0.aif" 0 0 0
+f1063 0 0 1 "samples/ErnieBall-008/6A#m13.aif" 0 0 0
+f1064 0 0 1 "samples/ErnieBall-008/7Cm15.aif" 0 0 0
+f1065 0 0 1 "samples/ErnieBall-008/7Dm29.aif" 0 0 0
+f1066 0 0 1 "samples/ErnieBall-008/7F#m16.aif" 0 0 0
+f1067 0 0 1 "samples/ErnieBall-008/7G#m47.aif" 0 0 0
+f1068 0 0 1 "samples/ErnieBall-008/7A#p28.aif" 0 0 0
+f1069 0 0 1 "samples/ErnieBall-008/8Cm37.aif" 0 0 0
+f1074 0 0 1 "samples/LongString-024/String0Bp1.aif" 0 0 0
+f1075 0 0 1 "samples/LongString-024/String1Cp1.aif" 0 0 0
+f1076 0 0 1 "samples/LongString-024/String1Dm3.aif" 0 0 0
+f1077 0 0 1 "samples/LongString-024/String1Em1.aif" 0 0 0
+f1078 0 0 1 "samples/LongString-024/String1Fp1.aif" 0 0 0
+f1079 0 0 1 "samples/LongString-024/String1Gm2.aif" 0 0 0
+f1080 0 0 1 "samples/LongString-024/String1Ap0.aif" 0 0 0
+f1081 0 0 1 "samples/LongString-024/String1Bp0.aif" 0 0 0
+f1082 0 0 1 "samples/LongString-024/String2Cp0.aif" 0 0 0
+f1083 0 0 1 "samples/LongString-024/String2Dp0.aif" 0 0 0
+f1084 0 0 1 "samples/LongString-024/String2Ep0.aif" 0 0 0
+f1085 0 0 1 "samples/LongString-024/String2Fp2.aif" 0 0 0
+f1086 0 0 1 "samples/LongString-024/String2Gp5.aif" 0 0 0
+f1087 0 0 1 "samples/LongString-024/String2Ap0.aif" 0 0 0
+f1088 0 0 1 "samples/LongString-024/String2Bp0.aif" 0 0 0
+f1089 0 0 1 "samples/LongString-024/String3Cp0.aif" 0 0 0
+f1090 0 0 1 "samples/LongString-024/String3Dp0.aif" 0 0 0
+f1091 0 0 1 "samples/LongString-024/String3Em2.aif" 0 0 0
+f1092 0 0 1 "samples/LongString-024/String3Fm5.aif" 0 0 0
+f1093 0 0 1 "samples/LongString-024/String3Gp0.aif" 0 0 0
+f1094 0 0 1 "samples/LongString-024/String3Ap1.aif" 0 0 0
+f1095 0 0 1 "samples/LongString-024/String3Bm1.aif" 0 0 0
+f1096 0 0 1 "samples/LongString-024/String4Cm1.aif" 0 0 0
+f1097 0 0 1 "samples/LongString-024/String4Dp0.aif" 0 0 0
+f1098 0 0 1 "samples/LongString-024/String4Ep0.aif" 0 0 0
+f1099 0 0 1 "samples/LongString-024/String4Fm5.aif" 0 0 0
+f1100 0 0 1 "samples/LongString-024/String4Gm5.aif" 0 0 0
+f1101 0 0 1 "samples/LongString-024/String4Ap0.aif" 0 0 0
+f1102 0 0 1 "samples/LongString-024/String4Bp3.aif" 0 0 0
+f1103 0 0 1 "samples/LongString-024/String5Cm3.aif" 0 0 0
+f1108 0 0 1 "samples/Strings/String3D#m49.aif" 0 0 0
+f1109 0 0 1 "samples/Strings/String3Fm44.aif" 0 0 0
+f1110 0 0 1 "samples/Strings/String3G#m9.aif" 0 0 0
+f1111 0 0 1 "samples/Strings/String3Ap23.aif" 0 0 0
+f1112 0 0 1 "samples/Strings/String3A#p22.aif" 0 0 0
+f1113 0 0 1 "samples/Strings/String3Bm5.aif" 0 0 0
+f1114 0 0 1 "samples/Strings/String4Cp16.aif" 0 0 0
+f1115 0 0 1 "samples/Strings/String4C#p10.aif" 0 0 0
+f1116 0 0 1 "samples/Strings/String4Dm22.aif" 0 0 0
+f1117 0 0 1 "samples/Strings/String4D#m17.aif" 0 0 0
+f1118 0 0 1 "samples/Strings/String4Em5.aif" 0 0 0
+f1119 0 0 1 "samples/Strings/String4F#p2.aif" 0 0 0
+f1120 0 0 1 "samples/Strings/String4G#m3.aif" 0 0 0
+f1121 0 0 1 "samples/Strings/String4A#p2.aif" 0 0 0
+f1122 0 0 1 "samples/Strings/String5Cm27.aif" 0 0 0
+f1123 0 0 1 "samples/Strings/String5Dm30.aif" 0 0 0
+f1124 0 0 1 "samples/Strings/String5Em5.aif" 0 0 0
+f1125 0 0 1 "samples/Strings/String5F#p6.aif" 0 0 0
+f1126 0 0 1 "samples/Strings/String5G#m3.aif" 0 0 0
+f1127 0 0 1 "samples/Strings/String5Bp10.aif" 0 0 0
+f1128 0 0 1 "samples/Strings/String6C#m11.aif" 0 0 0
+f1129 0 0 1 "samples/Strings/String6D#p0.aif" 0 0 0
+f1134 0 0 1 "samples/Bass FingerP/Piano 0 G +4.aif" 0 0 0
+f1135 0 0 1 "samples/Bass FingerP/Piano 0 G# -30.aif" 0 0 0
+f1136 0 0 1 "samples/Bass FingerP/Piano 0 A# -21.aif" 0 0 0
+f1137 0 0 1 "samples/Bass FingerP/Piano 1 C -11.aif" 0 0 0
+f1138 0 0 1 "samples/Bass FingerP/Piano 1 D +9.aif" 0 0 0
+f1139 0 0 1 "samples/Bass FingerP/Piano 1 G +17.aif" 0 0 0
+f1140 0 0 1 "samples/Bass FingerP/Piano 1 A +22.aif" 0 0 0
+f1141 0 0 1 "samples/Bass FingerP/Piano 2 C -10.aif" 0 0 0
+f1142 0 0 1 "samples/Bass FingerP/Piano 2 D -38.aif" 0 0 0
+f1143 0 0 1 "samples/Bass FingerP/Piano 2 E +14.aif" 0 0 0
+f1144 0 0 1 "samples/Bass FingerP/Piano 2 F# +17.aif" 0 0 0
+f1145 0 0 1 "samples/Bass FingerP/Piano 2 A -32.aif" 0 0 0
+f1146 0 0 1 "samples/Bass FingerP/Piano 2 A# -1.aif" 0 0 0
+f1147 0 0 1 "samples/Bass FingerP/Piano 3 C +16.aif" 0 0 0
+f1148 0 0 1 "samples/Bass FingerP/Piano 3 D +46.aif" 0 0 0
+f1149 0 0 1 "samples/Bass FingerP/Piano 3 F -30.aif" 0 0 0
+f1150 0 0 1 "samples/Bass FingerP/Piano 3 G# -1.aif" 0 0 0
+f1151 0 0 1 "samples/Bass FingerP/Piano 3 A# +39.aif" 0 0 0
+f1152 0 0 1 "samples/Bass FingerP/Piano 4 D -5.aif" 0 0 0
+f1153 0 0 1 "samples/Bass FingerP/Piano 4 F# -2.aif" 0 0 0
+f1154 0 0 1 "samples/Bass FingerP/Piano 4 A +32.aif" 0 0 0
+f1155 0 0 1 "samples/Bass FingerP/Piano 5 D -41.aif" 0 0 0
 ;              1   2   3   4   5   6   7   8   9  10  11  12  13  14  15  16  17  18  19  20   21   22   23   24   25   26   27
 f1 0 64 -2 0 601 630 652 667 683 705 726 742 766 787 807 830 850 872 890 909 930 953 975 999 1030 1070 1104 1130 1156 1177 1192 
 f2 0 64 -2 0 1 2 2 2 2 2 2 1 2 2 2 2 2 2 2 2 2 2 2 1 1 1 1 1 2 2 2
