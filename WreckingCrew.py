@@ -1,25 +1,26 @@
 #!/usr/bin/env python
 # coding: utf-8
-
-# In[814]:
-
-
+#!/usr/bin/env python
+# coding: utf-8
 import sys 
 import os
+
+# Add directories to path for imports
+parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # TonicNet/
+diamond_music_dir = os.path.join(os.path.dirname(parent_dir), 'Diamond_Music')  # Tutorials/Diamond_Music/
+local_dir = os.path.dirname(os.path.abspath(__file__))  # One-footed-bride-tuning/
+
+for d in [local_dir, parent_dir, diamond_music_dir]:
+    if d not in sys.path:
+        sys.path.insert(0, d)
+
+user = '~'
+base_dir = os.path.join(user, 'One-footed-bride-tuning') 
+WAVE_DIR = os.path.join(user, 'Music', 'sflib')
 from datetime import datetime
-user = 'prent'
-base_dir = os.path.join('/home', user, 'Dropbox') 
-WAVE_DIR = os.path.join('/home', user, 'Music', 'sflib')
-# Helper libraries now live in this directory
-local_dir = os.path.dirname(os.path.abspath(__file__))
-numpy_dir = local_dir
-diamond_dir = local_dir
-print(f'{numpy_dir = }\n{diamond_dir = }')
-sys.path.insert(0, numpy_dir )
-sys.path.insert(0, diamond_dir)
-import adaptive_tuning_util as atu 
-import diamond_music_utils as dmu 
 import numpy as np
+import adaptive_tuning_util as atu
+import diamond_music_utils as dmu 
 rng = np.random.default_rng()
 import os
 import time
