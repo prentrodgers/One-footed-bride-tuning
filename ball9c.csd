@@ -18,8 +18,8 @@
 
     adryl,adryr  soundin "/home/prent/Music/sflib/ball9.wav"       ; input (dry) audio 
 ;     convolv with the impulse response from Teatro Alcorcon in Madrid from Angelo Farina
-    awetlr,awetll convolve adryl,"/home/prent/Dropbox/csound/Impulse/alcorcon.cv" ; stereo convolved (wet) audio
-    awetrr,awetrl convolve adryr,"/home/prent/Dropbox/csound/Impulse/alcorcon.cv" ; stereo convolved (wet) audio
+    awetlr,awetll convolve adryl,"convolve/alcorcon.cv" ; stereo convolved (wet) audio
+    awetrr,awetrl convolve adryr,"convolve/alcorcon.cv" ; stereo convolved (wet) audio
 
     adrydell     delay   (1-imix)*adryl,idel  ; Delay dry signal, to align it with convolved one
     adrydelr     delay   (1-imix)*adryr,idel  ; Delay dry signal, to align it with convolved one
