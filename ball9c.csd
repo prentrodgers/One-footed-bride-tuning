@@ -2,7 +2,7 @@
 ; modified 07/12/12 10:55am - removed option -+y - not compatible with Csound 5
 ; created ???? first used for shuffle9.wav - Omar & Los Bandelero's
 <CsOptions>
--W -m2 -G -o ball9a-c.wav -3
+-W -m2 -G -o Music/sflib/ball9a-c.wav -3
 ; -o dac -W -G -m0 
 </CsOptions>
 
@@ -16,7 +16,7 @@
     imix = p4 ; Wet/dry mix. long reverb needs mix=.005, to make it wetter, try .007
     idel = p5 ; Required delay to align dry audio with output of convolve. length of convolv input file
 
-    adryl,adryr  soundin "/home/prent/Music/sflib/ball9.wav"       ; input (dry) audio 
+    adryl,adryr  soundin "Music/sflib/ball9.wav"       ; input (dry) audio 
 ;     convolv with the impulse response from Teatro Alcorcon in Madrid from Angelo Farina
     awetlr,awetll convolve adryl,"convolve/alcorcon.cv" ; stereo convolved (wet) audio
     awetrr,awetrl convolve adryr,"convolve/alcorcon.cv" ; stereo convolved (wet) audio

@@ -1546,24 +1546,24 @@ def mainline(chorale_override=None):
             include_sections = {
                   # section --      play or not --    instruments in the section
                   'finger_pianos': [False, np.array(['fing1', 'fing2', 'fing3', 'fing4', 'fing5', 'fing6', 'fing7', 'fing8'])],
-                  'wood_winds':    [False, np.array(['long1', 'long2', 'long3', 'long4', 'long5', 'long6', 'long7', 'long8'])],
-                  'pizz_strings':  [True, np.array(['ebss1', 'ebss2', 'ebss3', 'ebss4', 'ebss5', 'ebss6', 'ebss7', 'ebss8'])],
-                  'bowed_strings': [False, np.array(['stri1', 'stri2', 'stri3', 'stri4', 'stri5', 'stri6', 'stri7', 'stri8'])],
-                  'brass_section': [False, np.array(['fing9', 'fing10', 'fing11', 'fing12', 'fing13', 'fing14', 'fing15', 'fing16'])], 
+                  'wood_winds':    [False, np.array([])],
+                  'pizz_strings':  [False, np.array(['ebss1', 'ebss2', 'ebss3', 'ebss4', 'ebss5', 'ebss6', 'ebss7', 'ebss8'])],
+                  'bowed_strings': [False, np.array([])],
+                  'brass_section': [False, np.array([])], 
                   'perc_guitar':   [True, np.array(['bgui1', 'bgui2', 'bgui3', 'bgui4', 'bgui5', 'bgui6', 'bgui7', 'bgui8'])],
                   'bass_section':  [True, np.array(['bfin1', 'bfin2', 'bfin3', 'bfin4', 'bfin5', 'bfin6', 'bfin7', 'bfin8'])], 
                   'melody_section':[False, np.array([])]}
       elif just_prent_samples:
             include_sections = {
                   # section --      play or not --    instruments in the section
-                  'finger_pianos': [True, np.array(['fing1', 'fing2', 'fing3', 'fing4', 'fing5', 'fing6', 'fing7', 'fing8'])],
-                  'wood_winds':    [False, np.array(['long1', 'long2', 'long3', 'long4', 'long5', 'long6', 'long7', 'long8'])],
-                  'pizz_strings':  [True, np.array(['ebss1', 'ebss2', 'ebss3', 'ebss4', 'ebss5', 'ebss6', 'ebss7', 'ebss8'])],
-                  'bowed_strings': [True, np.array(['stri1', 'stri2', 'stri3', 'stri4', 'stri5', 'stri6', 'stri7', 'stri8'])],
-                  'brass_section': [True, np.array(['fing9', 'fing10', 'fing11', 'fing12', 'fing13', 'fing14', 'fing15', 'fing16'])], 
-                  'perc_guitar':   [True, np.array(['bgui1', 'bgui2', 'bgui3', 'bgui4', 'bgui5', 'bgui6', 'bgui7', 'bgui8'])],
-                  'bass_section':  [True, np.array(['bfin1', 'bfin2', 'bfin3', 'bfin4', 'bfin5', 'bfin6', 'bfin7', 'bfin8'])], 
-                  'melody_section':[False, np.array([])]}
+                  'finger_pianos': [True, np.array(['fing1', 'fing2', 'fing3', 'fing4', 'fing5', 'fing6', 'bfin1', 'bfin2'])],
+                  'wood_winds':    [True, np.array(['flut1', 'clar1', 'oboe1', 'oboe2', 'frnh1', 'frnh2', 'basn1', 'basn2'])],
+                  'pizz_strings':  [True, np.array(['vlip1', 'vlip2', 'vlip3', 'vlip4', 'vlap1', 'vlap2', 'celp1', 'celp2'])],
+                  'bowed_strings': [True, np.array(['vliv1', 'vliv2', 'vliv3', 'vliv4', 'vlav1', 'vlav2', 'celv1', 'celv2'])],
+                  'brass_section': [True, np.array(['trmp1', 'trmp2', 'trmp3', 'trmp4', 'trmb1', 'trmb2', 'tuba1', 'tuba2'])], 
+                  'perc_guitar':   [True, np.array(['mari1', 'mari2', 'mari3', 'mari4', 'mari5', 'mari6', 'mari7', 'mari8'])],
+                  'bass_section':  [True, np.array(['bfin5', 'bfin6', 'bfin7', 'bfin8', 'celp5', 'celp6', 'celp7', 'bgui1'])],
+                  'melody_section':[True, np.array(['flut2', 'flut3', 'clar2', 'vibp1', 'oboe3', 'basn4', 'trmp5', 'frnh3'])]}
       else:
             include_sections = {
                   # section --      play or not --    instruments in the section
@@ -1627,7 +1627,6 @@ def mainline(chorale_override=None):
                   if not os.path.exists(target_dir):
                         os.makedirs(target_dir)
                   else: print(f'{target_dir} exists, no need to create it')
-                  os.system(f'ls -Sr1 {UPLOADS_DIR}/ball9-t??{mod_letter}{n}_*.mp3')
 
 
 if __name__ == "__main__":

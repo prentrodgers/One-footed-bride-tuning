@@ -1,7 +1,7 @@
 #!/bin/bash
 # set -v
 # set +o pipefail # is this illegal?
-export SFDIR='~/Music/sflib' # where to store the audio files.
+export SFDIR='Music/sflib' # where to store the audio files.
 echo $SFDIR
 # $1 ball9 
 # $2 40o9_q05_r08_f1.00_c0538_a0.09_w0.28_d11:01_t100 
