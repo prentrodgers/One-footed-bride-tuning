@@ -5,8 +5,7 @@
 <CsOptions> 
 ; use the following for writing to a file -G is to create a postscript eps output file of function tables 
 ; -o dac ; live play 
- ; -o /home/prent/Music/sflib/ball9.wav -W -G -m2 -3  ; for CoreOS
- -o /home/prent/Music/sflib/ball9.wav -W -G -m2 -3 ; for kubernetes
+ -o ball9.wav -W -G -m2 -3 
 </CsOptions> 
  
 <CsInstruments> 
@@ -50,7 +49,6 @@
  iSampWaveTable table iVoice,1 ; find the location of the sample wave tables base on input p7 
  ipitch table p5, 3 ; look up the cent value in ftable 3 a table of 1200 values from 0.001 to 0.120 
  ioct = p6 ; convert from my octave form to midi standard 
-;  iRatioFromCent = cent(p5) ; convert cents to ratio to be multiplied by a base frequency 
  ; 
  iMIDInumber = round(p5 / 100) + (12 * ioct) ; cent value, i.e. 386/100 = rounds to 4 + (12 * 2) = 28. iMIDInumber = 28 for an E 
  ; 
@@ -118,7 +116,7 @@
  kcps2 = kcps1 
  endif 
 
- ; print p5, ioct, iMIDInumber, iFtable, iSampleType, iloop 
+ print p5, ioct, iMIDInumber, iFtable, iSampleType, iloop 
  if iSampleType = 4 goto akaimono 
  if iSampleType = 1 goto noloopm 
  if iloop = 0 goto noloops 

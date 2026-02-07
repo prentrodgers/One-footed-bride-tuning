@@ -1,12 +1,9 @@
 #!/usr/bin/env python
 # coding: utf-8
-#!/usr/bin/env python
-# coding: utf-8
 import sys 
 import os
-
 # Add directories to path for imports
-parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # TonicNet/
+parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  
 diamond_music_dir = os.path.join(os.path.dirname(parent_dir), 'Diamond_Music')  # Tutorials/Diamond_Music/
 local_dir = os.path.dirname(os.path.abspath(__file__))  # One-footed-bride-tuning/
 
@@ -32,8 +29,6 @@ import matplotlib.pyplot as plt
 import pprint as pp
 import platform
 
-reload(atu)
-reload(dmu)
 from fractions import Fraction
 import multiprocessing as mp
 stringify = lambda x: '1/1' if x == 1 else str(Fraction(x).limit_denominator(65))
@@ -49,21 +44,15 @@ JUPYTER_LOG = os.path.join(local_dir, 'slide_tuning.log')
 dmu.start_logger(JUPYTER_LOG, log_level = 'info')
 CS_LOGNAME = 'slide_tuning.log' # this doesn't need any directory. 
 MIDI_DIR = '.' 
-UPLOADS_DIR = base_dir + '/Uploads'
+UPLOADS_DIR = os.path.join(local_dir, 'Uploads') 
 TRIM_SCRIPT = os.path.join(local_dir, 'trim.sh')
 CS_SOURCE_DIR = local_dir
 numpy_dir = os.path.join(local_dir, 'Archive', 'opt')
 
 
-# In[815]:
-
-
 # keep track of all the voice features, and where they are in time
 voice_time = atu.init_voice_time()
 # pp.pprint(voice_time, sort_dicts=False)
-
-
-# In[816]:
 
 
 # # This function and the pitch_in_scale function were copied from the muspy library source code
@@ -101,9 +90,6 @@ def get_keysig(root, mode):
       return np.max(accidentals), np.argmax(accidentals) # how many sharps or flats, flats set to true if it should be flats instead of sharps
 
 
-# In[817]:
-
-
 # This will display the stacked bar of sections volume levels across all the time sgments
 def display_volumes(volume_function, include_sections, save_path: str | None = None, version: str | None = None, dpi: int = 150):
       """Display or save a stacked bar of sections volume levels across time slots.
@@ -139,10 +125,6 @@ def display_volumes(volume_function, include_sections, save_path: str | None = N
       else:
             plt.show()
 
-
-# In[818]:
-
-
 def print_scores(version, chorale, limit_max):
       cent_file_name = os.path.join(numpy_dir, f'{version}-cents.npy')
       chorale_in_cents = np.load(cent_file_name)
@@ -158,9 +140,6 @@ def print_scores(version, chorale, limit_max):
       print(f'{chorale.shape = }, {chorale_in_cents.shape = }, {top_notes.shape = }')
       print(f'{version = }, Average score: {round(np.average(new_scores),1)}, Max score: {np.max(new_scores)}, Max chord: {np.argmax(new_scores)}')
       return round(np.average(new_scores),1), np.max(new_scores)
-
-
-# In[819]:
 
 
 # Create oscillating density mask that varies from sparse to dense multiple times
@@ -262,9 +241,8 @@ def create_oscillating_density_mask(voices, n_notes, num_cycles=3, min_prob=0.05
                     add = rng.choice(candidates, size=min(need, candidates.size), replace=False)
                     density_mask[add, t] = 1
     return density_mask
-# import numpy as np
+
 import random
-# import os
 from typing import Optional
 
 def arpeggio_mask_variable_runs(
@@ -280,7 +258,7 @@ def arpeggio_mask_variable_runs(
     base_waveform: str = "sine",                 # 'sine','triangle','sawtooth_rise','sawtooth_fall','pulse'
     invert_waveform: bool = False,               # invert waveform
     duty: float = 0.5,                             # duty cycle for pulse wave (fraction 0..1)
-    phase_offset: Optional[float] = None,   # <0‑1 relative‑phase, None → random
+    phase_offset: Optional[float] = None,   # <0-1 relative-phase, None → random
 ) -> np.ndarray:
     """
     Generate a binary mask whose *sparsity* oscillates from
@@ -300,16 +278,16 @@ def arpeggio_mask_variable_runs(
     verbose : bool
         When True the final mask is printed.
     sparsity_min, sparsity_max : float
-        Bounds on how many 1‑entries will be removed per run
-        (0 → all ones, 1 → all zeros).
+        Bounds on how many 1-entries will be removed per run
+        (0-→-all ones, 1-→-all zeros).
     num_cycles : int
-        Full [min → max] oscillations over the entire rhythm.
+        Full [min-→-max] oscillations over the entire rhythm.
     phase_offset : float | None
-        Fraction (0 → 1) of the cycle that the first run should
+        Fraction (0-→-1) of the cycle that the first run should
         start at.  If None, a random offset is drawn for this call.
 
     mutation_factor : float
-        Probability (00) that a voice's pattern will be flipped
+        Probability (0.0-1.0) that a voice's pattern will be flipped
         between runs (default 0.05). Replaces the previous hard-coded
         0.2 mutation probability.
 
@@ -347,12 +325,12 @@ def arpeggio_mask_variable_runs(
 
     t = 0
     while t < time_steps:
-        # 1️⃣ Run‑length
+        # 1️⃣ Run-length
         run_length = rng.integers(min_run, max_run + 1)
         run_length = min(run_length, time_steps - t)
 
         # 2️⃣ Compute the *current* sparsity value
-        # The center of this run in “time‑fraction” terms
+        # The center of this run in “time-fraction” terms
         center_frac = (t + run_length / 2.0) / time_steps
         # Offset the full cycle and compute position inside a single cycle (0..1)
         current_frac = (phase_offset + center_frac) % 1.0
@@ -391,7 +369,7 @@ def arpeggio_mask_variable_runs(
                 active_rows = rng.choice(voices, size=num_active, replace=False)
                 base_pattern[active_rows, step] = 1
 
-        # 4️⃣ Apply the computed sparsity (remove that many 1‑bits)
+        # 4️⃣ Apply the computed sparsity (remove that many 1-bits)
         total_ones = base_pattern.sum()
         n_zeros_to_add = int(round(total_ones * sparsity))
         if n_zeros_to_add > 0:
@@ -520,10 +498,6 @@ if __name__ == "__main__":
     except Exception as e:
         print("Plotting demo failed:", e)
 
-
-# In[820]:
-
-
 # define the functions for the bass instruments, much like the finger_piano_part, except it only includes tenor and bass voices
 # chorale is already had repeats applied to it when it arrives here.
 def bass_part(chorale, glides, repeats, voice_names, voice_time, tpq, volume_function, probs = None, fp_volume = 1):
@@ -616,10 +590,6 @@ def bass_part(chorale, glides, repeats, voice_names, voice_time, tpq, volume_fun
     return notes_features_15
 # end of bass_part
 
-
-# In[821]:
-
-import numpy as np
 
 def bwv846_mask_patterned(
     chorale_pc: np.ndarray,
@@ -901,10 +871,6 @@ def woodwinds_part(chorale_in_cents_slides, glides, repeats, voice_names, voice_
     return notes_features_15
 # end of woodwinds_part
 
-
-# In[824]:
-
-
 # define the functions for the melody part
 def melody_part(chorale_in_cents_slides, glides, repeats, voice_names, voice_time, tpq,\
     volume_function, mask = True, prob_silence = None, octave_reduce = 0,\
@@ -999,12 +965,6 @@ def melody_part(chorale_in_cents_slides, glides, repeats, voice_names, voice_tim
 # end of melody_part
 
 
-# 
-# ### This is the main note generating module
-
-# In[825]:
-
-
 # chorale, voice_time, keys = initialize_chorale_and_instruments(chorale, root, mode, version, repeats, double_ending = False) 
 def initialize_chorale_and_instruments(chorale, root, mode, version, repeats, double_ending = True):
     logging.debug(f'In initialize_chorale_and_instruments. {chorale.shape = }, {version = }')
@@ -1039,9 +999,6 @@ def initialize_chorale_and_instruments(chorale, root, mode, version, repeats, do
     logging.debug(f'all notes used in this MIDI file: {unique_note_names}\nNames of the notes: {keys[unique_note_names]}\nHow often each note appears in the chorale: {count_of_note_names}')
     return(chorale, voice_time, keys)
 # end of initialize_chorale_and_instruments
-
-# In[826]:
-
 
 def set_probabilities(mask):        # (repeats, quantization): # we no longer use repeats in this function and quanitzation is gone
     # set the probabilities that notes will sound using subtractive synthesis
@@ -1089,9 +1046,6 @@ def set_probabilities(mask):        # (repeats, quantization): # we no longer us
     assert (np.max(prob_silence) <= 1 and np.min(prob_silence) >= 0), logging.debug(f'{prob_silence = } needs to make sure probabilities do not include numbers greater than 1 or less than 0. Failed. {max_silence = }')
     return probs, step, prob_silence, max_silence       
 # end set_probabilities
-
-
-# In[827]:
 
 
 def generate_random_volumes_v2(time_slots = 8, max_value=25, sections = 8, max_section_sum = 70, max_voice_value = 10, min_time_slot_sum = 10):
@@ -1215,9 +1169,6 @@ def generate_random_volumes_v2(time_slots = 8, max_value=25, sections = 8, max_s
       return final_answer
 
 
-# In[828]:
-
-
 # this function takes the original chorale array and expands it dramatically. It is only called once per chorale.
 def expand_chorale(repeats, chorale_in_cents_slides, glides, stored_gliss, voice_time,\
     include_sections, mod, mask=True, tpq=0, octave_reduce=0, woodwinds_volume=8,\
@@ -1339,23 +1290,17 @@ def expand_chorale(repeats, chorale_in_cents_slides, glides, stored_gliss, voice
     return duration, volume_function, mod
 # end of expand_chorale
 
-
-# In[829]:
-
-
 def play_csound(csound = True, play = False):
-	# os.system(f'play ~/Music/starting_csound.wav')
-	result = 0
-	if csound:
-		logging.debug(f'logging csound output to csound_{CS_LOGNAME}')
-		result = os.system(f'csound new_output.csd -Ocsound_{CS_LOGNAME}') # give it a log file to write csound messages to.
-		result = os.system(f"grep 'invalid|replacing|range|error|cannot|rtevent|overall' -E csound_{CS_LOGNAME}") # inspect the log for important information
-	if play: result = os.system(f'play {WAVE_DIR}/ball8.wav')
+    # os.system(f'play ~/Music/starting_csound.wav')
+    result = 0
+    if csound:
+        logging.debug(f'logging csound output to csound_{CS_LOGNAME}')
+        os.environ['SFDIR'] = os.path.expanduser(WAVE_DIR)
+        result = os.system(f'csound new_output.csd -Ocsound_{CS_LOGNAME}') 
+        result = os.system(f"grep 'invalid|replacing|range|error|cannot|rtevent|overall' -E csound_{CS_LOGNAME}") # inspect the log for important information
+    if play: result = os.system(f'play {WAVE_DIR}/ball8.wav')
 
-	return result
-
-
-# In[830]:
+    return result
 
 
 def trim_csound(version, duration, trim = True, mp3=True):
@@ -1377,9 +1322,6 @@ def trim_csound(version, duration, trim = True, mp3=True):
         print(f'Sent this to os.system. sed -i s/{duration}/@replaceme@/ {CSD_C_FILE}. {result = }')
     else: print(f'Please note that you set {trim = } which means it will not be convolved.') 
     return result
-
-
-# In[831]:
 
 
 def create_repeat_array_pattern(chorale_array, pattern=None, axis=1):
@@ -1417,9 +1359,6 @@ def create_repeat_array_pattern(chorale_array, pattern=None, axis=1):
 
     # Return repeated array and the repeat pattern used
     return repeated_chords, repeat_values
-
-
-# In[832]:
 
 
 def chorale_to_wave_v4(version, album, include_sections, limit_max=47,\
@@ -1494,7 +1433,6 @@ def chorale_to_wave_v4(version, album, include_sections, limit_max=47,\
         # here is where we need to set the repeats. We want the repeats to be different numbers, not an integer. 
         primes = np.array([1, 3, 5, 11, 17, 31, 47, 71])
         choral_octaves_repeated, repeats = create_repeat_array_pattern(chorale_in_cents_octaves, pattern=primes)
-        np.save(f'repeated_notes.npy', choral_octaves_repeated)
         logging.info(f'created repeats pattern using primes. {primes = }, {repeats[:primes.shape[0]] = }')
 
     logging.info(f'{repeats.shape = }, after merging octaves and cents {chorale_in_cents_octaves.shape = }, after repeats applied: {choral_octaves_repeated.shape = }')
@@ -1544,8 +1482,6 @@ def chorale_to_wave_v4(version, album, include_sections, limit_max=47,\
     return(chorale)
 # end of chorale_to_wave_v4
 
-
-# In[833]:
 
 # mainline - this cell tunes and creates music
 ################################################################################
@@ -1609,27 +1545,25 @@ def mainline(chorale_override=None):
       elif just_fp:
             include_sections = {
                   # section --      play or not --    instruments in the section
-                  'finger_pianos': [False, np.array(['fing1', 'fing2', 'fing3', 'fing4', 'fing5', 'fing6', 'bfin1', 'bfin2'])],
-                  'wood_winds':    [False, np.array([])],
+                  'finger_pianos': [False, np.array(['fing1', 'fing2', 'fing3', 'fing4', 'fing5', 'fing6', 'fing7', 'fing8'])],
+                  'wood_winds':    [False, np.array(['long1', 'long2', 'long3', 'long4', 'long5', 'long6', 'long7', 'long8'])],
                   'pizz_strings':  [True, np.array(['ebss1', 'ebss2', 'ebss3', 'ebss4', 'ebss5', 'ebss6', 'ebss7', 'ebss8'])],
-                  'bowed_strings': [False, np.array([])],
-                  'brass_section': [False, np.array([])], 
+                  'bowed_strings': [False, np.array(['stri1', 'stri2', 'stri3', 'stri4', 'stri5', 'stri6', 'stri7', 'stri8'])],
+                  'brass_section': [False, np.array(['fing9', 'fing10', 'fing11', 'fing12', 'fing13', 'fing14', 'fing15', 'fing16'])], 
                   'perc_guitar':   [True, np.array(['bgui1', 'bgui2', 'bgui3', 'bgui4', 'bgui5', 'bgui6', 'bgui7', 'bgui8'])],
                   'bass_section':  [True, np.array(['bfin1', 'bfin2', 'bfin3', 'bfin4', 'bfin5', 'bfin6', 'bfin7', 'bfin8'])], 
                   'melody_section':[False, np.array([])]}
       elif just_prent_samples:
             include_sections = {
                   # section --      play or not --    instruments in the section
-                  'finger_pianos': [False, np.array(['fing1', 'fing2', 'fing3', 'fing4', 'fing5', 'fing6', 'bfin1', 'bfin2'])],
-                  'wood_winds':    [False, np.array(['flut1', 'clar1', 'oboe1', 'oboe2', 'frnh1', 'frnh2', 'basn1', 'basn2'])],
-                  # 'pizz_strings':  [True, np.array(['ebss1', 'ebss2', 'ebss3', 'ebss4', 'ebss5', 'ebss6', 'ebss7', 'ebss8'])],
-                  'pizz_strings':  [False, np.array(['vlip1', 'vlip2', 'vlip3', 'vlip4', 'vlap1', 'vlap2', 'celp1', 'celp2'])],
-                  'bowed_strings': [False, np.array(['vliv1', 'vliv2', 'vliv3', 'vliv4', 'vlav1', 'vlav2', 'celv1', 'celv2'])],
-                  'brass_section': [False, np.array(['trmp1', 'trmp2', 'trmp3', 'trmp4', 'trmb1', 'trmb2', 'tuba1', 'tuba2'])], 
-                  'perc_guitar':   [False, np.array(['mari1', 'mari2', 'mari3', 'mari4', 'mari5', 'mari6', 'mari7', 'mari8'])],
-                  # 'bass_section':  [False, np.array(['bfin3', 'bfin4', 'celp3', 'celp4', 'bgui3', 'bgui2', 'long2', 'long3'])],
-                  'bass_section':  [True, np.array(['bfin5', 'bfin6', 'bfin7', 'bfin8', 'celp5', 'celp6', 'celp7', 'celp8'])], 
-                  'melody_section':[False, np.array(['flut2', 'flut3', 'clar2', 'mari2', 'oboe3', 'basn4', 'trmp5', 'frnh3'])]}
+                  'finger_pianos': [True, np.array(['fing1', 'fing2', 'fing3', 'fing4', 'fing5', 'fing6', 'fing7', 'fing8'])],
+                  'wood_winds':    [False, np.array(['long1', 'long2', 'long3', 'long4', 'long5', 'long6', 'long7', 'long8'])],
+                  'pizz_strings':  [True, np.array(['ebss1', 'ebss2', 'ebss3', 'ebss4', 'ebss5', 'ebss6', 'ebss7', 'ebss8'])],
+                  'bowed_strings': [True, np.array(['stri1', 'stri2', 'stri3', 'stri4', 'stri5', 'stri6', 'stri7', 'stri8'])],
+                  'brass_section': [True, np.array(['fing9', 'fing10', 'fing11', 'fing12', 'fing13', 'fing14', 'fing15', 'fing16'])], 
+                  'perc_guitar':   [True, np.array(['bgui1', 'bgui2', 'bgui3', 'bgui4', 'bgui5', 'bgui6', 'bgui7', 'bgui8'])],
+                  'bass_section':  [True, np.array(['bfin1', 'bfin2', 'bfin3', 'bfin4', 'bfin5', 'bfin6', 'bfin7', 'bfin8'])], 
+                  'melody_section':[False, np.array([])]}
       else:
             include_sections = {
                   # section --      play or not --    instruments in the section
@@ -1638,9 +1572,7 @@ def mainline(chorale_override=None):
                   'pizz_strings':  [True, np.array(['vlip1', 'vlip2', 'vlip3', 'vlip4', 'vlap1', 'vlap2', 'celp1', 'celp2'])],
                   'bowed_strings': [True, np.array(['vliv1', 'vliv2', 'vliv3', 'vliv4', 'vlav1', 'vlav2', 'celv1', 'celv2'])],
                   'brass_section': [True, np.array(['trmp1', 'trmp2', 'trmp3', 'trmp4', 'trmb1', 'trmb2', 'tuba1', 'tuba2'])], 
-                  # 'perc_guitar':   [True, np.array(['xylp1', 'mari1', 'vibp1', 'harp1', 'ebss1', 'stri1', 'bgui1', 'long1'])],
                   'perc_guitar':   [True, np.array(['mari1', 'mari2', 'mari3', 'mari4', 'mari5', 'mari6', 'mari7', 'mari8'])],
-                  # 'bass_section':  [True, np.array(['bfin3', 'bfin4', 'celp3', 'celp4', 'bgui3', 'bgui2', 'long2', 'long3'])],
                   'bass_section':  [True, np.array(['bfin5', 'bfin6', 'bfin7', 'bfin8', 'celp5', 'celp6', 'celp7', 'bgui1'])],
                   'melody_section':[True, np.array(['flut2', 'flut3', 'clar2', 'vibp1', 'oboe3', 'basn4', 'trmp5', 'frnh3'])]}
       csound = True # run the generated .csd file through csound to create a .wav file

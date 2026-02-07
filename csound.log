@@ -8,7 +8,7 @@ graphics suppressed, ascii substituted
 sr = 44100.0, kr = 8820.000, ksmps = 5
 0dBFS level = 32768.0, A4 tuning = 440.0
 audio buffered in 256 sample-frame blocks
-writing 1536-byte blks of 24bit ints to /home/prent/Music/sflib/ball9.wav (WAV)
+writing 1536-byte blks of 24bit ints to ball9.wav (WAV)
 SECTION 1:
 ftable 3:
 
@@ -4986,4 +4986,4 @@ inactive allocs returned to freespace
 		   overall amps:  28834.5  34903.9
 	   overall samples out of range:        0        8
 0 errors in performance
-512 1536 sample blks of 24bit ints written to /home/prent/Music/sflib/ball9.wav (WAV)
+512 1536 sample blks of 24bit ints written to ball9.wav (WAV)
