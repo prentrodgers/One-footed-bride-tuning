@@ -1,0 +1,6 @@
+version: bwv263
+mean: 49.6
+median: 43.0
+min: 21.0
+max: 140.0
+deciles: 43 43 43 43 43 43 45 60 70

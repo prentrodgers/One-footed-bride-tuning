@@ -1,0 +1,6 @@
+version: bwv260
+mean: 52.1
+median: 45.0
+min: 43.0
+max: 105.0
+deciles: 43 43 44 45 45 47 47 64 70

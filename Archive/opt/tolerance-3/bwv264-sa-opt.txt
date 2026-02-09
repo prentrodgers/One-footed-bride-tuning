@@ -1,0 +1,6 @@
+version: bwv264
+mean: 47.9
+median: 43.0
+min: 43.0
+max: 96.0
+deciles: 43 43 43 43 43 45 45 47 65

@@ -1,15 +1,32 @@
 #!/usr/bin/env python
 # coding: utf-8
-import sys 
-import os
+# all imports in one spot:
+import os, sys
+
 # Add directories to path for imports
-parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  
-diamond_music_dir = os.path.join(os.path.dirname(parent_dir), 'Diamond_Music')  # Tutorials/Diamond_Music/
+# parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  
+# diamond_music_dir = os.path.join(os.path.dirname(parent_dir), 'Diamond_Music') 
 local_dir = os.path.dirname(os.path.abspath(__file__))  # One-footed-bride-tuning/
 
-for d in [local_dir, parent_dir, diamond_music_dir]:
+for d in [local_dir]: # , parent_dir, diamond_music_dir might also be required
     if d not in sys.path:
         sys.path.insert(0, d)
+
+import matplotlib.pyplot as plt
+from argon2 import Parameters
+from datetime import datetime
+from fractions import Fraction
+# from importlib import reload
+from itertools import count 
+from random import seed
+from typing import Optional
+import music21 as m21
+import pprint as pp
+import numpy as np
+import logging, argparse, platform, random, time
+       
+import adaptive_tuning_util as atu
+import diamond_music_utils as dmu 
 
 user = '~'
 base_dir = os.path.join(user, 'One-footed-bride-tuning') 
@@ -19,18 +36,7 @@ import numpy as np
 import adaptive_tuning_util as atu
 import diamond_music_utils as dmu 
 rng = np.random.default_rng()
-import os
-import time
-from importlib import reload
-import music21 as m21
-import logging
-from itertools import count # , combinations, permutations
-import matplotlib.pyplot as plt
-import pprint as pp
-import platform
 
-from fractions import Fraction
-import multiprocessing as mp
 stringify = lambda x: '1/1' if x == 1 else str(Fraction(x).limit_denominator(65))
 np.set_printoptions(legacy='1.21', precision=3) # don't print the datatypes (np.str_, np.float64() etc, and only 3 decimal places)
 # np.set_printoptions(legacy=False) # don't print the datatypes (np.str_, np.float64() etc, and only 3 decimal places)
@@ -49,13 +55,11 @@ TRIM_SCRIPT = os.path.join(local_dir, 'trim.sh')
 CS_SOURCE_DIR = local_dir
 numpy_dir = os.path.join(local_dir, 'Archive', 'opt')
 
-
 # keep track of all the voice features, and where they are in time
 voice_time = atu.init_voice_time()
 # pp.pprint(voice_time, sort_dicts=False)
 
-
-# # This function and the pitch_in_scale function were copied from the muspy library source code
+# This function and the pitch_in_scale function were copied from the muspy library source code
 def _get_scale(root, mode):
       if mode == "major":
             c_scale = np.array([1, 0, 1, 0, 1, 1, 0, 1, 0, 1, 0, 1], bool)
@@ -124,7 +128,8 @@ def display_volumes(volume_function, include_sections, save_path: str | None = N
             plt.close(fig)
       else:
             plt.show()
-
+            
+# I think I need to get rid of this function and just concentrate on Chrorale-info.ipynb.
 def print_scores(version, chorale, limit_max):
       cent_file_name = os.path.join(numpy_dir, f'{version}-cents.npy')
       chorale_in_cents = np.load(cent_file_name)
@@ -143,10 +148,6 @@ def print_scores(version, chorale, limit_max):
 
 
 # Create oscillating density mask that varies from sparse to dense multiple times
-from random import seed
-from argon2 import Parameters
-
-
 def create_oscillating_density_probs(n_notes, num_cycles=3, min_prob=0.05, max_prob=0.35, noise_level=0.015, smooth_kernel_size=None):
     """
     Create probability values that oscillate from sparse (low prob) to dense (high prob) 
@@ -241,9 +242,6 @@ def create_oscillating_density_mask(voices, n_notes, num_cycles=3, min_prob=0.05
                     add = rng.choice(candidates, size=min(need, candidates.size), replace=False)
                     density_mask[add, t] = 1
     return density_mask
-
-import random
-from typing import Optional
 
 def arpeggio_mask_variable_runs(
     chords: np.ndarray,
@@ -414,11 +412,7 @@ def plot_sparsity_waveform(
     Useful to visualize how `base_waveform` and `duty` (for pulse)
     affect the sparsity function.
     """
-    try:
-        import matplotlib.pyplot as plt
-    except Exception as e:
-        raise RuntimeError("matplotlib required for plotting (pip install matplotlib)") from e
-
+    
     normalized_vals = []
     for t in range(time_steps):
         center_frac = (t + 0.5) / time_steps
@@ -474,29 +468,29 @@ def plot_sparsity_waveform(
         plt.show()
 
 
-def save_demo_plots(output_dir: str = "waveform_demos", time_steps: int = 400, num_cycles: int = 5, duty: float = 0.3):
-    """Save demo PNGs for each supported waveform into `output_dir`.
+# def save_demo_plots(output_dir: str = "waveform_demos", time_steps: int = 400, num_cycles: int = 5, duty: float = 0.3):
+#     """Save demo PNGs for each supported waveform into `output_dir`.
 
-    Returns a list of saved file paths.
-    """
-    waveforms = ["sine", "triangle", "sawtooth_rise", "sawtooth_fall", "pulse"]
-    saved = []
-    for wf in waveforms:
-        filename = f"{wf}.png" if wf != 'pulse' else f"{wf}_duty{int(duty*100)}.png"
-        path = os.path.join(output_dir, filename)
-        plot_sparsity_waveform(time_steps=time_steps, num_cycles=num_cycles, base_waveform=wf, duty=duty if wf=='pulse' else 0.5, save_path=path)
-        saved.append(path)
-    return saved
+#     Returns a list of saved file paths.
+#     """
+#     waveforms = ["sine", "triangle", "sawtooth_rise", "sawtooth_fall", "pulse"]
+#     saved = []
+#     for wf in waveforms:
+#         filename = f"{wf}.png" if wf != 'pulse' else f"{wf}_duty{int(duty*100)}.png"
+#         path = os.path.join(output_dir, filename)
+#         plot_sparsity_waveform(time_steps=time_steps, num_cycles=num_cycles, base_waveform=wf, duty=duty if wf=='pulse' else 0.5, save_path=path)
+#         saved.append(path)
+#     return saved
 
 
-if __name__ == "__main__":
-    try:
-        saved = save_demo_plots(output_dir="waveform_demos", time_steps=400, num_cycles=5, duty=30/100)
-        print("Saved waveform demo PNGs:")
-        for p in saved:
-            print(" -", p)
-    except Exception as e:
-        print("Plotting demo failed:", e)
+# # if __name__ == "__main__":
+# #     try:
+# #         saved = save_demo_plots(output_dir="waveform_demos", time_steps=400, num_cycles=5, duty=30/100)
+#         print("Saved waveform demo PNGs:")
+#         for p in saved:
+#             print(" -", p)
+#     except Exception as e:
+#         print("Plotting demo failed:", e)
 
 # define the functions for the bass instruments, much like the finger_piano_part, except it only includes tenor and bass voices
 # chorale is already had repeats applied to it when it arrives here.
@@ -1189,7 +1183,9 @@ def expand_chorale(repeats, chorale_in_cents_slides, glides, stored_gliss, voice
     # choose the tempo based on how many times the notes are repeated
     repeats_average = int(round(np.average(repeats)))
     logging.info(f'{repeats.shape = }, {repeats_average = }, {quantization = }')
-    if repeats_average * quantization > 65:
+    if repeats_average == 2:
+        tempo = rng.choice(np.arange(30, 40, 4))
+    elif repeats_average * quantization > 65:
         tempo = rng.choice(np.arange(106, 124, 4)) 
     elif repeats_average * quantization > 40:
         tempo = rng.choice(np.arange(80, 105, 4)) 
@@ -1425,10 +1421,9 @@ def chorale_to_wave_v4(version, album, include_sections, limit_max=47,\
     print(f'{cent_value_chorale.shape = }, {octave.shape = }')
     chorale_in_cents_octaves = np.stack((cent_value_chorale, octave), axis=2)  # shape (time_steps, 2)
     if short_repeats: 
-        repeats = np.array([2])
-        # Don't repeat here - woodwinds_part will expand 4 voices to 8 voices internally
-        choral_octaves_repeated = chorale_in_cents_octaves  # keep original 4 SATB voices
-        # choral_octaves_repeated = np.repeat(chorale_in_cents_octaves, repeats, axis=0) # this was the culprit.
+        repeats = np.array([2]) # How many times to repeat each chord. 
+        choral_octaves_repeated = chorale_in_cents_octaves # keep original 4 SATB voices
+        logging.info(f'{chorale_in_cents_octaves.shape = }, {choral_octaves_repeated.shape = }')
     else: 
         # here is where we need to set the repeats. We want the repeats to be different numbers, not an integer. 
         primes = np.array([1, 3, 5, 11, 17, 31, 47, 71])
@@ -1489,7 +1484,16 @@ def chorale_to_wave_v4(version, album, include_sections, limit_max=47,\
 #### Take an already tuned chorale and make a full piece of music out of it ####
 ################################################################################
 ################################################################################
-def mainline(chorale_override=None):
+def mainline(chorale_override=None, short_repeats=False, include_list=None, csound=True, convolve=True, 
+             mp3=True, max_cents_slide=35, melody_sustain=3, cent_file_partial='-trans-sa-opt.npy',
+             show_volumes=True, mod_letter='a', album=3, use_werck_top_notes=False, tolerance=1):
+      if include_list is None:
+            include_list = []
+      
+      # Override numpy_dir to use the tolerance-specific directory
+      global numpy_dir
+      numpy_dir = os.path.join(local_dir, 'Archive', 'opt', f'tolerance-{tolerance}')
+      
       total_cache_count_sr = 0
       non_cached_count_sr = 0
       cache_s= {}
@@ -1503,13 +1507,9 @@ def mainline(chorale_override=None):
       non_cached_count_fc = 0
       cache_fc = {}
 
-      reload(atu)
       dmu.start_logger(JUPYTER_LOG, log_level = 'info')
       print(f'{platform.uname() = }')
-      short_repeats = False # If True, get a basic chorale. Play it straight. If false, then use the arpeggio patterns to create a more complex piece of music.
       woodwinds_volume = 16 # only used if short_repeats = True
-      #include_list = np.arange(172, 204, 1) # which chords to include in the piece
-      include_list = []
       # set the instrument sections you want to include to True in the following dictionary
       just_sustained = False # for debugging purposes if you only want the sustained instruments to play
       just_fp = False # for debugging purposes if you only want the finger pianos to play
@@ -1575,21 +1575,11 @@ def mainline(chorale_override=None):
                   'perc_guitar':   [True, np.array(['mari1', 'mari2', 'mari3', 'mari4', 'mari5', 'mari6', 'mari7', 'mari8'])],
                   'bass_section':  [True, np.array(['bfin5', 'bfin6', 'bfin7', 'bfin8', 'celp5', 'celp6', 'celp7', 'bgui1'])],
                   'melody_section':[True, np.array(['flut2', 'flut3', 'clar2', 'vibp1', 'oboe3', 'basn4', 'trmp5', 'frnh3'])]}
-      csound = True # run the generated .csd file through csound to create a .wav file
-      convolve = csound 
-      mp3 = True # csound convolution impulse response using Teatro Alcorcon in Madrid made by Angelo Farina
       limit = 0 # how many seconds to produce. 0 means no limit.
       penalize_7_11 = False # if true then double the value of all the intervals in the atu.build_tonal_diamond function which calls _find_limit to do the deed
-      max_cents_slide = 35 # was 34 until 8-7-25 # keep this under 50 or you get some very annoying glides
-      melody_sustain = 3 # was 4 changed on 9/8/25 to 3. was 5 was 7. 6/26/25 if this is too low, then you hear too many restarts on notes
-      cent_file_partial = '-trans-sa-opt-best.npy' # Archive/opt/bwv264-trans-sa-opt-best.npy
-      show_volumes = True
       print_only = 10 # how many lines of csound code should be printed to the log file.
-      mod_letter = 'a' # append a letter to the output file name to help distinguish between different runs through.
-      album = 3 # append a number to distinguish sets
       total_averages = 0
       max_overall_score = 0
-      use_werck_top_notes = False
       limit_max = 19 # I don't think I need this. 
 
       chorale_list = ['bwv253','bwv254','bwv255','bwv256','bwv257','bwv258','bwv259','bwv260','bwv261','bwv262','bwv263','bwv264']
@@ -1630,10 +1620,51 @@ def mainline(chorale_override=None):
 
 
 if __name__ == "__main__":
-      import argparse
       parser = argparse.ArgumentParser(description='Generate chorale audio and plots')
-      parser.add_argument("--chorale_name", "--chorale", dest="chorale_name", help="chorale name or comma-separated list (default: ['bwv253','bwv254','bwv255','bwv256','bwv257','bwv258','bwv259','bwv260','bwv261','bwv262','bwv263','bwv264'])'", default=None)
+      parser.add_argument("--chorale_name", "--chorale", dest="chorale_name", 
+                          help="chorale name or comma-separated list (default: ['bwv253','bwv254','bwv255','bwv256','bwv257','bwv258','bwv259','bwv260','bwv261','bwv262','bwv263','bwv264'])", 
+                          default=None)
+      parser.add_argument("--short_repeats", dest="short_repeats", action="store_true",
+                          help="If True, get a basic chorale. Play it straight. If false, then use the arpeggio patterns")
+      parser.add_argument("--include_list", dest="include_list", nargs='+', type=int, default=[],
+                          help="List of chord numbers to include in the piece (default: empty list for all chords)")
+      parser.add_argument("--csound", dest="csound", action="store_true", default=True,
+                          help="Run the generated .csd file through csound to create a .wav file (default: True)")
+      parser.add_argument("--no_csound", dest="csound", action="store_false",
+                          help="Disable csound processing")
+      parser.add_argument("--convolve", dest="convolve", action="store_true", default=True,
+                          help="Apply convolution to the output (default: True)")
+      parser.add_argument("--no_convolve", dest="convolve", action="store_false",
+                          help="Disable convolution")
+      parser.add_argument("--mp3", dest="mp3", action="store_true", default=True,
+                          help="Generate MP3 output (default: True)")
+      parser.add_argument("--no_mp3", dest="mp3", action="store_false",
+                          help="Disable MP3 generation")
+      parser.add_argument("--max_cents_slide", dest="max_cents_slide", type=float, default=35,
+                          help="Maximum cents slide (keep under 50 to avoid annoying glides) (default: 35)")
+      parser.add_argument("--melody_sustain", dest="melody_sustain", type=float, default=3,
+                          help="Melody sustain duration (default: 3)")
+      parser.add_argument("--cent_file_partial", dest="cent_file_partial", type=str, 
+                          default='-trans-sa-opt.npy',
+                          help="Partial name of the cent file (default: '-trans-sa-opt.npy')")
+      parser.add_argument("--show_volumes", dest="show_volumes", action="store_true", default=True,
+                          help="Display volume plots (default: True)")
+      parser.add_argument("--no_show_volumes", dest="show_volumes", action="store_false",
+                          help="Disable volume plots")
+      parser.add_argument("--mod_letter", dest="mod_letter", type=str, default='a',
+                          help="Letter to append to output file name (default: 'a')")
+      parser.add_argument("--album", dest="album", type=int, default=3,
+                          help="Album number to distinguish sets (default: 3)")
+      parser.add_argument("--use_werck_top_notes", dest="use_werck_top_notes", action="store_true",
+                          help="Use Werckmeister top notes (default: False)")
+      parser.add_argument("--tolerance", dest="tolerance", type=int, default=1,
+                          help="Tolerance level for matching intervals (1, 2, 3, or 4) (default: 1)")
       args = parser.parse_args()
-      mainline(chorale_override=args.chorale_name)
+      mainline(chorale_override=args.chorale_name, short_repeats=args.short_repeats,
+               include_list=args.include_list, csound=args.csound, convolve=args.convolve,
+               mp3=args.mp3, max_cents_slide=args.max_cents_slide, melody_sustain=args.melody_sustain,
+               cent_file_partial=args.cent_file_partial, show_volumes=args.show_volumes,
+               mod_letter=args.mod_letter, album=args.album, use_werck_top_notes=args.use_werck_top_notes,
+               tolerance=args.tolerance)
 
 

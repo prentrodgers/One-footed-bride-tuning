@@ -1,0 +1,6 @@
+version: bwv254
+mean: 54.4
+median: 45.0
+min: 28.0
+max: 123.0
+deciles: 43 43 45 45 45 60 64 67 70

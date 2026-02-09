@@ -19,26 +19,60 @@ from pathlib import Path
 from collections import defaultdict
 
 
-def setup_paths():
-    """Configure Python path for required modules."""
-    user = 'prent'
-    base_dir = os.path.join('/home', user, 'Dropbox')
-    diamond_dir = os.path.join(base_dir, 'Tutorials', 'Diamond_Music')
-    tonicnet_dir = os.path.join(base_dir, "Tutorials", "TonicNet")
-    numpy_dir = os.path.join(base_dir, 'Tutorials', 'TonicNet', 'Archive', 'opt')
-
-    # Use /tmp for logs when running in Kubernetes container
-    log_dir = '/tmp' if os.getenv('KUBERNETES_SERVICE_HOST') else tonicnet_dir
-
-    for directory in [diamond_dir, tonicnet_dir]:
-        abs_dir = os.path.abspath(directory)
-        if abs_dir not in sys.path:
-            sys.path.insert(0, abs_dir)
-
+def setup_paths(tolerance=1):
+    """
+    Configure Python path and data directories.
+    
+    Finds the project root intelligently:
+    - If current directory has Archive/, use it
+    - If script directory has Archive/, use it
+    - Otherwise use script directory's parent
+    
+    Data goes to: {project_root}/Archive/opt/tolerance-{N}/
+    Logs go to: {project_root} or /tmp if in Kubernetes
+    
+    Args:
+        tolerance: tolerance level (1-4), determines subdirectory name
+    
+    Returns:
+        dict with keys: script_dir, project_dir, numpy_dir, log_dir
+    """
+    if not (1 <= tolerance <= 4):
+        raise ValueError(f"tolerance must be 1-4, got {tolerance}")
+    
+    # Get the directory where this script is located
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    cwd = os.getcwd()
+    
+    # Determine project root intelligently
+    project_dir = None
+    
+    # Check current directory first (most specific)
+    if os.path.isdir(os.path.join(cwd, 'Archive')):
+        project_dir = cwd
+    # Check script directory next
+    elif os.path.isdir(os.path.join(script_dir, 'Archive')):
+        project_dir = script_dir
+    # Check script directory's parent
+    elif os.path.isdir(os.path.join(os.path.dirname(script_dir), 'Archive')):
+        project_dir = os.path.dirname(script_dir)
+    # Final fallback: use script directory
+    else:
+        project_dir = script_dir
+    
+    # Data directory: Archive/opt/tolerance-{tolerance}/
+    numpy_dir = os.path.join(project_dir, 'Archive', 'opt', f'tolerance-{tolerance}')
+    
+    # Use /tmp for logs when running in Kubernetes container, otherwise use project directory
+    log_dir = '/tmp' if os.getenv('KUBERNETES_SERVICE_HOST') else project_dir
+    
+    # Add project directory to path so we can import local modules
+    if project_dir not in sys.path:
+        sys.path.insert(0, project_dir)
+    
     return {
-        'base_dir': base_dir,
-        'diamond_dir': diamond_dir,
-        'tonicnet_dir': tonicnet_dir,
+        'script_dir': script_dir,
+        'project_dir': project_dir,
         'numpy_dir': numpy_dir,
         'log_dir': log_dir
     }
@@ -471,11 +505,18 @@ def process_chorale(version, numpy_dir, output_dir=None, tolerance=1, limit_max=
 
     output_file = os.path.join(output_dir, f'{version}-sa-opt.npy')
     meta_file = os.path.join(output_dir, f'{version}-sa-opt.txt')
+    
+    print(f"\n=== SAVE LOGIC v2.2 for {version} ===", flush=True)
+    print(f"output_dir: {output_dir}", flush=True)
+    print(f"output_file: {output_file}", flush=True)
 
     # Check if previous result exists and compare
     previous_mean = None
     is_improvement = True
-    if os.path.exists(output_file) and os.path.exists(meta_file):
+    files_exist = os.path.exists(output_file) and os.path.exists(meta_file)
+    print(f"DEBUG: Files exist? {files_exist} | output_file={output_file} exists={os.path.exists(output_file)} | meta_file={meta_file} exists={os.path.exists(meta_file)}")
+    
+    if files_exist:
         try:
             with open(meta_file, 'r') as f:
                 for line in f:
@@ -492,19 +533,42 @@ def process_chorale(version, numpy_dir, output_dir=None, tolerance=1, limit_max=
         except Exception as e:
             logging.warning(f"Failed to read previous result for {version}: {e}")
             is_improvement = True  # Save if we can't read previous
+    else:
+        print(f"DEBUG: No previous files found for {version}, will save as baseline")
+        is_improvement = True  # No previous files, save as baseline
 
     if not dry_run:
+        print(f"DEBUG: is_improvement={is_improvement}, dry_run={dry_run}")
         if is_improvement:
-            np.save(output_file, sa_cent_value_chorale.T)
-            with open(meta_file, 'w') as f:
-                f.write(f"version: {version}\n")
-                f.write(f"mean: {mean_score:.1f}\n")
-                f.write(f"median: {median_score:.1f}\n")
-                f.write(f"min: {min_score:.1f}\n")
-                f.write(f"max: {max_score:.1f}\n")
-                f.write(f"deciles: {' '.join([f'{d:.0f}' for d in deciles])}\n")
-            logging.info(f"{version}: Saved to {output_file}")
+            try:
+                # Ensure directory exists
+                os.makedirs(output_dir, exist_ok=True)
+                print(f"DEBUG: Created/verified dir {output_dir}, dir exists: {os.path.isdir(output_dir)}")
+                
+                # Save numpy file
+                np.save(output_file, sa_cent_value_chorale.T)
+                print(f"DEBUG: Saved numpy to {output_file}, file exists: {os.path.exists(output_file)}")
+                
+                # Save metadata file
+                with open(meta_file, 'w') as f:
+                    f.write(f"version: {version}\n")
+                    f.write(f"mean: {mean_score:.1f}\n")
+                    f.write(f"median: {median_score:.1f}\n")
+                    f.write(f"min: {min_score:.1f}\n")
+                    f.write(f"max: {max_score:.1f}\n")
+                    f.write(f"deciles: {' '.join([f'{d:.0f}' for d in deciles])}\n")
+                print(f"DEBUG: Saved metadata to {meta_file}, file exists: {os.path.exists(meta_file)}")
+                
+                logging.info(f"{version}: Saved to {output_file}")
+                print(f"✓ {version}: Saved to {output_file}")
+            except Exception as e:
+                print(f"✗ {version}: FAILED to save! {output_file} - Error: {e}")
+                logging.error(f"{version}: FAILED to save! {output_file} - Error: {e}")
+                import traceback
+                logging.error(traceback.format_exc())
+                print(traceback.format_exc())
         else:
+            print(f"DEBUG: Skipping save - not an improvement (previous mean: {previous_mean})")
             logging.info(f"{version}: Keeping previous best (mean={previous_mean:.1f})")
     else:
         logging.info(f"{version}: Would save to {output_file} (dry-run mode)")
@@ -531,7 +595,8 @@ def main():
     )
     parser.add_argument('--dry-run', action='store_true')
     parser.add_argument('--verbose', action='store_true')
-    parser.add_argument('--tolerance', type=int, default=1)
+    parser.add_argument('--tolerance', type=int, default=1, 
+                       help='Tolerance level (1-4) for data directory. Default: 1')
     parser.add_argument('--limit-max', type=int, default=19)
     # Convenience alias: accept underscore form used by some callers
     parser.add_argument('--limit_max', dest='limit_max', type=int, help=argparse.SUPPRESS)
@@ -555,7 +620,12 @@ def main():
     parser.add_argument('--chorale', type=str, default=None)
     args = parser.parse_args()
 
-    paths = setup_paths()
+    # Validate tolerance
+    if not (1 <= args.tolerance <= 4):
+        print(f"Error: tolerance must be 1-4, got {args.tolerance}", file=sys.stderr)
+        sys.exit(1)
+
+    paths = setup_paths(tolerance=args.tolerance)
     numpy_dir = paths['numpy_dir']
     log_dir = paths['log_dir']
     output_dir = numpy_dir
@@ -576,6 +646,8 @@ def main():
     logging.info("CHORD TUNING OPTIMIZATION - SIMULATED ANNEALING V2")
     logging.info("=" * 80)
     logging.info(f"Mode: {'DRY-RUN' if args.dry_run else 'PRODUCTION'}")
+    logging.info(f"Tolerance: {args.tolerance}")
+    logging.info(f"Data directory: {numpy_dir}")
 
     if args.chorale:
         chorale_list = [args.chorale]

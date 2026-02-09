@@ -1,0 +1,1705 @@
+Verifying PVC mount...
++ echo 'Verifying PVC mount...'
++ '[' '!' -d /home/prent ']'
++ '[' '!' -w /home/prent ']'
++ echo 'PVC Storage Status:'
++ df -h /home/prent
+PVC Storage Status:
+Filesystem                                                                                                                                                             Size  Used Avail Use% Mounted on
+csi-cephfs-node.1@da5736f0-1f36-4c7d-9da2-ce04d91a8bc2.ceph-filesystem=/volumes/csi/csi-vol-f09e4033-a62e-45ab-83cc-802dae02aebb/acea2d40-b875-489e-9747-a5defff866a8  2.0T  162G  1.9T   8% /home/prent
++ cd /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning
+Starting chord tuning optimization (Production - All Tolerance Levels)
+Running 25 iterations at each tolerance level (1, 2, 3, 4)
++ echo 'Starting chord tuning optimization (Production - All Tolerance Levels)'
++ echo 'Running 25 iterations at each tolerance level (1, 2, 3, 4)'
+++ pwd
+Working directory: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning
+PVC mount point: /home/prent
++ echo 'Working directory: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning'
++ echo 'PVC mount point: /home/prent'
++ CHORALES='bwv253 bwv254 bwv255 bwv256 bwv257 bwv258 bwv259 bwv260 bwv261 bwv262 bwv263 bwv264'
++ NUM_RUNS=1
++ MAX_PARALLEL=12
++ TOLERANCES='1 2 3 4'
+
++ for tolerance in $TOLERANCES
++ echo ''
++ echo ==========================================
++ echo 'TOLERANCE LEVEL 1'
+==========================================
+TOLERANCE LEVEL 1
+==========================================
++ echo ==========================================
++ mkdir -p Archive/opt/tolerance-1
+++ pwd
+Data directory: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-1
++ echo 'Data directory: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-1'
+++ seq 1 1
++ for run in $(seq 1 $NUM_RUNS)
++ echo '  Run 1 of 1 (tolerance=1)'
+  Run 1 of 1 (tolerance=1)
++ counter=0
++ for c in $CHORALES
++ counter=1
++ '[' 1 -eq 0 ']'
++ for c in $CHORALES
++ python optimize_chords_sa_v2.py --tolerance 1 --chorale bwv253
++ counter=2
++ '[' 2 -eq 0 ']'
++ for c in $CHORALES
++ python optimize_chords_sa_v2.py --tolerance 1 --chorale bwv254
++ counter=3
++ '[' 3 -eq 0 ']'
++ for c in $CHORALES
++ python optimize_chords_sa_v2.py --tolerance 1 --chorale bwv255
++ counter=4
++ '[' 4 -eq 0 ']'
++ for c in $CHORALES
++ python optimize_chords_sa_v2.py --tolerance 1 --chorale bwv256
++ counter=5
++ '[' 5 -eq 0 ']'
++ for c in $CHORALES
++ python optimize_chords_sa_v2.py --tolerance 1 --chorale bwv257
++ counter=6
++ '[' 6 -eq 0 ']'
++ for c in $CHORALES
++ python optimize_chords_sa_v2.py --tolerance 1 --chorale bwv258
++ counter=7
++ '[' 7 -eq 0 ']'
++ for c in $CHORALES
++ python optimize_chords_sa_v2.py --tolerance 1 --chorale bwv259
++ counter=8
++ '[' 8 -eq 0 ']'
++ for c in $CHORALES
++ python optimize_chords_sa_v2.py --tolerance 1 --chorale bwv260
++ counter=9
++ '[' 9 -eq 0 ']'
++ for c in $CHORALES
++ python optimize_chords_sa_v2.py --tolerance 1 --chorale bwv261
++ counter=10
++ '[' 10 -eq 0 ']'
++ for c in $CHORALES
++ python optimize_chords_sa_v2.py --tolerance 1 --chorale bwv262
++ counter=11
++ '[' 11 -eq 0 ']'
++ for c in $CHORALES
++ python optimize_chords_sa_v2.py --tolerance 1 --chorale bwv263
++ counter=12
++ '[' 0 -eq 0 ']'
++ wait
++ python optimize_chords_sa_v2.py --tolerance 1 --chorale bwv264
+
+================================================================================
+================================================================================
+PROCESSING CHORALES (SA v2)
+================================================================================
+Parameters: tolerance=1, limit_max=19, initial_temperature=2.5, cooling_rate=0.999, max_iterations=1000, rolls=8, min_repeats=5, elbow_percent=0.5, r_value=0.3, spread=7, max_gap=40, retune_on_gaps=3, time_limit=0.0, max_no_improve=50
+
+
+PROCESSING CHORALES (SA v2)
+================================================================================
+Parameters: tolerance=1, limit_max=19, initial_temperature=2.5, cooling_rate=0.999, max_iterations=1000, rolls=8, min_repeats=5, elbow_percent=0.5, r_value=0.3, spread=7, max_gap=40, retune_on_gaps=3, time_limit=0.0, max_no_improve=50
+
+
+================================================================================
+PROCESSING CHORALES (SA v2)
+================================================================================
+Parameters: tolerance=1, limit_max=19, initial_temperature=2.5, cooling_rate=0.999, max_iterations=1000, rolls=8, min_repeats=5, elbow_percent=0.5, r_value=0.3, spread=7, max_gap=40, retune_on_gaps=3, time_limit=0.0, max_no_improve=50
+
+
+================================================================================
+PROCESSING CHORALES (SA v2)
+================================================================================
+Parameters: tolerance=1, limit_max=19, initial_temperature=2.5, cooling_rate=0.999, max_iterations=1000, rolls=8, min_repeats=5, elbow_percent=0.5, r_value=0.3, spread=7, max_gap=40, retune_on_gaps=3, time_limit=0.0, max_no_improve=50
+
+
+================================================================================
+PROCESSING CHORALES (SA v2)
+================================================================================
+Parameters: tolerance=1, limit_max=19, initial_temperature=2.5, cooling_rate=0.999, max_iterations=1000, rolls=8, min_repeats=5, elbow_percent=0.5, r_value=0.3, spread=7, max_gap=40, retune_on_gaps=3, time_limit=0.0, max_no_improve=50
+
+
+================================================================================
+PROCESSING CHORALES (SA v2)
+================================================================================
+Parameters: tolerance=1, limit_max=19, initial_temperature=2.5, cooling_rate=0.999, max_iterations=1000, rolls=8, min_repeats=5, elbow_percent=0.5, r_value=0.3, spread=7, max_gap=40, retune_on_gaps=3, time_limit=0.0, max_no_improve=50
+
+
+================================================================================
+PROCESSING CHORALES (SA v2)
+================================================================================
+Parameters: tolerance=1, limit_max=19, initial_temperature=2.5, cooling_rate=0.999, max_iterations=1000, rolls=8, min_repeats=5, elbow_percent=0.5, r_value=0.3, spread=7, max_gap=40, retune_on_gaps=3, time_limit=0.0, max_no_improve=50
+
+
+================================================================================
+PROCESSING CHORALES (SA v2)
+================================================================================
+Parameters: tolerance=1, limit_max=19, initial_temperature=2.5, cooling_rate=0.999, max_iterations=1000, rolls=8, min_repeats=5, elbow_percent=0.5, r_value=0.3, spread=7, max_gap=40, retune_on_gaps=3, time_limit=0.0, max_no_improve=50
+
+
+================================================================================
+PROCESSING CHORALES (SA v2)
+================================================================================
+Parameters: tolerance=1, limit_max=19, initial_temperature=2.5, cooling_rate=0.999, max_iterations=1000, rolls=8, min_repeats=5, elbow_percent=0.5, r_value=0.3, spread=7, max_gap=40, retune_on_gaps=3, time_limit=0.0, max_no_improve=50
+
+
+================================================================================
+PROCESSING CHORALES (SA v2)
+================================================================================
+Parameters: tolerance=1, limit_max=19, initial_temperature=2.5, cooling_rate=0.999, max_iterations=1000, rolls=8, min_repeats=5, elbow_percent=0.5, r_value=0.3, spread=7, max_gap=40, retune_on_gaps=3, time_limit=0.0, max_no_improve=50
+
+
+================================================================================
+PROCESSING CHORALES (SA v2)
+================================================================================
+Parameters: tolerance=1, limit_max=19, initial_temperature=2.5, cooling_rate=0.999, max_iterations=1000, rolls=8, min_repeats=5, elbow_percent=0.5, r_value=0.3, spread=7, max_gap=40, retune_on_gaps=3, time_limit=0.0, max_no_improve=50
+
+
+================================================================================
+PROCESSING CHORALES (SA v2)
+================================================================================
+Parameters: tolerance=1, limit_max=19, initial_temperature=2.5, cooling_rate=0.999, max_iterations=1000, rolls=8, min_repeats=5, elbow_percent=0.5, r_value=0.3, spread=7, max_gap=40, retune_on_gaps=3, time_limit=0.0, max_no_improve=50
+
+
+=== SAVE LOGIC v2.2 for bwv255 ===
+output_dir: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-1
+output_file: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-1/bwv255-sa-opt.npy
+DEBUG: Files exist? True | output_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-1/bwv255-sa-opt.npy exists=True | meta_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-1/bwv255-sa-opt.txt exists=True
+DEBUG: is_improvement=False, dry_run=False
+DEBUG: Skipping save - not an improvement (previous mean: 50.7)
+  bwv255       mean:   50.9  max:   82.0  median:   43.0  min:   43.0  deciles [ 43  43  43  43  43  45  59  62  67] (was 50.7)
+
+================================================================================
+SUMMARY
+================================================================================
+Processed: 1 chorales
+Improved:  0
+Average mean score: 50.9
+
+=== SAVE LOGIC v2.2 for bwv264 ===
+output_dir: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-1
+output_file: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-1/bwv264-sa-opt.npy
+DEBUG: Files exist? True | output_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-1/bwv264-sa-opt.npy exists=True | meta_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-1/bwv264-sa-opt.txt exists=True
+DEBUG: is_improvement=False, dry_run=False
+DEBUG: Skipping save - not an improvement (previous mean: 47.9)
+  bwv264       mean:   47.9  max:  108.0  median:   43.0  min:   43.0  deciles [ 43  43  43  43  43  45  45  47  65] (was 47.9)
+
+================================================================================
+SUMMARY
+================================================================================
+Processed: 1 chorales
+Improved:  0
+Average mean score: 47.9
+
+=== SAVE LOGIC v2.2 for bwv253 ===
+output_dir: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-1
+output_file: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-1/bwv253-sa-opt.npy
+DEBUG: Files exist? True | output_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-1/bwv253-sa-opt.npy exists=True | meta_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-1/bwv253-sa-opt.txt exists=True
+DEBUG: is_improvement=False, dry_run=False
+DEBUG: Skipping save - not an improvement (previous mean: 48.9)
+  bwv253       mean:   48.9  max:   90.0  median:   43.0  min:   28.0  deciles [ 43  43  43  43  43  45  47  55  67] (was 48.9)
+
+================================================================================
+SUMMARY
+================================================================================
+Processed: 1 chorales
+Improved:  0
+Average mean score: 48.9
+
+=== SAVE LOGIC v2.2 for bwv258 ===
+output_dir: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-1
+output_file: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-1/bwv258-sa-opt.npy
+DEBUG: Files exist? True | output_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-1/bwv258-sa-opt.npy exists=True | meta_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-1/bwv258-sa-opt.txt exists=True
+DEBUG: is_improvement=False, dry_run=False
+DEBUG: Skipping save - not an improvement (previous mean: 57.5)
+  bwv258       mean:   58.1  max:  145.0  median:   47.0  min:   43.0  deciles [ 43  43  43  45  47  56  64  67  78] (was 57.5)
+
+================================================================================
+SUMMARY
+================================================================================
+Processed: 1 chorales
+Improved:  0
+Average mean score: 58.1
+
+=== SAVE LOGIC v2.2 for bwv262 ===
+output_dir: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-1
+output_file: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-1/bwv262-sa-opt.npy
+DEBUG: Files exist? True | output_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-1/bwv262-sa-opt.npy exists=True | meta_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-1/bwv262-sa-opt.txt exists=True
+DEBUG: is_improvement=False, dry_run=False
+DEBUG: Skipping save - not an improvement (previous mean: 47.4)
+  bwv262       mean:   47.6  max:  105.0  median:   43.0  min:   27.0  deciles [ 27  36  43  43  43  45  47  63  70] (was 47.4)
+
+================================================================================
+SUMMARY
+================================================================================
+Processed: 1 chorales
+Improved:  0
+Average mean score: 47.6
+
+=== SAVE LOGIC v2.2 for bwv263 ===
+output_dir: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-1
+output_file: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-1/bwv263-sa-opt.npy
+DEBUG: Files exist? True | output_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-1/bwv263-sa-opt.npy exists=True | meta_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-1/bwv263-sa-opt.txt exists=True
+DEBUG: is_improvement=False, dry_run=False
+DEBUG: Skipping save - not an improvement (previous mean: 49.6)
+  bwv263       mean:   50.1  max:  140.0  median:   43.0  min:   21.0  deciles [ 43  43  43  43  43  43  47  60  70] (was 49.6)
+
+================================================================================
+SUMMARY
+================================================================================
+Processed: 1 chorales
+Improved:  0
+Average mean score: 50.1
+
+=== SAVE LOGIC v2.2 for bwv256 ===
+output_dir: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-1
+output_file: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-1/bwv256-sa-opt.npy
+DEBUG: Files exist? True | output_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-1/bwv256-sa-opt.npy exists=True | meta_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-1/bwv256-sa-opt.txt exists=True
+DEBUG: is_improvement=False, dry_run=False
+DEBUG: Skipping save - not an improvement (previous mean: 54.1)
+  bwv256       mean:   55.4  max:  140.0  median:   47.0  min:   36.0  deciles [ 43  43  43  45  47  47  60  67  74] (was 54.1)
+
+================================================================================
+SUMMARY
+================================================================================
+Processed: 1 chorales
+Improved:  0
+Average mean score: 55.4
+
+=== SAVE LOGIC v2.2 for bwv260 ===
+output_dir: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-1
+output_file: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-1/bwv260-sa-opt.npy
+DEBUG: Files exist? True | output_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-1/bwv260-sa-opt.npy exists=True | meta_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-1/bwv260-sa-opt.txt exists=True
+DEBUG: is_improvement=False, dry_run=False
+DEBUG: Skipping save - not an improvement (previous mean: 52.1)
+  bwv260       mean:   52.8  max:  137.0  median:   45.0  min:   43.0  deciles [ 43  43  44  45  45  47  47  64  74] (was 52.1)
+
+================================================================================
+SUMMARY
+================================================================================
+Processed: 1 chorales
+Improved:  0
+Average mean score: 52.8
+
+=== SAVE LOGIC v2.2 for bwv257 ===
+output_dir: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-1
+output_file: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-1/bwv257-sa-opt.npy
+DEBUG: Files exist? True | output_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-1/bwv257-sa-opt.npy exists=True | meta_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-1/bwv257-sa-opt.txt exists=True
+DEBUG: is_improvement=False, dry_run=False
+DEBUG: Skipping save - not an improvement (previous mean: 57.0)
+  bwv257       mean:   57.7  max:  140.0  median:   47.0  min:   27.0  deciles [ 43  43  43  45  47  59  65  68  87] (was 57.0)
+
+================================================================================
+SUMMARY
+================================================================================
+Processed: 1 chorales
+Improved:  0
+Average mean score: 57.7
+
+=== SAVE LOGIC v2.2 for bwv254 ===
+output_dir: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-1
+output_file: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-1/bwv254-sa-opt.npy
+DEBUG: Files exist? True | output_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-1/bwv254-sa-opt.npy exists=True | meta_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-1/bwv254-sa-opt.txt exists=True
+DEBUG: is_improvement=False, dry_run=False
+DEBUG: Skipping save - not an improvement (previous mean: 54.6)
+  bwv254       mean:   56.6  max:  146.0  median:   45.0  min:   28.0  deciles [ 43  43  44  45  45  60  64  67  82] (was 54.6)
+
+================================================================================
+SUMMARY
+================================================================================
+Processed: 1 chorales
+Improved:  0
+Average mean score: 56.6
+
+=== SAVE LOGIC v2.2 for bwv259 ===
+output_dir: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-1
+output_file: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-1/bwv259-sa-opt.npy
+DEBUG: Files exist? True | output_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-1/bwv259-sa-opt.npy exists=True | meta_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-1/bwv259-sa-opt.txt exists=True
+DEBUG: is_improvement=False, dry_run=False
+DEBUG: Skipping save - not an improvement (previous mean: 53.1)
+  bwv259       mean:   54.2  max:  146.0  median:   45.0  min:   43.0  deciles [ 43  43  45  45  45  47  63  67  74] (was 53.1)
+
+================================================================================
+SUMMARY
+================================================================================
+Processed: 1 chorales
+Improved:  0
+Average mean score: 54.2
+
+=== SAVE LOGIC v2.2 for bwv261 ===
+output_dir: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-1
+output_file: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-1/bwv261-sa-opt.npy
+DEBUG: Files exist? True | output_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-1/bwv261-sa-opt.npy exists=True | meta_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-1/bwv261-sa-opt.txt exists=True
+DEBUG: is_improvement=False, dry_run=False
+DEBUG: Skipping save - not an improvement (previous mean: 56.1)
+  bwv261       mean:   57.5  max:  141.0  median:   47.0  min:   27.0  deciles [ 43  43  45  45  47  60  67  70  89] (was 56.1)
+
+================================================================================
+SUMMARY
+================================================================================
+Processed: 1 chorales
+Improved:  0
+Average mean score: 57.5
++ wait
++ sync
+++ find Archive/opt/tolerance-1 -name '*-sa-opt.npy' -type f
+++ wc -l
++ file_count=12
++ echo '    Files saved so far: 12'
+    Files saved so far: 12
++ check_disk_usage
+++ df /home/prent
+++ tail -1
+++ awk '{print int($5)}'
++ usage_percent=8
++ '[' 8 -gt 90 ']'
++ '[' 8 -gt 80 ']'
++ echo '✓ Disk usage: 8%'
+✓ Disk usage: 8%
+Tolerance 1 complete - 1 runs finished
+
+==========================================
++ echo 'Tolerance 1 complete - 1 runs finished'
++ for tolerance in $TOLERANCES
++ echo ''
++ echo ==========================================
++ echo 'TOLERANCE LEVEL 2'
++ echo ==========================================
+TOLERANCE LEVEL 2
+==========================================
++ mkdir -p Archive/opt/tolerance-2
+++ pwd
+Data directory: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-2
++ echo 'Data directory: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-2'
+++ seq 1 1
++ for run in $(seq 1 $NUM_RUNS)
++ echo '  Run 1 of 1 (tolerance=2)'
+  Run 1 of 1 (tolerance=2)
++ counter=0
++ for c in $CHORALES
++ counter=1
++ '[' 1 -eq 0 ']'
++ for c in $CHORALES
++ python optimize_chords_sa_v2.py --tolerance 2 --chorale bwv253
++ counter=2
++ '[' 2 -eq 0 ']'
++ for c in $CHORALES
++ python optimize_chords_sa_v2.py --tolerance 2 --chorale bwv254
++ counter=3
++ '[' 3 -eq 0 ']'
++ for c in $CHORALES
++ python optimize_chords_sa_v2.py --tolerance 2 --chorale bwv255
++ counter=4
++ '[' 4 -eq 0 ']'
++ for c in $CHORALES
++ python optimize_chords_sa_v2.py --tolerance 2 --chorale bwv256
++ counter=5
++ '[' 5 -eq 0 ']'
++ for c in $CHORALES
++ python optimize_chords_sa_v2.py --tolerance 2 --chorale bwv257
++ counter=6
++ '[' 6 -eq 0 ']'
++ for c in $CHORALES
++ python optimize_chords_sa_v2.py --tolerance 2 --chorale bwv258
++ counter=7
++ '[' 7 -eq 0 ']'
++ for c in $CHORALES
++ python optimize_chords_sa_v2.py --tolerance 2 --chorale bwv259
++ counter=8
++ '[' 8 -eq 0 ']'
++ for c in $CHORALES
++ python optimize_chords_sa_v2.py --tolerance 2 --chorale bwv260
++ counter=9
++ '[' 9 -eq 0 ']'
++ for c in $CHORALES
++ python optimize_chords_sa_v2.py --tolerance 2 --chorale bwv261
++ counter=10
++ '[' 10 -eq 0 ']'
++ for c in $CHORALES
++ python optimize_chords_sa_v2.py --tolerance 2 --chorale bwv262
++ counter=11
++ '[' 11 -eq 0 ']'
++ for c in $CHORALES
++ python optimize_chords_sa_v2.py --tolerance 2 --chorale bwv263
++ counter=12
++ '[' 0 -eq 0 ']'
++ wait
++ python optimize_chords_sa_v2.py --tolerance 2 --chorale bwv264
+
+================================================================================
+PROCESSING CHORALES (SA v2)
+================================================================================
+Parameters: tolerance=2, limit_max=19, initial_temperature=2.5, cooling_rate=0.999, max_iterations=1000, rolls=8, min_repeats=5, elbow_percent=0.5, r_value=0.3, spread=7, max_gap=40, retune_on_gaps=3, time_limit=0.0, max_no_improve=50
+
+
+================================================================================
+PROCESSING CHORALES (SA v2)
+================================================================================
+Parameters: tolerance=2, limit_max=19, initial_temperature=2.5, cooling_rate=0.999, max_iterations=1000, rolls=8, min_repeats=5, elbow_percent=0.5, r_value=0.3, spread=7, max_gap=40, retune_on_gaps=3, time_limit=0.0, max_no_improve=50
+
+
+================================================================================
+PROCESSING CHORALES (SA v2)
+================================================================================
+Parameters: tolerance=2, limit_max=19, initial_temperature=2.5, cooling_rate=0.999, max_iterations=1000, rolls=8, min_repeats=5, elbow_percent=0.5, r_value=0.3, spread=7, max_gap=40, retune_on_gaps=3, time_limit=0.0, max_no_improve=50
+
+
+================================================================================
+PROCESSING CHORALES (SA v2)
+================================================================================
+Parameters: tolerance=2, limit_max=19, initial_temperature=2.5, cooling_rate=0.999, max_iterations=1000, rolls=8, min_repeats=5, elbow_percent=0.5, r_value=0.3, spread=7, max_gap=40, retune_on_gaps=3, time_limit=0.0, max_no_improve=50
+
+
+================================================================================
+PROCESSING CHORALES (SA v2)
+================================================================================
+Parameters: tolerance=2, limit_max=19, initial_temperature=2.5, cooling_rate=0.999, max_iterations=1000, rolls=8, min_repeats=5, elbow_percent=0.5, r_value=0.3, spread=7, max_gap=40, retune_on_gaps=3, time_limit=0.0, max_no_improve=50
+
+
+================================================================================
+PROCESSING CHORALES (SA v2)
+================================================================================
+Parameters: tolerance=2, limit_max=19, initial_temperature=2.5, cooling_rate=0.999, max_iterations=1000, rolls=8, min_repeats=5, elbow_percent=0.5, r_value=0.3, spread=7, max_gap=40, retune_on_gaps=3, time_limit=0.0, max_no_improve=50
+
+
+================================================================================
+PROCESSING CHORALES (SA v2)
+================================================================================
+Parameters: tolerance=2, limit_max=19, initial_temperature=2.5, cooling_rate=0.999, max_iterations=1000, rolls=8, min_repeats=5, elbow_percent=0.5, r_value=0.3, spread=7, max_gap=40, retune_on_gaps=3, time_limit=0.0, max_no_improve=50
+
+
+================================================================================
+PROCESSING CHORALES (SA v2)
+================================================================================
+Parameters: tolerance=2, limit_max=19, initial_temperature=2.5, cooling_rate=0.999, max_iterations=1000, rolls=8, min_repeats=5, elbow_percent=0.5, r_value=0.3, spread=7, max_gap=40, retune_on_gaps=3, time_limit=0.0, max_no_improve=50
+
+
+================================================================================
+PROCESSING CHORALES (SA v2)
+================================================================================
+Parameters: tolerance=2, limit_max=19, initial_temperature=2.5, cooling_rate=0.999, max_iterations=1000, rolls=8, min_repeats=5, elbow_percent=0.5, r_value=0.3, spread=7, max_gap=40, retune_on_gaps=3, time_limit=0.0, max_no_improve=50
+
+
+================================================================================
+PROCESSING CHORALES (SA v2)
+================================================================================
+Parameters: tolerance=2, limit_max=19, initial_temperature=2.5, cooling_rate=0.999, max_iterations=1000, rolls=8, min_repeats=5, elbow_percent=0.5, r_value=0.3, spread=7, max_gap=40, retune_on_gaps=3, time_limit=0.0, max_no_improve=50
+
+
+================================================================================
+PROCESSING CHORALES (SA v2)
+================================================================================
+Parameters: tolerance=2, limit_max=19, initial_temperature=2.5, cooling_rate=0.999, max_iterations=1000, rolls=8, min_repeats=5, elbow_percent=0.5, r_value=0.3, spread=7, max_gap=40, retune_on_gaps=3, time_limit=0.0, max_no_improve=50
+
+
+================================================================================
+PROCESSING CHORALES (SA v2)
+================================================================================
+Parameters: tolerance=2, limit_max=19, initial_temperature=2.5, cooling_rate=0.999, max_iterations=1000, rolls=8, min_repeats=5, elbow_percent=0.5, r_value=0.3, spread=7, max_gap=40, retune_on_gaps=3, time_limit=0.0, max_no_improve=50
+
+
+=== SAVE LOGIC v2.2 for bwv255 ===
+output_dir: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-2
+output_file: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-2/bwv255-sa-opt.npy
+DEBUG: Files exist? True | output_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-2/bwv255-sa-opt.npy exists=True | meta_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-2/bwv255-sa-opt.txt exists=True
+DEBUG: is_improvement=False, dry_run=False
+DEBUG: Skipping save - not an improvement (previous mean: 50.7)
+  bwv255       mean:   50.8  max:   82.0  median:   43.0  min:   43.0  deciles [ 43  43  43  43  43  45  60  63  67] (was 50.7)
+
+================================================================================
+SUMMARY
+================================================================================
+Processed: 1 chorales
+Improved:  0
+Average mean score: 50.8
+
+=== SAVE LOGIC v2.2 for bwv264 ===
+output_dir: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-2
+output_file: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-2/bwv264-sa-opt.npy
+DEBUG: Files exist? True | output_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-2/bwv264-sa-opt.npy exists=True | meta_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-2/bwv264-sa-opt.txt exists=True
+DEBUG: is_improvement=False, dry_run=False
+DEBUG: Skipping save - not an improvement (previous mean: 47.9)
+  bwv264       mean:   48.2  max:  104.0  median:   43.0  min:   43.0  deciles [ 43  43  43  43  43  45  45  47  67] (was 47.9)
+
+================================================================================
+SUMMARY
+================================================================================
+Processed: 1 chorales
+Improved:  0
+Average mean score: 48.2
+
+=== SAVE LOGIC v2.2 for bwv253 ===
+output_dir: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-2
+output_file: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-2/bwv253-sa-opt.npy
+DEBUG: Files exist? True | output_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-2/bwv253-sa-opt.npy exists=True | meta_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-2/bwv253-sa-opt.txt exists=True
+DEBUG: is_improvement=False, dry_run=False
+DEBUG: Skipping save - not an improvement (previous mean: 48.9)
+  bwv253       mean:   49.1  max:   93.0  median:   43.0  min:   28.0  deciles [ 43  43  43  43  43  45  47  55  67] (was 48.9)
+
+================================================================================
+SUMMARY
+================================================================================
+Processed: 1 chorales
+Improved:  0
+Average mean score: 49.1
+
+=== SAVE LOGIC v2.2 for bwv262 ===
+output_dir: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-2
+output_file: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-2/bwv262-sa-opt.npy
+DEBUG: Files exist? True | output_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-2/bwv262-sa-opt.npy exists=True | meta_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-2/bwv262-sa-opt.txt exists=True
+DEBUG: is_improvement=False, dry_run=False
+DEBUG: Skipping save - not an improvement (previous mean: 47.4)
+  bwv262       mean:   47.5  max:   93.0  median:   43.0  min:   27.0  deciles [ 27  36  43  43  43  45  47  63  67] (was 47.4)
+
+================================================================================
+SUMMARY
+================================================================================
+Processed: 1 chorales
+Improved:  0
+Average mean score: 47.5
+
+=== SAVE LOGIC v2.2 for bwv258 ===
+output_dir: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-2
+output_file: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-2/bwv258-sa-opt.npy
+DEBUG: Files exist? True | output_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-2/bwv258-sa-opt.npy exists=True | meta_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-2/bwv258-sa-opt.txt exists=True
+DEBUG: is_improvement=False, dry_run=False
+DEBUG: Skipping save - not an improvement (previous mean: 57.1)
+  bwv258       mean:   58.0  max:  140.0  median:   47.0  min:   43.0  deciles [ 43  43  43  45  47  56  64  67  78] (was 57.1)
+
+================================================================================
+SUMMARY
+================================================================================
+Processed: 1 chorales
+Improved:  0
+Average mean score: 58.0
+
+=== SAVE LOGIC v2.2 for bwv263 ===
+output_dir: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-2
+output_file: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-2/bwv263-sa-opt.npy
+DEBUG: Files exist? True | output_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-2/bwv263-sa-opt.npy exists=True | meta_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-2/bwv263-sa-opt.txt exists=True
+DEBUG: is_improvement=False, dry_run=False
+DEBUG: Skipping save - not an improvement (previous mean: 49.5)
+  bwv263       mean:   50.7  max:  123.0  median:   43.0  min:   21.0  deciles [ 43  43  43  43  43  43  45  60  74] (was 49.5)
+
+================================================================================
+SUMMARY
+================================================================================
+Processed: 1 chorales
+Improved:  0
+Average mean score: 50.7
+
+=== SAVE LOGIC v2.2 for bwv256 ===
+output_dir: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-2
+output_file: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-2/bwv256-sa-opt.npy
+DEBUG: Files exist? True | output_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-2/bwv256-sa-opt.npy exists=True | meta_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-2/bwv256-sa-opt.txt exists=True
+DEBUG: is_improvement=False, dry_run=False
+DEBUG: Skipping save - not an improvement (previous mean: 53.9)
+  bwv256       mean:   54.1  max:  140.0  median:   47.0  min:   36.0  deciles [ 43  43  43  45  47  47  60  67  74] (was 53.9)
+
+================================================================================
+SUMMARY
+================================================================================
+Processed: 1 chorales
+Improved:  0
+Average mean score: 54.1
+
+=== SAVE LOGIC v2.2 for bwv260 ===
+output_dir: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-2
+output_file: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-2/bwv260-sa-opt.npy
+DEBUG: Files exist? True | output_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-2/bwv260-sa-opt.npy exists=True | meta_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-2/bwv260-sa-opt.txt exists=True
+DEBUG: is_improvement=False, dry_run=False
+DEBUG: Skipping save - not an improvement (previous mean: 52.1)
+  bwv260       mean:   53.1  max:  137.0  median:   45.0  min:   43.0  deciles [ 43  43  44  45  45  47  47  64  74] (was 52.1)
+
+================================================================================
+SUMMARY
+================================================================================
+Processed: 1 chorales
+Improved:  0
+Average mean score: 53.1
+
+=== SAVE LOGIC v2.2 for bwv257 ===
+output_dir: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-2
+output_file: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-2/bwv257-sa-opt.npy
+DEBUG: Files exist? True | output_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-2/bwv257-sa-opt.npy exists=True | meta_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-2/bwv257-sa-opt.txt exists=True
+DEBUG: is_improvement=False, dry_run=False
+DEBUG: Skipping save - not an improvement (previous mean: 56.7)
+  bwv257       mean:   57.7  max:  145.0  median:   47.0  min:   27.0  deciles [ 43  43  43  45  47  59  65  67  87] (was 56.7)
+
+================================================================================
+SUMMARY
+================================================================================
+Processed: 1 chorales
+Improved:  0
+Average mean score: 57.7
+
+=== SAVE LOGIC v2.2 for bwv259 ===
+output_dir: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-2
+output_file: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-2/bwv259-sa-opt.npy
+DEBUG: Files exist? True | output_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-2/bwv259-sa-opt.npy exists=True | meta_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-2/bwv259-sa-opt.txt exists=True
+DEBUG: is_improvement=False, dry_run=False
+DEBUG: Skipping save - not an improvement (previous mean: 53.1)
+  bwv259       mean:   53.3  max:  104.0  median:   45.0  min:   43.0  deciles [ 43  43  45  45  45  47  63  67  70] (was 53.1)
+
+================================================================================
+SUMMARY
+================================================================================
+Processed: 1 chorales
+Improved:  0
+Average mean score: 53.3
+
+=== SAVE LOGIC v2.2 for bwv254 ===
+output_dir: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-2
+output_file: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-2/bwv254-sa-opt.npy
+DEBUG: Files exist? True | output_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-2/bwv254-sa-opt.npy exists=True | meta_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-2/bwv254-sa-opt.txt exists=True
+DEBUG: is_improvement=False, dry_run=False
+DEBUG: Skipping save - not an improvement (previous mean: 54.4)
+  bwv254       mean:   54.6  max:  123.0  median:   45.0  min:   28.0  deciles [ 43  43  45  45  45  60  64  67  70] (was 54.4)
+
+================================================================================
+SUMMARY
+================================================================================
+Processed: 1 chorales
+Improved:  0
+Average mean score: 54.6
+
+=== SAVE LOGIC v2.2 for bwv261 ===
+output_dir: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-2
+output_file: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-2/bwv261-sa-opt.npy
+DEBUG: Files exist? True | output_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-2/bwv261-sa-opt.npy exists=True | meta_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-2/bwv261-sa-opt.txt exists=True
+DEBUG: is_improvement=False, dry_run=False
+DEBUG: Skipping save - not an improvement (previous mean: 56.3)
+  bwv261       mean:   56.5  max:  140.0  median:   47.0  min:   27.0  deciles [ 43  43  45  45  47  60  67  67  78] (was 56.3)
+
+================================================================================
+SUMMARY
+================================================================================
+Processed: 1 chorales
+Improved:  0
+Average mean score: 56.5
++ wait
++ sync
+++ find Archive/opt/tolerance-2 -name '*-sa-opt.npy' -type f
+++ wc -l
++ file_count=12
++ echo '    Files saved so far: 12'
+    Files saved so far: 12
++ check_disk_usage
+++ df /home/prent
+++ tail -1
+++ awk '{print int($5)}'
++ usage_percent=8
++ '[' 8 -gt 90 ']'
+✓ Disk usage: 8%
++ '[' 8 -gt 80 ']'
++ echo '✓ Disk usage: 8%'
+Tolerance 2 complete - 1 runs finished
++ echo 'Tolerance 2 complete - 1 runs finished'
++ for tolerance in $TOLERANCES
++ echo ''
+
+==========================================
+TOLERANCE LEVEL 3
++ echo ==========================================
++ echo 'TOLERANCE LEVEL 3'
++ echo ==========================================
+==========================================
++ mkdir -p Archive/opt/tolerance-3
+++ pwd
+Data directory: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-3
++ echo 'Data directory: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-3'
+++ seq 1 1
++ for run in $(seq 1 $NUM_RUNS)
++ echo '  Run 1 of 1 (tolerance=3)'
+  Run 1 of 1 (tolerance=3)
++ counter=0
++ for c in $CHORALES
++ counter=1
++ '[' 1 -eq 0 ']'
++ for c in $CHORALES
++ python optimize_chords_sa_v2.py --tolerance 3 --chorale bwv253
++ counter=2
++ '[' 2 -eq 0 ']'
++ for c in $CHORALES
++ python optimize_chords_sa_v2.py --tolerance 3 --chorale bwv254
++ counter=3
++ '[' 3 -eq 0 ']'
++ for c in $CHORALES
++ python optimize_chords_sa_v2.py --tolerance 3 --chorale bwv255
++ counter=4
++ '[' 4 -eq 0 ']'
++ for c in $CHORALES
++ python optimize_chords_sa_v2.py --tolerance 3 --chorale bwv256
++ counter=5
++ '[' 5 -eq 0 ']'
++ for c in $CHORALES
++ python optimize_chords_sa_v2.py --tolerance 3 --chorale bwv257
++ counter=6
++ '[' 6 -eq 0 ']'
++ for c in $CHORALES
++ python optimize_chords_sa_v2.py --tolerance 3 --chorale bwv258
++ counter=7
++ '[' 7 -eq 0 ']'
++ for c in $CHORALES
++ python optimize_chords_sa_v2.py --tolerance 3 --chorale bwv259
++ counter=8
++ '[' 8 -eq 0 ']'
++ for c in $CHORALES
++ python optimize_chords_sa_v2.py --tolerance 3 --chorale bwv260
++ counter=9
++ '[' 9 -eq 0 ']'
++ for c in $CHORALES
++ python optimize_chords_sa_v2.py --tolerance 3 --chorale bwv261
++ counter=10
++ '[' 10 -eq 0 ']'
++ for c in $CHORALES
++ python optimize_chords_sa_v2.py --tolerance 3 --chorale bwv262
++ counter=11
++ '[' 11 -eq 0 ']'
++ for c in $CHORALES
++ python optimize_chords_sa_v2.py --tolerance 3 --chorale bwv263
++ counter=12
++ '[' 0 -eq 0 ']'
++ wait
++ python optimize_chords_sa_v2.py --tolerance 3 --chorale bwv264
+
+================================================================================
+PROCESSING CHORALES (SA v2)
+================================================================================
+Parameters: tolerance=3, limit_max=19, initial_temperature=2.5, cooling_rate=0.999, max_iterations=1000, rolls=8, min_repeats=5, elbow_percent=0.5, r_value=0.3, spread=7, max_gap=40, retune_on_gaps=3, time_limit=0.0, max_no_improve=50
+
+
+================================================================================
+PROCESSING CHORALES (SA v2)
+================================================================================
+Parameters: tolerance=3, limit_max=19, initial_temperature=2.5, cooling_rate=0.999, max_iterations=1000, rolls=8, min_repeats=5, elbow_percent=0.5, r_value=0.3, spread=7, max_gap=40, retune_on_gaps=3, time_limit=0.0, max_no_improve=50
+
+
+================================================================================
+PROCESSING CHORALES (SA v2)
+================================================================================
+Parameters: tolerance=3, limit_max=19, initial_temperature=2.5, cooling_rate=0.999, max_iterations=1000, rolls=8, min_repeats=5, elbow_percent=0.5, r_value=0.3, spread=7, max_gap=40, retune_on_gaps=3, time_limit=0.0, max_no_improve=50
+
+
+================================================================================
+PROCESSING CHORALES (SA v2)
+================================================================================
+Parameters: tolerance=3, limit_max=19, initial_temperature=2.5, cooling_rate=0.999, max_iterations=1000, rolls=8, min_repeats=5, elbow_percent=0.5, r_value=0.3, spread=7, max_gap=40, retune_on_gaps=3, time_limit=0.0, max_no_improve=50
+
+
+================================================================================
+PROCESSING CHORALES (SA v2)
+================================================================================
+Parameters: tolerance=3, limit_max=19, initial_temperature=2.5, cooling_rate=0.999, max_iterations=1000, rolls=8, min_repeats=5, elbow_percent=0.5, r_value=0.3, spread=7, max_gap=40, retune_on_gaps=3, time_limit=0.0, max_no_improve=50
+
+
+================================================================================
+PROCESSING CHORALES (SA v2)
+================================================================================
+Parameters: tolerance=3, limit_max=19, initial_temperature=2.5, cooling_rate=0.999, max_iterations=1000, rolls=8, min_repeats=5, elbow_percent=0.5, r_value=0.3, spread=7, max_gap=40, retune_on_gaps=3, time_limit=0.0, max_no_improve=50
+
+
+================================================================================
+PROCESSING CHORALES (SA v2)
+================================================================================
+Parameters: tolerance=3, limit_max=19, initial_temperature=2.5, cooling_rate=0.999, max_iterations=1000, rolls=8, min_repeats=5, elbow_percent=0.5, r_value=0.3, spread=7, max_gap=40, retune_on_gaps=3, time_limit=0.0, max_no_improve=50
+
+
+================================================================================
+PROCESSING CHORALES (SA v2)
+================================================================================
+Parameters: tolerance=3, limit_max=19, initial_temperature=2.5, cooling_rate=0.999, max_iterations=1000, rolls=8, min_repeats=5, elbow_percent=0.5, r_value=0.3, spread=7, max_gap=40, retune_on_gaps=3, time_limit=0.0, max_no_improve=50
+
+
+================================================================================
+PROCESSING CHORALES (SA v2)
+================================================================================
+Parameters: tolerance=3, limit_max=19, initial_temperature=2.5, cooling_rate=0.999, max_iterations=1000, rolls=8, min_repeats=5, elbow_percent=0.5, r_value=0.3, spread=7, max_gap=40, retune_on_gaps=3, time_limit=0.0, max_no_improve=50
+
+
+================================================================================
+PROCESSING CHORALES (SA v2)
+================================================================================
+Parameters: tolerance=3, limit_max=19, initial_temperature=2.5, cooling_rate=0.999, max_iterations=1000, rolls=8, min_repeats=5, elbow_percent=0.5, r_value=0.3, spread=7, max_gap=40, retune_on_gaps=3, time_limit=0.0, max_no_improve=50
+
+
+================================================================================
+PROCESSING CHORALES (SA v2)
+================================================================================
+Parameters: tolerance=3, limit_max=19, initial_temperature=2.5, cooling_rate=0.999, max_iterations=1000, rolls=8, min_repeats=5, elbow_percent=0.5, r_value=0.3, spread=7, max_gap=40, retune_on_gaps=3, time_limit=0.0, max_no_improve=50
+
+
+================================================================================
+PROCESSING CHORALES (SA v2)
+================================================================================
+Parameters: tolerance=3, limit_max=19, initial_temperature=2.5, cooling_rate=0.999, max_iterations=1000, rolls=8, min_repeats=5, elbow_percent=0.5, r_value=0.3, spread=7, max_gap=40, retune_on_gaps=3, time_limit=0.0, max_no_improve=50
+
+
+=== SAVE LOGIC v2.2 for bwv255 ===
+output_dir: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-3
+output_file: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-3/bwv255-sa-opt.npy
+DEBUG: Files exist? True | output_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-3/bwv255-sa-opt.npy exists=True | meta_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-3/bwv255-sa-opt.txt exists=True
+DEBUG: is_improvement=False, dry_run=False
+DEBUG: Skipping save - not an improvement (previous mean: 50.7)
+  bwv255       mean:   51.7  max:   96.0  median:   43.0  min:   43.0  deciles [ 43  43  43  43  43  45  60  64  67] (was 50.7)
+
+================================================================================
+SUMMARY
+================================================================================
+Processed: 1 chorales
+Improved:  0
+Average mean score: 51.7
+
+=== SAVE LOGIC v2.2 for bwv264 ===
+output_dir: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-3
+output_file: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-3/bwv264-sa-opt.npy
+DEBUG: Files exist? True | output_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-3/bwv264-sa-opt.npy exists=True | meta_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-3/bwv264-sa-opt.txt exists=True
+DEBUG: is_improvement=False, dry_run=False
+DEBUG: Skipping save - not an improvement (previous mean: 47.9)
+  bwv264       mean:   47.9  max:  104.0  median:   43.0  min:   43.0  deciles [ 43  43  43  43  43  45  45  47  65] (was 47.9)
+
+================================================================================
+SUMMARY
+================================================================================
+Processed: 1 chorales
+Improved:  0
+Average mean score: 47.9
+
+=== SAVE LOGIC v2.2 for bwv253 ===
+output_dir: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-3
+output_file: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-3/bwv253-sa-opt.npy
+DEBUG: Files exist? True | output_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-3/bwv253-sa-opt.npy exists=True | meta_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-3/bwv253-sa-opt.txt exists=True
+DEBUG: is_improvement=False, dry_run=False
+DEBUG: Skipping save - not an improvement (previous mean: 49.0)
+  bwv253       mean:   49.1  max:   93.0  median:   43.0  min:   28.0  deciles [ 43  43  43  43  43  45  47  55  67] (was 49.0)
+
+================================================================================
+SUMMARY
+================================================================================
+Processed: 1 chorales
+Improved:  0
+Average mean score: 49.1
+
+=== SAVE LOGIC v2.2 for bwv262 ===
+output_dir: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-3
+output_file: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-3/bwv262-sa-opt.npy
+DEBUG: Files exist? True | output_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-3/bwv262-sa-opt.npy exists=True | meta_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-3/bwv262-sa-opt.txt exists=True
+DEBUG: is_improvement=False, dry_run=False
+DEBUG: Skipping save - not an improvement (previous mean: 47.4)
+  bwv262       mean:   48.2  max:  113.0  median:   43.0  min:   27.0  deciles [ 27  36  43  43  43  45  47  63  70] (was 47.4)
+
+================================================================================
+SUMMARY
+================================================================================
+Processed: 1 chorales
+Improved:  0
+Average mean score: 48.2
+
+=== SAVE LOGIC v2.2 for bwv258 ===
+output_dir: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-3
+output_file: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-3/bwv258-sa-opt.npy
+DEBUG: Files exist? True | output_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-3/bwv258-sa-opt.npy exists=True | meta_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-3/bwv258-sa-opt.txt exists=True
+DEBUG: is_improvement=False, dry_run=False
+DEBUG: Skipping save - not an improvement (previous mean: 55.3)
+  bwv258       mean:   55.8  max:   95.0  median:   47.0  min:   43.0  deciles [ 43  43  43  45  47  56  64  67  78] (was 55.3)
+
+================================================================================
+SUMMARY
+================================================================================
+Processed: 1 chorales
+Improved:  0
+Average mean score: 55.8
+
+=== SAVE LOGIC v2.2 for bwv263 ===
+output_dir: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-3
+output_file: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-3/bwv263-sa-opt.npy
+DEBUG: Files exist? True | output_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-3/bwv263-sa-opt.npy exists=True | meta_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-3/bwv263-sa-opt.txt exists=True
+DEBUG: is_improvement=False, dry_run=False
+DEBUG: Skipping save - not an improvement (previous mean: 49.2)
+  bwv263       mean:   49.7  max:  105.0  median:   43.0  min:   21.0  deciles [ 43  43  43  43  43  43  45  60  70] (was 49.2)
+
+================================================================================
+SUMMARY
+================================================================================
+Processed: 1 chorales
+Improved:  0
+Average mean score: 49.7
+
+=== SAVE LOGIC v2.2 for bwv256 ===
+output_dir: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-3
+output_file: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-3/bwv256-sa-opt.npy
+DEBUG: Files exist? True | output_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-3/bwv256-sa-opt.npy exists=True | meta_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-3/bwv256-sa-opt.txt exists=True
+DEBUG: is_improvement=False, dry_run=False
+DEBUG: Skipping save - not an improvement (previous mean: 53.3)
+  bwv256       mean:   53.5  max:   95.0  median:   47.0  min:   36.0  deciles [ 43  43  43  45  47  47  60  67  74] (was 53.3)
+
+================================================================================
+SUMMARY
+================================================================================
+Processed: 1 chorales
+Improved:  0
+Average mean score: 53.5
+
+=== SAVE LOGIC v2.2 for bwv260 ===
+output_dir: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-3
+output_file: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-3/bwv260-sa-opt.npy
+DEBUG: Files exist? True | output_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-3/bwv260-sa-opt.npy exists=True | meta_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-3/bwv260-sa-opt.txt exists=True
+DEBUG: is_improvement=False, dry_run=False
+DEBUG: Skipping save - not an improvement (previous mean: 51.9)
+  bwv260       mean:   52.8  max:  113.0  median:   45.0  min:   43.0  deciles [ 43  43  44  45  45  47  47  64  74] (was 51.9)
+
+================================================================================
+SUMMARY
+================================================================================
+Processed: 1 chorales
+Improved:  0
+Average mean score: 52.8
+
+=== SAVE LOGIC v2.2 for bwv257 ===
+output_dir: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-3
+output_file: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-3/bwv257-sa-opt.npy
+DEBUG: Files exist? True | output_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-3/bwv257-sa-opt.npy exists=True | meta_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-3/bwv257-sa-opt.txt exists=True
+DEBUG: is_improvement=False, dry_run=False
+DEBUG: Skipping save - not an improvement (previous mean: 55.6)
+  bwv257       mean:   82.2  max: 2206.0  median:   47.0  min:   27.0  deciles [ 43  43  43  45  47  59  65  67  87] (was 55.6)
+
+================================================================================
+SUMMARY
+================================================================================
+Processed: 1 chorales
+Improved:  0
+Average mean score: 82.2
+
+=== SAVE LOGIC v2.2 for bwv259 ===
+output_dir: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-3
+output_file: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-3/bwv259-sa-opt.npy
+DEBUG: Files exist? True | output_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-3/bwv259-sa-opt.npy exists=True | meta_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-3/bwv259-sa-opt.txt exists=True
+DEBUG: is_improvement=False, dry_run=False
+DEBUG: Skipping save - not an improvement (previous mean: 53.1)
+  bwv259       mean:   53.3  max:  119.0  median:   45.0  min:   43.0  deciles [ 43  43  45  45  45  47  63  67  70] (was 53.1)
+
+================================================================================
+SUMMARY
+================================================================================
+Processed: 1 chorales
+Improved:  0
+Average mean score: 53.3
+
+=== SAVE LOGIC v2.2 for bwv254 ===
+output_dir: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-3
+output_file: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-3/bwv254-sa-opt.npy
+DEBUG: Files exist? True | output_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-3/bwv254-sa-opt.npy exists=True | meta_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-3/bwv254-sa-opt.txt exists=True
+DEBUG: is_improvement=False, dry_run=False
+DEBUG: Skipping save - not an improvement (previous mean: 54.1)
+  bwv254       mean:   54.2  max:   95.0  median:   45.0  min:   28.0  deciles [ 43  43  45  45  45  60  64  67  72] (was 54.1)
+
+================================================================================
+SUMMARY
+================================================================================
+Processed: 1 chorales
+Improved:  0
+Average mean score: 54.2
+
+=== SAVE LOGIC v2.2 for bwv261 ===
+output_dir: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-3
+output_file: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-3/bwv261-sa-opt.npy
+DEBUG: Files exist? True | output_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-3/bwv261-sa-opt.npy exists=True | meta_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-3/bwv261-sa-opt.txt exists=True
+DEBUG: is_improvement=False, dry_run=False
+DEBUG: Skipping save - not an improvement (previous mean: 55.6)
+  bwv261       mean:   55.8  max:  105.0  median:   47.0  min:   27.0  deciles [ 43  43  45  45  47  60  67  67  74] (was 55.6)
+
+================================================================================
+SUMMARY
+================================================================================
+Processed: 1 chorales
+Improved:  0
+Average mean score: 55.8
++ wait
++ sync
+++ find Archive/opt/tolerance-3 -name '*-sa-opt.npy' -type f
+++ wc -l
++ file_count=12
++ echo '    Files saved so far: 12'
+    Files saved so far: 12
++ check_disk_usage
+++ df /home/prent
+++ tail -1
+++ awk '{print int($5)}'
++ usage_percent=8
++ '[' 8 -gt 90 ']'
++ '[' 8 -gt 80 ']'
+✓ Disk usage: 8%
++ echo '✓ Disk usage: 8%'
++ echo 'Tolerance 3 complete - 1 runs finished'
+Tolerance 3 complete - 1 runs finished
+
+==========================================
++ for tolerance in $TOLERANCES
++ echo ''
++ echo ==========================================
++ echo 'TOLERANCE LEVEL 4'
++ echo ==========================================
+TOLERANCE LEVEL 4
+==========================================
++ mkdir -p Archive/opt/tolerance-4
+++ pwd
+Data directory: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-4
++ echo 'Data directory: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-4'
+++ seq 1 1
++ for run in $(seq 1 $NUM_RUNS)
+  Run 1 of 1 (tolerance=4)
++ echo '  Run 1 of 1 (tolerance=4)'
++ counter=0
++ for c in $CHORALES
++ counter=1
++ '[' 1 -eq 0 ']'
++ for c in $CHORALES
++ python optimize_chords_sa_v2.py --tolerance 4 --chorale bwv253
++ counter=2
++ '[' 2 -eq 0 ']'
++ for c in $CHORALES
++ python optimize_chords_sa_v2.py --tolerance 4 --chorale bwv254
++ counter=3
++ python optimize_chords_sa_v2.py --tolerance 4 --chorale bwv255
++ '[' 3 -eq 0 ']'
++ for c in $CHORALES
++ python optimize_chords_sa_v2.py --tolerance 4 --chorale bwv256
++ counter=4
++ '[' 4 -eq 0 ']'
++ for c in $CHORALES
++ counter=5
++ '[' 5 -eq 0 ']'
++ for c in $CHORALES
++ python optimize_chords_sa_v2.py --tolerance 4 --chorale bwv257
++ counter=6
++ '[' 6 -eq 0 ']'
++ for c in $CHORALES
++ python optimize_chords_sa_v2.py --tolerance 4 --chorale bwv258
++ counter=7
++ '[' 7 -eq 0 ']'
++ for c in $CHORALES
++ python optimize_chords_sa_v2.py --tolerance 4 --chorale bwv259
++ counter=8
++ '[' 8 -eq 0 ']'
++ for c in $CHORALES
++ python optimize_chords_sa_v2.py --tolerance 4 --chorale bwv260
++ counter=9
++ '[' 9 -eq 0 ']'
++ for c in $CHORALES
++ python optimize_chords_sa_v2.py --tolerance 4 --chorale bwv261
++ counter=10
++ '[' 10 -eq 0 ']'
++ for c in $CHORALES
++ python optimize_chords_sa_v2.py --tolerance 4 --chorale bwv262
++ counter=11
++ '[' 11 -eq 0 ']'
++ for c in $CHORALES
++ python optimize_chords_sa_v2.py --tolerance 4 --chorale bwv263
++ counter=12
++ '[' 0 -eq 0 ']'
++ wait
++ python optimize_chords_sa_v2.py --tolerance 4 --chorale bwv264
+
+================================================================================
+PROCESSING CHORALES (SA v2)
+================================================================================
+Parameters: tolerance=4, limit_max=19, initial_temperature=2.5, cooling_rate=0.999, max_iterations=1000, rolls=8, min_repeats=5, elbow_percent=0.5, r_value=0.3, spread=7, max_gap=40, retune_on_gaps=3, time_limit=0.0, max_no_improve=50
+
+
+================================================================================
+PROCESSING CHORALES (SA v2)
+================================================================================
+Parameters: tolerance=4, limit_max=19, initial_temperature=2.5, cooling_rate=0.999, max_iterations=1000, rolls=8, min_repeats=5, elbow_percent=0.5, r_value=0.3, spread=7, max_gap=40, retune_on_gaps=3, time_limit=0.0, max_no_improve=50
+
+
+================================================================================
+PROCESSING CHORALES (SA v2)
+================================================================================
+Parameters: tolerance=4, limit_max=19, initial_temperature=2.5, cooling_rate=0.999, max_iterations=1000, rolls=8, min_repeats=5, elbow_percent=0.5, r_value=0.3, spread=7, max_gap=40, retune_on_gaps=3, time_limit=0.0, max_no_improve=50
+
+
+================================================================================
+PROCESSING CHORALES (SA v2)
+
+================================================================================
+PROCESSING CHORALES (SA v2)
+================================================================================
+Parameters: tolerance=4, limit_max=19, initial_temperature=2.5, cooling_rate=0.999, max_iterations=1000, rolls=8, min_repeats=5, elbow_percent=0.5, r_value=0.3, spread=7, max_gap=40, retune_on_gaps=3, time_limit=0.0, max_no_improve=50
+
+================================================================================
+Parameters: tolerance=4, limit_max=19, initial_temperature=2.5, cooling_rate=0.999, max_iterations=1000, rolls=8, min_repeats=5, elbow_percent=0.5, r_value=0.3, spread=7, max_gap=40, retune_on_gaps=3, time_limit=0.0, max_no_improve=50
+
+
+================================================================================
+PROCESSING CHORALES (SA v2)
+================================================================================
+Parameters: tolerance=4, limit_max=19, initial_temperature=2.5, cooling_rate=0.999, max_iterations=1000, rolls=8, min_repeats=5, elbow_percent=0.5, r_value=0.3, spread=7, max_gap=40, retune_on_gaps=3, time_limit=0.0, max_no_improve=50
+
+
+================================================================================
+PROCESSING CHORALES (SA v2)
+================================================================================
+Parameters: tolerance=4, limit_max=19, initial_temperature=2.5, cooling_rate=0.999, max_iterations=1000, rolls=8, min_repeats=5, elbow_percent=0.5, r_value=0.3, spread=7, max_gap=40, retune_on_gaps=3, time_limit=0.0, max_no_improve=50
+
+
+================================================================================
+PROCESSING CHORALES (SA v2)
+================================================================================
+Parameters: tolerance=4, limit_max=19, initial_temperature=2.5, cooling_rate=0.999, max_iterations=1000, rolls=8, min_repeats=5, elbow_percent=0.5, r_value=0.3, spread=7, max_gap=40, retune_on_gaps=3, time_limit=0.0, max_no_improve=50
+
+
+================================================================================
+PROCESSING CHORALES (SA v2)
+================================================================================
+Parameters: tolerance=4, limit_max=19, initial_temperature=2.5, cooling_rate=0.999, max_iterations=1000, rolls=8, min_repeats=5, elbow_percent=0.5, r_value=0.3, spread=7, max_gap=40, retune_on_gaps=3, time_limit=0.0, max_no_improve=50
+
+
+================================================================================
+PROCESSING CHORALES (SA v2)
+================================================================================
+Parameters: tolerance=4, limit_max=19, initial_temperature=2.5, cooling_rate=0.999, max_iterations=1000, rolls=8, min_repeats=5, elbow_percent=0.5, r_value=0.3, spread=7, max_gap=40, retune_on_gaps=3, time_limit=0.0, max_no_improve=50
+
+
+================================================================================
+PROCESSING CHORALES (SA v2)
+================================================================================
+Parameters: tolerance=4, limit_max=19, initial_temperature=2.5, cooling_rate=0.999, max_iterations=1000, rolls=8, min_repeats=5, elbow_percent=0.5, r_value=0.3, spread=7, max_gap=40, retune_on_gaps=3, time_limit=0.0, max_no_improve=50
+
+
+================================================================================
+PROCESSING CHORALES (SA v2)
+================================================================================
+Parameters: tolerance=4, limit_max=19, initial_temperature=2.5, cooling_rate=0.999, max_iterations=1000, rolls=8, min_repeats=5, elbow_percent=0.5, r_value=0.3, spread=7, max_gap=40, retune_on_gaps=3, time_limit=0.0, max_no_improve=50
+
+
+=== SAVE LOGIC v2.2 for bwv255 ===
+output_dir: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-4
+output_file: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-4/bwv255-sa-opt.npy
+DEBUG: Files exist? True | output_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-4/bwv255-sa-opt.npy exists=True | meta_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-4/bwv255-sa-opt.txt exists=True
+DEBUG: is_improvement=False, dry_run=False
+DEBUG: Skipping save - not an improvement (previous mean: 50.7)
+  bwv255       mean:   50.7  max:   82.0  median:   43.0  min:   43.0  deciles [ 43  43  43  43  43  45  59  62  67] (was 50.7)
+
+================================================================================
+SUMMARY
+================================================================================
+Processed: 1 chorales
+Improved:  0
+Average mean score: 50.7
+
+=== SAVE LOGIC v2.2 for bwv264 ===
+output_dir: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-4
+output_file: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-4/bwv264-sa-opt.npy
+DEBUG: Files exist? True | output_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-4/bwv264-sa-opt.npy exists=True | meta_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-4/bwv264-sa-opt.txt exists=True
+DEBUG: is_improvement=False, dry_run=False
+DEBUG: Skipping save - not an improvement (previous mean: 47.9)
+  bwv264       mean:   47.9  max:   96.0  median:   43.0  min:   43.0  deciles [ 43  43  43  43  43  45  45  47  67] (was 47.9)
+
+================================================================================
+SUMMARY
+================================================================================
+Processed: 1 chorales
+Improved:  0
+Average mean score: 47.9
+
+=== SAVE LOGIC v2.2 for bwv253 ===
+output_dir: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-4
+output_file: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-4/bwv253-sa-opt.npy
+DEBUG: Files exist? True | output_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-4/bwv253-sa-opt.npy exists=True | meta_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-4/bwv253-sa-opt.txt exists=True
+DEBUG: is_improvement=True, dry_run=False
+DEBUG: Created/verified dir /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-4, dir exists: True
+DEBUG: Saved numpy to /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-4/bwv253-sa-opt.npy, file exists: True
+DEBUG: Saved metadata to /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-4/bwv253-sa-opt.txt, file exists: True
+✓ bwv253: Saved to /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-4/bwv253-sa-opt.npy
+✓ bwv253       mean:   48.9  max:   90.0  median:   43.0  min:   28.0  deciles [ 43  43  43  43  43  45  47  55  67] (was 49.0)
+
+================================================================================
+SUMMARY
+================================================================================
+Processed: 1 chorales
+Improved:  1
+Average mean score: 48.9
+
+=== SAVE LOGIC v2.2 for bwv262 ===
+output_dir: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-4
+output_file: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-4/bwv262-sa-opt.npy
+DEBUG: Files exist? True | output_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-4/bwv262-sa-opt.npy exists=True | meta_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-4/bwv262-sa-opt.txt exists=True
+DEBUG: is_improvement=False, dry_run=False
+DEBUG: Skipping save - not an improvement (previous mean: 47.4)
+  bwv262       mean:   47.6  max:  105.0  median:   43.0  min:   27.0  deciles [ 27  36  43  43  43  45  47  63  70] (was 47.4)
+
+================================================================================
+SUMMARY
+================================================================================
+Processed: 1 chorales
+Improved:  0
+Average mean score: 47.6
+
+=== SAVE LOGIC v2.2 for bwv258 ===
+output_dir: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-4
+output_file: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-4/bwv258-sa-opt.npy
+DEBUG: Files exist? True | output_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-4/bwv258-sa-opt.npy exists=True | meta_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-4/bwv258-sa-opt.txt exists=True
+DEBUG: is_improvement=False, dry_run=False
+DEBUG: Skipping save - not an improvement (previous mean: 54.6)
+  bwv258       mean:   54.7  max:   94.0  median:   47.0  min:   43.0  deciles [ 43  43  43  45  47  56  64  67  74] (was 54.6)
+
+================================================================================
+SUMMARY
+================================================================================
+Processed: 1 chorales
+Improved:  0
+Average mean score: 54.7
+
+=== SAVE LOGIC v2.2 for bwv256 ===
+output_dir: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-4
+output_file: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-4/bwv256-sa-opt.npy
+DEBUG: Files exist? True | output_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-4/bwv256-sa-opt.npy exists=True | meta_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-4/bwv256-sa-opt.txt exists=True
+DEBUG: is_improvement=False, dry_run=False
+DEBUG: Skipping save - not an improvement (previous mean: 53.2)
+  bwv256       mean:   53.3  max:   98.0  median:   47.0  min:   36.0  deciles [ 43  43  43  45  47  47  60  67  74] (was 53.2)
+
+================================================================================
+SUMMARY
+================================================================================
+Processed: 1 chorales
+Improved:  0
+Average mean score: 53.3
+
+=== SAVE LOGIC v2.2 for bwv263 ===
+output_dir: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-4
+output_file: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-4/bwv263-sa-opt.npy
+DEBUG: Files exist? True | output_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-4/bwv263-sa-opt.npy exists=True | meta_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-4/bwv263-sa-opt.txt exists=True
+DEBUG: is_improvement=False, dry_run=False
+DEBUG: Skipping save - not an improvement (previous mean: 49.0)
+  bwv263       mean:   54.7  max: 1107.0  median:   43.0  min:   21.0  deciles [ 43  43  43  43  43  43  46  60  74] (was 49.0)
+
+================================================================================
+SUMMARY
+================================================================================
+Processed: 1 chorales
+Improved:  0
+Average mean score: 54.7
+
+=== SAVE LOGIC v2.2 for bwv260 ===
+output_dir: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-4
+output_file: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-4/bwv260-sa-opt.npy
+DEBUG: Files exist? True | output_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-4/bwv260-sa-opt.npy exists=True | meta_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-4/bwv260-sa-opt.txt exists=True
+DEBUG: is_improvement=False, dry_run=False
+DEBUG: Skipping save - not an improvement (previous mean: 52.0)
+  bwv260       mean:   52.7  max:  106.0  median:   45.0  min:   43.0  deciles [ 43  43  44  45  45  47  47  64  74] (was 52.0)
+
+================================================================================
+SUMMARY
+================================================================================
+Processed: 1 chorales
+Improved:  0
+Average mean score: 52.7
+
+=== SAVE LOGIC v2.2 for bwv257 ===
+output_dir: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-4
+output_file: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-4/bwv257-sa-opt.npy
+DEBUG: Files exist? True | output_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-4/bwv257-sa-opt.npy exists=True | meta_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-4/bwv257-sa-opt.txt exists=True
+DEBUG: is_improvement=False, dry_run=False
+DEBUG: Skipping save - not an improvement (previous mean: 55.1)
+  bwv257       mean:   73.8  max: 3047.0  median:   47.0  min:   27.0  deciles [ 43  43  43  45  47  59  65  67  82] (was 55.1)
+
+================================================================================
+SUMMARY
+================================================================================
+Processed: 1 chorales
+Improved:  0
+Average mean score: 73.8
+
+=== SAVE LOGIC v2.2 for bwv254 ===
+output_dir: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-4
+output_file: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-4/bwv254-sa-opt.npy
+DEBUG: Files exist? True | output_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-4/bwv254-sa-opt.npy exists=True | meta_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-4/bwv254-sa-opt.txt exists=True
+DEBUG: is_improvement=False, dry_run=False
+DEBUG: Skipping save - not an improvement (previous mean: 53.9)
+  bwv254       mean:   54.1  max:   82.0  median:   45.0  min:   28.0  deciles [ 43  43  45  45  45  60  64  67  71] (was 53.9)
+
+================================================================================
+SUMMARY
+================================================================================
+Processed: 1 chorales
+Improved:  0
+Average mean score: 54.1
+
+=== SAVE LOGIC v2.2 for bwv259 ===
+output_dir: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-4
+output_file: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-4/bwv259-sa-opt.npy
+DEBUG: Files exist? True | output_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-4/bwv259-sa-opt.npy exists=True | meta_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-4/bwv259-sa-opt.txt exists=True
+DEBUG: is_improvement=False, dry_run=False
+DEBUG: Skipping save - not an improvement (previous mean: 53.1)
+  bwv259       mean:   53.2  max:   95.0  median:   45.0  min:   43.0  deciles [ 43  43  45  45  45  47  63  67  70] (was 53.1)
+
+================================================================================
+SUMMARY
+================================================================================
+Processed: 1 chorales
+Improved:  0
+Average mean score: 53.2
+
+=== SAVE LOGIC v2.2 for bwv261 ===
+output_dir: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-4
+output_file: /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-4/bwv261-sa-opt.npy
+DEBUG: Files exist? True | output_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-4/bwv261-sa-opt.npy exists=True | meta_file=/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-4/bwv261-sa-opt.txt exists=True
+DEBUG: is_improvement=False, dry_run=False
+DEBUG: Skipping save - not an improvement (previous mean: 55.5)
+  bwv261       mean:   56.2  max:  101.0  median:   47.0  min:   27.0  deciles [ 43  43  45  45  47  60  67  70  81] (was 55.5)
+
+================================================================================
+SUMMARY
+================================================================================
+Processed: 1 chorales
+Improved:  0
+Average mean score: 56.2
++ wait
++ sync
+++ find Archive/opt/tolerance-4 -name '*-sa-opt.npy' -type f
+++ wc -l
++ file_count=12
++ echo '    Files saved so far: 12'
+    Files saved so far: 12
++ check_disk_usage
+++ df /home/prent
+++ tail -1
+++ awk '{print int($5)}'
++ usage_percent=8
++ '[' 8 -gt 90 ']'
++ '[' 8 -gt 80 ']'
+✓ Disk usage: 8%
+Tolerance 4 complete - 1 runs finished
++ echo '✓ Disk usage: 8%'
++ echo 'Tolerance 4 complete - 1 runs finished'
++ echo ''
+
+==========================================
+Applying horizontal adjustments to saved files
++ echo ==========================================
++ echo 'Applying horizontal adjustments to saved files'
++ echo ==========================================
+==========================================
+Processing tolerance-1...
++ for tolerance in $TOLERANCES
++ echo 'Processing tolerance-1...'
++ for c in $CHORALES
++ '[' -f Archive/opt/tolerance-1/bwv253-sa-opt.npy ']'
++ python horizontal_transpose.py --destination Archive/opt/tolerance-1/bwv253-trans-sa-opt.npy Archive/opt/tolerance-1/bwv253-sa-opt.npy
+Saved adjusted chorale to Archive/opt/tolerance-1/bwv253-trans-sa-opt.npy
+Applied 46 chord shifts; max delta +35.00
++ for c in $CHORALES
++ '[' -f Archive/opt/tolerance-1/bwv254-sa-opt.npy ']'
++ python horizontal_transpose.py --destination Archive/opt/tolerance-1/bwv254-trans-sa-opt.npy Archive/opt/tolerance-1/bwv254-sa-opt.npy
+Saved adjusted chorale to Archive/opt/tolerance-1/bwv254-trans-sa-opt.npy
+Applied 58 chord shifts; max delta +33.00
++ for c in $CHORALES
++ '[' -f Archive/opt/tolerance-1/bwv255-sa-opt.npy ']'
++ python horizontal_transpose.py --destination Archive/opt/tolerance-1/bwv255-trans-sa-opt.npy Archive/opt/tolerance-1/bwv255-sa-opt.npy
+Saved adjusted chorale to Archive/opt/tolerance-1/bwv255-trans-sa-opt.npy
+Applied 20 chord shifts; max delta +19.00
++ for c in $CHORALES
++ '[' -f Archive/opt/tolerance-1/bwv256-sa-opt.npy ']'
++ python horizontal_transpose.py --destination Archive/opt/tolerance-1/bwv256-trans-sa-opt.npy Archive/opt/tolerance-1/bwv256-sa-opt.npy
+Saved adjusted chorale to Archive/opt/tolerance-1/bwv256-trans-sa-opt.npy
+Applied 40 chord shifts; max delta +31.00
++ for c in $CHORALES
++ '[' -f Archive/opt/tolerance-1/bwv257-sa-opt.npy ']'
++ python horizontal_transpose.py --destination Archive/opt/tolerance-1/bwv257-trans-sa-opt.npy Archive/opt/tolerance-1/bwv257-sa-opt.npy
+Saved adjusted chorale to Archive/opt/tolerance-1/bwv257-trans-sa-opt.npy
+Applied 37 chord shifts; max delta +30.00
++ for c in $CHORALES
++ '[' -f Archive/opt/tolerance-1/bwv258-sa-opt.npy ']'
++ python horizontal_transpose.py --destination Archive/opt/tolerance-1/bwv258-trans-sa-opt.npy Archive/opt/tolerance-1/bwv258-sa-opt.npy
+Saved adjusted chorale to Archive/opt/tolerance-1/bwv258-trans-sa-opt.npy
+Applied 41 chord shifts; max delta +34.00
++ for c in $CHORALES
++ '[' -f Archive/opt/tolerance-1/bwv259-sa-opt.npy ']'
++ python horizontal_transpose.py --destination Archive/opt/tolerance-1/bwv259-trans-sa-opt.npy Archive/opt/tolerance-1/bwv259-sa-opt.npy
+Saved adjusted chorale to Archive/opt/tolerance-1/bwv259-trans-sa-opt.npy
+Applied 60 chord shifts; max delta +34.00
++ for c in $CHORALES
++ '[' -f Archive/opt/tolerance-1/bwv260-sa-opt.npy ']'
++ python horizontal_transpose.py --destination Archive/opt/tolerance-1/bwv260-trans-sa-opt.npy Archive/opt/tolerance-1/bwv260-sa-opt.npy
+Saved adjusted chorale to Archive/opt/tolerance-1/bwv260-trans-sa-opt.npy
+Applied 42 chord shifts; max delta +34.00
++ for c in $CHORALES
++ '[' -f Archive/opt/tolerance-1/bwv261-sa-opt.npy ']'
++ python horizontal_transpose.py --destination Archive/opt/tolerance-1/bwv261-trans-sa-opt.npy Archive/opt/tolerance-1/bwv261-sa-opt.npy
+Saved adjusted chorale to Archive/opt/tolerance-1/bwv261-trans-sa-opt.npy
+Applied 60 chord shifts; max delta +34.00
++ for c in $CHORALES
++ '[' -f Archive/opt/tolerance-1/bwv262-sa-opt.npy ']'
++ python horizontal_transpose.py --destination Archive/opt/tolerance-1/bwv262-trans-sa-opt.npy Archive/opt/tolerance-1/bwv262-sa-opt.npy
+Saved adjusted chorale to Archive/opt/tolerance-1/bwv262-trans-sa-opt.npy
+Applied 41 chord shifts; max delta +35.00
++ for c in $CHORALES
++ '[' -f Archive/opt/tolerance-1/bwv263-sa-opt.npy ']'
++ python horizontal_transpose.py --destination Archive/opt/tolerance-1/bwv263-trans-sa-opt.npy Archive/opt/tolerance-1/bwv263-sa-opt.npy
+Saved adjusted chorale to Archive/opt/tolerance-1/bwv263-trans-sa-opt.npy
+Applied 64 chord shifts; max delta +34.00
++ for c in $CHORALES
++ '[' -f Archive/opt/tolerance-1/bwv264-sa-opt.npy ']'
++ python horizontal_transpose.py --destination Archive/opt/tolerance-1/bwv264-trans-sa-opt.npy Archive/opt/tolerance-1/bwv264-sa-opt.npy
+Saved adjusted chorale to Archive/opt/tolerance-1/bwv264-trans-sa-opt.npy
+Applied 35 chord shifts; max delta +26.00
+++ find Archive/opt/tolerance-1 -name '*-trans-sa-opt-best.npy' -type f
+++ wc -l
++ file_count=0
+  Tolerance-1: 0 transposed files saved
+Processing tolerance-2...
++ echo '  Tolerance-1: 0 transposed files saved'
++ for tolerance in $TOLERANCES
++ echo 'Processing tolerance-2...'
++ for c in $CHORALES
++ '[' -f Archive/opt/tolerance-2/bwv253-sa-opt.npy ']'
++ python horizontal_transpose.py --destination Archive/opt/tolerance-2/bwv253-trans-sa-opt.npy Archive/opt/tolerance-2/bwv253-sa-opt.npy
+Saved adjusted chorale to Archive/opt/tolerance-2/bwv253-trans-sa-opt.npy
+Applied 42 chord shifts; max delta +30.00
++ for c in $CHORALES
++ '[' -f Archive/opt/tolerance-2/bwv254-sa-opt.npy ']'
++ python horizontal_transpose.py --destination Archive/opt/tolerance-2/bwv254-trans-sa-opt.npy Archive/opt/tolerance-2/bwv254-sa-opt.npy
+Saved adjusted chorale to Archive/opt/tolerance-2/bwv254-trans-sa-opt.npy
+Applied 61 chord shifts; max delta +35.00
++ for c in $CHORALES
++ '[' -f Archive/opt/tolerance-2/bwv255-sa-opt.npy ']'
++ python horizontal_transpose.py --destination Archive/opt/tolerance-2/bwv255-trans-sa-opt.npy Archive/opt/tolerance-2/bwv255-sa-opt.npy
+Saved adjusted chorale to Archive/opt/tolerance-2/bwv255-trans-sa-opt.npy
+Applied 21 chord shifts; max delta +26.00
++ for c in $CHORALES
++ '[' -f Archive/opt/tolerance-2/bwv256-sa-opt.npy ']'
++ python horizontal_transpose.py --destination Archive/opt/tolerance-2/bwv256-trans-sa-opt.npy Archive/opt/tolerance-2/bwv256-sa-opt.npy
+Saved adjusted chorale to Archive/opt/tolerance-2/bwv256-trans-sa-opt.npy
+Applied 40 chord shifts; max delta +33.00
++ for c in $CHORALES
++ '[' -f Archive/opt/tolerance-2/bwv257-sa-opt.npy ']'
++ python horizontal_transpose.py --destination Archive/opt/tolerance-2/bwv257-trans-sa-opt.npy Archive/opt/tolerance-2/bwv257-sa-opt.npy
+Saved adjusted chorale to Archive/opt/tolerance-2/bwv257-trans-sa-opt.npy
+Applied 40 chord shifts; max delta +32.00
++ for c in $CHORALES
++ '[' -f Archive/opt/tolerance-2/bwv258-sa-opt.npy ']'
++ python horizontal_transpose.py --destination Archive/opt/tolerance-2/bwv258-trans-sa-opt.npy Archive/opt/tolerance-2/bwv258-sa-opt.npy
+Saved adjusted chorale to Archive/opt/tolerance-2/bwv258-trans-sa-opt.npy
+Applied 38 chord shifts; max delta +32.00
++ for c in $CHORALES
++ '[' -f Archive/opt/tolerance-2/bwv259-sa-opt.npy ']'
++ python horizontal_transpose.py --destination Archive/opt/tolerance-2/bwv259-trans-sa-opt.npy Archive/opt/tolerance-2/bwv259-sa-opt.npy
+Saved adjusted chorale to Archive/opt/tolerance-2/bwv259-trans-sa-opt.npy
+Applied 58 chord shifts; max delta +34.00
++ for c in $CHORALES
++ '[' -f Archive/opt/tolerance-2/bwv260-sa-opt.npy ']'
++ python horizontal_transpose.py --destination Archive/opt/tolerance-2/bwv260-trans-sa-opt.npy Archive/opt/tolerance-2/bwv260-sa-opt.npy
+Saved adjusted chorale to Archive/opt/tolerance-2/bwv260-trans-sa-opt.npy
+Applied 45 chord shifts; max delta +33.00
++ for c in $CHORALES
++ '[' -f Archive/opt/tolerance-2/bwv261-sa-opt.npy ']'
++ python horizontal_transpose.py --destination Archive/opt/tolerance-2/bwv261-trans-sa-opt.npy Archive/opt/tolerance-2/bwv261-sa-opt.npy
+Saved adjusted chorale to Archive/opt/tolerance-2/bwv261-trans-sa-opt.npy
+Applied 63 chord shifts; max delta +34.00
++ for c in $CHORALES
++ '[' -f Archive/opt/tolerance-2/bwv262-sa-opt.npy ']'
++ python horizontal_transpose.py --destination Archive/opt/tolerance-2/bwv262-trans-sa-opt.npy Archive/opt/tolerance-2/bwv262-sa-opt.npy
+Saved adjusted chorale to Archive/opt/tolerance-2/bwv262-trans-sa-opt.npy
+Applied 41 chord shifts; max delta +32.00
++ for c in $CHORALES
++ '[' -f Archive/opt/tolerance-2/bwv263-sa-opt.npy ']'
++ python horizontal_transpose.py --destination Archive/opt/tolerance-2/bwv263-trans-sa-opt.npy Archive/opt/tolerance-2/bwv263-sa-opt.npy
+Saved adjusted chorale to Archive/opt/tolerance-2/bwv263-trans-sa-opt.npy
+Applied 62 chord shifts; max delta +35.00
++ for c in $CHORALES
++ '[' -f Archive/opt/tolerance-2/bwv264-sa-opt.npy ']'
++ python horizontal_transpose.py --destination Archive/opt/tolerance-2/bwv264-trans-sa-opt.npy Archive/opt/tolerance-2/bwv264-sa-opt.npy
+Saved adjusted chorale to Archive/opt/tolerance-2/bwv264-trans-sa-opt.npy
+Applied 37 chord shifts; max delta +28.00
+++ find Archive/opt/tolerance-2 -name '*-trans-sa-opt-best.npy' -type f
+++ wc -l
++ file_count=0
++ echo '  Tolerance-2: 0 transposed files saved'
+  Tolerance-2: 0 transposed files saved
+Processing tolerance-3...
++ for tolerance in $TOLERANCES
++ echo 'Processing tolerance-3...'
++ for c in $CHORALES
++ '[' -f Archive/opt/tolerance-3/bwv253-sa-opt.npy ']'
++ python horizontal_transpose.py --destination Archive/opt/tolerance-3/bwv253-trans-sa-opt.npy Archive/opt/tolerance-3/bwv253-sa-opt.npy
+Saved adjusted chorale to Archive/opt/tolerance-3/bwv253-trans-sa-opt.npy
+Applied 46 chord shifts; max delta +29.00
++ for c in $CHORALES
++ '[' -f Archive/opt/tolerance-3/bwv254-sa-opt.npy ']'
++ python horizontal_transpose.py --destination Archive/opt/tolerance-3/bwv254-trans-sa-opt.npy Archive/opt/tolerance-3/bwv254-sa-opt.npy
+Saved adjusted chorale to Archive/opt/tolerance-3/bwv254-trans-sa-opt.npy
+Applied 58 chord shifts; max delta +27.00
++ for c in $CHORALES
++ '[' -f Archive/opt/tolerance-3/bwv255-sa-opt.npy ']'
++ python horizontal_transpose.py --destination Archive/opt/tolerance-3/bwv255-trans-sa-opt.npy Archive/opt/tolerance-3/bwv255-sa-opt.npy
+Saved adjusted chorale to Archive/opt/tolerance-3/bwv255-trans-sa-opt.npy
+Applied 24 chord shifts; max delta +26.00
++ for c in $CHORALES
++ '[' -f Archive/opt/tolerance-3/bwv256-sa-opt.npy ']'
++ python horizontal_transpose.py --destination Archive/opt/tolerance-3/bwv256-trans-sa-opt.npy Archive/opt/tolerance-3/bwv256-sa-opt.npy
+Saved adjusted chorale to Archive/opt/tolerance-3/bwv256-trans-sa-opt.npy
+Applied 42 chord shifts; max delta +30.00
++ for c in $CHORALES
++ '[' -f Archive/opt/tolerance-3/bwv257-sa-opt.npy ']'
++ python horizontal_transpose.py --destination Archive/opt/tolerance-3/bwv257-trans-sa-opt.npy Archive/opt/tolerance-3/bwv257-sa-opt.npy
+Saved adjusted chorale to Archive/opt/tolerance-3/bwv257-trans-sa-opt.npy
+Applied 38 chord shifts; max delta +33.00
++ for c in $CHORALES
++ '[' -f Archive/opt/tolerance-3/bwv258-sa-opt.npy ']'
++ python horizontal_transpose.py --destination Archive/opt/tolerance-3/bwv258-trans-sa-opt.npy Archive/opt/tolerance-3/bwv258-sa-opt.npy
+Saved adjusted chorale to Archive/opt/tolerance-3/bwv258-trans-sa-opt.npy
+Applied 39 chord shifts; max delta +34.00
++ for c in $CHORALES
++ '[' -f Archive/opt/tolerance-3/bwv259-sa-opt.npy ']'
++ python horizontal_transpose.py --destination Archive/opt/tolerance-3/bwv259-trans-sa-opt.npy Archive/opt/tolerance-3/bwv259-sa-opt.npy
+Saved adjusted chorale to Archive/opt/tolerance-3/bwv259-trans-sa-opt.npy
+Applied 60 chord shifts; max delta +41.00
++ for c in $CHORALES
++ '[' -f Archive/opt/tolerance-3/bwv260-sa-opt.npy ']'
++ python horizontal_transpose.py --destination Archive/opt/tolerance-3/bwv260-trans-sa-opt.npy Archive/opt/tolerance-3/bwv260-sa-opt.npy
+Saved adjusted chorale to Archive/opt/tolerance-3/bwv260-trans-sa-opt.npy
+Applied 45 chord shifts; max delta +32.00
++ for c in $CHORALES
++ '[' -f Archive/opt/tolerance-3/bwv261-sa-opt.npy ']'
++ python horizontal_transpose.py --destination Archive/opt/tolerance-3/bwv261-trans-sa-opt.npy Archive/opt/tolerance-3/bwv261-sa-opt.npy
+Saved adjusted chorale to Archive/opt/tolerance-3/bwv261-trans-sa-opt.npy
+Applied 57 chord shifts; max delta +34.00
++ for c in $CHORALES
++ '[' -f Archive/opt/tolerance-3/bwv262-sa-opt.npy ']'
++ python horizontal_transpose.py --destination Archive/opt/tolerance-3/bwv262-trans-sa-opt.npy Archive/opt/tolerance-3/bwv262-sa-opt.npy
+Saved adjusted chorale to Archive/opt/tolerance-3/bwv262-trans-sa-opt.npy
+Applied 39 chord shifts; max delta +30.00
++ for c in $CHORALES
++ '[' -f Archive/opt/tolerance-3/bwv263-sa-opt.npy ']'
++ python horizontal_transpose.py --destination Archive/opt/tolerance-3/bwv263-trans-sa-opt.npy Archive/opt/tolerance-3/bwv263-sa-opt.npy
+Saved adjusted chorale to Archive/opt/tolerance-3/bwv263-trans-sa-opt.npy
+Applied 64 chord shifts; max delta +30.00
++ for c in $CHORALES
++ '[' -f Archive/opt/tolerance-3/bwv264-sa-opt.npy ']'
++ python horizontal_transpose.py --destination Archive/opt/tolerance-3/bwv264-trans-sa-opt.npy Archive/opt/tolerance-3/bwv264-sa-opt.npy
+Saved adjusted chorale to Archive/opt/tolerance-3/bwv264-trans-sa-opt.npy
+Applied 37 chord shifts; max delta +32.00
+++ find Archive/opt/tolerance-3 -name '*-trans-sa-opt-best.npy' -type f
+++ wc -l
++ file_count=0
+  Tolerance-3: 0 transposed files saved
+Processing tolerance-4...
++ echo '  Tolerance-3: 0 transposed files saved'
++ for tolerance in $TOLERANCES
++ echo 'Processing tolerance-4...'
++ for c in $CHORALES
++ '[' -f Archive/opt/tolerance-4/bwv253-sa-opt.npy ']'
++ python horizontal_transpose.py --destination Archive/opt/tolerance-4/bwv253-trans-sa-opt.npy Archive/opt/tolerance-4/bwv253-sa-opt.npy
+Saved adjusted chorale to Archive/opt/tolerance-4/bwv253-trans-sa-opt.npy
+Applied 41 chord shifts; max delta +27.00
++ for c in $CHORALES
++ '[' -f Archive/opt/tolerance-4/bwv254-sa-opt.npy ']'
++ python horizontal_transpose.py --destination Archive/opt/tolerance-4/bwv254-trans-sa-opt.npy Archive/opt/tolerance-4/bwv254-sa-opt.npy
+Saved adjusted chorale to Archive/opt/tolerance-4/bwv254-trans-sa-opt.npy
+Applied 55 chord shifts; max delta +30.00
++ for c in $CHORALES
++ '[' -f Archive/opt/tolerance-4/bwv255-sa-opt.npy ']'
++ python horizontal_transpose.py --destination Archive/opt/tolerance-4/bwv255-trans-sa-opt.npy Archive/opt/tolerance-4/bwv255-sa-opt.npy
+Saved adjusted chorale to Archive/opt/tolerance-4/bwv255-trans-sa-opt.npy
+Applied 22 chord shifts; max delta +33.00
++ for c in $CHORALES
++ '[' -f Archive/opt/tolerance-4/bwv256-sa-opt.npy ']'
++ python horizontal_transpose.py --destination Archive/opt/tolerance-4/bwv256-trans-sa-opt.npy Archive/opt/tolerance-4/bwv256-sa-opt.npy
+Saved adjusted chorale to Archive/opt/tolerance-4/bwv256-trans-sa-opt.npy
+Applied 40 chord shifts; max delta +28.00
++ for c in $CHORALES
++ '[' -f Archive/opt/tolerance-4/bwv257-sa-opt.npy ']'
++ python horizontal_transpose.py --destination Archive/opt/tolerance-4/bwv257-trans-sa-opt.npy Archive/opt/tolerance-4/bwv257-sa-opt.npy
+Saved adjusted chorale to Archive/opt/tolerance-4/bwv257-trans-sa-opt.npy
+Applied 35 chord shifts; max delta +34.00
++ for c in $CHORALES
++ '[' -f Archive/opt/tolerance-4/bwv258-sa-opt.npy ']'
++ python horizontal_transpose.py --destination Archive/opt/tolerance-4/bwv258-trans-sa-opt.npy Archive/opt/tolerance-4/bwv258-sa-opt.npy
+Saved adjusted chorale to Archive/opt/tolerance-4/bwv258-trans-sa-opt.npy
+Applied 43 chord shifts; max delta +30.00
++ for c in $CHORALES
++ '[' -f Archive/opt/tolerance-4/bwv259-sa-opt.npy ']'
++ python horizontal_transpose.py --destination Archive/opt/tolerance-4/bwv259-trans-sa-opt.npy Archive/opt/tolerance-4/bwv259-sa-opt.npy
+Saved adjusted chorale to Archive/opt/tolerance-4/bwv259-trans-sa-opt.npy
+Applied 61 chord shifts; max delta +35.00
++ for c in $CHORALES
++ '[' -f Archive/opt/tolerance-4/bwv260-sa-opt.npy ']'
++ python horizontal_transpose.py --destination Archive/opt/tolerance-4/bwv260-trans-sa-opt.npy Archive/opt/tolerance-4/bwv260-sa-opt.npy
+Saved adjusted chorale to Archive/opt/tolerance-4/bwv260-trans-sa-opt.npy
+Applied 42 chord shifts; max delta +33.00
++ for c in $CHORALES
++ '[' -f Archive/opt/tolerance-4/bwv261-sa-opt.npy ']'
++ python horizontal_transpose.py --destination Archive/opt/tolerance-4/bwv261-trans-sa-opt.npy Archive/opt/tolerance-4/bwv261-sa-opt.npy
+Saved adjusted chorale to Archive/opt/tolerance-4/bwv261-trans-sa-opt.npy
+Applied 61 chord shifts; max delta +30.00
++ for c in $CHORALES
++ '[' -f Archive/opt/tolerance-4/bwv262-sa-opt.npy ']'
++ python horizontal_transpose.py --destination Archive/opt/tolerance-4/bwv262-trans-sa-opt.npy Archive/opt/tolerance-4/bwv262-sa-opt.npy
+Saved adjusted chorale to Archive/opt/tolerance-4/bwv262-trans-sa-opt.npy
+Applied 41 chord shifts; max delta +33.00
++ for c in $CHORALES
++ '[' -f Archive/opt/tolerance-4/bwv263-sa-opt.npy ']'
++ python horizontal_transpose.py --destination Archive/opt/tolerance-4/bwv263-trans-sa-opt.npy Archive/opt/tolerance-4/bwv263-sa-opt.npy
+Saved adjusted chorale to Archive/opt/tolerance-4/bwv263-trans-sa-opt.npy
+Applied 65 chord shifts; max delta +35.00
++ for c in $CHORALES
++ '[' -f Archive/opt/tolerance-4/bwv264-sa-opt.npy ']'
++ python horizontal_transpose.py --destination Archive/opt/tolerance-4/bwv264-trans-sa-opt.npy Archive/opt/tolerance-4/bwv264-sa-opt.npy
+Saved adjusted chorale to Archive/opt/tolerance-4/bwv264-trans-sa-opt.npy
+Applied 38 chord shifts; max delta +32.00
+++ find Archive/opt/tolerance-4 -name '*-trans-sa-opt-best.npy' -type f
+++ wc -l
++ file_count=0
++ echo '  Tolerance-4: 0 transposed files saved'
+  Tolerance-4: 0 transposed files saved
++ sync
+
+==========================================
+All optimization complete!
++ echo ''
++ echo ==========================================
++ echo 'All optimization complete!'
++ echo 'Results saved in Archive/opt/tolerance-{1,2,3,4}/'
++ echo ==========================================
++ echo ''
++ echo 'Summary of saved files:'
+Results saved in Archive/opt/tolerance-{1,2,3,4}/
+==========================================
+
+Summary of saved files:
++ for tolerance in $TOLERANCES
+++ find Archive/opt/tolerance-1 -name '*-sa-opt.npy' -type f
+++ wc -l
++ opt_count=24
+++ find Archive/opt/tolerance-1 -name '*-trans-sa-opt.npy' -type f
+++ wc -l
++ trans_count=12
++ echo '  tolerance-1: 24 optimized, 12 transposed'
+  tolerance-1: 24 optimized, 12 transposed
++ for tolerance in $TOLERANCES
+++ find Archive/opt/tolerance-2 -name '*-sa-opt.npy' -type f
+++ wc -l
++ opt_count=24
+++ find Archive/opt/tolerance-2 -name '*-trans-sa-opt.npy' -type f
+++ wc -l
++ trans_count=12
++ echo '  tolerance-2: 24 optimized, 12 transposed'
+  tolerance-2: 24 optimized, 12 transposed
++ for tolerance in $TOLERANCES
+++ find Archive/opt/tolerance-3 -name '*-sa-opt.npy' -type f
+++ wc -l
++ opt_count=24
+++ find Archive/opt/tolerance-3 -name '*-trans-sa-opt.npy' -type f
+++ wc -l
++ trans_count=12
++ echo '  tolerance-3: 24 optimized, 12 transposed'
+  tolerance-3: 24 optimized, 12 transposed
++ for tolerance in $TOLERANCES
+++ find Archive/opt/tolerance-4 -name '*-sa-opt.npy' -type f
+++ wc -l
++ opt_count=24
+++ find Archive/opt/tolerance-4 -name '*-trans-sa-opt.npy' -type f
+++ wc -l
++ trans_count=12
++ echo '  tolerance-4: 24 optimized, 12 transposed'
+  tolerance-4: 24 optimized, 12 transposed
