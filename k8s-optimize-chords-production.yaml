@@ -97,14 +97,15 @@ spec:
             cd /home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning
             
             echo "Starting chord tuning optimization (Production - All Tolerance Levels)"
-            echo "Running 25 iterations at each tolerance level (1, 2, 3, 4)"
-            echo "Working directory: $(pwd)"
-            echo "PVC mount point: /home/prent"
+            
 
             CHORALES="bwv253 bwv254 bwv255 bwv256 bwv257 bwv258 bwv259 bwv260 bwv261 bwv262 bwv263 bwv264"
-            NUM_RUNS=30
-            MAX_PARALLEL=12
-            TOLERANCES="1 2 3 4"
+            NUM_RUNS=1 # recommend 30
+            MAX_PARALLEL=1 # recommend 12
+            TOLERANCES="1" # recommend "1 2 3 4"
+            echo "Running $NUM_RUNS iterations at each tolerance level $TOLERANCES"
+            echo "Working directory: $(pwd)"
+            echo "PVC mount point: /home/prent"
 
             for tolerance in $TOLERANCES; do
               echo ""
@@ -155,7 +156,7 @@ spec:
               echo "Processing tolerance-$tolerance..."
               for c in $CHORALES; do
                 if [ -f "Archive/opt/tolerance-$tolerance/$c-sa-opt.npy" ]; then
-                  python horizontal_transpose.py --destination Archive/opt/tolerance-$tolerance/$c-trans-sa-opt.npy Archive/opt/tolerance-$tolerance/$c-sa-opt.npy
+                  python horizontal_transpose.py --destination Archive/opt/tolerance-$tolerance/$c-trans-sa-opt.npy Archive/opt/tolerance-$tolerance/$c-sa-opt.npy --log-level DEBUG
                 fi
               done
               file_count=$(find Archive/opt/tolerance-$tolerance -name "*-trans-sa-opt.npy" -type f | wc -l)

@@ -501,53 +501,74 @@ def process_chorale(version, numpy_dir, output_dir=None, tolerance=1, limit_max=
     min_score = np.min(sa_scores)
     median_score = np.median(sa_scores)
     # Calculate deciles (10th, 20th, ..., 90th percentiles)
-    deciles = np.percentile(sa_scores, [10, 20, 30, 40, 50, 60, 70, 80, 90])
+    deciles = list(np.percentile(sa_scores, [10, 20, 30, 40, 50, 60, 70, 80, 90]))
 
     output_file = os.path.join(output_dir, f'{version}-sa-opt.npy')
     meta_file = os.path.join(output_dir, f'{version}-sa-opt.txt')
     
-    print(f"\n=== SAVE LOGIC v2.2 for {version} ===", flush=True)
-    print(f"output_dir: {output_dir}", flush=True)
-    print(f"output_file: {output_file}", flush=True)
+    logging.info("=== SAVE LOGIC v2.2 for %s ===", version)
+    logging.info("output_dir: %s", output_dir)
+    logging.info("output_file: %s", output_file)
 
     # Check if previous result exists and compare
     previous_mean = None
     is_improvement = True
     files_exist = os.path.exists(output_file) and os.path.exists(meta_file)
-    print(f"DEBUG: Files exist? {files_exist} | output_file={output_file} exists={os.path.exists(output_file)} | meta_file={meta_file} exists={os.path.exists(meta_file)}")
+    previous_max = None
+    previous_deciles = None
+    previous_highest_decile = None
     
     if files_exist:
         try:
             with open(meta_file, 'r') as f:
                 for line in f:
-                    if 'mean:' in line:
-                        previous_mean = float(line.split('mean:')[1].split()[0])
-                        break
-            if previous_mean is not None:
-                if mean_score < previous_mean:
-                    is_improvement = True
-                    logging.info(f"{version}: Improvement! {mean_score:.1f} < {previous_mean:.1f} (was {previous_mean:.1f})")
-                else:
-                    is_improvement = False
-                    logging.info(f"{version}: No improvement. {mean_score:.1f} >= {previous_mean:.1f}")
+                    lower = line.strip().lower()
+                    if lower.startswith('mean:'):
+                        previous_mean = float(lower.split('mean:')[1].split()[0])
+                    elif lower.startswith('max:'):
+                        previous_max = float(lower.split('max:')[1].split()[0])
+                    elif lower.startswith('deciles:'):
+                        values = lower.split('deciles:')[1].strip().split()
+                        previous_deciles = [float(v) for v in values if v.replace('.', '', 1).isdigit()]
+            if previous_deciles:
+                previous_highest_decile = previous_deciles[-1]
         except Exception as e:
-            logging.warning(f"Failed to read previous result for {version}: {e}")
-            is_improvement = True  # Save if we can't read previous
+            logging.warning("Failed to read previous result for %s: %s", version, e)
+            previous_mean = None
     else:
-        print(f"DEBUG: No previous files found for {version}, will save as baseline")
-        is_improvement = True  # No previous files, save as baseline
+        logging.info("No previous files found for %s, will save as baseline", version)
+        previous_mean = None
+
+    if previous_mean is None:
+        is_improvement = True
+        reason = 'baseline'
+    else:
+        mean_improved = mean_score < previous_mean
+        worst_improved = previous_max is None or max_score < previous_max
+        decile_improved = previous_highest_decile is None or (deciles and deciles[-1] < previous_highest_decile)
+        allow_extra = mean_score <= previous_mean + 1
+        if mean_improved:
+            is_improvement = True
+            reason = 'mean improved'
+        elif allow_extra and (worst_improved or decile_improved):
+            is_improvement = True
+            reason = 'worst or decile improved'
+        else:
+            is_improvement = False
+            reason = 'no improvement'
+            logging.info("%s: No improvement. mean=%0.1f vs previous=%0.1f", version, mean_score, previous_mean)
 
     if not dry_run:
-        print(f"DEBUG: is_improvement={is_improvement}, dry_run={dry_run}")
+        logging.debug("is_improvement=%s, dry_run=%s", is_improvement, dry_run)
         if is_improvement:
             try:
                 # Ensure directory exists
                 os.makedirs(output_dir, exist_ok=True)
-                print(f"DEBUG: Created/verified dir {output_dir}, dir exists: {os.path.isdir(output_dir)}")
+                logging.debug("Created/verified dir %s, dir exists: %s", output_dir, os.path.isdir(output_dir))
                 
                 # Save numpy file
                 np.save(output_file, sa_cent_value_chorale.T)
-                print(f"DEBUG: Saved numpy to {output_file}, file exists: {os.path.exists(output_file)}")
+                logging.debug("Saved numpy to %s, file exists: %s", output_file, os.path.exists(output_file))
                 
                 # Save metadata file
                 with open(meta_file, 'w') as f:
@@ -557,19 +578,18 @@ def process_chorale(version, numpy_dir, output_dir=None, tolerance=1, limit_max=
                     f.write(f"min: {min_score:.1f}\n")
                     f.write(f"max: {max_score:.1f}\n")
                     f.write(f"deciles: {' '.join([f'{d:.0f}' for d in deciles])}\n")
-                print(f"DEBUG: Saved metadata to {meta_file}, file exists: {os.path.exists(meta_file)}")
+                logging.debug("Saved metadata to %s, file exists: %s", meta_file, os.path.exists(meta_file))
                 
-                logging.info(f"{version}: Saved to {output_file}")
+                logging.info("%s: Saved to %s", version, output_file)
                 print(f"✓ {version}: Saved to {output_file}")
             except Exception as e:
                 print(f"✗ {version}: FAILED to save! {output_file} - Error: {e}")
-                logging.error(f"{version}: FAILED to save! {output_file} - Error: {e}")
+                logging.error("%s: FAILED to save! %s - Error: %s", version, output_file, e)
                 import traceback
                 logging.error(traceback.format_exc())
                 print(traceback.format_exc())
         else:
-            print(f"DEBUG: Skipping save - not an improvement (previous mean: {previous_mean})")
-            logging.info(f"{version}: Keeping previous best (mean={previous_mean:.1f})")
+            logging.info("%s: Keeping previous best (mean=%0.1f)", version, previous_mean)
     else:
         logging.info(f"{version}: Would save to {output_file} (dry-run mode)")
 
@@ -618,6 +638,7 @@ def main():
     # Convenience alias for callers that use underscores
     parser.add_argument('--max_no_improve', dest='max_no_improve', type=int, help=argparse.SUPPRESS)
     parser.add_argument('--chorale', type=str, default=None)
+    parser.add_argument('--runs', type=int, default=1, help='Number of times to process the chorales sequentially')
     args = parser.parse_args()
 
     # Validate tolerance
@@ -655,6 +676,10 @@ def main():
         chorale_list = ['bwv253','bwv254','bwv255','bwv256','bwv257','bwv258','bwv259','bwv260','bwv261','bwv262','bwv263','bwv264']
 
     # Allow quick/testing mode to override heavy defaults
+    if args.runs < 1:
+        print(f"Error: runs must be >= 1, got {args.runs}", file=sys.stderr)
+        sys.exit(1)
+
     if args.quick:
         args.max_iterations = min(args.max_iterations, 200)
         args.rolls = min(args.rolls, 2)
@@ -682,35 +707,39 @@ def main():
     logging.info(f"Processing {len(chorale_list)} chorales")
     logging.info(f"SA parameters: {sa_params}")
 
-    print("\n" + "=" * 80)
-    print("PROCESSING CHORALES (SA v2)")
-    print("=" * 80)
     params_str = ", ".join([f"{k}={v}" for k, v in sa_params.items()])
-    print(f"Parameters: {params_str}")
-    print()
 
-    results = {}
-    improved_count = 0
+    for run_idx in range(1, args.runs + 1):
+        if args.runs > 1:
+            logging.info("Starting run %d/%d", run_idx, args.runs)
+        print("\n" + "=" * 80)
+        print(f"PROCESSING CHORALES (SA v2) run {run_idx}/{args.runs}" if args.runs > 1 else "PROCESSING CHORALES (SA v2)")
+        print("=" * 80)
+        print(f"Parameters: {params_str}")
+        print()
 
-    for version in chorale_list:
-        result = process_chorale(version, numpy_dir, output_dir=output_dir, dry_run=args.dry_run, **sa_params)
-        if result:
-            results[version] = result
-            if result.get('is_improvement', False):
-                improved_count += 1
-            deciles_str = ' '.join([f"{d:3.0f}" for d in result['deciles']])
-            prev_str = f" (was {result['previous_mean']:.1f})" if result.get('previous_mean') else " (first run)"
-            status = "✓" if result.get('is_improvement', False) else " "
-            print(f"{status} {version:12} mean: {result['mean']:6.1f}  max: {result['max']:6.1f}  median: {result['median']:6.1f}  min: {result['min']:6.1f}  deciles [{deciles_str}]{prev_str}")
+        results = {}
+        improved_count = 0
 
-    print("\n" + "=" * 80)
-    print("SUMMARY")
-    print("=" * 80)
-    if results:
-        means = [r['mean'] for r in results.values()]
-        print(f"Processed: {len(results)} chorales")
-        print(f"Improved:  {improved_count}")
-        print(f"Average mean score: {np.mean(means):.1f}")
+        for version in chorale_list:
+            result = process_chorale(version, numpy_dir, output_dir=output_dir, dry_run=args.dry_run, **sa_params)
+            if result:
+                results[version] = result
+                if result.get('is_improvement', False):
+                    improved_count += 1
+                deciles_str = ' '.join([f"{d:3.0f}" for d in result['deciles']])
+                prev_str = f" (was {result['previous_mean']:.1f})" if result.get('previous_mean') else " (first run)"
+                status = "✓" if result.get('is_improvement', False) else " "
+                print(f"{status} {version:12} mean: {result['mean']:6.1f}  max: {result['max']:6.1f}  median: {result['median']:6.1f}  min: {result['min']:6.1f}  deciles [{deciles_str}]{prev_str}")
+
+        print("\n" + "=" * 80)
+        print(f"SUMMARY run {run_idx}/{args.runs}" if args.runs > 1 else "SUMMARY")
+        print("=" * 80)
+        if results:
+            means = [r['mean'] for r in results.values()]
+            print(f"Processed: {len(results)} chorales")
+            print(f"Improved:  {improved_count}")
+            print(f"Average mean score: {np.mean(means):.1f}")
 
 
 if __name__ == '__main__':

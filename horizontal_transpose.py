@@ -52,6 +52,8 @@ def _best_delta(prev: np.ndarray, curr: np.ndarray, wrap_steps: int) -> Tuple[fl
     best_delta = 0.0
     best_score = np.inf
     max_unmatched_shift = 35.0  # Align with max_gap threshold
+    match_count = int(np.sum(matches))
+    logging.debug("Evaluating chord: %d matches, wrap_steps=%d", match_count, wrap_steps)
     
     for delta in _candidate_deltas(prev, curr, matches, wrap_steps):
         shifted = np.mod(curr + delta, 1200.0)
@@ -73,8 +75,22 @@ def _best_delta(prev: np.ndarray, curr: np.ndarray, wrap_steps: int) -> Tuple[fl
             score = score_matched
         else:
             score = score_matched
-            
+            max_unmatched_change = 0.0
+        
+        logging.debug(
+            "Candidate delta %+0.2f score=%0.3f unmatched_max=%+0.2f",
+            delta,
+            score,
+            max_unmatched_change,
+        )
         if score < best_score - 1e-6:
+            logging.debug(
+                "New best delta %+0.2f (score=%0.3f, matches=%d, unmatched_max=%+0.2f)",
+                delta,
+                score,
+                match_count,
+                max_unmatched_change,
+            )
             best_score = score
             best_delta = delta
     return best_delta, best_score
@@ -131,6 +147,24 @@ def improve_horizontal_consistency(data: np.ndarray, config: HorizontalTranspose
                 start_indices[chord_idx],
                 delta_wrapped,
                 delta,
+            )
+            pcs_prev = atu.pitch_class_from_cents(prev_chord)
+            pcs_curr = atu.pitch_class_from_cents(curr_chord)
+            matches = pcs_prev == pcs_curr
+            matched_count = int(np.sum(matches))
+            unmatched_indices = np.where(~matches)[0]
+            max_unmatched_change = 0.0
+            if unmatched_indices.size > 0:
+                diff_unmatched = shifted[unmatched_indices] - curr_chord[unmatched_indices]
+                max_unmatched_change = float(np.max(np.abs(diff_unmatched)))
+            logging.info(
+                "Chord %d (orig idx %d) shift=%+0.2f cents, matched=%d, unmatched max=%+0.2f, score=%0.3f",
+                chord_idx,
+                start_indices[chord_idx],
+                delta_wrapped,
+                matched_count,
+                max_unmatched_change,
+                score,
             )
             prev_chord = shifted
         else:
