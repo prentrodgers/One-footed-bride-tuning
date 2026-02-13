@@ -27,17 +27,17 @@ def build_all_ratios(limit_value: int = 31) -> List[float]:
     """
     all_ratios = []
     for limit in ([limit_value]): # calculate the size of tonality diamond to the n-limit and create the array all_ratios.
-            end_denom = limit + 1
-            start_denom = (end_denom) // 2
-            o_numerator = np.arange(start_denom, end_denom, 1) # create a list of overtones
-            u_denominator = np.arange(start_denom, end_denom, 1) # create a list of undertones
-            all_ratios = []
-            for oton_root in u_denominator:
-                  # logging.debug()
-                  for overtone in o_numerator:
-                        if overtone < oton_root: oton = overtone * 2
-                        else: oton = overtone
-                        all_ratios.append(oton / oton_root)
+        end_denom = limit + 1
+        start_denom = (end_denom) // 2
+        o_numerator = np.arange(start_denom, end_denom, 1) # create a list of overtones
+        u_denominator = np.arange(start_denom, end_denom, 1) # create a list of undertones
+        all_ratios = []
+        for oton_root in u_denominator:
+                # logging.debug()
+            for overtone in o_numerator:
+                if overtone < oton_root: oton = overtone * 2
+                else: oton = overtone
+                all_ratios.append(oton / oton_root)
       return all_ratios
 
 def build_ratio_strings(all_ratios: List[float]) -> np.ndarray:
@@ -50,16 +50,16 @@ def build_ratio_strings(all_ratios: List[float]) -> np.ndarray:
         2D array of ratio strings (e.g. '3/2', '1/1'), shape (s, s) where s = sqrt(len(all_ratios)).
     """
     shape_values = np.sqrt(len(all_ratios)) # s
-      ratio_strings = np.array([str(Fraction(ratio).limit_denominator(max_denominator = 100)) for ratio in all_ratios]).reshape(int(shape_values), int(shape_values))
-      i = 0
-      for ratio in ratio_strings:
-            j = 0
-            for r in ratio:
-                  if ratio_strings[i,j] == '1': 
-                        ratio_strings[i,j] = '1/1'
-                  j += 1
-            i += 1
-      return ratio_strings
+    ratio_strings = np.array([str(Fraction(ratio).limit_denominator(max_denominator = 100)) for ratio in all_ratios]).reshape(int(shape_values), int(shape_values))
+    i = 0
+    for ratio in ratio_strings:
+        j = 0
+        for r in ratio:
+                if ratio_strings[i,j] == '1': 
+                    ratio_strings[i,j] = '1/1'
+                j += 1
+        i += 1
+    return ratio_strings
 
 
 # stored_gliss = np.empty((0,70), dtype = float)
