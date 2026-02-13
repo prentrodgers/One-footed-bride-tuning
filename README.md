@@ -44,8 +44,7 @@ sudo dnf install -y python3 python3-pip sox
    # first install miniforge: https://github.com/conda-forge/miniforge
    mamba create -n csound python jupyterlab matplotlib numpy scipy music21
    mamba activate csound
-   # Optional: install Csound via conda (works on all distros)
-   mamba install -c conda-forge csound
+   
    ```
 
 2. Or install dependencies with pip (project root or this subfolder):
