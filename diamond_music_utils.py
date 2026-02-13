@@ -1,3 +1,5 @@
+"""Utilities for diamond (limit) music: ratios, scales, chords, glissandi, and Csound I/O."""
+
 import numpy as np
 import numpy.testing as npt
 from importlib import reload
@@ -8,13 +10,23 @@ import logging
 from fractions import Fraction
 from numpy.random import default_rng
 from scipy.interpolate import make_interp_spline
-rng = np.random.default_rng()
+from typing import Any, Dict, List, Optional, Tuple, Union
 from itertools import count
 
+rng = np.random.default_rng()
 
-def build_all_ratios(limit_value = 31):
-      all_ratios = []
-      for limit in ([limit_value]): # calculate the size of tonality diamond to the n-limit and create the array all_ratios.
+
+def build_all_ratios(limit_value: int = 31) -> List[float]:
+    """Build all otonal/utonal ratios for the n-limit tonality diamond.
+
+    Args:
+        limit_value: Prime limit (e.g. 31 for 31-limit). Determines diamond size.
+
+    Returns:
+        List of frequency ratios as floats.
+    """
+    all_ratios = []
+    for limit in ([limit_value]): # calculate the size of tonality diamond to the n-limit and create the array all_ratios.
             end_denom = limit + 1
             start_denom = (end_denom) // 2
             o_numerator = np.arange(start_denom, end_denom, 1) # create a list of overtones
@@ -28,8 +40,16 @@ def build_all_ratios(limit_value = 31):
                         all_ratios.append(oton / oton_root)
       return all_ratios
 
-def build_ratio_strings(all_ratios):
-      shape_values = np.sqrt(len(all_ratios)) # s
+def build_ratio_strings(all_ratios: List[float]) -> np.ndarray:
+    """Convert numeric ratios to fraction strings and reshape into a square matrix.
+
+    Args:
+        all_ratios: List of frequency ratios (floats).
+
+    Returns:
+        2D array of ratio strings (e.g. '3/2', '1/1'), shape (s, s) where s = sqrt(len(all_ratios)).
+    """
+    shape_values = np.sqrt(len(all_ratios)) # s
       ratio_strings = np.array([str(Fraction(ratio).limit_denominator(max_denominator = 100)) for ratio in all_ratios]).reshape(int(shape_values), int(shape_values))
       i = 0
       for ratio in ratio_strings:
@@ -175,8 +195,18 @@ inversions = {'A': {'oton': {1: np.array([0, 4, 8, 12]),
                              3: np.array([12,  8,  5,  1]),
                              4: np.array([ 8,  5,  1, 12])}}}
 
-def build_scales(mode, ratio, rank):
-      # logging.debug(f'{mode = }, {ratio = }, {rank = }')
+def build_scales(mode: str, ratio: str, rank: str) -> np.ndarray:
+    """Build an 8-note scale for the given mode, ratio (root), and rank.
+
+    Args:
+        mode: 'oton' or 'uton'.
+        ratio: Root ratio string (e.g. from keys), must exist in keys[mode].
+        rank: Scale rank 'A'–'H'.
+
+    Returns:
+        Array of 8 scale note indices, or np.arange(8) on error.
+    """
+    # logging.debug(f'{mode = }, {ratio = }, {rank = }')
       # if rank in (['A', 'B', 'C', 'D']):
       if ratio in keys[mode]: 
             scale = np.array([keys[mode][ratio][note] for note in (scales[rank][mode])])
@@ -185,32 +215,53 @@ def build_scales(mode, ratio, rank):
             scale = np.arange(8)
       return scale
 
-def ratio_string_to_float(ratio):
-      n, d = ratio.split('/')
-      return float(float(n) / float(d))
+def ratio_string_to_float(ratio: str) -> float:
+    """Convert a ratio string like '3/2' to a float.
 
-def ratio_to_cents(ratio):
-      if isinstance(ratio, str):
+    Args:
+        ratio: Ratio as "num/den".
+
+    Returns:
+        num/den as float.
+    """
+    n, d = ratio.split('/')
+    return float(float(n) / float(d))
+
+def ratio_to_cents(ratio: Union[str, float]) -> float:
+    """Convert a frequency ratio to cents (1200 * log2(ratio)).
+
+    Args:
+        ratio: Ratio as float or string "num/den".
+
+    Returns:
+        Cents value rounded to one decimal.
+    """
+    if isinstance(ratio, str):
             print(f'this function expects a ratio in floating point form, but we do not care. Here is your answer boss')
             ratio = ratio_string_to_float(ratio)
-      return round(1200 * np.log(ratio)/np.log(2),1)
+    return round(1200 * np.log(ratio)/np.log(2),1)
 
-def cents_to_ratio(cents, limit_denominator = 50):
+def cents_to_ratio(cents: float, limit_denominator: int = 50) -> str:
+    """Convert cents to a ratio string with bounded denominator."""
     return str(Fraction(np.power(2, cents/1200)).limit_denominator(limit_denominator))
 
-def cents_to_num_den(cents, limit_denominator = 50):
-     f = Fraction(np.power(2, cents/1200)).limit_denominator(limit_denominator)
-     return f.numerator, f.denominator
+def cents_to_num_den(cents: float, limit_denominator: int = 50) -> Tuple[int, int]:
+    """Convert cents to (numerator, denominator) of the ratio."""
+    f = Fraction(np.power(2, cents/1200)).limit_denominator(limit_denominator)
+    return f.numerator, f.denominator
 
 
-def show_keys():
-      return(keys)
+def show_keys() -> Dict[str, Any]:
+    """Return the keys dict (oton/uton ratio -> note index arrays)."""
+    return(keys)
 
-def show_scales():
-      return(scales)
+def show_scales() -> Dict[str, Any]:
+    """Return the scales dict (rank -> mode -> 8-note scale indices)."""
+    return(scales)
 
-def show_inversions():
-      return(inversions)      
+def show_inversions() -> Dict[str, Any]:
+    """Return the inversions dict (rank -> mode -> inversion -> note indices)."""
+    return(inversions)      
       
 # note that this function tries to find the closest end note to the start note.
 # It might be up or down, it might cross an octave boundary.
@@ -220,24 +271,34 @@ def show_inversions():
 # and multiplies either the start or the end note by 2 before recalculating the ratio.
 # this can cause problems if you are looking for that large leap.
 # You can override the default behavior by setting find_closest = False
-def ratio_distance(start, end, find_closest = True):
-      start_ratio = ratio_string_to_float(start)
-      end_ratio = ratio_string_to_float(end)
-      ratio = end_ratio / start_ratio 
-      # logging.debug(f'calculated ratio is {ratio = }')
-      if not find_closest: return (ratio)
-      min_ratio = 0.75
-      max_ratio = 1.50
-      if min_ratio <= ratio <= max_ratio:
+def ratio_distance(start: str, end: str, find_closest: bool = True) -> float:
+    """Interval ratio from start ratio to end ratio, optionally finding closest (octave-adjusted) path.
+
+    Args:
+        start: Start ratio string (e.g. '15/8').
+        end: End ratio string (e.g. '1/1').
+        find_closest: If True, adjust by octave so ratio is in [0.75, 1.5].
+
+    Returns:
+        end/start as float, possibly after doubling start or end for closest path.
+    """
+    start_ratio = ratio_string_to_float(start)
+    end_ratio = ratio_string_to_float(end)
+    ratio = end_ratio / start_ratio
+    # logging.debug(f'calculated ratio is {ratio = }')
+    if not find_closest: return (ratio)
+    min_ratio = 0.75
+    max_ratio = 1.50
+    if min_ratio <= ratio <= max_ratio:
             return ratio
-      else:
+    else:
             # logging.debug(f'out of range: {round(ratio,2) = }')
-            if ratio >= max_ratio: 
+            if ratio >= max_ratio:
                   ratio = end_ratio / (start_ratio * 2)
-            elif ratio <= min_ratio: 
+            elif ratio <= min_ratio:
                   ratio = end_ratio * 2 / start_ratio
             # logging.debug(f'new {round(ratio,2) = }')
-      return ratio
+    return ratio
 
 # for each of the keys, build the chords from the scales created above.
 # key is a string index into the keys dictionary: e.g. mode, ratio
@@ -245,8 +306,19 @@ def ratio_distance(start, end, find_closest = True):
 # the inversion includes the rank is which of the four tetrachords in each scale, A, B, C, or D
 # And it specifies which note is on top
 
-def build_chords(mode, root, rank, inversion):
-      if type(inversion) != int: inversion = int(inversion)
+def build_chords(mode: str, root: str, rank: str, inversion: Union[int, str]) -> Optional[np.ndarray]:
+    """Build a four-note chord from mode, root ratio, rank, and inversion.
+
+    Args:
+        mode: 'oton' or 'uton'.
+        root: Root ratio string (must be in keys[mode]).
+        rank: Rank 'A'–'H'.
+        inversion: Inversion 1–4 (int or string).
+
+    Returns:
+        Array of 4 note indices, or None if root/inversion not found.
+    """
+    if type(inversion) != int: inversion = int(inversion)
       if (root in keys[mode]) and (inversion in inversions[rank][mode]): 
             chord = np.array([keys[mode][root][note] for note in (inversions[rank][mode][inversion])]) 
       else:
@@ -255,7 +327,17 @@ def build_chords(mode, root, rank, inversion):
       return chord
 
 # This function takes a table number, glissando type, and ratio and returns an array that can be passed to csound to bend a note
-def make_ftable_glissando(t_num, gliss_type, ratio):
+def make_ftable_glissando(t_num: int, gliss_type: str, ratio: float) -> np.ndarray:
+    """Build a Csound GEN07/GEN06 function table for glissando/trill (pitch bend).
+
+    Args:
+        t_num: Csound f-table number.
+        gliss_type: One of 'slide', 'cubic*', 'trill_*_step', 'flat'.
+        ratio: Target frequency ratio for the bend.
+
+    Returns:
+        Array of f-table parameters for Csound, or zeros on invalid gliss_type.
+    """
 #                               +-- table number
 #                               |       +-- start at time zero
 #                               |       |    +-- size of the table
@@ -301,14 +383,16 @@ def make_ftable_glissando(t_num, gliss_type, ratio):
       return fn_array    
 
 # take a scale as indexes and return the ratios as strings
-def show_scale_ratios(scale):
-      for note in scale:
+def show_scale_ratios(scale: np.ndarray) -> np.ndarray:
+    """Return ratio strings for the given scale (array of note indices)."""
+    for note in scale:
             return(all_ratio_strings[scale])
 
 import os
 import logging
 
-def start_logger(LOGNAME, log_level='info'):
+def start_logger(LOGNAME: str, log_level: str = 'info') -> None:
+    """Configure root logger to write to LOGNAME file; level from log_level ('info', 'debug', etc.)."""
     if os.path.exists(LOGNAME):
         os.remove(LOGNAME)  # start fresh
 
@@ -345,24 +429,35 @@ def start_logger(LOGNAME, log_level='info'):
     logger.setLevel(level_map.get(log_level, logging.WARN))
 
      
-def flushMessages(cs, delay=0):
-      s = ""
-      if delay > 0:
+def flushMessages(cs: Any, delay: float = 0) -> str:
+    """Drain Csound message buffer after optional delay; return concatenated messages."""
+    s = ""
+    if delay > 0:
             time.sleep(delay)
-      for i in range(cs.messageCnt()):
+    for i in range(cs.messageCnt()):
             s += cs.firstMessage()
             cs.popFirstMessage()
-      return s
+    return s
 
-def printMessages(cs, delay=0):
+def printMessages(cs: Any, delay: float = 0) -> None:
+    """Flush Csound messages and log them at debug level."""
     s = flushMessages(cs, delay)
     this_many = 0
     if len(s)>0:
         logging.debug(s)            
 
 # load the orchestra .csd file in to a long string that can be passed to csound
-def load_csd(csd_file, strip_f0 = False):
-      csd_content = ""
+def load_csd(csd_file: str, strip_f0: bool = False) -> Tuple[str, int]:
+    """Load a .csd file into a string, optionally stripping f0 and score/instance lines.
+
+    Args:
+        csd_file: Path to the .csd file.
+        strip_f0: If True, skip lines starting with f0, </CsScore, </CsoundS.
+
+    Returns:
+        (csd_content, lines) where lines is count of lines read.
+    """
+    csd_content = ""
       lines = 0
       empty = False
       with open(csd_file,'r') as csd:
@@ -407,10 +502,20 @@ def load_csd(csd_file, strip_f0 = False):
 # will return four slides for the four notes.
 # meanwhile it will increment current_gliss_table with the last table number, and concatenate the gliss tables to stored_gliss
 
-def build_slides(chord_1, chord_2, gliss_type = 'slide'):
-      global stored_gliss, current_gliss_table
-      assert chord_1.shape == chord_2.shape, logging.debug(f'{chord_1.shape = } is not equal to {chord_1.shape = }. Halting.')
-      # logging.debug(f'\nIn build_slides. {stored_gliss.shape = }, {current_gliss_table = }')
+def build_slides(chord_1: np.ndarray, chord_2: np.ndarray, gliss_type: str = 'slide') -> np.ndarray:
+    """Build glissando f-tables for sliding from chord_1 to chord_2; reuse existing tables when possible.
+
+    Args:
+        chord_1: Array of note indices (e.g. 4 notes).
+        chord_2: Same shape as chord_1; target note indices.
+        gliss_type: Glissando type for make_ftable_glissando.
+
+    Returns:
+        Array of f-table numbers (one per voice) to use for the slides.
+    """
+    global stored_gliss, current_gliss_table
+    assert chord_1.shape == chord_2.shape, logging.debug(f'{chord_1.shape = } is not equal to {chord_1.shape = }. Halting.')
+    # logging.debug(f'\nIn build_slides. {stored_gliss.shape = }, {current_gliss_table = }')
       # make a glissando table for all the notes in the two chords (should be 4 per chord for a typical usage)
       new_gliss_tables = np.array([make_ftable_glissando(current_gliss_table + i, gliss_type, ratio_distance(all_ratio_strings[a],all_ratio_strings[b])) for i, (a, b) in enumerate(zip(chord_1, chord_2))])
       # logging.debug(f'after making gliss tables. {new_gliss_tables.shape = }, {[gliss[0] for gliss in new_gliss_tables]}') 
@@ -460,10 +565,10 @@ def build_slides(chord_1, chord_2, gliss_type = 'slide'):
 # this is a function call to build an octave boost mask that can be applied to keep scales always moving up.
 # scale is an array of (note,) 
 # return a mask that indicates by a 1 that the note should be increased an octave, or a zero that it should not.
-# this only works for scales going up. 
-def build_scale_mask(scale):
-      
-      boost_octave = 1
+# this only works for scales going up.
+def build_scale_mask(scale: np.ndarray) -> np.ndarray:
+    """Build octave-boost mask so scale always moves upward (1 = add octave, 0 = no change)."""
+    boost_octave = 1
       mask = np.zeros(scale.shape, dtype=int) # assume no increase
       prev_note = ratio_string_to_float(all_ratio_strings[scale[0]]) # this assumes shape in (note,) dangerous
       inx = 0
@@ -479,26 +584,29 @@ def build_scale_mask(scale):
             prev_note = current_note_ratio
             
             inx += 1
-      return (mask)
+    return (mask)
 
-def retrieve_gliss_tables():
-      global stored_gliss, current_gliss_table 
-      return stored_gliss, current_gliss_table
-  
-def init_stored_gliss(starting_location = 1500, values_in_ftable = 70):
-      global stored_gliss, current_gliss_table
-      stored_gliss = np.empty((0, values_in_ftable), dtype = float) # each slide is made of up to 70 values for a really long slide
+def retrieve_gliss_tables() -> Tuple[np.ndarray, int]:
+    """Return (stored_gliss, current_gliss_table)."""
+    global stored_gliss, current_gliss_table
+    return stored_gliss, current_gliss_table
+
+def init_stored_gliss(starting_location: int = 1500, values_in_ftable: int = 70) -> np.ndarray:
+    """Reset stored glissando tables and next table number; return empty stored_gliss."""
+    global stored_gliss, current_gliss_table
+    stored_gliss = np.empty((0, values_in_ftable), dtype = float) # each slide is made of up to 70 values for a really long slide
       # #     - size type start         end
       # [800. 0. 256. -7. 1. 16. 1. 128. 1.125 112. 1.125]
       current_gliss_table = starting_location
-      return stored_gliss
+    return stored_gliss
 
-def update_gliss_table(gliss_table, current_gl):
-      global stored_gliss, current_gliss_table 
-      stored_gliss = gliss_table 
-      current_gliss_table = current_gl     
-      # logging.debug(f'{stored_gliss.shape = }, {current_gliss_table = }')
-      return current_gliss_table
+def update_gliss_table(gliss_table: np.ndarray, current_gl: int) -> int:
+    """Set global stored_gliss and current_gliss_table; return current_gl."""
+    global stored_gliss, current_gliss_table
+    stored_gliss = gliss_table
+    current_gliss_table = current_gl
+    # logging.debug(f'{stored_gliss.shape = }, {current_gliss_table = }')
+    return current_gliss_table
 
 # the functions from here to the end were added on 1/7/23 to reduce the clutter in the notebook.
 # I think I have to make this a normal python array instead of a numpy array.
@@ -508,22 +616,25 @@ best_rank_inversion_combos = [["A", "A", 1, 2],["A", "A", 1, 4],["A", "A", 2, 1]
     ["B", "A", 2, 3],["B", "A", 3, 3],["B", "A", 3, 4],["B", "A", 4, 1],["B", "A", 4, 4],["B", "B", 1, 2],["B", "B", 1, 4],
     ["B", "B", 2, 1],["B", "B", 2, 3],["B", "B", 3, 2],["B", "B", 3, 4],["B", "B", 4, 1],["B", "B", 4, 3]]
 
-def show_voice_time_short_name(number, voice_time):
+def show_voice_time_short_name(number: int, voice_time: Dict[str, Any]) -> Tuple[str, int]:
+    """Look up voice short name and Csound voice number by time_tracker_number."""
     short_name = ''
     voice_num = 0
     for short_name in voice_time:
         if voice_time[short_name]["time_tracker_number"] == number:
             voice_num = voice_time[short_name]["csound_voice"]
             return (short_name, voice_num)
+    return (short_name, voice_num)
 
-def init_voice_start_times(voice_time):
+def init_voice_start_times(voice_time: Dict[str, Any]) -> None:
+    """Set start time to 0 for all instruments in voice_time."""
     for instrument in voice_time:
         voice_time[instrument]["start"] = 0
 
 # This function transforms the note duration field into a start time field. It does this using the voice_time dictionary to keep track of the current time for each voice. In the notebook, it uses a tracking number for the voice number, so in that way it can reuse an instrument several times. Eventually it changes the tracking number in the actual csound voice number in use.
 
-def fix_start_times(note_array, voice_time):
-    
+def fix_start_times(note_array: np.ndarray, voice_time: Dict[str, Any]) -> Tuple[np.ndarray, Dict[str, Any]]:
+    """Convert duration column to start-time column per voice; replace tracker number with Csound voice number."""
     note_num = 0
     start_col = 1
     dur_col = 1
@@ -540,8 +651,8 @@ def fix_start_times(note_array, voice_time):
 
 # build a function table that will create a slide for one voice in a long set of glissandi passing through several different notes
 # each ratio distance must compare the desired pitch with the initial pitch, not the previous pitch.
-def _build_voice_slide(t_num, one_voice_array, total_slide_size = 2048.0, each_slide_step = 113.0):
-    
+def _build_voice_slide(t_num: int, one_voice_array: np.ndarray, total_slide_size: float = 2048.0, each_slide_step: float = 113.0) -> np.ndarray:
+    """Build a single-voice multi-note slide f-table (GEN07) for Csound."""
     start_ratio = 1.0
     slide_steps = one_voice_array.shape[0] 
     logging.debug(f'{one_voice_array.shape = }') # should be 9 notes long
@@ -590,7 +701,8 @@ def _build_voice_slide(t_num, one_voice_array, total_slide_size = 2048.0, each_s
     return fn_array
 
 # slide bewteen any number of arbitrary chords defined by mode, root, rank, and inversion
-def new_multiple_chord_slide(rank, chosen_array, each_slide_step, all_bridge_chords_array):
+def new_multiple_chord_slide(rank: str, chosen_array: int, each_slide_step: float, all_bridge_chords_array: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    """Build multi-chord slides for all voices; update stored_gliss. Returns (first notes per voice, f-table numbers)."""
     global stored_gliss, current_gliss_table
 #     stored_gliss_table, current_gliss_table = retrieve_gliss_tables() # retrieve the existing glissando tables from dmu
     rank_num = ord(rank) - 65 # convert "A","B","C","D" into 0,1,2,3 for index into all_bridge_chord_arrays
@@ -609,7 +721,8 @@ def new_multiple_chord_slide(rank, chosen_array, each_slide_step, all_bridge_cho
     notes = array_of_chords.T[0,:] # just the first note for each instrument
     return notes, gliss
 
-def masked_notes_by_voice(notes_features, voices, density_function, voice_time):
+def masked_notes_by_voice(notes_features: np.ndarray, voices: List[str], density_function: np.ndarray, voice_time: Dict[str, Any]) -> np.ndarray:
+    """Zero out octave (column 5) for notes in given voices with probability from density_function."""
     voice_num = np.unique(np.array([voice_time[short_name]["csound_voice"] for short_name in voices])) # transform an array of voice short names into unique csound voice number
     logging.debug(f'{voice_num = }, {voices = }, {density_function.shape = }, {notes_features.shape = }')
     vel_col = 5
@@ -636,9 +749,9 @@ def masked_notes_by_voice(notes_features, voices, density_function, voice_time):
             not_voice += 1
     logging.debug(f'{not_voice = }, {is_voice = }, {zero_oct = }')
     return(notes_features)
-     
 
-def masked_notes_features(note_array, density_function):
+def masked_notes_features(note_array: np.ndarray, density_function: np.ndarray) -> np.ndarray:
+    """Apply per-note hold mask from density_function (probabilities); return note_array with some hold values zeroed."""
     assert note_array.shape[0] == density_function.shape[0], logging.debug(f'unequal dimensions between the note_array and the density_function. {note_array.shape = }, {density_function.shape = }')
     # fill an array with zeros and ones, with more of one than the other based on density
     # I want a different probability for every note in the array, based on the percentage chance in density function.
@@ -655,8 +768,8 @@ def masked_notes_features(note_array, density_function):
     # logging.debug(f'{note_array.shape = }\n{mix_mask.shape = }, {mix_mask[:5] = }')
     return note_array
 
-def masked_voices_notes(octave_array, density_function):
-    # ensure the notes dimensions of the octave_array and the single dimension of the density_function are identical
+def masked_voices_notes(octave_array: np.ndarray, density_function: np.ndarray) -> np.ndarray:
+    """Apply per-note mask from density_function to octave values (zero out some notes)."""
     assert octave_array.shape[1] == density_function.shape[0], logging.debug(f'unequal dimensions between the note_array and the density_function. {octave_array.shape = }, {density_function.shape = }')
     mix_mask = np.zeros(octave_array.shape[0]) # create a mask of (voices, notes) shape, but process all the voices with the same element of the density_function array (shape[notes])
     for inx in np.arange(octave_array.shape[0]):
@@ -665,9 +778,21 @@ def masked_voices_notes(octave_array, density_function):
     octave_array = octave_array * mix_mask # multiply octave values by zeros to erase a percent of the notes
     return octave_array
 
-def send_to_csound_file(notes_features, voice_time, path_to_input, path_to_output = "new_output.csd", \
-            limit = 0, tempos = '', print_only = 10, tempo = 60, include_instruments = []):
-      global stored_gliss, current_gliss_table
+def send_to_csound_file(
+    notes_features: np.ndarray,
+    voice_time: Dict[str, Any],
+    path_to_input: str,
+    path_to_output: str = "new_output.csd",
+    limit: float = 0,
+    tempos: str = '',
+    print_only: int = 10,
+    tempo: float = 60,
+    include_instruments: Optional[List[int]] = None,
+) -> np.ndarray:
+    """Write Csound .csd: gliss tables, then score lines from notes_features; filter by hold/oct/vol/vel and optional instruments."""
+    if include_instruments is None:
+        include_instruments = []
+    global stored_gliss, current_gliss_table
       logging.debug(f'In send_to_csound_file. {stored_gliss.shape = }, {current_gliss_table = }, {notes_features[:,5] = }, {print_only = }')
       if limit == 0: 
            limit = np.max([voice_time[inst]["start"] for inst in voice_time])
@@ -759,14 +884,16 @@ def send_to_csound_file(notes_features, voice_time, path_to_input, path_to_outpu
       logging.debug(f'{round(min_z,5) = }, {round(max_z,5) = }')  
       return(notes_features)
 
-def build_density_function(y, points):
+def build_density_function(y: np.ndarray, points: int) -> np.ndarray:
+    """Interpolate density curve to `points` samples via cubic spline."""
     x = np.arange(y.shape[0])
     spline = make_interp_spline(x, y)
     X_ = np.linspace(x.min(), x.max(), points)
     return spline(X_)
 
-def format_seconds_to_minutes(sec, n_msec=3):
-      # Convert seconds to D days, HH:MM:SS.FFF
+def format_seconds_to_minutes(sec: float, n_msec: int = 3) -> str:
+    """Convert seconds to MM:SS.FFF (or with days); n_msec controls decimal places."""
+    # Convert seconds to D days, HH:MM:SS.FFF
       # if hasattr(sec,'__len__'): return [sec2time(s) for s in sec]
       # logging.debug(f'in format_seconds_to_minutes. {sec = }, {n_msec = }')
       m, s = divmod(sec, 60)
@@ -781,7 +908,8 @@ def format_seconds_to_minutes(sec, n_msec=3):
       return (pattern) % (m, s)
 
 # pass a set of parameters and get back an array of notes
-def root_chord_slide(mode, root, combo, gliss_type):
+def root_chord_slide(mode: str, root: str, combo: List[Any], gliss_type: str) -> Tuple[np.ndarray, np.ndarray]:
+    """Build two chords and slide from first to second; return (initial chord notes, gliss f-table numbers)."""
     # Build two chords and slide from the first to the second. Return the initial chord and the slide to reach the second chord                                                    
     tones_1 = build_chords(mode, root, combo[0], combo[2]) # get four notes
     tones_2 = build_chords(mode, root, combo[1], combo[3])
@@ -789,9 +917,8 @@ def root_chord_slide(mode, root, combo, gliss_type):
     # logging.debug(f'{tones_1 = }, {tones_2 = }, {gliss = }')
     return (tones_1, gliss)
 
-def masked_by_pattern(octave_array, pattern):
-    # ensure the notes dimensions of the octave_array and the single dimension of the density_function are compatible
-    # old method:
+def masked_by_pattern(octave_array: np.ndarray, pattern: np.ndarray) -> np.ndarray:
+    """Apply repeating pattern mask along time (columns) to octave_array; broadcast across voices."""
     pattern = pattern[:octave_array.shape[0],:] # make the pattern smaller to match the number of voices in the input chorale
     skip = 1
     for i in range(0, octave_array.shape[1] // pattern.shape[1], skip): # 0,notes // mask slots by skip
@@ -801,8 +928,15 @@ def masked_by_pattern(octave_array, pattern):
         octave_array[:,start:end] = pattern * octave_array[:,start:end] # so here is where the mask is broadcasting all voices in the mask
     return octave_array
 
-def piano_roll_to_notes_features(note_array, volume_array, instruments, time_per_note, voice_time): 
-      # this function identifies identical adjacent notes and replaces them with one note with duration equal to the sum of the duration value of the identical adjacent notes.
+def piano_roll_to_notes_features(
+    note_array: np.ndarray,
+    volume_array: np.ndarray,
+    instruments: np.ndarray,
+    time_per_note: float,
+    voice_time: Dict[str, Any],
+) -> np.ndarray:
+    """Collapse identical adjacent notes into one note with summed duration; assign duration, hold, instruments, envelopes, volumes."""
+    # this function identifies identical adjacent notes and replaces them with one note with duration equal to the sum of the duration value of the identical adjacent notes.
       # Assign duration, hold, instruments, envelopes, and volumes to notes.
       # Starts with a piano_roll type structure of (initial 6 features (noguev), voices, notes). 
       # the number of voices must equal the instruments.shape[0]
@@ -858,7 +992,17 @@ def piano_roll_to_notes_features(note_array, volume_array, instruments, time_per
             # logging.debug(f'{input_voice_inx = }, {output_inx = }') # 
       return (notes_features[:output_inx])
 
-def _parse(word, prev_note, prev_oct, prev_gls, prev_ups, prev_env, prev_vel, prev_dur):
+def _parse(
+    word: str,
+    prev_note: Union[int, str],
+    prev_oct: Union[int, str],
+    prev_gls: Union[int, str],
+    prev_ups: Union[int, str],
+    prev_env: Union[int, str],
+    prev_vel: Union[int, str],
+    prev_dur: Union[int, str],
+) -> Tuple[Union[int, str], Union[int, str], Union[int, str], Union[int, str], Union[int, str], Union[int, str], Union[int, str]]:
+    """Parse one token (e.g. n1o4g0u0e1v75d4) into note, oct, gls, ups, env, vel, dur; use prev_* when field missing."""
     if word.find("n") == -1: note_value = prev_note # if it's not found python returns -1
     else: 
         digit_len = 1
@@ -923,9 +1067,20 @@ def _parse(word, prev_note, prev_oct, prev_gls, prev_ups, prev_env, prev_vel, pr
         gls_value = word[word.find("g") + 1:  word.find("g") + digit_len]
     
     return(note_value, oct_value, gls_value, ups_value, env_value, vel_value, dur_value)
-    
-def _arrays_from_text(input, prev_note = 0, prev_oct = 4, prev_gls = 0, prev_ups = 0, prev_env = 1, prev_vel = 75, prev_dur = 4, shuffle = False):
-      input_list = np.array(np.char.split(input,sep=" ").tolist()) # convert a text string to a set of space separated tokens
+
+def _arrays_from_text(
+    input: str,
+    prev_note: int = 0,
+    prev_oct: int = 4,
+    prev_gls: int = 0,
+    prev_ups: int = 0,
+    prev_env: int = 1,
+    prev_vel: int = 75,
+    prev_dur: int = 4,
+    shuffle: bool = False,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, str]:
+    """Parse space-separated tokens into arrays (notes, octv, gls, ups, env, vel) and reconstructed string."""
+    input_list = np.array(np.char.split(input,sep=" ").tolist()) # convert a text string to a set of space separated tokens
       notes = np.empty(0, dtype = int)
       octv = np.empty(0, dtype = int)
       gls = np.empty(0, dtype = int)
@@ -965,19 +1120,21 @@ def _arrays_from_text(input, prev_note = 0, prev_oct = 4, prev_gls = 0, prev_ups
       return notes, octv, gls, ups, env, vel, input_reconstructed[:-1] # return all but the last space in the string
 
 # These are helper functions that allow the calling of arrays_from_text without getting unnecessary results back.
-def fill_out_text(input):
-      _, _, _, _, _, _, input_reconstructed = _arrays_from_text(input)
-      # logging.debug(f'{input_reconstructed = }')
-      return input_reconstructed
-            
-def text_to_features(input, shuffle = False):
-      notes, octv, gls, ups, env, vel, _ = _arrays_from_text(input, shuffle = shuffle)	
-      if shuffle: logging.debug(f'after shuffle: {notes = }')
-      return notes, octv, gls, ups, env, vel
+def fill_out_text(input: str) -> str:
+    """Return normalized/reconstructed text from token string (expanded with defaults)."""
+    _, _, _, _, _, _, input_reconstructed = _arrays_from_text(input)
+    # logging.debug(f'{input_reconstructed = }')
+    return input_reconstructed
 
-def choose_trill_type(repeat_notes):
+def text_to_features(input: str, shuffle: bool = False) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Parse input text into note feature arrays (notes, octv, gls, ups, env, vel)."""
+    notes, octv, gls, ups, env, vel, _ = _arrays_from_text(input, shuffle = shuffle)
+    if shuffle: logging.debug(f'after shuffle: {notes = }')
+    return notes, octv, gls, ups, env, vel
+
+def choose_trill_type(repeat_notes: int) -> str:
+    """Pick trill/slide type from repeat_notes (e.g. trill_4_step, cubic64_64_128, flat)."""
     # valid repeat_each_note values are [2,3,4,5,6,7,8,9,10,12,14,16]
-    # select if random number is greater than:
     prefer_flat = .75
     prefer_trill = .60 # repeat_each_note
     logging.debug(f'in choose_trill_type. {repeat_notes = }')
@@ -1009,20 +1166,33 @@ def choose_trill_type(repeat_notes):
     return trill_type
 
 # find the largest number evenly divisible into the array_size, starting a max number and moving down until you find one.
-def largest_evenly_divisible(array_size, max_number): 
+def largest_evenly_divisible(array_size: int, max_number: int) -> int:
+    """Return largest integer in [1, max_number] that evenly divides array_size."""
     for inx in np.arange(max_number, 0, -1):
         if array_size // inx == array_size / inx:
             return inx
+    return 1
 
-def mask_array(octave_array, mask):
-    # logging.debug(f'In mask array. {mask.shape = }, {octave_array.shape = }')
-    mask = np.tile(mask, (octave_array.shape[0] // mask.shape[0], octave_array.shape[1] // mask.shape[1])) # make the mask the same size as the octave_array
-    # logging.debug(f'{mask.shape = }')
+def mask_array(octave_array: np.ndarray, mask: np.ndarray) -> np.ndarray:
+    """Tile mask to match octave_array shape and multiply; zeros silence masked notes."""
+    mask = np.tile(mask, (octave_array.shape[0] // mask.shape[0], octave_array.shape[1] // mask.shape[1]))
     return octave_array * mask
 
-def build_bass_line(repeat_section, notes, octave_array, gls, ups_array, envelope_array, vel_array,\
-                  mask, voices, mode = "oton", root = "16/9", rank = "A"):
-    
+def build_bass_line(
+    repeat_section: int,
+    notes: np.ndarray,
+    octave_array: np.ndarray,
+    gls: np.ndarray,
+    ups_array: np.ndarray,
+    envelope_array: np.ndarray,
+    vel_array: np.ndarray,
+    mask: np.ndarray,
+    voices: int,
+    mode: str = "oton",
+    root: str = "16/9",
+    rank: str = "A",
+) -> np.ndarray:
+    """Build bass part: scale notes tiled for voices, masked, rolled and concatenated over repeat_section."""
     scale = build_scales(mode, root, rank)
     note_array = np.array([scale[note] for note in notes]) # convert from positions int eh scale to positions in the total array of 256 notes.
 
@@ -1059,13 +1229,8 @@ def build_bass_line(repeat_section, notes, octave_array, gls, ups_array, envelop
     logging.debug(f'{concat_array.shape = }')
     return concat_array
 
-def thin(arr):
-      # this function is designed to convert a list of notes into just the notes that are different
-      # for example, if we want to slide across several notes, such as 1,1,2,2,5,3,3,3 this will convert that to 1,2,5,3
-      # so that I can calculated a slide across those notes.
-      #     logging.debug(f'in thin. {type(arr) = }')
-      #     logging.debug(f'{arr.shape = }')
-    
+def thin(arr: np.ndarray) -> np.ndarray:
+    """Return array of distinct consecutive values (e.g. [1,1,2,2,5,3,3,3] -> [1,2,5,3]) for slide calculation."""
     target = np.zeros(arr.shape, dtype = int)
     prev = arr[0]
     inx = 0
@@ -1079,10 +1244,27 @@ def thin(arr):
     return target[:inx]
 
 # this array takes in text that describes a slide of many steps and returns an array of gliss values for those slides.
-def build_horn_from_text(repeat_section, note_array, octave_array, gliss_array, ups_array, envelope_array, vel_array,\
-                        voices, mode = "oton", root = "16/9", rank = "A",\
-                        roll_low = -3, roll_high = 4, likelihood = .65, octave_shift = 0, vel_echo_max = 7, each_slide_step = 240): 
-      logging.debug(f'{roll_low = }, {roll_high = }, {likelihood = }, {octave_shift = }, {vel_echo_max = }, {each_slide_step = } ')
+def build_horn_from_text(
+    repeat_section: int,
+    note_array: np.ndarray,
+    octave_array: np.ndarray,
+    gliss_array: np.ndarray,
+    ups_array: np.ndarray,
+    envelope_array: np.ndarray,
+    vel_array: np.ndarray,
+    voices: int,
+    mode: str = "oton",
+    root: str = "16/9",
+    rank: str = "A",
+    roll_low: int = -3,
+    roll_high: int = 4,
+    likelihood: float = 0.65,
+    octave_shift: int = 0,
+    vel_echo_max: int = 7,
+    each_slide_step: float = 240.0,
+) -> np.ndarray:
+    """Build horn part from note/octave/gliss/etc. arrays: resolve glissandi into f-tables, roll and concatenate."""
+    logging.debug(f'{roll_low = }, {roll_high = }, {likelihood = }, {octave_shift = }, {vel_echo_max = }, {each_slide_step = } ')
       # current_gliss_table: what the next table number created should be
       # stored_gliss: collection of all the slides asked for so far
       global stored_gliss, current_gliss_table
@@ -1216,7 +1398,19 @@ def build_horn_from_text(repeat_section, note_array, octave_array, gliss_array, 
       logging.debug(f'gliss values after concatenation: {np.max(concat_array[2,:,:]) = }') # they are the expected values of either 0 or 800+
       return concat_array
 
-def build_arpeggio_part(repeat_section, repeat_notes, repeat_all, octave_array, envelope_array, mask, voices, mode = "oton", root = "16/9", rank = "A"):
+def build_arpeggio_part(
+    repeat_section: int,
+    repeat_notes: int,
+    repeat_all: int,
+    octave_array: np.ndarray,
+    envelope_array: np.ndarray,
+    mask: np.ndarray,
+    voices: int,
+    mode: str = "oton",
+    root: str = "16/9",
+    rank: str = "A",
+) -> np.ndarray:
+    """Build arpeggio part from chord combos, repeated and masked; returns stacked (notes, oct, gliss, ups, env, vel)."""
     logging.debug(f'in build_arpeggio_part. {mode = }, {root = }, {rank = }')
     combo_set = rng.choice(np.arange(8, 8 + repeat_section, 1), size = repeat_section, replace = False) # create repeat_section pairs of chords 
     note_array = np.array([(build_chords(mode, root, best_rank_inversion_combos[combo][0], best_rank_inversion_combos[combo][2]), \
@@ -1243,8 +1437,18 @@ def build_arpeggio_part(repeat_section, repeat_notes, repeat_all, octave_array, 
     logging.debug(f'after tile. {note_array.shape = }')
     return note_array
 
-def build_bass_flute_part(repeat_section, repeat_notes, repeat_all, octave_array, envelope_array, voices, mode = "oton", root = "16/9", rank = "A"):
-    
+def build_bass_flute_part(
+    repeat_section: int,
+    repeat_notes: int,
+    repeat_all: int,
+    octave_array: np.ndarray,
+    envelope_array: np.ndarray,
+    voices: int,
+    mode: str = "oton",
+    root: str = "16/9",
+    rank: str = "A",
+) -> np.ndarray:
+    """Build bass flute part with chord slides and trills; returns stacked (notes, oct, gliss, ups, env, vel)."""
     combo_set = rng.choice(np.arange(8, 8 + repeat_section, 1), size = repeat_section, replace = False) # create repeat_section pairs of chords (
     note_gliss_array = np.array([root_chord_slide(mode, root, best_rank_inversion_combos[combo], choose_trill_type(repeat_notes))\
                             for combo in combo_set])
@@ -1270,7 +1474,16 @@ def build_bass_flute_part(repeat_section, repeat_notes, repeat_all, octave_array
     
     return note_array
 
-def log_notes(notes, octv, gls, ups, env, vel, limit = 200):
+def log_notes(
+    notes: np.ndarray,
+    octv: np.ndarray,
+    gls: np.ndarray,
+    ups: np.ndarray,
+    env: np.ndarray,
+    vel: np.ndarray,
+    limit: int = 200,
+) -> None:
+    """Log note features (with duration runs) to debug, up to limit rows."""
     d = 0
     sum_d = 0
     pn = -1
@@ -1305,7 +1518,8 @@ def log_notes(notes, octv, gls, ups, env, vel, limit = 200):
     sum_d += d
     logging.debug(f'{sum_d = }')
 
-def log_notes_features(notes_features, limit = 200):
+def log_notes_features(notes_features: np.ndarray, limit: int = 200) -> None:
+    """Log notes_features rows (columns Sta, Hold, Vel, Ton, Oct, Voi, etc.) to debug."""
     logging.debug(f'{limit = }')
     logging.debug(f' 1\t2\t3\t4\t5\t6\t7\t8\t9\t0\t11\t12\t13\t14')
     logging.debug(f'Sta\tHold\tVel\tTon\tOct\tVoi\tSte\tEn1\tGls\tUps\tRen\t2gl\t3gl\tVol')
