@@ -1,0 +1,38 @@
+For Future Updates
+If you make changes to the presentation file, here's how to sync them:
+
+# 0. From your ~/Repos/One-footed-bride-tuning directory
+cd ~/Repos/One-footed-bride-tuning
+
+# 1. Check what's changed
+git status
+
+# 2. Add the modified file
+git add One-Footed-Bride-Presentation.md
+
+# 3. Commit with a message
+git commit -m "Update presentation charts"
+
+# 4. Push to GitHub
+git push origin main
+
+# 5. Pull in any other clones (if you have them elsewhere)
+git pull origin main
+
+---------------
+2/14/26 Trouble when I tried 11-limit in Straw_man_tuning.ipynb
+limit_max = 11, tonal_diamond.shape = (29, 3)
+22: initial chord. pitch class: 11  6  2  7, note names: B♮ F♯ D♮ G♮, cent_values: 1100  600  200  700, initial score: 6066.0
+(0, 1)  | 11  6 | 1100  600 |      -5 |    -500 |  6           |  498.0 | 5066.0 | 1100  602  200  700 | 4/3                    
+(0, 2)  | 11  2 | 1100  200 |       3 |     300 |  2  2        |  316.0 | 3066.0 | 1100  602  216  700 | 6/5 11/9               
+(0, 3)  | 11  7 | 1100  700 |      -4 |    -400 |  7  7        |  386.0 | 1066.0 | 1100  602  216  714 | 5/4 14/11              
+(1, 0)  |  6 11 |  602 1100 |       5 |     498 | 11           |  498.0 | 1066.0 | 1100  602  216  714 | 4/3                    
+(1, 2)  |  6  2 |  602  216 |      -4 |    -386 |  2  2        |  386.0 | 1066.0 | 1100  602  216  714 | 5/4 14/11            
+
+From the log:
+14 - INFO - chord#: 22 pitch_class_delta = 1, pitch_class_moves = 1, cent_value_delta = 112, cent_value_moves = 1
+14 - INFO - chord#: 22 pitch_class_target = 7, cent_value_target = 714
+14 - INFO - chord#: 22 found pitch_class_target in pitch_class_chord_prev = True, cent_value_target = 714, pitch_class_chord_prev = array([11,  7,  2,  7])
+14 - INFO - in _select_ratios: no allowed intervals after step 1 pitch class filter. returning empty list.
+14 - INFO - chord#: 22 [atu.limit_format(tonal_diamond[interval]) for interval in indices_to_tonal_diamond] = []
+14 - INFO - chord#: 22 pitch_class_interval = array([6, 7]), cent_value_interval = array([602, 714])
