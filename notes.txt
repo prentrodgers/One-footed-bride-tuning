@@ -9,9 +9,11 @@ git status
 
 # 2. Add the modified file
 git add One-Footed-Bride-Presentation.md
+or just add everything that's changed:
+git add .
 
 # 3. Commit with a message
-git commit -m "Update presentation charts"
+git commit -m "Update helper python files"
 
 # 4. Push to GitHub
 git push origin main
