@@ -81,7 +81,7 @@ def init_voice_time():
         configuration dictionaries. The time_tracker_number values are reset to consecutive
         integers starting from 0.
     """
-      voice_time = { 
+    voice_time = { 
             "fing1": {"full_name": "finger piano 1", "start": 0, "csound_voice": 1,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 2, "max_oct": 7},
             "fing2": {"full_name": "finger piano 2", "start": 0, "csound_voice": 1,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 2, "max_oct": 7},
             "fing3": {"full_name": "finger piano 3", "start": 0, "csound_voice": 1,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 2, "max_oct": 7},
@@ -217,10 +217,10 @@ def init_voice_time():
             "trmp5": {"full_name": "trumpet5", "start": 0, "csound_voice": 25,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 2, "max_oct": 6},
             "frnh3": {"full_name": "french horn3", "start": 0, "csound_voice": 16,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 1, "max_oct": 5},
             }
-      for inx, voice in zip(count(0,1), voice_time):
+    for inx, voice in zip(count(0,1), voice_time):
             # logging.info(voice)
-            voice_time[voice]["time_tracker_number"] = inx
-      return (voice_time)
+        voice_time[voice]["time_tracker_number"] = inx
+    return (voice_time)
 
 
 def find_root_mode(midi_file_name):
@@ -282,65 +282,65 @@ def load_from_midi_file(file_name, quantization = 4):
         - mode: str, 'major' or 'minor'
         - time_sig: str, time signature (e.g., '4/4')
     """
-      logging.debug(f'{file_name = }, {quantization = }')
-      mid = mido.MidiFile(file_name, clip = True)
-      logging.debug(f'{mid.length = }') # total playback time in seconds 24.5
-      measures = int(mid.length)
-      ticks_per_beat = mid.ticks_per_beat
-      slots_per_quarter = ticks_per_beat // quantization
-      logging.debug(f'{ticks_per_beat = }, {slots_per_quarter = }, {ticks_per_beat // slots_per_quarter * quantization * 12 = }')
-      logging.debug(f'{mid.length = }')
-      chorale = np.zeros((4, ticks_per_beat // slots_per_quarter * quantization * measures), dtype = int)
-      logging.debug(f'{chorale.shape = },')
-      mido_keys = [['A', 'A#m', 'Ab', 'Abm', 'Am', 'B', 'Bb', 'Bbm', 'Bm', 'C', 'C#', 'C#m', 'Cb', 'Cm', 'D', 'D#m', 'Db',\
-               'Dm', 'E', 'Eb', 'Ebm', 'Em', 'F', 'F#', 'F#m', 'Fm', 'G', 'G#m', 'Gb', 'Gm'],
-            [9, 10, 8, 8, 9, 11, 10, 10, 11, 0, 1, 1, 11, 0, 2, 3, 1, 2, 4, 3, 3, 4, 5, 6, 6, 5, 7, 8, 6, 7],
-             ['maj', 'min', 'maj', 'min', 'min', 'maj', 'maj', 'min', 'min', 'maj', 'maj', 'min', 'maj', 'min', 'maj', 'min', 'maj',\
-             'min', 'maj', 'maj', 'min', 'min', 'maj', 'maj', 'min', 'min', 'maj', 'min', 'maj', 'min']]
-      for track_num, track in enumerate(mid.tracks):
-            chorale_num = 0
-            voice = track_num - 1
-            for msg_num, msg in zip(count(0,1), track):
-                  if msg.is_meta:
-                        if msg.type == 'key_signature':
-                              root = msg.key
-                              logging.debug(f'{msg_num = }, {track_num = }: {root = }')
-                        elif msg.type == 'time_signature':
-                              time_sig_num = msg.numerator
-                              time_sig_den = msg.denominator
-                              time_sig_clocks = msg.clocks_per_click
-                              ticks_32_per_beat = msg.notated_32nd_notes_per_beat
-                              logging.debug(f'{msg_num = }, {track_num = }: {time_sig_num = }, {time_sig_den = }, {time_sig_clocks = }, {ticks_32_per_beat = }')
-                        elif msg.type == 'set_tempo':
-                              tempo = msg.tempo
-                              logging.debug(f'{msg_num = }, {track_num = }: {tempo = }')
-                        elif msg.type == 'end_of_track': pass
-                              # end_of_track = msg.time
-                              # logging.info(f'{msg_num = }, {track_num = }: {end_of_track = }')
-                  else: # not meta
-                        if msg.type == 'note_on': pass
-                        elif msg.type == 'note_off':
-                              slots = msg.time // slots_per_quarter
-                              logging.debug(f'note off: {voice = }, {msg.time = }, note info: {msg.note}, {msg.note // 12}, {slots = }, {chorale_num = }')
-                              chorale[voice, chorale_num:chorale_num + slots] = msg.note
-                              # logging.info(f'chorale[{voice}, {chorale_num}:{chorale_num + slots}], {chorale[voice, chorale_num:chorale_num + slots] = }')
-                              chorale_num += slots
-                        elif msg.type == 'pitchwheel': pass
-                        elif msg.type == 'program_change': pass
-                        else: logging.info(f'{msg_num = }, {voice = }: {msg = }')
-      chorale = chorale[:voice + 1, :chorale_num]
-      
-      time_sig = str(time_sig_num) + '/' + str(time_sig_den)
-      
-      for root_num in np.arange(len(mido_keys[0])):
-            if mido_keys[0][root_num] == root:
-                  break
-      root_note = mido_keys[1][root_num]
-      mode = mido_keys[2][root_num]
-      if mode == 'min': mode = 'minor'
-      elif mode == 'maj': mode = 'major'
-      logging.debug(f'{root = }, {mode = }, {chorale_num = }, {quantization = }, {slots_per_quarter = }')
-      return chorale, root_note, mode, time_sig 
+    logging.debug(f'{file_name = }, {quantization = }')
+    mid = mido.MidiFile(file_name, clip = True)
+    logging.debug(f'{mid.length = }') # total playback time in seconds 24.5
+    measures = int(mid.length)
+    ticks_per_beat = mid.ticks_per_beat
+    slots_per_quarter = ticks_per_beat // quantization
+    logging.debug(f'{ticks_per_beat = }, {slots_per_quarter = }, {ticks_per_beat // slots_per_quarter * quantization * 12 = }')
+    logging.debug(f'{mid.length = }')
+    chorale = np.zeros((4, ticks_per_beat // slots_per_quarter * quantization * measures), dtype = int)
+    logging.debug(f'{chorale.shape = },')
+    mido_keys = [['A', 'A#m', 'Ab', 'Abm', 'Am', 'B', 'Bb', 'Bbm', 'Bm', 'C', 'C#', 'C#m', 'Cb', 'Cm', 'D', 'D#m', 'Db',\
+            'Dm', 'E', 'Eb', 'Ebm', 'Em', 'F', 'F#', 'F#m', 'Fm', 'G', 'G#m', 'Gb', 'Gm'],
+        [9, 10, 8, 8, 9, 11, 10, 10, 11, 0, 1, 1, 11, 0, 2, 3, 1, 2, 4, 3, 3, 4, 5, 6, 6, 5, 7, 8, 6, 7],
+            ['maj', 'min', 'maj', 'min', 'min', 'maj', 'maj', 'min', 'min', 'maj', 'maj', 'min', 'maj', 'min', 'maj', 'min', 'maj',\
+            'min', 'maj', 'maj', 'min', 'min', 'maj', 'maj', 'min', 'min', 'maj', 'min', 'maj', 'min']]
+    for track_num, track in enumerate(mid.tracks):
+        chorale_num = 0
+        voice = track_num - 1
+        for msg_num, msg in zip(count(0,1), track):
+                if msg.is_meta:
+                    if msg.type == 'key_signature':
+                            root = msg.key
+                            logging.debug(f'{msg_num = }, {track_num = }: {root = }')
+                    elif msg.type == 'time_signature':
+                            time_sig_num = msg.numerator
+                            time_sig_den = msg.denominator
+                            time_sig_clocks = msg.clocks_per_click
+                            ticks_32_per_beat = msg.notated_32nd_notes_per_beat
+                            logging.debug(f'{msg_num = }, {track_num = }: {time_sig_num = }, {time_sig_den = }, {time_sig_clocks = }, {ticks_32_per_beat = }')
+                    elif msg.type == 'set_tempo':
+                            tempo = msg.tempo
+                            logging.debug(f'{msg_num = }, {track_num = }: {tempo = }')
+                    elif msg.type == 'end_of_track': pass
+                            # end_of_track = msg.time
+                            # logging.info(f'{msg_num = }, {track_num = }: {end_of_track = }')
+                else: # not meta
+                    if msg.type == 'note_on': pass
+                    elif msg.type == 'note_off':
+                            slots = msg.time // slots_per_quarter
+                            logging.debug(f'note off: {voice = }, {msg.time = }, note info: {msg.note}, {msg.note // 12}, {slots = }, {chorale_num = }')
+                            chorale[voice, chorale_num:chorale_num + slots] = msg.note
+                            # logging.info(f'chorale[{voice}, {chorale_num}:{chorale_num + slots}], {chorale[voice, chorale_num:chorale_num + slots] = }')
+                            chorale_num += slots
+                    elif msg.type == 'pitchwheel': pass
+                    elif msg.type == 'program_change': pass
+                    else: logging.info(f'{msg_num = }, {voice = }: {msg = }')
+    chorale = chorale[:voice + 1, :chorale_num]
+    
+    time_sig = str(time_sig_num) + '/' + str(time_sig_den)
+    
+    for root_num in np.arange(len(mido_keys[0])):
+        if mido_keys[0][root_num] == root:
+                break
+    root_note = mido_keys[1][root_num]
+    mode = mido_keys[2][root_num]
+    if mode == 'min': mode = 'minor'
+    elif mode == 'maj': mode = 'major'
+    logging.debug(f'{root = }, {mode = }, {chorale_num = }, {quantization = }, {slots_per_quarter = }')
+    return chorale, root_note, mode, time_sig 
 
 def read_from_midi(midi_file_name, quantizer = 4):
     """
@@ -676,25 +676,25 @@ def mismatch_check(chorale_in_cents, chorale):
         True if any mismatch is found between original MIDI pitch classes and
         pitch classes derived from cent values, False otherwise.
     """
-      logging.debug(f'In mismatch_check. {chorale_in_cents.shape = }, {chorale.shape = }')
-      mismatch = False
-      prev_chord = np.zeros(4, dtype=int)
-      for chord_num, chord_in_cents, chord_in_midi in zip(count(0,1), chorale_in_cents.T, chorale.T):
-            if not np.array_equal(prev_chord, chord_in_midi):
-                  final_12 = np.array([int(round(note / 100,0) % 12) for note in chord_in_cents])
-                  original_12 = np.array([note % 12 for note in chord_in_midi])
-                  best_voicing = np.array([np.array_equal(original_12, voicing) for voicing in np.array(list(permutations(final_12)))])
-                  final_result = np.array(list(permutations(chord_in_cents)))[np.argmax(best_voicing)]
-                  final_12 = np.array([int(round(note / 100,0) % 12) for note in final_result])
-                  logging.debug(f'in mismatch_check in adaptive_tuing_util {chord_num= }, {final_12 = }, {original_12 = }')
-                  if not np.array_equal(final_12, original_12):
-                        logging.debug(f'mismatch between the original MIDI notes {chord_num = }, {original_12 = }, {final_12 =  }')
-                        logging.info(f'mismatch between the original MIDI notes {chord_num = }, {original_12  = }, {final_12 =  }')
-                        logging.info(f'Original scale degrees: {original_12 % 12 = }\nScale degrees derived from the cent values: {final_12 = }')
-                        logging.info(f'{original_12 % 12 = }')
-                        mismatch = True
-            prev_chord = np.copy(chord_in_midi)
-      return mismatch
+    logging.debug(f'In mismatch_check. {chorale_in_cents.shape = }, {chorale.shape = }')
+    mismatch = False
+    prev_chord = np.zeros(4, dtype=int)
+    for chord_num, chord_in_cents, chord_in_midi in zip(count(0,1), chorale_in_cents.T, chorale.T):
+        if not np.array_equal(prev_chord, chord_in_midi):
+                final_12 = np.array([int(round(note / 100,0) % 12) for note in chord_in_cents])
+                original_12 = np.array([note % 12 for note in chord_in_midi])
+                best_voicing = np.array([np.array_equal(original_12, voicing) for voicing in np.array(list(permutations(final_12)))])
+                final_result = np.array(list(permutations(chord_in_cents)))[np.argmax(best_voicing)]
+                final_12 = np.array([int(round(note / 100,0) % 12) for note in final_result])
+                logging.debug(f'in mismatch_check in adaptive_tuing_util {chord_num= }, {final_12 = }, {original_12 = }')
+                if not np.array_equal(final_12, original_12):
+                    logging.debug(f'mismatch between the original MIDI notes {chord_num = }, {original_12 = }, {final_12 =  }')
+                    logging.info(f'mismatch between the original MIDI notes {chord_num = }, {original_12  = }, {final_12 =  }')
+                    logging.info(f'Original scale degrees: {original_12 % 12 = }\nScale degrees derived from the cent values: {final_12 = }')
+                    logging.info(f'{original_12 % 12 = }')
+                    mismatch = True
+        prev_chord = np.copy(chord_in_midi)
+    return mismatch
 
 def _find_limit(ratio_string, penalize_7_11=False, multiply=False):
     """
@@ -717,25 +717,25 @@ def _find_limit(ratio_string, penalize_7_11=False, multiply=False):
         Limit value: num*den if multiply=True, num+den otherwise.
         If penalize_7_11=True and ratio contains penalized primes, result is multiplied by 3.
     """
-      if len(ratio_string) == 1: # Fraction returns a '1' for the ratio 1/1. All other Fraction ops return a ratio
-            den_str = ratio_string
-            num_str = '1'
-      else:
-            num_str, den_str = ratio_string.split('/')
-      
-      num = int(num_str)
-      den = int(den_str)
-      
-      if multiply:
-            max_num_den = num * den
-      else:
-            max_num_den = num + den
+    if len(ratio_string) == 1: # Fraction returns a '1' for the ratio 1/1. All other Fraction ops return a ratio
+        den_str = ratio_string
+        num_str = '1'
+    else:
+        num_str, den_str = ratio_string.split('/')
+    
+    num = int(num_str)
+    den = int(den_str)
+    
+    if multiply:
+        max_num_den = num * den
+    else:
+        max_num_den = num + den
 
-      if penalize_7_11: # penalize these prime numbers greater than 7 and less than 31: 11, 13, 17, 19, 23, 29
-            primes_to_penalize = {'11', '13', '17', '19', '23', '29'}
-            if any(p in ratio_string for p in primes_to_penalize):
-                  max_num_den *= 3
-      return max_num_den  
+    if penalize_7_11: # penalize these prime numbers greater than 7 and less than 31: 11, 13, 17, 19, 23, 29
+        primes_to_penalize = {'11', '13', '17', '19', '23', '29'}
+        if any(p in ratio_string for p in primes_to_penalize):
+                max_num_den *= 3
+    return max_num_den  
 
 # this builds an array of ratio, cents, num_dem for each ratio in the tonality diamond. If penalize_7_11, then double the value of num_dem
 def build_tonal_diamond(limit_value, limit_denominator=50, penalize_7_11=False, multiply=False):
@@ -766,26 +766,26 @@ def build_tonal_diamond(limit_value, limit_denominator=50, penalize_7_11=False, 
         - cents: int, cent value (rounded)
         - limit_score: int, complexity score based on numerator/denominator
     """
-      tonal_diamond_ratios = np.array(dmu.build_all_ratios(limit_value = limit_value)) # assemble an array floating point ratios to the 31 limit # limit_value = limit_value
-      tonal_diamond_ratios = np.append(tonal_diamond_ratios, [2.0], axis=0) # add 2:1 to the end of the array to make 257.
-      tonal_diamond_ratios = np.unique(tonal_diamond_ratios, axis = 0) # reduce from 256 to a sorted list of 214 values
-      # ratio, cents, num_dem
-      # you now have a list of all the ratios in the tonality diamond to the 31 limit 
-      # convert the ratios to cents. 
-      tonal_diamond_cents = np.array([int(round(dmu.ratio_to_cents(just_ratio),0)) for just_ratio in tonal_diamond_ratios])
-      # You now have a list of cent values that are within the tonality diamond to the 31 limit
-      # assemble a list of numerators and denominators for all of the values in the ratio and cent arrays
-      tonal_diamond_num_den = np.array([_find_limit(str(Fraction(just_ratio).limit_denominator(limit_denominator)), penalize_7_11=penalize_7_11, multiply=multiply) for just_ratio in tonal_diamond_ratios])
+    tonal_diamond_ratios = np.array(dmu.build_all_ratios(limit_value = limit_value)) # assemble an array floating point ratios to the 31 limit # limit_value = limit_value
+    tonal_diamond_ratios = np.append(tonal_diamond_ratios, [2.0], axis=0) # add 2:1 to the end of the array to make 257.
+    tonal_diamond_ratios = np.unique(tonal_diamond_ratios, axis = 0) # reduce from 256 to a sorted list of 214 values
+    # ratio, cents, num_dem
+    # you now have a list of all the ratios in the tonality diamond to the 31 limit 
+    # convert the ratios to cents. 
+    tonal_diamond_cents = np.array([int(round(dmu.ratio_to_cents(just_ratio),0)) for just_ratio in tonal_diamond_ratios])
+    # You now have a list of cent values that are within the tonality diamond to the 31 limit
+    # assemble a list of numerators and denominators for all of the values in the ratio and cent arrays
+    tonal_diamond_num_den = np.array([_find_limit(str(Fraction(just_ratio).limit_denominator(limit_denominator)), penalize_7_11=penalize_7_11, multiply=multiply) for just_ratio in tonal_diamond_ratios])
 
-                  
-      # this array will enable you to score based on the numerators and denominators of the ratios to the 31 limit
-      # Each array has 214 values, assuming limit_value = 31. 66 for limit_max=17
-      tonal_diamond_values = np.array([(ratio, cents, num_dem) for ratio, cents, num_dem in zip(tonal_diamond_ratios, tonal_diamond_cents, tonal_diamond_num_den)])
-      logging.debug(f'{[var.shape for var in [tonal_diamond_ratios, tonal_diamond_cents, tonal_diamond_num_den, tonal_diamond_values]]}') 
-      # for limit_value = 31: this results in [(214,), (214,), (214, 3)]
-      # from now on, the arrays are sorted, so you can use np.searchsorted to find where the desired value would go if it existed. 
-      logging.info(f'{limit_value = }, {limit_denominator = }, {tonal_diamond_values.shape = }')
-      return tonal_diamond_values
+                
+    # this array will enable you to score based on the numerators and denominators of the ratios to the 31 limit
+    # Each array has 214 values, assuming limit_value = 31. 66 for limit_max=17
+    tonal_diamond_values = np.array([(ratio, cents, num_dem) for ratio, cents, num_dem in zip(tonal_diamond_ratios, tonal_diamond_cents, tonal_diamond_num_den)])
+    logging.debug(f'{[var.shape for var in [tonal_diamond_ratios, tonal_diamond_cents, tonal_diamond_num_den, tonal_diamond_values]]}') 
+    # for limit_value = 31: this results in [(214,), (214,), (214, 3)]
+    # from now on, the arrays are sorted, so you can use np.searchsorted to find where the desired value would go if it existed. 
+    logging.info(f'{limit_value = }, {limit_denominator = }, {tonal_diamond_values.shape = }')
+    return tonal_diamond_values
 
 stringify = lambda x: '1/1' if x == 1 else str(Fraction(x).limit_denominator(50))
 
@@ -808,15 +808,15 @@ def note_to_1200_edo(midi_numbers, original_12 = np.arange(0, 1200, 100)):
         Array of cent values. Zero MIDI numbers are converted to -1.
         Returns zeros if all input values are zero.
     """
-      # Convert a midi_number value of zero to -1. 0 indicates no number in this midi time_step format.
-      if np.sum(midi_numbers) == 0: # watch out for a chord of all zeros. That's not right.
-            logging.debug(f'{midi_numbers = }')
-            return np.zeros(4, dtype = int)
-      # convert all the midi_numbers to steps in cents unless 0
-      ifzero = lambda num: -1 if num == 0 else original_12[num % 12] # do I still need this? Yes because otherwise you end up with zeros in notes.
-      step_in_1200_edo = np.array([ifzero(note) for note in midi_numbers]) # execute the lambda function in a list comprehension
-      # at this point you have converted the notes with zero values to another note value in the chord, so it won't influence the interval calculations.
-      return step_in_1200_edo
+    # Convert a midi_number value of zero to -1. 0 indicates no number in this midi time_step format.
+    if np.sum(midi_numbers) == 0: # watch out for a chord of all zeros. That's not right.
+        logging.debug(f'{midi_numbers = }')
+        return np.zeros(4, dtype = int)
+    # convert all the midi_numbers to steps in cents unless 0
+    ifzero = lambda num: -1 if num == 0 else original_12[num % 12] # do I still need this? Yes because otherwise you end up with zeros in notes.
+    step_in_1200_edo = np.array([ifzero(note) for note in midi_numbers]) # execute the lambda function in a list comprehension
+    # at this point you have converted the notes with zero values to another note value in the chord, so it won't influence the interval calculations.
+    return step_in_1200_edo
 
 def limit_format(values):
     """
@@ -894,21 +894,21 @@ def best_ratio_index(distance, tolerance, tonal_diamond):
         within tolerance). If no exact match found, returns index of closest
         ratio below the distance.
     """
-      logging.debug(f'{distance = }, {tolerance = }, {tonal_diamond.shape = }')
-      min_score = 9999
-      min_loc = 9999
-      distance = np.abs(distance)
-      for gap in sequence_generator(tolerance):
-            index_to_limits = np.min([np.searchsorted(tonal_diamond[:, 1], distance + gap), tonal_diamond.shape[0] - 1])
-            logging.debug(f'in best_ratio_index. {index_to_limits = }, {distance + gap = }, {tonal_diamond[index_to_limits, 1] = }')
-            if tonal_diamond[index_to_limits, 1] == distance + gap:  
-                  if tonal_diamond[index_to_limits, 2] < min_score:
-                        min_score = tonal_diamond[index_to_limits, 2]
-                        min_loc = index_to_limits
-      if min_loc == 9999: min_loc = index_to_limits # if the tolerance is not sufficient to find a ratio at all
-      
-      logging.debug(f'{min_loc = }, {min_score = }, {distance = }, {tolerance = }, {tonal_diamond.shape = }')
-      return min_loc
+    logging.debug(f'{distance = }, {tolerance = }, {tonal_diamond.shape = }')
+    min_score = 9999
+    min_loc = 9999
+    distance = np.abs(distance)
+    for gap in sequence_generator(tolerance):
+        index_to_limits = np.min([np.searchsorted(tonal_diamond[:, 1], distance + gap), tonal_diamond.shape[0] - 1])
+        logging.debug(f'in best_ratio_index. {index_to_limits = }, {distance + gap = }, {tonal_diamond[index_to_limits, 1] = }')
+        if tonal_diamond[index_to_limits, 1] == distance + gap:  
+                if tonal_diamond[index_to_limits, 2] < min_score:
+                    min_score = tonal_diamond[index_to_limits, 2]
+                    min_loc = index_to_limits
+    if min_loc == 9999: min_loc = index_to_limits # if the tolerance is not sufficient to find a ratio at all
+    
+    logging.debug(f'{min_loc = }, {min_score = }, {distance = }, {tolerance = }, {tonal_diamond.shape = }')
+    return min_loc
 
 
 # the hotter the temperature (closer to 1.0) the more likely it will choose values that are less optimal. As it cools, it is more likely to choose the optimum. 
@@ -931,7 +931,7 @@ def annealing(temperature, range = 7):
     int
         Rounded integer: range * temperature
     """ 
-      return int(np.round(range * temperature,0))
+    return int(np.round(range * temperature,0))
 
 
 
@@ -957,13 +957,13 @@ def rearrange_notes(chord_in_cents, midi_notes):
         - final_result: np.ndarray, rearranged cent values matching MIDI order
         - final_12: np.ndarray, pitch classes (0-11) of final_result
     """
-      original_midi_12 = midi_notes % 12 # find the 0-11 value of the original midi chord
-      final_12 = np.array([int(round(note / 100,0) % 12) for note in chord_in_cents]) # find the 12TET scale (0-11) equivalent of the cent values in chord_in_cents
-      # find the permutation of the final_12 that is identical to the original midi chord
-      best_voicing = np.array([np.array_equal(original_midi_12, voicing) for voicing in np.array(list(permutations(final_12)))])
-      final_result = np.array(list(permutations(chord_in_cents)))[np.argmax(best_voicing)]
-      final_12 = np.array([int(round(note / 100,0) % 12) for note in final_result])
-      return final_result, final_12
+    original_midi_12 = midi_notes % 12 # find the 0-11 value of the original midi chord
+    final_12 = np.array([int(round(note / 100,0) % 12) for note in chord_in_cents]) # find the 12TET scale (0-11) equivalent of the cent values in chord_in_cents
+    # find the permutation of the final_12 that is identical to the original midi chord
+    best_voicing = np.array([np.array_equal(original_midi_12, voicing) for voicing in np.array(list(permutations(final_12)))])
+    final_result = np.array(list(permutations(chord_in_cents)))[np.argmax(best_voicing)]
+    final_12 = np.array([int(round(note / 100,0) % 12) for note in final_result])
+    return final_result, final_12
 
 def find_best_top_note(final_result, final_12, top_notes):
     """
@@ -989,26 +989,26 @@ def find_best_top_note(final_result, final_12, top_notes):
         - top_note_gap: np.ndarray, shape (12), gaps for each top_note (0 if no match)
         - final_result_gap: np.ndarray, shape (4), gaps for each chord note (0 if no match)
     """
-      # This function is used help transpose the chord based on the chord_in_cents and the top_notes.
-      # It returns the gaps between the top_notes and the final result in one array, and the final_result to the top_notes in the second array.
-      # for each of the cent values in the chord and each of the cent value in top_notes
-      # In other words how far should you move the chord so that at least one of the notes in the final_result is on the top_note cent value.
-      # I also need to check to see if we are dealing with two C♮ notes, one less than 50 cents and the other more that 1150 cents. 
-      logging.debug(f'in find_best_top_note. {top_notes.shape = }') #  (2, 12)
-      top_note_gap = np.zeros(12, dtype=int)
-      final_result_gap = np.zeros(4, dtype=int)
-      for inx1, (top_note_midi, top_cent) in zip(count(0,1), top_notes.T): # for each of the cent values in top_notes
-            for inx2, cent_value, final_midi in zip(count(0,1), final_result, final_12): # step through all four cent values in final_result
-                  if top_note_midi == final_midi:
-                        delta = cent_value - top_cent
-                        logging.debug(f'{delta = }, {cent_value = }, {top_cent = }')
-                        if abs(delta) > 1150:
-                              delta = 1200 - delta
-                              logging.debug(f'after swapping {top_cent} for {cent_value} new value for {delta = }')
-                        top_note_gap[inx1] = delta # the gap for the top_note 
-                        final_result_gap[inx2] = delta # the gap for the final_result
-      logging.debug(f'{top_note_gap = }, {final_result_gap = }')
-      return top_note_gap, final_result_gap
+    # This function is used help transpose the chord based on the chord_in_cents and the top_notes.
+    # It returns the gaps between the top_notes and the final result in one array, and the final_result to the top_notes in the second array.
+    # for each of the cent values in the chord and each of the cent value in top_notes
+    # In other words how far should you move the chord so that at least one of the notes in the final_result is on the top_note cent value.
+    # I also need to check to see if we are dealing with two C♮ notes, one less than 50 cents and the other more that 1150 cents. 
+    logging.debug(f'in find_best_top_note. {top_notes.shape = }') #  (2, 12)
+    top_note_gap = np.zeros(12, dtype=int)
+    final_result_gap = np.zeros(4, dtype=int)
+    for inx1, (top_note_midi, top_cent) in zip(count(0,1), top_notes.T): # for each of the cent values in top_notes
+        for inx2, cent_value, final_midi in zip(count(0,1), final_result, final_12): # step through all four cent values in final_result
+                if top_note_midi == final_midi:
+                    delta = cent_value - top_cent
+                    logging.debug(f'{delta = }, {cent_value = }, {top_cent = }')
+                    if abs(delta) > 1150:
+                            delta = 1200 - delta
+                            logging.debug(f'after swapping {top_cent} for {cent_value} new value for {delta = }')
+                    top_note_gap[inx1] = delta # the gap for the top_note 
+                    final_result_gap[inx2] = delta # the gap for the final_result
+    logging.debug(f'{top_note_gap = }, {final_result_gap = }')
+    return top_note_gap, final_result_gap
                         
 def transpose_top_notes(final_result, top_notes, chord_number, midi_notes):
     """
@@ -1038,47 +1038,47 @@ def transpose_top_notes(final_result, top_notes, chord_number, midi_notes):
         - gap: int, cent shift applied (0 if none)
         - gap_too_big: bool, True if transposition would change MIDI values
     """
-      # This function is presented with a tuned chord, and an array of top_notes with (12TET value, cent value)
-      # First it rearranges the notes so that are back in the right order based on how they were written.
-      # This function tranposes the chord so that the cent values will have the same cent value as one of the top_notes cent values. 
-      # It starts with the highest priority top_notes and moves down to the least important note in the chord.
-      # It finds notes in the chord that are also in the top_notes. The first one found becomes the target for the transposition.
-      # If it would change the midi value of any note, we proceed to a lower priority note in the top_notes. 
-      # It also now (8/26/25) checks if the transposition would create a large cent gap between a note and the same midi value in the prior note.
-      # For example, if C♮ midi value in the previous chord has a cent value of 16, and the C♮ in the current chord has a cent value of 1168,
-      # that is a gap of 48 cents, which sounds terrible. 
-      # If we can catch it early, there is still a chance to find a tuning that doesn't have this problem
-      keys = np.array(['C♮', 'C♯', 'D♮', 'D♯', 'E♮', 'F♮', 'F♯', 'G♮', 'G♯', 'A♮', 'A♯', 'B♮'])
-      logging.debug(f'in transpose_top_notes: begin: {midi_notes % 12 = }, {chord_number = }, {final_result = }')
-      final_result, final_12 = rearrange_notes(final_result, midi_notes) 
-      logging.info(f'in transpose_top_notes: after rearranging notes: {final_result = }, {final_12 = }')
-      # generate a list of the gaps for each of the top notes for this particular chord
-      top_note_gaps, final_result_gaps = find_best_top_note(final_result, final_12, top_notes)
-      logging.info(f'in transpose_top_notes: {top_note_gaps = }, {final_result_gaps = }, {chord_number = }')
-      gap_too_big = True
-      # Go through these in the order of the top_note_gap array. Highest priority cent values are first in the top_notes array.
-      
-      for inx, top_note_gap in zip(count(0,1), top_note_gaps): 
-            logging.info(f'in transpose_top_notes: looping through the top_note_gaps: {inx}: {top_note_gap = }, {top_notes.shape = }')
-            top_note_midi = top_notes[0][inx] # pull the midi value from the top_notes # this fails if we go too far into top_notes array. 
-            top_note_cent = top_notes[1][inx] # the ideal cent value from top_notes
-            for inx2, gap in zip(count(0,1), final_result_gaps): # step through the gaps between the final_result cent values and those required by top_cent
-                  if final_12[inx2] == top_note_midi:
-                        logging.info(f'in transpose_top_notes: current and ideal values for --> {final_12[inx2] = }, {final_result[inx2] = }, {top_note_midi = }, {top_note_cent = }')
-                        logging.info(f'in transpose_top_notes: These two should match --> {top_note_gap = }, {gap = }')
-                        proposed_final_cent = (final_result - gap) % 1200 # see if this gap value will change the midi notes in any way
-                        proposed_final_12 = np.array([int(round(note / 100, 0)) % 12 for note in proposed_final_cent])
-                        logging.info(f'in transpose_top_notes: {proposed_final_cent = }, {proposed_final_12 = }')
-                        if np.array_equal(proposed_final_12, final_12 % 12): # if the proposed midi values are all the same as the original values
-                              gap_too_big = False
-                              logging.info(f'in transpose_top_notes: made a transposition to the chord. {gap = } {proposed_final_cent = } ')
-                              logging.info(f'in transpose_top_notes: end: {gap_too_big = }, {chord_number = }')
-                        else:
-                              gap_too_big = True
-                        # you now have one valid proposed_final_cent chord. But it might not be the best one. A lower priority one may be better for some notes. 
-      
-      logging.debug(f'in transpose_top_notes: end: {proposed_final_cent, gap_too_big }')
-      return final_result, gap, gap_too_big
+    # This function is presented with a tuned chord, and an array of top_notes with (12TET value, cent value)
+    # First it rearranges the notes so that are back in the right order based on how they were written.
+    # This function tranposes the chord so that the cent values will have the same cent value as one of the top_notes cent values. 
+    # It starts with the highest priority top_notes and moves down to the least important note in the chord.
+    # It finds notes in the chord that are also in the top_notes. The first one found becomes the target for the transposition.
+    # If it would change the midi value of any note, we proceed to a lower priority note in the top_notes. 
+    # It also now (8/26/25) checks if the transposition would create a large cent gap between a note and the same midi value in the prior note.
+    # For example, if C♮ midi value in the previous chord has a cent value of 16, and the C♮ in the current chord has a cent value of 1168,
+    # that is a gap of 48 cents, which sounds terrible. 
+    # If we can catch it early, there is still a chance to find a tuning that doesn't have this problem
+    keys = np.array(['C♮', 'C♯', 'D♮', 'D♯', 'E♮', 'F♮', 'F♯', 'G♮', 'G♯', 'A♮', 'A♯', 'B♮'])
+    logging.debug(f'in transpose_top_notes: begin: {midi_notes % 12 = }, {chord_number = }, {final_result = }')
+    final_result, final_12 = rearrange_notes(final_result, midi_notes) 
+    logging.info(f'in transpose_top_notes: after rearranging notes: {final_result = }, {final_12 = }')
+    # generate a list of the gaps for each of the top notes for this particular chord
+    top_note_gaps, final_result_gaps = find_best_top_note(final_result, final_12, top_notes)
+    logging.info(f'in transpose_top_notes: {top_note_gaps = }, {final_result_gaps = }, {chord_number = }')
+    gap_too_big = True
+    # Go through these in the order of the top_note_gap array. Highest priority cent values are first in the top_notes array.
+    
+    for inx, top_note_gap in zip(count(0,1), top_note_gaps): 
+        logging.info(f'in transpose_top_notes: looping through the top_note_gaps: {inx}: {top_note_gap = }, {top_notes.shape = }')
+        top_note_midi = top_notes[0][inx] # pull the midi value from the top_notes # this fails if we go too far into top_notes array. 
+        top_note_cent = top_notes[1][inx] # the ideal cent value from top_notes
+        for inx2, gap in zip(count(0,1), final_result_gaps): # step through the gaps between the final_result cent values and those required by top_cent
+                if final_12[inx2] == top_note_midi:
+                    logging.info(f'in transpose_top_notes: current and ideal values for --> {final_12[inx2] = }, {final_result[inx2] = }, {top_note_midi = }, {top_note_cent = }')
+                    logging.info(f'in transpose_top_notes: These two should match --> {top_note_gap = }, {gap = }')
+                    proposed_final_cent = (final_result - gap) % 1200 # see if this gap value will change the midi notes in any way
+                    proposed_final_12 = np.array([int(round(note / 100, 0)) % 12 for note in proposed_final_cent])
+                    logging.info(f'in transpose_top_notes: {proposed_final_cent = }, {proposed_final_12 = }')
+                    if np.array_equal(proposed_final_12, final_12 % 12): # if the proposed midi values are all the same as the original values
+                            gap_too_big = False
+                            logging.info(f'in transpose_top_notes: made a transposition to the chord. {gap = } {proposed_final_cent = } ')
+                            logging.info(f'in transpose_top_notes: end: {gap_too_big = }, {chord_number = }')
+                    else:
+                            gap_too_big = True
+                    # you now have one valid proposed_final_cent chord. But it might not be the best one. A lower priority one may be better for some notes. 
+    
+    logging.debug(f'in transpose_top_notes: end: {proposed_final_cent, gap_too_big }')
+    return final_result, gap, gap_too_big
 
 # these are helper functions for transpose_top_notes_v2
 # originally written by Edge Copilot, modified by me
@@ -1206,10 +1206,10 @@ def pitch_class_from_cents(cents, eps=1e-6):
     np.ndarray or int
         Pitch classes (0-11) corresponding to the cent values.
     """
-      cents = np.asarray(cents, dtype=float)
-      wrapped = np.mod(cents + eps, 1200.0)
-      pcs = np.floor((wrapped + 50.0) / 100.0).astype(int) % 12
-      return pcs
+    cents = np.asarray(cents, dtype=float)
+    wrapped = np.mod(cents + eps, 1200.0)
+    pcs = np.floor((wrapped + 50.0) / 100.0).astype(int) % 12
+    return pcs
 
 
 def force_pitch_class_match(chord_in_cents, midi_notes):
@@ -1228,31 +1228,31 @@ def force_pitch_class_match(chord_in_cents, midi_notes):
     np.ndarray
         Adjusted cent values with pitch classes matching midi_notes % 12.
     """
-      adjusted = np.array(chord_in_cents, dtype=float, copy=True)
-      targets = np.array(midi_notes % 12, dtype=int)
-      current_pcs = pitch_class_from_cents(adjusted)
-      raw_deltas = (current_pcs - targets) % 12
-      signed_deltas = np.where(raw_deltas > 6, raw_deltas - 12, raw_deltas)
+    adjusted = np.array(chord_in_cents, dtype=float, copy=True)
+    targets = np.array(midi_notes % 12, dtype=int)
+    current_pcs = pitch_class_from_cents(adjusted)
+    raw_deltas = (current_pcs - targets) % 12
+    signed_deltas = np.where(raw_deltas > 6, raw_deltas - 12, raw_deltas)
 
-      if signed_deltas.size > 0 and np.all(signed_deltas == signed_deltas[0]) and signed_deltas[0] != 0:
-            shift_cents = -signed_deltas[0] * 100.0
-            adjusted = (adjusted + shift_cents + 1200.0) % 1200.0
-            current_pcs = pitch_class_from_cents(adjusted)
+    if signed_deltas.size > 0 and np.all(signed_deltas == signed_deltas[0]) and signed_deltas[0] != 0:
+        shift_cents = -signed_deltas[0] * 100.0
+        adjusted = (adjusted + shift_cents + 1200.0) % 1200.0
+        current_pcs = pitch_class_from_cents(adjusted)
 
-      current_octaves = np.floor_divide(adjusted, 1200.0)
-      for idx, target_pc in enumerate(targets):
-            current_pc = current_pcs[idx]
-            if current_pc == target_pc:
-                  continue
-            desired_cent = target_pc * 100.0
-            current_mod = np.mod(adjusted[idx], 1200.0)
-            shift = signed_delta_mod_1200(current_mod, desired_cent)
-            adjusted[idx] += shift
-            current_pcs[idx] = pitch_class_from_cents(adjusted[idx])
-            if current_pcs[idx] != target_pc:
-                  adjusted[idx] = desired_cent + current_octaves[idx] * 1200.0
-                  current_pcs[idx] = target_pc
-      return adjusted
+    current_octaves = np.floor_divide(adjusted, 1200.0)
+    for idx, target_pc in enumerate(targets):
+        current_pc = current_pcs[idx]
+        if current_pc == target_pc:
+                continue
+        desired_cent = target_pc * 100.0
+        current_mod = np.mod(adjusted[idx], 1200.0)
+        shift = signed_delta_mod_1200(current_mod, desired_cent)
+        adjusted[idx] += shift
+        current_pcs[idx] = pitch_class_from_cents(adjusted[idx])
+        if current_pcs[idx] != target_pc:
+                adjusted[idx] = desired_cent + current_octaves[idx] * 1200.0
+                current_pcs[idx] = target_pc
+    return adjusted
 
 # def cent_value_interval(interval, max_value=1200):
 #       delta = int(wrap600(interval[0] - interval[1])) # wrap the difference, not the difference between wrapped values
@@ -1576,23 +1576,23 @@ def perturb(four_note_chord, spread=7):
     # most of the perturbations are near zero with scale=6, but can be close to 49 with scale=15
     # It compresses the chord to the unique values before the perturbations, then decompresses it after, so we don't end up with different cebt values for the same midi value.
       # start by compressing the chord to the unique values, but preserving the index and inverse needed to restore it's order and quantity
-      compressed_chord, indices, inverse = np.unique(four_note_chord, axis=0, return_index=True, return_inverse=True)
-      order = np.argsort(indices)
-      compressed_chord = compressed_chord[order]
-      
-      remap = np.zeros_like(order)
-      remap[order] = np.arange(len(order))
-      inverse = remap[inverse]
-      
-      # do the perturbation
-      if spread:
-            temp_result = np.array([int(round(np.clip(rng.normal(loc=0, scale=spread), a_min = -49, a_max = 49) + note, 0)) for note in compressed_chord]) 
-      else:
-            temp_result = compressed_chord
-      
-      # restore the chord to it's original arrangement. For now we will just send this compressed chord through the tune_chord_sim_anneal
-      # temp_result = temp_result[inverse] # restore this if you get in trouble later. 
-      return np.array(temp_result % 1200), inverse
+    compressed_chord, indices, inverse = np.unique(four_note_chord, axis=0, return_index=True, return_inverse=True)
+    order = np.argsort(indices)
+    compressed_chord = compressed_chord[order]
+    
+    remap = np.zeros_like(order)
+    remap[order] = np.arange(len(order))
+    inverse = remap[inverse]
+    
+    # do the perturbation
+    if spread:
+        temp_result = np.array([int(round(np.clip(rng.normal(loc=0, scale=spread), a_min = -49, a_max = 49) + note, 0)) for note in compressed_chord]) 
+    else:
+        temp_result = compressed_chord
+    
+    # restore the chord to it's original arrangement. For now we will just send this compressed chord through the tune_chord_sim_anneal
+    # temp_result = temp_result[inverse] # restore this if you get in trouble later. 
+    return np.array(temp_result % 1200), inverse
 
 def compress_pitch_class(four_note_chord):
     """
@@ -1641,22 +1641,22 @@ def find_optimum_top_notes(gap_cents_top_notes, cent_value_current, pitch_class_
     np.ndarray
         Array of valid gaps (999 for invalid gaps). Same shape as gap_cents_top_notes.
     """
-      cent_value_valid_gaps = np.full((4,), 999) # potential gaps that can be applied to cent_value_current without changing the pitch class
-      for inx, top_note_gap in zip(count(0,1), gap_cents_top_notes): # step through the top_notes in order of priority
-            # check to see if applying this gap would change the pitch class 
-            # Shouldn't we include the direction cent_moves here?
-            cent_value_proposed = (cent_value_current + top_note_gap) % 1200 # 10/24/25 changed from - to +
-            logging.info(f'In find_optimum_top_notes. transposition by {top_note_gap = }, creates chord: {format_chord(cent_value_proposed,4)}')
-            pitch_class_proposed = pitch_class_from_cents(cent_value_proposed) 
-            logging.debug(f'{pitch_class_proposed = }, {pitch_class_current = }')
-            if np.array_equal(pitch_class_proposed, pitch_class_current):
-                  logging.info(f'Valid transposition {top_note_gap = }, new cents: {format_chord(cent_value_proposed,4)}, new pitch class: {format_chord(pitch_class_proposed,2)}')
-                  cent_value_valid_gaps[inx] = top_note_gap
-            else:
-                  logging.debug(f'Failed transposition by {top_note_gap = } trying another')
-      
-      logging.info(f'Leaving find_optimum_top_notes. Returning only those gaps that keep same pitch class {cent_value_valid_gaps = }')
-      return cent_value_valid_gaps
+    cent_value_valid_gaps = np.full((4,), 999) # potential gaps that can be applied to cent_value_current without changing the pitch class
+    for inx, top_note_gap in zip(count(0,1), gap_cents_top_notes): # step through the top_notes in order of priority
+        # check to see if applying this gap would change the pitch class 
+        # Shouldn't we include the direction cent_moves here?
+        cent_value_proposed = (cent_value_current + top_note_gap) % 1200 # 10/24/25 changed from - to +
+        logging.info(f'In find_optimum_top_notes. transposition by {top_note_gap = }, creates chord: {format_chord(cent_value_proposed,4)}')
+        pitch_class_proposed = pitch_class_from_cents(cent_value_proposed) 
+        logging.debug(f'{pitch_class_proposed = }, {pitch_class_current = }')
+        if np.array_equal(pitch_class_proposed, pitch_class_current):
+                logging.info(f'Valid transposition {top_note_gap = }, new cents: {format_chord(cent_value_proposed,4)}, new pitch class: {format_chord(pitch_class_proposed,2)}')
+                cent_value_valid_gaps[inx] = top_note_gap
+        else:
+                logging.debug(f'Failed transposition by {top_note_gap = } trying another')
+    
+    logging.info(f'Leaving find_optimum_top_notes. Returning only those gaps that keep same pitch class {cent_value_valid_gaps = }')
+    return cent_value_valid_gaps
 
 
 # finds the best top_note gap to apply from the choices. Some variables not needed any more: # pitch_class_prev,
@@ -1688,33 +1688,33 @@ def find_best_gap(cent_value_valid_gaps, cent_value_current, pitch_class_current
     int
         Best gap value to apply (0 if none found).
     """
-      # apply the gaps based on top_notes in priority order. Try each to see if it would cause a gap between cent values of the same pitch class to exceed max_gap. If it does, try the next. The earlier you pick, that means you will reinforce the higher priority notes staying in one place. 
-      logging.debug(f'{chord_num = }: {cent_value_valid_gaps = }, {cent_value_current = }, {pitch_class_current = }, ')
-      top_note_gap = 0
+    # apply the gaps based on top_notes in priority order. Try each to see if it would cause a gap between cent values of the same pitch class to exceed max_gap. If it does, try the next. The earlier you pick, that means you will reinforce the higher priority notes staying in one place. 
+    logging.debug(f'{chord_num = }: {cent_value_valid_gaps = }, {cent_value_current = }, {pitch_class_current = }, ')
+    top_note_gap = 0
 
-      cent_value_gaps = cent_value_valid_gaps[cent_value_valid_gaps != 999] # remove the invalid values caused by missing top_notes, changed pitch class.
-      logging.debug(f'In find_best_gap. valid gaps to try in priority order: {cent_value_gaps = }')
+    cent_value_gaps = cent_value_valid_gaps[cent_value_valid_gaps != 999] # remove the invalid values caused by missing top_notes, changed pitch class.
+    logging.debug(f'In find_best_gap. valid gaps to try in priority order: {cent_value_gaps = }')
 
-      gap_map = defaultdict(list)
-      for pc, gap in zip(pitch_class_current[pitch_class_current_in_top_notes], cent_value_valid_gaps):
-            gap_map[pc].append(gap)
-      logging.debug(f'gap_map constructed: {gap_map = }')
+    gap_map = defaultdict(list)
+    for pc, gap in zip(pitch_class_current[pitch_class_current_in_top_notes], cent_value_valid_gaps):
+        gap_map[pc].append(gap)
+    logging.debug(f'gap_map constructed: {gap_map = }')
 
-      # Now walk through top_notes in order
-      ordered_gaps = []
-      for pc in top_notes[0]:
-            if pc in gap_map:
-                  ordered_gaps.extend(gap_map[pc])  # keep all gaps for that pitch class
-                  
-      logging.debug(f'{gap_map = }, {ordered_gaps = }')
+    # Now walk through top_notes in order
+    ordered_gaps = []
+    for pc in top_notes[0]:
+        if pc in gap_map:
+                ordered_gaps.extend(gap_map[pc])  # keep all gaps for that pitch class
+                
+    logging.debug(f'{gap_map = }, {ordered_gaps = }')
 
-      for inx, top_note_gap in zip(count(0,1), ordered_gaps): # try the valid gaps in priority order 
-            logging.debug(f'looping on top_note_gap. {inx}: {top_note_gap = }')
-            if np.array_equal(pitch_class_current, pitch_class_from_cents((cent_value_current + top_note_gap) % 1200)):
-                  break
+    for inx, top_note_gap in zip(count(0,1), ordered_gaps): # try the valid gaps in priority order 
+        logging.debug(f'looping on top_note_gap. {inx}: {top_note_gap = }')
+        if np.array_equal(pitch_class_current, pitch_class_from_cents((cent_value_current + top_note_gap) % 1200)):
+                break
 
-      logging.debug(f'leaving find_best_gap. {top_note_gap = }')
-      return top_note_gap # the first value is the gap required by top_notes, the second it the deltas between the previous chord and the current chord, not including the top_note_gap, the third is that none of the changes would alter the pitch class. 
+    logging.debug(f'leaving find_best_gap. {top_note_gap = }')
+    return top_note_gap # the first value is the gap required by top_notes, the second it the deltas between the previous chord and the current chord, not including the top_note_gap, the third is that none of the changes would alter the pitch class. 
       
 # routine to log the current contents of top_notes
 def log_top_notes(top_notes, function_name=logging.info, heading = 'Current top_notes:'):
@@ -1735,16 +1735,16 @@ def log_top_notes(top_notes, function_name=logging.info, heading = 'Current top_
     None
         Logs formatted table with indices, note names, pitch classes, and cent values.
     """
-      function_name(heading)
-      keys = set_accidentals(False) # get the keys with sharps 
-      line = ' '.join(f'{inx:>4}' for inx in np.arange(12))
-      function_name(line)
-      line = ' '.join(f'{note:>4}' for note in keys[top_notes[0]])
-      function_name(line)
-      line = ' '.join(f'{note:>4}' for note in top_notes[0])
-      function_name(line)
-      line = ' '.join(f'{note:>4}' for note in top_notes[1])
-      function_name(line)      
+    function_name(heading)
+    keys = set_accidentals(False) # get the keys with sharps 
+    line = ' '.join(f'{inx:>4}' for inx in np.arange(12))
+    function_name(line)
+    line = ' '.join(f'{note:>4}' for note in keys[top_notes[0]])
+    function_name(line)
+    line = ' '.join(f'{note:>4}' for note in top_notes[0])
+    function_name(line)
+    line = ' '.join(f'{note:>4}' for note in top_notes[1])
+    function_name(line)      
       
 def chord_from_top_notes(cent_values, top_notes, pitch_class_from_cents=pitch_class_from_cents):
     """
@@ -1800,34 +1800,34 @@ def transpose_chord_by_top_notes(cent_value_current, pitch_class_current, top_no
         - gap: int, cent shift applied
         - success: bool, True if transposition preserved pitch classes
     """
-      logging.debug(f'In transpose_chord_by_top_notes. {chord_num = }') # pitch_class_current
-      if chord_num // 10 == 0: 
-            log_top_notes(top_notes, logging.debug)
-            
-      pitch_class_current = pitch_class_current[np.argsort(pitch_class_current)] # sort chord pitch class by value
-      logging.debug(f'{chord_num = }, {cent_value_current = }, {pitch_class_current = }')
-      cent_value_current = negate_high_cents(cent_value_current) # convert cent values > 1150 to negative cent_values - 1200
-      cent_value_current = cent_value_current[np.argsort(cent_value_current)] # sort chord cent value by value
-      logging.debug(f'{pitch_class_current = }, {cent_value_current = }')
-      pitch_class_current_in_top_notes = np.array([i in top_notes[0] for i in pitch_class_current])
-      logging.debug(f'{pitch_class_current_in_top_notes.shape = }')
-      logging.debug(f'{cent_value_current[pitch_class_current_in_top_notes] = }')
-      logging.debug(f'{pitch_class_current[pitch_class_current_in_top_notes] * 100 = }') 
-      # build a hypothetical chord made from all top_notes. Use this to compare with the current cent chord and notice the differences. 
-      top_notes_cent_value_chord = chord_from_top_notes(cent_value_current, top_notes) 
-      logging.debug(f'In transpose_chord_v5. built top_notes_cent_value_chord: {format_chord(top_notes_cent_value_chord,4)}')
-      gap_cents_top_notes = top_notes_cent_value_chord - cent_value_current[pitch_class_current_in_top_notes]
-      logging.debug(f'In transpose_chord_v5. {format_chord(gap_cents_top_notes,4) = }')
-      cent_value_valid_gaps = find_optimum_top_notes(gap_cents_top_notes, cent_value_current, pitch_class_current)
-      logging.debug(f'In transpose_chord_v5. back from find_optimum_top_notes {cent_value_valid_gaps = }')
-      gap = find_best_gap(cent_value_valid_gaps, cent_value_current, pitch_class_current, chord_num, top_notes, pitch_class_current_in_top_notes)
-      logging.debug(f'In transpose_chord_v5. back from find_best_gap {gap = }')
-      proposed_cent_value_chord = (cent_value_current + gap) % 1200
-      success = np.array_equal(pitch_class_current, pitch_class_from_cents(proposed_cent_value_chord))
-      if success:
-            return (cent_value_current + gap) % 1200, gap, success
-      else:
-            return (cent_value_current, gap, success)
+    logging.debug(f'In transpose_chord_by_top_notes. {chord_num = }') # pitch_class_current
+    if chord_num // 10 == 0: 
+        log_top_notes(top_notes, logging.debug)
+        
+    pitch_class_current = pitch_class_current[np.argsort(pitch_class_current)] # sort chord pitch class by value
+    logging.debug(f'{chord_num = }, {cent_value_current = }, {pitch_class_current = }')
+    cent_value_current = negate_high_cents(cent_value_current) # convert cent values > 1150 to negative cent_values - 1200
+    cent_value_current = cent_value_current[np.argsort(cent_value_current)] # sort chord cent value by value
+    logging.debug(f'{pitch_class_current = }, {cent_value_current = }')
+    pitch_class_current_in_top_notes = np.array([i in top_notes[0] for i in pitch_class_current])
+    logging.debug(f'{pitch_class_current_in_top_notes.shape = }')
+    logging.debug(f'{cent_value_current[pitch_class_current_in_top_notes] = }')
+    logging.debug(f'{pitch_class_current[pitch_class_current_in_top_notes] * 100 = }') 
+    # build a hypothetical chord made from all top_notes. Use this to compare with the current cent chord and notice the differences. 
+    top_notes_cent_value_chord = chord_from_top_notes(cent_value_current, top_notes) 
+    logging.debug(f'In transpose_chord_v5. built top_notes_cent_value_chord: {format_chord(top_notes_cent_value_chord,4)}')
+    gap_cents_top_notes = top_notes_cent_value_chord - cent_value_current[pitch_class_current_in_top_notes]
+    logging.debug(f'In transpose_chord_v5. {format_chord(gap_cents_top_notes,4) = }')
+    cent_value_valid_gaps = find_optimum_top_notes(gap_cents_top_notes, cent_value_current, pitch_class_current)
+    logging.debug(f'In transpose_chord_v5. back from find_optimum_top_notes {cent_value_valid_gaps = }')
+    gap = find_best_gap(cent_value_valid_gaps, cent_value_current, pitch_class_current, chord_num, top_notes, pitch_class_current_in_top_notes)
+    logging.debug(f'In transpose_chord_v5. back from find_best_gap {gap = }')
+    proposed_cent_value_chord = (cent_value_current + gap) % 1200
+    success = np.array_equal(pitch_class_current, pitch_class_from_cents(proposed_cent_value_chord))
+    if success:
+        return (cent_value_current + gap) % 1200, gap, success
+    else:
+        return (cent_value_current, gap, success)
 
 # This function clips all the notes in the notes_features_15 array to the min and max octaves and volumes for the voice
 def clip_note_features(notes_features_15, voice_time):
@@ -1851,23 +1851,23 @@ def clip_note_features(notes_features_15, voice_time):
     np.ndarray
         Modified notes_features_15 array with clipped octaves and adjusted volumes.
     """ 
-      for inx in np.arange(notes_features_15.shape[0]): # once for every note with all its features.
-            short_name, _ = dmu.show_voice_time_short_name(notes_features_15[inx,[6]], voice_time) # returns short_name only from the voice_time array 'fing1'
-            logging.debug(f'{inx = }, {short_name = }\n{[round(feature,0) for feature in notes_features_15[inx,[6,4,5,14]]]}') # [[6, 4, 5, 14]] voice, note, octave, volume  array([[ 0., 86.,  5.,  7.],
-            logging.debug(f'{voice_time[short_name]["min_oct"] = }, {voice_time[short_name]["max_oct"] = }, {voice_time[short_name]["volume_factor"] = }') # clipping octave volume information
-            note_cents = notes_features_15[inx,4] # at some point I'll clip the octave if it's at the max and the note_cents is greater than 300 cents.
-            logging.debug(f'before adjusting the volume by {voice_time[short_name]["volume_factor"] = }, {round(notes_features_15[inx,14],1) = }]')
-            if notes_features_15[inx,14] > 0: notes_features_15[inx,14] += voice_time[short_name]["volume_factor"]
-            logging.debug(f'after adjusting the volume {round(notes_features_15[inx,14],1) = }, before adjusting octave: {notes_features_15[inx,5] = }]')
-            
-            notes_features_15[inx,5] = np.max((voice_time[short_name]["min_oct"], notes_features_15[inx,5]))
-            notes_features_15[inx,5] = np.min((voice_time[short_name]["max_oct"], notes_features_15[inx,5]))
-            logging.debug(f'after adjusting octave: {notes_features_15[inx,5] = }, cent value of note: {notes_features_15[inx,4] = }]')
-            if notes_features_15[inx,5] == voice_time[short_name]["max_oct"] and note_cents > 350:
-                  notes_features_15[inx,5] -= 1 # take it down an octave it's at the max and has a high cent value
-            logging.debug(f'{inx = }, {[round(feature,0) for feature in notes_features_15[inx,[6,4,5,14]]]}') #   
-      logging.debug(f'in clip_note_features. {np.sum(notes_features_15[5]) = }')
-      return notes_features_15
+    for inx in np.arange(notes_features_15.shape[0]): # once for every note with all its features.
+        short_name, _ = dmu.show_voice_time_short_name(notes_features_15[inx,[6]], voice_time) # returns short_name only from the voice_time array 'fing1'
+        logging.debug(f'{inx = }, {short_name = }\n{[round(feature,0) for feature in notes_features_15[inx,[6,4,5,14]]]}') # [[6, 4, 5, 14]] voice, note, octave, volume  array([[ 0., 86.,  5.,  7.],
+        logging.debug(f'{voice_time[short_name]["min_oct"] = }, {voice_time[short_name]["max_oct"] = }, {voice_time[short_name]["volume_factor"] = }') # clipping octave volume information
+        note_cents = notes_features_15[inx,4] # at some point I'll clip the octave if it's at the max and the note_cents is greater than 300 cents.
+        logging.debug(f'before adjusting the volume by {voice_time[short_name]["volume_factor"] = }, {round(notes_features_15[inx,14],1) = }]')
+        if notes_features_15[inx,14] > 0: notes_features_15[inx,14] += voice_time[short_name]["volume_factor"]
+        logging.debug(f'after adjusting the volume {round(notes_features_15[inx,14],1) = }, before adjusting octave: {notes_features_15[inx,5] = }]')
+        
+        notes_features_15[inx,5] = np.max((voice_time[short_name]["min_oct"], notes_features_15[inx,5]))
+        notes_features_15[inx,5] = np.min((voice_time[short_name]["max_oct"], notes_features_15[inx,5]))
+        logging.debug(f'after adjusting octave: {notes_features_15[inx,5] = }, cent value of note: {notes_features_15[inx,4] = }]')
+        if notes_features_15[inx,5] == voice_time[short_name]["max_oct"] and note_cents > 350:
+                notes_features_15[inx,5] -= 1 # take it down an octave it's at the max and has a high cent value
+        logging.debug(f'{inx = }, {[round(feature,0) for feature in notes_features_15[inx,[6,4,5,14]]]}') #   
+    logging.debug(f'in clip_note_features. {np.sum(notes_features_15[5]) = }')
+    return notes_features_15
 
 # This function will inspect MIDI chords and replace any 0's with another note that is not zero. 
 # This is to prevent polution of the scores for a chord that includes 0, since 0 mean\ns it's silent, not the note C.
@@ -1890,18 +1890,18 @@ def remove_zeros_from_midi(initial_chord):
     np.ndarray
         Array with zeros replaced by non-zero notes, or all zeros if input was all zeros.
     """
-      saved_values = np.array(np.nonzero(initial_chord)) # save the index to the initial_chord of those values that are not zero
-      zeros = 0
-      # logging.info(f'{saved_values.shape = }')
-      if saved_values.shape == (1,0): # if they are all zeros, return an array of zeros
-            return np.zeros(4, dtype = int)
-      if saved_values.shape[1] < 4: # not all are zeros, but some are. Replace the zeros with the first non-zero value in the chord
-            for inx, note in zip(count(0,1), initial_chord):
-                  if note == 0:
-                        logging.debug(f'in remove_zeros_from_midi. {initial_chord = }, {initial_chord % 12} {zeros = }, {note = }, {saved_values = }')
-                        initial_chord[inx] = initial_chord[saved_values[0, zeros % saved_values.shape[1]]]
-                        zeros +=1
-      return initial_chord
+    saved_values = np.array(np.nonzero(initial_chord)) # save the index to the initial_chord of those values that are not zero
+    zeros = 0
+    # logging.info(f'{saved_values.shape = }')
+    if saved_values.shape == (1,0): # if they are all zeros, return an array of zeros
+        return np.zeros(4, dtype = int)
+    if saved_values.shape[1] < 4: # not all are zeros, but some are. Replace the zeros with the first non-zero value in the chord
+        for inx, note in zip(count(0,1), initial_chord):
+                if note == 0:
+                    logging.debug(f'in remove_zeros_from_midi. {initial_chord = }, {initial_chord % 12} {zeros = }, {note = }, {saved_values = }')
+                    initial_chord[inx] = initial_chord[saved_values[0, zeros % saved_values.shape[1]]]
+                    zeros +=1
+    return initial_chord
 
 #
 # 8/17/24 This function takes a chorale of midi notes and returns a chorale with cent values and octaves
@@ -1948,75 +1948,75 @@ def midi_to_notes_octaves_trimmed(chorale, top_notes, tonal_diamond, ratio_facto
           [cent_values, octaves] for each note
         - scores: np.ndarray, chord scores for each unique chord
     """ 
-      logging.debug(f'In midi_to_notes_octaves_trimmed. {chorale.shape = }') # In midi_to_notes_octaves. chorale.shape = (4, 256)
-      # this function is passed a numpy array of note numbers in midi format, four per time step SATB. input is of the form: voice, midi_note
-      # it converts the midi numbers into two features: cents and octaves
-      # It returns a numpy array of (voices, notes, features), but only two features (cents and octaves)
-      keys = set_accidentals(flats)
-      # assigning the octaves is pretty trivial. Except when the cents are 1150 or more. 
-      octave = np.array([midi_number // 12 for midi_number in chorale]) # a few of these will need to be reduced if the cents come out just under 1200
-      logging.debug(f'octave values & counts by voice:')
-      logging.debug([np.unique(voice, return_counts=True) for voice in octave])
-      logging.debug(f'{chorale.T.shape = }')
+    logging.debug(f'In midi_to_notes_octaves_trimmed. {chorale.shape = }') # In midi_to_notes_octaves. chorale.shape = (4, 256)
+    # this function is passed a numpy array of note numbers in midi format, four per time step SATB. input is of the form: voice, midi_note
+    # it converts the midi numbers into two features: cents and octaves
+    # It returns a numpy array of (voices, notes, features), but only two features (cents and octaves)
+    keys = set_accidentals(flats)
+    # assigning the octaves is pretty trivial. Except when the cents are 1150 or more. 
+    octave = np.array([midi_number // 12 for midi_number in chorale]) # a few of these will need to be reduced if the cents come out just under 1200
+    logging.debug(f'octave values & counts by voice:')
+    logging.debug([np.unique(voice, return_counts=True) for voice in octave])
+    logging.debug(f'{chorale.T.shape = }')
 
-      scores = np.zeros(chorale.shape[1])
-      score_inx = 0
-      total_score = 0
-      chorale_in_cents = np.zeros((chorale.T.shape), dtype = int) # this will be filled with the final tuned and transposed chords
-      prev_chord = np.zeros(4, dtype = int)
-      max_iterations = 0
-      for inx, chord in zip(count(0,1), chorale.T):
-            chord = remove_zeros_from_midi(chord) # a midi value of zero indicates that the voice is silent. 
-            # Replace the zero with another note in the chord. I don't think I have that problem any more. But who knows for certain any more.
-            if np.array_equal(chord, prev_chord):
-                  logging.debug(f'same midi values in this chord as the previous. Assign the previous retuning to this chord. {chord = },  {prev_chord = }\n')
-                  chorale_in_cents[inx] = chorale_in_cents[inx - 1]
-                  # this may need to be removed if I get the multiple scores logic implemented.
-            else:
-                  prev_chord = np.copy(chord) # make a new array that is a copy. Original not affected by changes to the copy unless the original is a python object. 
-                  # provide an initial tuning using the top_notes values for each note in the chord. 
-                  logging.debug(f'{chord = }, {top_notes.shape = }, {inx = }')
-                  chord_in_1200 = np.array([top_notes[1][np.where(top_notes[0] == chord[inx] % 12)] for inx in np.arange(chord.shape[0])]).reshape([4]) # added 10/29/24 to start at a better initial value than 12 TET
-                  # logging.debug(f'After assigning initial value to {chord % 12 = }, result is; {chord_in_1200 = }')
-                  final_cost = score_chord_cents(chord_in_1200, tonal_diamond)
-                  logging.debug(f'score using initial values from top_notes: {final_cost = }')
-                  if use_perm_or_roll: 
-                        logging.debug(f'calling try_permutations. chord_num: {inx}, {chord = }, {chord % 12 = }, {ratio_factor = }, {range = }, {use_perm_or_roll = }, {improvement_attempts = }, {cooling_rate = } ') 
-                        
-                        chord_in_cents, final_cost, iterations = try_permutations(chord, chord_in_1200, tonal_diamond, ratio_factor = ratio_factor, dist_factor = dist_factor, range = range, improvement_attempts = improvement_attempts, cooling_rate = cooling_rate, bypass_permutations = bypass_permutations)
-                        
-                        max_iterations = np.max([max_iterations, iterations])
-                        logging.debug(f'before transposition. {chord_in_cents = }')
-                        trans_chord_in_cents, gap = transpose_top_notes(chord_in_cents, top_notes, inx, chord)
-                        logging.debug(f'{trans_chord_in_cents = }, transposed by {gap = }')                        
-                        chorale_in_cents[inx] = trans_chord_in_cents
-                        logging.debug(f'after transposing and rearranging: chord_num: {inx}, {chorale_in_cents[inx] = }, {[keys[int(round(note / 100, 0) % 12)] for note in chorale_in_cents[inx]]}, score: {final_cost}')
-                  else:
-                        trans_chord_in_cents = chord_in_1200 # this is the tuning using the top_notes unchanged, a tempered 12 note scale. 
-                        chorale_in_cents[inx] = trans_chord_in_cents 
-                        iterations = 0
-                        max_iterations = np.max([max_iterations, iterations])
+    scores = np.zeros(chorale.shape[1])
+    score_inx = 0
+    total_score = 0
+    chorale_in_cents = np.zeros((chorale.T.shape), dtype = int) # this will be filled with the final tuned and transposed chords
+    prev_chord = np.zeros(4, dtype = int)
+    max_iterations = 0
+    for inx, chord in zip(count(0,1), chorale.T):
+        chord = remove_zeros_from_midi(chord) # a midi value of zero indicates that the voice is silent. 
+        # Replace the zero with another note in the chord. I don't think I have that problem any more. But who knows for certain any more.
+        if np.array_equal(chord, prev_chord):
+                logging.debug(f'same midi values in this chord as the previous. Assign the previous retuning to this chord. {chord = },  {prev_chord = }\n')
+                chorale_in_cents[inx] = chorale_in_cents[inx - 1]
+                # this may need to be removed if I get the multiple scores logic implemented.
+        else:
+                prev_chord = np.copy(chord) # make a new array that is a copy. Original not affected by changes to the copy unless the original is a python object. 
+                # provide an initial tuning using the top_notes values for each note in the chord. 
+                logging.debug(f'{chord = }, {top_notes.shape = }, {inx = }')
+                chord_in_1200 = np.array([top_notes[1][np.where(top_notes[0] == chord[inx] % 12)] for inx in np.arange(chord.shape[0])]).reshape([4]) # added 10/29/24 to start at a better initial value than 12 TET
+                # logging.debug(f'After assigning initial value to {chord % 12 = }, result is; {chord_in_1200 = }')
+                final_cost = score_chord_cents(chord_in_1200, tonal_diamond)
+                logging.debug(f'score using initial values from top_notes: {final_cost = }')
+                if use_perm_or_roll: 
+                    logging.debug(f'calling try_permutations. chord_num: {inx}, {chord = }, {chord % 12 = }, {ratio_factor = }, {range = }, {use_perm_or_roll = }, {improvement_attempts = }, {cooling_rate = } ') 
+                    
+                    chord_in_cents, final_cost, iterations = try_permutations(chord, chord_in_1200, tonal_diamond, ratio_factor = ratio_factor, dist_factor = dist_factor, range = range, improvement_attempts = improvement_attempts, cooling_rate = cooling_rate, bypass_permutations = bypass_permutations)
+                    
+                    max_iterations = np.max([max_iterations, iterations])
+                    logging.debug(f'before transposition. {chord_in_cents = }')
+                    trans_chord_in_cents, gap = transpose_top_notes(chord_in_cents, top_notes, inx, chord)
+                    logging.debug(f'{trans_chord_in_cents = }, transposed by {gap = }')                        
+                    chorale_in_cents[inx] = trans_chord_in_cents
+                    logging.debug(f'after transposing and rearranging: chord_num: {inx}, {chorale_in_cents[inx] = }, {[keys[int(round(note / 100, 0) % 12)] for note in chorale_in_cents[inx]]}, score: {final_cost}')
+                else:
+                    trans_chord_in_cents = chord_in_1200 # this is the tuning using the top_notes unchanged, a tempered 12 note scale. 
+                    chorale_in_cents[inx] = trans_chord_in_cents 
+                    iterations = 0
+                    max_iterations = np.max([max_iterations, iterations])
 
-                  total_score += final_cost 
-                  scores[score_inx] = final_cost
-                  score_inx += 1
-                  
-            # if any note has cents above 1150, then you need to reduce the octave by one.
-            for voice_num, note in zip(count(0,1), trans_chord_in_cents):
-                  if note > 1150: 
-                        logging.debug(f'{octave[voice_num, inx] = }')
-                        octave[voice_num, inx] -= 1
-                        logging.debug(f'found {note = } greater than 1150, reduce octave for {voice_num = }, chord {inx} octave[{voice_num}, {inx}]')
-                        logging.debug(f'{octave[voice_num, inx] = }')
-      scores = scores[:score_inx] # clip it to just the chords with valid scores
-      logging.info(f'# of scores: {score_inx}, total_score: {total_score}, max_iter: {max_iterations}, average score: {round(total_score / score_inx,1)}')
-      # for inx, chord in zip(count(0,1),chord_in_cents):
-      #       if inx % 4 == 0:
-      #             logging.info(f'# of scores: {chord}')
-      logging.info(f'# of scores: {chorale_in_cents.shape = }, {[chord for chord in chorale_in_cents[::4,:]] = }')
-      logging.debug(f'{chorale_in_cents.shape = }, {octave.shape = }') 
+                total_score += final_cost 
+                scores[score_inx] = final_cost
+                score_inx += 1
+                
+        # if any note has cents above 1150, then you need to reduce the octave by one.
+        for voice_num, note in zip(count(0,1), trans_chord_in_cents):
+                if note > 1150: 
+                    logging.debug(f'{octave[voice_num, inx] = }')
+                    octave[voice_num, inx] -= 1
+                    logging.debug(f'found {note = } greater than 1150, reduce octave for {voice_num = }, chord {inx} octave[{voice_num}, {inx}]')
+                    logging.debug(f'{octave[voice_num, inx] = }')
+    scores = scores[:score_inx] # clip it to just the chords with valid scores
+    logging.info(f'# of scores: {score_inx}, total_score: {total_score}, max_iter: {max_iterations}, average score: {round(total_score / score_inx,1)}')
+    # for inx, chord in zip(count(0,1),chord_in_cents):
+    #       if inx % 4 == 0:
+    #             logging.info(f'# of scores: {chord}')
+    logging.info(f'# of scores: {chorale_in_cents.shape = }, {[chord for chord in chorale_in_cents[::4,:]] = }')
+    logging.debug(f'{chorale_in_cents.shape = }, {octave.shape = }') 
 
-      return np.stack((chorale_in_cents.T, octave), axis = 2), scores 
+    return np.stack((chorale_in_cents.T, octave), axis = 2), scores 
 
  
 def build_octave_alteration_mask(repeats, voices, chorale, octave_stretch = 4, octave_reduce = 2, stay = 7):
@@ -2048,28 +2048,28 @@ def build_octave_alteration_mask(repeats, voices, chorale, octave_stretch = 4, o
         Each voice has a rolled version of the same pattern.
     """
       
-      octave_alteration_mask = np.empty(0, dtype = int)
-      done = False
-      mu = 6 # mean of the initial distribution - pick a higher number so you don't end up with negative probabilities
-      sd = 2 # standard deviation
+    octave_alteration_mask = np.empty(0, dtype = int)
+    done = False
+    mu = 6 # mean of the initial distribution - pick a higher number so you don't end up with negative probabilities
+    sd = 2 # standard deviation
 
-      while not done: # build up copies that extend to the end of the chorale, then trim to fit.
-            p1 = rng.normal(mu, sd, octave_stretch)
-            p1 = np.where(p1 >= 0, p1, np.zeros_like(p1)) # replace negative number with zero
-            p1 = p1 / np.sum(p1)
-            p2 = rng.normal(mu, sd, stay)
-            p2 = np.where(p2 >= 0, p2, np.zeros_like(p2)) 
-            p2 = p2 / np.sum(p2)
-            # returns a single number 0,1,2,3,4,5 - 2 = -2,-1,0,1,2,3 rarely hitting the largest and smallest values
-            some_octave_change = rng.choice(octave_stretch, p = p1) - octave_reduce
-            some_repeat_value = (1 + rng.choice(stay, p = p2)) * repeats
-            repeated_octave_change = np.repeat(some_octave_change, some_repeat_value, axis = 0)
-            octave_alteration_mask = np.concatenate((octave_alteration_mask, repeated_octave_change), axis = 0) 
-            done = octave_alteration_mask.shape[0] > chorale.shape[1] 
-      octave_alteration_mask = octave_alteration_mask[:chorale.shape[1]] # cut off the excess array elements
-      final_result = np.array([np.roll(octave_alteration_mask, iteration * repeats, axis = 0) for iteration in np.arange(voices)])
-      logging.debug(f'End of build_octave_alteration_mask. {final_result.shape = }')
-      return final_result
+    while not done: # build up copies that extend to the end of the chorale, then trim to fit.
+        p1 = rng.normal(mu, sd, octave_stretch)
+        p1 = np.where(p1 >= 0, p1, np.zeros_like(p1)) # replace negative number with zero
+        p1 = p1 / np.sum(p1)
+        p2 = rng.normal(mu, sd, stay)
+        p2 = np.where(p2 >= 0, p2, np.zeros_like(p2)) 
+        p2 = p2 / np.sum(p2)
+        # returns a single number 0,1,2,3,4,5 - 2 = -2,-1,0,1,2,3 rarely hitting the largest and smallest values
+        some_octave_change = rng.choice(octave_stretch, p = p1) - octave_reduce
+        some_repeat_value = (1 + rng.choice(stay, p = p2)) * repeats
+        repeated_octave_change = np.repeat(some_octave_change, some_repeat_value, axis = 0)
+        octave_alteration_mask = np.concatenate((octave_alteration_mask, repeated_octave_change), axis = 0) 
+        done = octave_alteration_mask.shape[0] > chorale.shape[1] 
+    octave_alteration_mask = octave_alteration_mask[:chorale.shape[1]] # cut off the excess array elements
+    final_result = np.array([np.roll(octave_alteration_mask, iteration * repeats, axis = 0) for iteration in np.arange(voices)])
+    logging.debug(f'End of build_octave_alteration_mask. {final_result.shape = }')
+    return final_result
 
 # the following is designed to build a mask that sets long strings of zeros and ones.
 # the result is an octave mask that has long held notes followed by long rests, at least as long as the repeats value
@@ -2101,18 +2101,18 @@ def build_long_mask(repeats, voices, chorale, p1 = [.5, .5], stay = 7, p2 =  [.1
     np.ndarray
         Shape (voices, chorale_length), binary mask (0 or 1).
     """
-      octave_alteration_mask = np.empty(0, dtype = int)
-      done = False
-      while not done:
-            some_octave_change = rng.choice(2, p = p1)  # returns a zero or one, mostly zero
-            #                                   
-            some_repeat_value = (1 + rng.choice(stay, p = p2)) * repeats # pick a number 1-6 times the repeat value
-            repeated_octave_mask = np.repeat(some_octave_change, some_repeat_value, axis = 0)
-            octave_alteration_mask = np.concatenate((octave_alteration_mask, repeated_octave_mask), axis = 0) # build up the mask unti it is larger than needed
-            done = octave_alteration_mask.shape[0] > chorale.shape[1] 
-      octave_alteration_mask = octave_alteration_mask[:chorale.shape[1]] # cut off the excess array elements
-      octave_alteration_mask = np.array([np.roll(octave_alteration_mask, iteration * repeats, axis = 0) for iteration in np.arange(voices)])
-      return octave_alteration_mask
+    octave_alteration_mask = np.empty(0, dtype = int)
+    done = False
+    while not done:
+        some_octave_change = rng.choice(2, p = p1)  # returns a zero or one, mostly zero
+        #                                   
+        some_repeat_value = (1 + rng.choice(stay, p = p2)) * repeats # pick a number 1-6 times the repeat value
+        repeated_octave_mask = np.repeat(some_octave_change, some_repeat_value, axis = 0)
+        octave_alteration_mask = np.concatenate((octave_alteration_mask, repeated_octave_mask), axis = 0) # build up the mask unti it is larger than needed
+        done = octave_alteration_mask.shape[0] > chorale.shape[1] 
+    octave_alteration_mask = octave_alteration_mask[:chorale.shape[1]] # cut off the excess array elements
+    octave_alteration_mask = np.array([np.roll(octave_alteration_mask, iteration * repeats, axis = 0) for iteration in np.arange(voices)])
+    return octave_alteration_mask
 
 def build_long_mask_v2(repeats, voices, chorale, p1 = [.5, .5], stay = 7, p2 =  [.1, .1, .2, .2, .2, .1, .1], variability=.5):
     """
@@ -2143,21 +2143,21 @@ def build_long_mask_v2(repeats, voices, chorale, p1 = [.5, .5], stay = 7, p2 =  
     np.ndarray
         Shape (voices, chorale_length), binary mask (0 or 1).
     """
-      octave_alteration_mask = np.empty(0, dtype = int)
-      done = False
-      sigma = p1[1] # p1 is close to [0.9, 0.1]. This adds variety to the probabilities for each section
-      while not done:
-            p1_val = p1[0] + sigma * (np.random.rand() - 0.5) * 2  # generate a new p1 value close to the original one. It adds a random value, positive or negative to the p1[0] value
-            if p1_val < 0: p1_val = -p1_val # can't handle negative probabilities
-            p1_new = np.array([p1_val, 1 - p1_val])
-            some_octave_change = rng.choice(2, p = p1_new)  # returns a zero or one, mostly zero. probability varies over the length of the piece
-            some_repeat_value = (1 + rng.choice(stay, p = p2)) * repeats # pick a number 1-6 times the repeat value
-            repeated_octave_mask = np.repeat(some_octave_change, some_repeat_value, axis = 0)
-            octave_alteration_mask = np.concatenate((octave_alteration_mask, repeated_octave_mask), axis = 0)
-            done = octave_alteration_mask.shape[0] > chorale.shape[1] 
-      octave_alteration_mask = octave_alteration_mask[:chorale.shape[1]] # cut off the excess array elements
-      octave_alteration_mask = np.array([np.roll(octave_alteration_mask, iteration * repeats, axis = 0) for iteration in np.arange(voices)])
-      return octave_alteration_mask
+    octave_alteration_mask = np.empty(0, dtype = int)
+    done = False
+    sigma = p1[1] # p1 is close to [0.9, 0.1]. This adds variety to the probabilities for each section
+    while not done:
+        p1_val = p1[0] + sigma * (np.random.rand() - 0.5) * 2  # generate a new p1 value close to the original one. It adds a random value, positive or negative to the p1[0] value
+        if p1_val < 0: p1_val = -p1_val # can't handle negative probabilities
+        p1_new = np.array([p1_val, 1 - p1_val])
+        some_octave_change = rng.choice(2, p = p1_new)  # returns a zero or one, mostly zero. probability varies over the length of the piece
+        some_repeat_value = (1 + rng.choice(stay, p = p2)) * repeats # pick a number 1-6 times the repeat value
+        repeated_octave_mask = np.repeat(some_octave_change, some_repeat_value, axis = 0)
+        octave_alteration_mask = np.concatenate((octave_alteration_mask, repeated_octave_mask), axis = 0)
+        done = octave_alteration_mask.shape[0] > chorale.shape[1] 
+    octave_alteration_mask = octave_alteration_mask[:chorale.shape[1]] # cut off the excess array elements
+    octave_alteration_mask = np.array([np.roll(octave_alteration_mask, iteration * repeats, axis = 0) for iteration in np.arange(voices)])
+    return octave_alteration_mask
 
 
 
@@ -2183,58 +2183,58 @@ def add_features(voices_notes_features, guev_array):
         Shape (6, voices, notes), stacked features:
         [notes, octaves, gliss, upsample, envelope, velocity]
     """
-      gls, gls_p, ups, ups_p, env, env_p, vel, vel_p = np.moveaxis(guev_array, 0, 0)
-      # logging.debug(f'gls, gls_p, ups, ups_p, env, env_p, vel, vel_p: {[value for value in (gls, gls_p, ups, ups_p, env, env_p, vel, vel_p)]}')
-      # voices_notes_features shape = (4, 256, 2) (voices, notes, features (note, octave))
-      break_point = voices_notes_features.shape[1] // env.shape[0] # # of notes divided by the shape of env
-      notes = voices_notes_features[:,:,0] # the 0th feature is the note # (4, 256)
-      octaves = voices_notes_features[:,:,1] # the 1th feature is the octave # (4, 256)
-      # set the features for each note in the chorale, all voices
-      gliss = np.zeros(notes.shape, dtype = int)
-      upsample = np.zeros(notes.shape, dtype = int)   
-      envelope = np.zeros(notes.shape, dtype = int)
-      velocity = np.zeros(notes.shape, dtype = int)  
-      
-      # move from one set of features to the next. gls, ups, env, vel
-      for voice in np.arange(notes.shape[0]):
-            # for every note in the voice
-            # logging.debug(f'first note in voice: {voice = } {notes[voice, 0] = }')
-            gls_i = 0
-            ups_i = 0
-            env_i = 0
-            vel_i = 0   
-            prev_note = notes[voice, 0]
-            prev_gls = rng.choice(gls[gls_i], p = gls_p[gls_i])
-            prev_ups = rng.choice(ups[ups_i], p = ups_p[ups_i])
-            prev_env = rng.choice(env[env_i], p = env_p[env_i])
-            prev_vel = rng.choice(vel[vel_i], p = vel_p[vel_i])
-            for note in np.arange(notes.shape[1]):
-                  if notes[voice, note] != prev_note:
-                        # logging.debug(f'new note: {voice = }, {note = }, {notes[voice, note] = }, {gls_i = }')
-                        gliss[voice, note] = rng.choice(gls[gls_i], p = gls_p[gls_i])
-                        upsample[voice, note] = rng.choice(ups[ups_i], p = ups_p[ups_i])
-                        envelope[voice, note] = rng.choice(env[env_i], p = env_p[env_i])
-                        velocity[voice, note] = rng.choice(vel[vel_i], p = vel_p[vel_i])
-                        prev_note = notes[voice, note]
-                        prev_gls = gliss[voice, note]
-                        prev_ups = upsample[voice, note]
-                        prev_env = envelope[voice, note]
-                        prev_vel = velocity[voice, note]
-                  else:
-                        # logging.debug(f'{notes[voice, note] = }')
-                        gliss[voice, note] = prev_gls
-                        upsample[voice, note] = prev_ups
-                        envelope[voice, note] = prev_env
-                        velocity[voice, note] = prev_vel
+    gls, gls_p, ups, ups_p, env, env_p, vel, vel_p = np.moveaxis(guev_array, 0, 0)
+    # logging.debug(f'gls, gls_p, ups, ups_p, env, env_p, vel, vel_p: {[value for value in (gls, gls_p, ups, ups_p, env, env_p, vel, vel_p)]}')
+    # voices_notes_features shape = (4, 256, 2) (voices, notes, features (note, octave))
+    break_point = voices_notes_features.shape[1] // env.shape[0] # # of notes divided by the shape of env
+    notes = voices_notes_features[:,:,0] # the 0th feature is the note # (4, 256)
+    octaves = voices_notes_features[:,:,1] # the 1th feature is the octave # (4, 256)
+    # set the features for each note in the chorale, all voices
+    gliss = np.zeros(notes.shape, dtype = int)
+    upsample = np.zeros(notes.shape, dtype = int)   
+    envelope = np.zeros(notes.shape, dtype = int)
+    velocity = np.zeros(notes.shape, dtype = int)  
+    
+    # move from one set of features to the next. gls, ups, env, vel
+    for voice in np.arange(notes.shape[0]):
+        # for every note in the voice
+        # logging.debug(f'first note in voice: {voice = } {notes[voice, 0] = }')
+        gls_i = 0
+        ups_i = 0
+        env_i = 0
+        vel_i = 0   
+        prev_note = notes[voice, 0]
+        prev_gls = rng.choice(gls[gls_i], p = gls_p[gls_i])
+        prev_ups = rng.choice(ups[ups_i], p = ups_p[ups_i])
+        prev_env = rng.choice(env[env_i], p = env_p[env_i])
+        prev_vel = rng.choice(vel[vel_i], p = vel_p[vel_i])
+        for note in np.arange(notes.shape[1]):
+                if notes[voice, note] != prev_note:
+                    # logging.debug(f'new note: {voice = }, {note = }, {notes[voice, note] = }, {gls_i = }')
+                    gliss[voice, note] = rng.choice(gls[gls_i], p = gls_p[gls_i])
+                    upsample[voice, note] = rng.choice(ups[ups_i], p = ups_p[ups_i])
+                    envelope[voice, note] = rng.choice(env[env_i], p = env_p[env_i])
+                    velocity[voice, note] = rng.choice(vel[vel_i], p = vel_p[vel_i])
+                    prev_note = notes[voice, note]
+                    prev_gls = gliss[voice, note]
+                    prev_ups = upsample[voice, note]
+                    prev_env = envelope[voice, note]
+                    prev_vel = velocity[voice, note]
+                else:
+                    # logging.debug(f'{notes[voice, note] = }')
+                    gliss[voice, note] = prev_gls
+                    upsample[voice, note] = prev_ups
+                    envelope[voice, note] = prev_env
+                    velocity[voice, note] = prev_vel
 
-                  if note % break_point == 0 and note > 0:
-                        # logging.debug(f'{note = }, {note % break_point = }, {env_i = } {env[env_i]}')
-                        gls_i = np.min((gls.shape[0] - 1, gls_i + 1))
-                        ups_i = np.min((ups.shape[0] - 1, ups_i + 1))
-                        env_i = np.min((env.shape[0] - 1, env_i + 1))
-                        vel_i = np.min((vel.shape[0] - 1, vel_i + 1))
-                        # logging.debug(f'increased indices: {env_i = } {env[env_i]}')
-      return np.stack((notes, octaves, gliss, upsample, envelope, velocity), axis = 0) 
+                if note % break_point == 0 and note > 0:
+                    # logging.debug(f'{note = }, {note % break_point = }, {env_i = } {env[env_i]}')
+                    gls_i = np.min((gls.shape[0] - 1, gls_i + 1))
+                    ups_i = np.min((ups.shape[0] - 1, ups_i + 1))
+                    env_i = np.min((env.shape[0] - 1, env_i + 1))
+                    vel_i = np.min((vel.shape[0] - 1, vel_i + 1))
+                    # logging.debug(f'increased indices: {env_i = } {env[env_i]}')
+    return np.stack((notes, octaves, gliss, upsample, envelope, velocity), axis = 0) 
 
 # added 9/1/23 to include the glides for the woodwinds_part.
 def add_features_glides(notes_octaves, glides, guev_array):
@@ -2259,52 +2259,52 @@ def add_features_glides(notes_octaves, glides, guev_array):
         Shape (6, voices, notes), stacked features:
         [notes, octaves, glides, upsample, envelope, velocity]
     """
-      gls, gls_p, ups, ups_p, env, env_p, vel, vel_p = np.moveaxis(guev_array, 0, 0)
-      logging.debug(f'in add_features_glides. {notes_octaves.shape = }, {glides.shape = }, {guev_array.shape = }')
-      # notes_octaves shape = (voices, notes, features (note, octave))
-      break_point = notes_octaves.shape[1] // env.shape[0] # # of notes divided by the shape of env
-      # split the octaves and notes into different array.
-      notes = notes_octaves[:,:,0] # the 0th feature is the note # (4, 256)
-      octaves = notes_octaves[:,:,1] # the 1th feature is the octave # (4, 256)
-      # logging.info(f'consider simplifying this tuple unpacking here.')
-      # notes_x, octaves_x = notes_octaves[:,:]
-      # logging.info(f'{notes.shape = }, {octaves.shape = }, {notes_x.shape = }, {octaves_x.shape = }')
-      # set the features for each note in the chorale, all voices
-      upsample = np.zeros(notes.shape, dtype = int)   
-      envelope = np.zeros(notes.shape, dtype = int)
-      velocity = np.zeros(notes.shape, dtype = int)  
-      
-      # move a set of features to the notes based on break points: ups, env, vel
-      for voice in np.arange(notes.shape[0]):
-            # for every voice in the array
-            # logging.debug(f'first note in voice: {voice = } {notes[voice, 0] = }')
-            ups_i = 0
-            env_i = 0
-            vel_i = 0   
-            prev_note = notes[voice, 0]
-            prev_ups = rng.choice(ups[ups_i], p = ups_p[ups_i])
-            prev_env = rng.choice(env[env_i], p = env_p[env_i])
-            prev_vel = rng.choice(vel[vel_i], p = vel_p[vel_i])
-            for note in np.arange(notes.shape[1]):
-                  # for every note in the voice
-                  if notes[voice, note] != prev_note:
-                        upsample[voice, note] = rng.choice(ups[ups_i], p = ups_p[ups_i])
-                        envelope[voice, note] = rng.choice(env[env_i], p = env_p[env_i])
-                        velocity[voice, note] = rng.choice(vel[vel_i], p = vel_p[vel_i])
-                        prev_note = notes[voice, note]
-                        prev_ups = upsample[voice, note]
-                        prev_env = envelope[voice, note]
-                        prev_vel = velocity[voice, note]
-                  else:
-                        upsample[voice, note] = prev_ups
-                        envelope[voice, note] = prev_env
-                        velocity[voice, note] = prev_vel
+    gls, gls_p, ups, ups_p, env, env_p, vel, vel_p = np.moveaxis(guev_array, 0, 0)
+    logging.debug(f'in add_features_glides. {notes_octaves.shape = }, {glides.shape = }, {guev_array.shape = }')
+    # notes_octaves shape = (voices, notes, features (note, octave))
+    break_point = notes_octaves.shape[1] // env.shape[0] # # of notes divided by the shape of env
+    # split the octaves and notes into different array.
+    notes = notes_octaves[:,:,0] # the 0th feature is the note # (4, 256)
+    octaves = notes_octaves[:,:,1] # the 1th feature is the octave # (4, 256)
+    # logging.info(f'consider simplifying this tuple unpacking here.')
+    # notes_x, octaves_x = notes_octaves[:,:]
+    # logging.info(f'{notes.shape = }, {octaves.shape = }, {notes_x.shape = }, {octaves_x.shape = }')
+    # set the features for each note in the chorale, all voices
+    upsample = np.zeros(notes.shape, dtype = int)   
+    envelope = np.zeros(notes.shape, dtype = int)
+    velocity = np.zeros(notes.shape, dtype = int)  
+    
+    # move a set of features to the notes based on break points: ups, env, vel
+    for voice in np.arange(notes.shape[0]):
+        # for every voice in the array
+        # logging.debug(f'first note in voice: {voice = } {notes[voice, 0] = }')
+        ups_i = 0
+        env_i = 0
+        vel_i = 0   
+        prev_note = notes[voice, 0]
+        prev_ups = rng.choice(ups[ups_i], p = ups_p[ups_i])
+        prev_env = rng.choice(env[env_i], p = env_p[env_i])
+        prev_vel = rng.choice(vel[vel_i], p = vel_p[vel_i])
+        for note in np.arange(notes.shape[1]):
+                # for every note in the voice
+                if notes[voice, note] != prev_note:
+                    upsample[voice, note] = rng.choice(ups[ups_i], p = ups_p[ups_i])
+                    envelope[voice, note] = rng.choice(env[env_i], p = env_p[env_i])
+                    velocity[voice, note] = rng.choice(vel[vel_i], p = vel_p[vel_i])
+                    prev_note = notes[voice, note]
+                    prev_ups = upsample[voice, note]
+                    prev_env = envelope[voice, note]
+                    prev_vel = velocity[voice, note]
+                else:
+                    upsample[voice, note] = prev_ups
+                    envelope[voice, note] = prev_env
+                    velocity[voice, note] = prev_vel
 
-                  if note % break_point == 0 and note > 0:
-                        ups_i = np.min((ups.shape[0] - 1, ups_i + 1))
-                        env_i = np.min((env.shape[0] - 1, env_i + 1))
-                        vel_i = np.min((vel.shape[0] - 1, vel_i + 1))
-      return np.stack((notes, octaves, glides, upsample, envelope, velocity), axis = 0) 
+                if note % break_point == 0 and note > 0:
+                    ups_i = np.min((ups.shape[0] - 1, ups_i + 1))
+                    env_i = np.min((env.shape[0] - 1, env_i + 1))
+                    vel_i = np.min((vel.shape[0] - 1, vel_i + 1))
+    return np.stack((notes, octaves, glides, upsample, envelope, velocity), axis = 0) 
 
 def build_glides_report(chorale_in_cents_slides, glides,  stored_gliss): # chorale_in_cents_slides.shape = (4, 258, 2), glides.shape = (4, 258), stored_gliss.shape = (5, 9)
     """
@@ -2329,32 +2329,32 @@ def build_glides_report(chorale_in_cents_slides, glides,  stored_gliss): # chora
         - For each glide: chord#, voice#, start cents, glide#, ratio, slide cents, end cents
         - Statistics: total slides, min/max glide sizes
     """
-      logging.debug(f'glides report') 
-      logging.debug(f'{chorale_in_cents_slides.shape = }, {glides.shape = }, {stored_gliss.shape = }')
-      max_glide = 0
-      min_glide = 0
-      logging.debug(f'List of the slides generated')
-      logging.debug(f'glide#\tdecimal\tcents\tratio')
-      for gl in stored_gliss:
-            # glide num is 1500 and up, glide value is the ratio of the glide
-            logging.debug(f'{int(gl[0])}\t{round(gl[8],4)}\t{int(dmu.ratio_to_cents(gl[8]))}\t{stringify(gl[8])}')
-      logging.debug(f' # \tinst\tstart\tgls    \tdec  \tslide\tend\tslide')
-      logging.debug(f'chrd\tvoice\tcents\t #\tratio\tcents\tcents\tratio')
-      total_slides = 0
-      for inx, glide_chord in zip(count(0,1), glides.T):
-            if glide_chord.any():
-                  for inx2, glide in zip(count(0,1),glide_chord):
-                        if glide != 0: 
-                              gliss_index = np.where(stored_gliss == glide)[0]
-                              # logging.info(f'{gliss_index = }, {glide = }')
-                              gliss_ratio = stored_gliss[gliss_index, 8][0]
-                              # logging.info(f'{gliss_factor = }')
-                              gliss_cents = int(dmu.ratio_to_cents(gliss_ratio))
-                              logging.info(f'{inx}\t{inx2}\t{chorale_in_cents_slides[inx2,inx,0]}\t{glide}\t{round(gliss_ratio,4)}\t{gliss_cents}\t{gliss_cents + chorale_in_cents_slides[inx2,inx,0]}\t{stringify(gliss_ratio)}')
-                              max_glide = np.max([max_glide, gliss_cents])
-                              min_glide = np.min([min_glide, gliss_cents])
-                              total_slides += 1
-      logging.info(f'{total_slides = }, {max_glide = }, {min_glide = }') 
+    logging.debug(f'glides report') 
+    logging.debug(f'{chorale_in_cents_slides.shape = }, {glides.shape = }, {stored_gliss.shape = }')
+    max_glide = 0
+    min_glide = 0
+    logging.debug(f'List of the slides generated')
+    logging.debug(f'glide#\tdecimal\tcents\tratio')
+    for gl in stored_gliss:
+        # glide num is 1500 and up, glide value is the ratio of the glide
+        logging.debug(f'{int(gl[0])}\t{round(gl[8],4)}\t{int(dmu.ratio_to_cents(gl[8]))}\t{stringify(gl[8])}')
+    logging.debug(f' # \tinst\tstart\tgls    \tdec  \tslide\tend\tslide')
+    logging.debug(f'chrd\tvoice\tcents\t #\tratio\tcents\tcents\tratio')
+    total_slides = 0
+    for inx, glide_chord in zip(count(0,1), glides.T):
+        if glide_chord.any():
+                for inx2, glide in zip(count(0,1),glide_chord):
+                    if glide != 0: 
+                            gliss_index = np.where(stored_gliss == glide)[0]
+                            # logging.info(f'{gliss_index = }, {glide = }')
+                            gliss_ratio = stored_gliss[gliss_index, 8][0]
+                            # logging.info(f'{gliss_factor = }')
+                            gliss_cents = int(dmu.ratio_to_cents(gliss_ratio))
+                            logging.info(f'{inx}\t{inx2}\t{chorale_in_cents_slides[inx2,inx,0]}\t{glide}\t{round(gliss_ratio,4)}\t{gliss_cents}\t{gliss_cents + chorale_in_cents_slides[inx2,inx,0]}\t{stringify(gliss_ratio)}')
+                            max_glide = np.max([max_glide, gliss_cents])
+                            min_glide = np.min([min_glide, gliss_cents])
+                            total_slides += 1
+    logging.info(f'{total_slides = }, {max_glide = }, {min_glide = }') 
 
 # This function converts a corpus into a numpy array of start, midi, duration, then into a chorale of 4-part notes
 # this replaces the previous version that required a conversion to the mido library. This one only uses music21
@@ -2382,48 +2382,48 @@ def stream_to_midi_array(corpus, save_midi_file = False):
         - time_sig: str, time signature (e.g., '4/4')
         - stream: music21.stream.Stream object
     """
-      stream = m21.corpus.parse(corpus) # Create the strem from the corpus
-      key = stream.analyze('key')
-      root = key.tonic.midi % 12
-      mode = key.mode
-      my_part = stream.parts[0]
-      ts_str = str(my_part[m21.meter.TimeSignature][0])
-      time_sig = ts_str[ts_str.find(' '):-1]
-      time_sig = time_sig[1:]
+    stream = m21.corpus.parse(corpus) # Create the strem from the corpus
+    key = stream.analyze('key')
+    root = key.tonic.midi % 12
+    mode = key.mode
+    my_part = stream.parts[0]
+    ts_str = str(my_part[m21.meter.TimeSignature][0])
+    time_sig = ts_str[ts_str.find(' '):-1]
+    time_sig = time_sig[1:]
 
-      logging.debug(f'{time_sig =}')
-      notes = stream.flatten().notes # Extract the notes from the Stream
-      midi_notes = []  # Create an empty list to store the MIDI note numbers
-      for n in notes: # Loop through each note in the Stream
-            midi_note = n.pitch.midi # Get the MIDI note number
-            start_time = n.offset * 4 # get the note starting time
-            duration = n.quarterLength * 4 # Get the duration (in quarter notes) of the note
-            note_tuple = (start_time, midi_note, duration) # Create a tuple of the MIDI number, start time, duration
-            midi_notes.append(note_tuple) # Add the current note information list    
-      midi_array = np.array(midi_notes).astype(int) # Convert the list of MIDI notes to a NumPy array
+    logging.debug(f'{time_sig =}')
+    notes = stream.flatten().notes # Extract the notes from the Stream
+    midi_notes = []  # Create an empty list to store the MIDI note numbers
+    for n in notes: # Loop through each note in the Stream
+        midi_note = n.pitch.midi # Get the MIDI note number
+        start_time = n.offset * 4 # get the note starting time
+        duration = n.quarterLength * 4 # Get the duration (in quarter notes) of the note
+        note_tuple = (start_time, midi_note, duration) # Create a tuple of the MIDI number, start time, duration
+        midi_notes.append(note_tuple) # Add the current note information list    
+    midi_array = np.array(midi_notes).astype(int) # Convert the list of MIDI notes to a NumPy array
 
-      # now convert this midi_array of 3 features into a four part chorale with chords for each time step.
-      prev_start = -1
-      current_voice = 0
-      chr_inx = np.zeros([4],dtype = int)
-      trimmed_chorale = np.zeros([4,512],dtype = int) # we will trim this to the right shape at the end of the function
-      for note_num, note in zip(count(0,1),midi_array): # for every row of note information in the array
-            start, midi, dur = note # assign them to local variables
-            current_voice = np.argmin(chr_inx) # put the next arriving note in the voice that has the fewest notes.
-            if start > prev_start: # you have a note you need to save in a new row on trimmed_chorale
-                  trimmed_chorale[current_voice,chr_inx[current_voice]:chr_inx[current_voice] + dur] = midi 
-                  prev_start = start
-                  chr_inx[current_voice] += dur
-            elif start == prev_start:
-                  trimmed_chorale[current_voice,chr_inx[current_voice]:chr_inx[current_voice] + dur] = midi 
-                  chr_inx[current_voice] += dur
-            if current_voice > 3: current_voice = 0
-      logging.info(f'{save_midi_file = }, ')
-      if save_midi_file: 
-            result = stream.write('midi', fp = corpus + '.mid')
-            logging.info(f'Wrote out a midi file named {result = }')
-      # s.write('midi', fp='fileout.mid')
-      return trimmed_chorale[:,:np.max(chr_inx)], root, mode, time_sig, stream
+    # now convert this midi_array of 3 features into a four part chorale with chords for each time step.
+    prev_start = -1
+    current_voice = 0
+    chr_inx = np.zeros([4],dtype = int)
+    trimmed_chorale = np.zeros([4,512],dtype = int) # we will trim this to the right shape at the end of the function
+    for note_num, note in zip(count(0,1),midi_array): # for every row of note information in the array
+        start, midi, dur = note # assign them to local variables
+        current_voice = np.argmin(chr_inx) # put the next arriving note in the voice that has the fewest notes.
+        if start > prev_start: # you have a note you need to save in a new row on trimmed_chorale
+                trimmed_chorale[current_voice,chr_inx[current_voice]:chr_inx[current_voice] + dur] = midi 
+                prev_start = start
+                chr_inx[current_voice] += dur
+        elif start == prev_start:
+                trimmed_chorale[current_voice,chr_inx[current_voice]:chr_inx[current_voice] + dur] = midi 
+                chr_inx[current_voice] += dur
+        if current_voice > 3: current_voice = 0
+    logging.info(f'{save_midi_file = }, ')
+    if save_midi_file: 
+        result = stream.write('midi', fp = corpus + '.mid')
+        logging.info(f'Wrote out a midi file named {result = }')
+    # s.write('midi', fp='fileout.mid')
+    return trimmed_chorale[:,:np.max(chr_inx)], root, mode, time_sig, stream
 
 # this is obsolete and should be removed. 
 def print_interval_cent_report(chorale_in_cents, chorale, top_notes, tonal_diamond, keys,\
@@ -2464,68 +2464,68 @@ def print_interval_cent_report(chorale_in_cents, chorale, top_notes, tonal_diamo
         (max_score_reported, sum_scores, count_scores, len(value), current_score, counts, value)
         Various statistics about the chorale.
     """
-      chord_scorer = ChordScorer(tonal_diamond) 
-      max_score_reported = 0
-      max_score_chord_num = 0
-      sum_scores = 0
-      count_scores = 0
-      current_score = np.zeros(chorale_in_cents.shape[1], dtype = int)
-      print(f'report the chords used, with chord scores')
-      if print_intervals: print(f'#\t\tnames of the notes\tcents of notes\t\tintervals between notes, the cents and ratios of the intervals\t\tchord score')
-      else: print(f'#\tnames of the notes\tcents of notes\t\toctaves\t\tchord score')
-      previous_chord = np.zeros((4,), dtype = int)
-      previous_chord_12 = np.zeros((4,), dtype = int)  
+    chord_scorer = ChordScorer(tonal_diamond) 
+    max_score_reported = 0
+    max_score_chord_num = 0
+    sum_scores = 0
+    count_scores = 0
+    current_score = np.zeros(chorale_in_cents.shape[1], dtype = int)
+    print(f'report the chords used, with chord scores')
+    if print_intervals: print(f'#\t\tnames of the notes\tcents of notes\t\tintervals between notes, the cents and ratios of the intervals\t\tchord score')
+    else: print(f'#\tnames of the notes\tcents of notes\t\toctaves\t\tchord score')
+    previous_chord = np.zeros((4,), dtype = int)
+    previous_chord_12 = np.zeros((4,), dtype = int)  
 #       +-- current chord number 
 #       |          +-- cents of current chord
 #       |          |           +-- octave of current chord
 #       |          |           |       +-- original midi value
-      for chord_num, chord_1200, octave, midi_12 in \
-            zip(count(0,1), chorale_in_cents[:,:end_chord,0].T, chorale_in_cents[:,:end_chord,1].T, chorale.T):
-            # convert the cent value back into the original MIDI scale degree 0-12
-            chord_12 = np.array([note % 12 for note in midi_12])
-            if not np.array_equal(chord_12, previous_chord_12):
-                  current_score[chord_num] = chord_scorer.score_chord(chord_1200, tolerance) 
-                  if current_score[chord_num] > max_score_reported:
-                        max_score_reported = current_score[chord_num]
-                        max_score_chord_num = chord_num
-                  sum_scores += current_score[chord_num]
-                  count_scores += 1
-                  print(chord_num, end = '\t') # chord_12_rounded % 12, 
-                  print([keys[int(round(note, 0) % 12)] for note in chord_12], end = '\t') # print the note midi 
-                  # print the cent values in the array right aligned. 
-                  print(np.array2string(chord_1200, formatter={'int': lambda x: '%+4s' % x}),end='\t')
-                  # print each of the six intervals in a 4-note chord. Group consists of relative note #1, note #2, delta cents, delta ratio for each of the six intervals.
-                  if print_intervals:
-                        print([(inx1, inx2, \
-                        np.array2string(abs(chord_1200[inx1] - chord_1200[inx2]), formatter={'int': lambda x: '%+4s' % x}), \
-                              dmu.cents_to_ratio(abs(chord_1200[inx1] - chord_1200[inx2]),limit_denominator = limit_denominator).center(5)) \
-                              for inx1, inx2 in combinations(np.arange(4),2)], end = '\t\t')
-                  # show with the score of the chord
-                  print(f'{octave}',end='\t')
-                  print(f'{current_score[chord_num]}')   
-            
-            previous_chord_12 = np.copy(chord_12) # save the 12TET midi value 0-12
+    for chord_num, chord_1200, octave, midi_12 in \
+        zip(count(0,1), chorale_in_cents[:,:end_chord,0].T, chorale_in_cents[:,:end_chord,1].T, chorale.T):
+        # convert the cent value back into the original MIDI scale degree 0-12
+        chord_12 = np.array([note % 12 for note in midi_12])
+        if not np.array_equal(chord_12, previous_chord_12):
+                current_score[chord_num] = chord_scorer.score_chord(chord_1200, tolerance) 
+                if current_score[chord_num] > max_score_reported:
+                    max_score_reported = current_score[chord_num]
+                    max_score_chord_num = chord_num
+                sum_scores += current_score[chord_num]
+                count_scores += 1
+                print(chord_num, end = '\t') # chord_12_rounded % 12, 
+                print([keys[int(round(note, 0) % 12)] for note in chord_12], end = '\t') # print the note midi 
+                # print the cent values in the array right aligned. 
+                print(np.array2string(chord_1200, formatter={'int': lambda x: '%+4s' % x}),end='\t')
+                # print each of the six intervals in a 4-note chord. Group consists of relative note #1, note #2, delta cents, delta ratio for each of the six intervals.
+                if print_intervals:
+                    print([(inx1, inx2, \
+                    np.array2string(abs(chord_1200[inx1] - chord_1200[inx2]), formatter={'int': lambda x: '%+4s' % x}), \
+                            dmu.cents_to_ratio(abs(chord_1200[inx1] - chord_1200[inx2]),limit_denominator = limit_denominator).center(5)) \
+                            for inx1, inx2 in combinations(np.arange(4),2)], end = '\t\t')
+                # show with the score of the chord
+                print(f'{octave}',end='\t')
+                print(f'{current_score[chord_num]}')   
+        
+        previous_chord_12 = np.copy(chord_12) # save the 12TET midi value 0-12
 
-      if count_scores > 0: 
-            print(f'{ratio_factor = }')
-            print(f'Max score: {max_score_reported}, at chord # {max_score_chord_num}')  
-            # Total score: 3390, Average score: 53.0, count_scores = 64 
-      print(f'{tonal_diamond.shape = }')
-      logging.debug(f'Maximum score was: {max_score_reported}, @ chord # {max_score_chord_num}')  
-      logging.debug(f'Total score was {sum_scores}, {count_scores = }') 
-      if count_scores > 0: logging.debug(f'Average score was: {round(sum_scores / count_scores,1)}')
-      print('top notes:')
-      print(*[note for note in top_notes[0]], sep = '\t')
-      print(*[keys[note] for note in top_notes[0]], sep = '\t')
-      print(*[cent_value for cent_value in top_notes[1]], sep = '\t')
-      value, counts = np.unique(chorale_in_cents[:,:,0].T, return_counts = True)
-      print(f'Most common cent values, midi note, counts of this particular cent value, with the most common at the top:')
-      count_and_values = np.array([(v, int(round(v / 100,0)), c) for v,c in zip(value[np.argsort(counts)[::-1]], counts[np.argsort(counts)[::-1]])])
-      print(f'Top 15\ncents, midi#, counts:\n{count_and_values[:15,:]}')
-      value = np.unique(chorale_in_cents[:,:,0].T)
-      # print the top scoring chords.
-      print(f'{current_score.shape = }')
-      return max_score_reported, sum_scores, count_scores, len(value), current_score, counts, value
+    if count_scores > 0: 
+        print(f'{ratio_factor = }')
+        print(f'Max score: {max_score_reported}, at chord # {max_score_chord_num}')  
+        # Total score: 3390, Average score: 53.0, count_scores = 64 
+    print(f'{tonal_diamond.shape = }')
+    logging.debug(f'Maximum score was: {max_score_reported}, @ chord # {max_score_chord_num}')  
+    logging.debug(f'Total score was {sum_scores}, {count_scores = }') 
+    if count_scores > 0: logging.debug(f'Average score was: {round(sum_scores / count_scores,1)}')
+    print('top notes:')
+    print(*[note for note in top_notes[0]], sep = '\t')
+    print(*[keys[note] for note in top_notes[0]], sep = '\t')
+    print(*[cent_value for cent_value in top_notes[1]], sep = '\t')
+    value, counts = np.unique(chorale_in_cents[:,:,0].T, return_counts = True)
+    print(f'Most common cent values, midi note, counts of this particular cent value, with the most common at the top:')
+    count_and_values = np.array([(v, int(round(v / 100,0)), c) for v,c in zip(value[np.argsort(counts)[::-1]], counts[np.argsort(counts)[::-1]])])
+    print(f'Top 15\ncents, midi#, counts:\n{count_and_values[:15,:]}')
+    value = np.unique(chorale_in_cents[:,:,0].T)
+    # print the top scoring chords.
+    print(f'{current_score.shape = }')
+    return max_score_reported, sum_scores, count_scores, len(value), current_score, counts, value
 
 def _get_scale(root, mode):
     """
@@ -2635,14 +2635,14 @@ def assign_chorale(version, save_midi_file = False):        #, quantization = 4)
         - keys: np.ndarray, array of 12 note names (with appropriate accidentals)
     """
 # this is the new version that doesn't require mido, only music21. 
-      if len(version) > 8:
-            version = version[:6]
-      chorale, root, mode, time_sig, s = stream_to_midi_array(version, save_midi_file = save_midi_file)
-      scale = _get_scale(root, mode.lower())
-      accidentals, flats = get_keysig(root, mode)
-      keys = set_accidentals(flats)
-      logging.info(f'{version = }, {chorale.shape = }, {root = }, {keys[root] = }, {mode = }, {time_sig = }')
-      return chorale, root, mode, time_sig, s, keys
+    if len(version) > 8:
+        version = version[:6]
+    chorale, root, mode, time_sig, s = stream_to_midi_array(version, save_midi_file = save_midi_file)
+    scale = _get_scale(root, mode.lower())
+    accidentals, flats = get_keysig(root, mode)
+    keys = set_accidentals(flats)
+    logging.info(f'{version = }, {chorale.shape = }, {root = }, {keys[root] = }, {mode = }, {time_sig = }')
+    return chorale, root, mode, time_sig, s, keys
 # this function is designed to load a chorale, convert it to cents by loading a numpy array of top_notes values, returning the chorale_in_cents and top_notes array.
 # this cell also proves that we have previously saved valid top_notes numpy arrays for all these wedding chorales by Bach, that all the chorales have valid notes in midi format, and that they can be converted to cent values by assigning the available top noted in the loaded array. There are no midi notes in each chorale that don't have corresponding values in the top_notes array for that chorale
 def load_chorale_in_cents(version, numpy_dir, save_midi_file=False, save_top_notes=True,\
@@ -2681,45 +2681,45 @@ def load_chorale_in_cents(version, numpy_dir, save_midi_file=False, save_top_not
         - mode: str, 'major' or 'minor'
         - keys: np.ndarray, array of 12 note names
     """
-      chorale, root, mode, time_sig, s, keys = assign_chorale(version, save_midi_file = save_midi_file)
-      if len(version) > 8:
-            version = version[:6]
-      file_name = os.path.join(numpy_dir, f'{version}top-notes.npy')
-      if werck_top_notes: 
-            file_name = os.path.join(numpy_dir, f'{version}-w-top_notes.npy') # bwv260-w-top_notes
-      logging.info(f'In load_chorale_in_cents. About to load top_notes from {file_name = }')
-      try:
-            top_notes = np.load(file_name)
-            # print(f'loaded data from {file_name}')
-      except OSError:
-            logging.info(f'top_notes_dictionary file not there, Initializing the array to [[{root}],[{root * 100}]]')
-            top_notes = np.array([[root],[root * 100]])
-            logging.debug(f'Could not find {file_name = }. Initialized {top_notes = }')
-      if top_notes.shape[1] < 12:
-            number_of_notes = top_notes.shape[1]
-            new_array = top_notes
-            logging.debug(f'{new_array.shape = }, {new_array = }')
-            for inx in np.arange(12):
-                  if inx in top_notes[0]:
-                        pass
-                        # logging.info(f'found a value for {inx = } in the dictionary')
-                        # new_array[inx] = top_notes_dictionary[version][inx]
-                  else:
-                        logging.debug(f'could not find note {inx} in the dictionary')
-                        number_of_notes += 1
-                        new_array = np.column_stack((new_array, np.array([inx, inx * 100])))
-                        logging.debug(f'{new_array.shape = }')
-            top_notes = new_array
-            if save_top_notes: np.save(file_name, new_array)
-      logging.debug(f'In load_chorale_in_cents. {top_notes.shape = }')
-      logging.debug(f'{[(keys[top_note[0]], top_note[1]) for top_note in top_notes.T]}')
-      logging.debug(f'{chorale.T.shape = }')
-      # load chorale_in_cents to the top_notes cent values for each note. I wrote a function to do this. What was it called?
-      # chord_from_top_notes(cent_values, top_notes, pitch_class_from_cents=pitch_class_from_cents):
-      chorale_in_cents = (chorale % 12) * 100
-      if not twelve_tet: chorale_in_cents = np.array([[top_notes[1][np.where(top_notes[0] == (note % 12))[0][0]] for note in chord] for chord in chorale])
-      logging.info(f'{chorale_in_cents.shape = }, {chorale.shape = }')
-      return chorale_in_cents, top_notes, chorale, root, mode, keys
+    chorale, root, mode, time_sig, s, keys = assign_chorale(version, save_midi_file = save_midi_file)
+    if len(version) > 8:
+        version = version[:6]
+    file_name = os.path.join(numpy_dir, f'{version}top-notes.npy')
+    if werck_top_notes: 
+        file_name = os.path.join(numpy_dir, f'{version}-w-top_notes.npy') # bwv260-w-top_notes
+    logging.info(f'In load_chorale_in_cents. About to load top_notes from {file_name = }')
+    try:
+        top_notes = np.load(file_name)
+        # print(f'loaded data from {file_name}')
+    except OSError:
+        logging.info(f'top_notes_dictionary file not there, Initializing the array to [[{root}],[{root * 100}]]')
+        top_notes = np.array([[root],[root * 100]])
+        logging.debug(f'Could not find {file_name = }. Initialized {top_notes = }')
+    if top_notes.shape[1] < 12:
+        number_of_notes = top_notes.shape[1]
+        new_array = top_notes
+        logging.debug(f'{new_array.shape = }, {new_array = }')
+        for inx in np.arange(12):
+                if inx in top_notes[0]:
+                    pass
+                    # logging.info(f'found a value for {inx = } in the dictionary')
+                    # new_array[inx] = top_notes_dictionary[version][inx]
+                else:
+                    logging.debug(f'could not find note {inx} in the dictionary')
+                    number_of_notes += 1
+                    new_array = np.column_stack((new_array, np.array([inx, inx * 100])))
+                    logging.debug(f'{new_array.shape = }')
+        top_notes = new_array
+        if save_top_notes: np.save(file_name, new_array)
+    logging.debug(f'In load_chorale_in_cents. {top_notes.shape = }')
+    logging.debug(f'{[(keys[top_note[0]], top_note[1]) for top_note in top_notes.T]}')
+    logging.debug(f'{chorale.T.shape = }')
+    # load chorale_in_cents to the top_notes cent values for each note. I wrote a function to do this. What was it called?
+    # chord_from_top_notes(cent_values, top_notes, pitch_class_from_cents=pitch_class_from_cents):
+    chorale_in_cents = (chorale % 12) * 100
+    if not twelve_tet: chorale_in_cents = np.array([[top_notes[1][np.where(top_notes[0] == (note % 12))[0][0]] for note in chord] for chord in chorale])
+    logging.info(f'{chorale_in_cents.shape = }, {chorale.shape = }')
+    return chorale_in_cents, top_notes, chorale, root, mode, keys
 
 # if you only want the delta
 def cent_delta(a, b, max_value=1200):
@@ -2759,12 +2759,12 @@ class LowNumberRatioIntervals():
         tonal_diamond : np.ndarray
             Shape (N, 3), tonal diamond [ratio, cents, limit_score].
         """      
-            self.tonal_diamond = tonal_diamond
-            self.cache = {}  
-            self.hits = 0
-            self.misses = 0
+        self.tonal_diamond = tonal_diamond
+        self.cache = {}  
+        self.hits = 0
+        self.misses = 0
       
-      def _select_ratios(self, interval, cent_value_target_prev, tolerance, max_delta=33):
+    def _select_ratios(self, interval, cent_value_target_prev, tolerance, max_delta=33):
         """
         Select valid ratio indices from tonal diamond for an interval.
         
@@ -2792,79 +2792,79 @@ class LowNumberRatioIntervals():
             - cent_value_moves: int, direction (-1 or 1) for interval application
         """
         # midi_note = np.zeros(2, dtype=int)
-        num_ratios = 20 // 2 # changed from 30 to 20 12/11/25 this is to limit the number of ratios returned. This will return 30 ratios - made this increase from 15 to 30 on 12/1/25 to deal with the fact that we are returning fewer intervals because we are checking if the interval cent target is more than max_delta from the previous chord cent for the same pitch class as the target pitch class. 
+        num_ratios = 20 // 2 # changed from 30 to 20 12/11/25 this is to limit the number of ratios returned. This will return 20 ratios - made this increase from 15 to 30 on 12/1/25 to deal with the fact that we are returning fewer intervals because we are checking if the interval cent target is more than max_delta from the previous chord cent for the same pitch class as the target pitch class. 
             
-            cent_value_delta, cent_value_moves, cent_value_target = cent_value_interval(interval)
-            pitch_class_int = pitch_class_from_cents(interval)
-            pitch_class_delta, pitch_class_moves, pitch_class_target = pitch_class_interval(pitch_class_int)
-            logging.debug(f'In _select_ratios. {interval = }, {cent_value_delta = }, {cent_value_moves = }, {cent_value_target = }')
-            logging.debug(f'{pitch_class_delta = }, {pitch_class_moves = }, {pitch_class_target = }')
-            # best_ratio_index returns the index to the lowest number ratio within +/- tolerance range in the tonal diamond. It returns just one index value. This is the starting point to finding the optimum ratio.
-            initial_ratio_index = best_ratio_index(cent_value_delta, tolerance, self.tonal_diamond) 
-            indices_to_tonal_diamond = np.array(list(sequence_generator(num_ratios))) # returns 2*num_ratios values, up and down. It basically starts at the ideal ratio and provides indexes to ratios that are higher and lower.
-            # increment the list of 0,-1, 1, -2, 2 to the target index into tonal_diamond
-            indices_to_tonal_diamond += initial_ratio_index 
-            logging.debug(f'in _select_ratios. after recentering: {indices_to_tonal_diamond = }')
-            # clip indices_to_tonal_diamond to one less than tonal_diamond.shape[0] so you don't use non-existing ratios
-            indices_to_tonal_diamond = indices_to_tonal_diamond[(indices_to_tonal_diamond >= 0) & (indices_to_tonal_diamond < self.tonal_diamond.shape[0])]  # was 65 before 12/1/25
-            logging.debug(f'in _select_ratios. after clipping: {indices_to_tonal_diamond = }')
-            # create a list of booleans indicating valid ratios based on keeping the same midi values.
-            # we need to offset this by the cents up or down that all four midi notes dictate based on the top_notes. 
-            logging.debug(f'in _select_ratios: before creating list of allowed_intervals: {pitch_class_delta = }, {[limit_format(inx) for inx in self.tonal_diamond[indices_to_tonal_diamond]]}')
-            logging.debug(f'intervals: {interval[0] = }, {interval[1] = }, {cent_value_moves = } {pitch_class_moves = }, {pitch_class_delta}, {pitch_class_target = }')
-            # changed section on 12/1/25 - 12/3/25
-            
-            # Step 1: strict pitch-class filter
-            allowed_intervals = np.array([pitch_class_from_cents(interval[0] + self.tonal_diamond[inx,1] * cent_value_moves) == pitch_class_target for inx in indices_to_tonal_diamond])
-            
-            indices_after_pitch_class = indices_to_tonal_diamond[allowed_intervals]
-            logging.debug(f'after step 1. strict pitch class filter. {interval[0] = }, {interval[1] = } {pitch_class_delta = }, {indices_after_pitch_class = }')
-            if indices_after_pitch_class.size == 0:
-                  logging.info(f'in _select_ratios: no allowed intervals after step 1 pitch class filter. returning empty list.')
-                  return np.array([], dtype=int), cent_value_moves
-            logging.debug(f'in _select_ratios: after creating list of allowed_intervals:, {[limit_format(inx) for inx in self.tonal_diamond[indices_after_pitch_class]]}')
-            logging.debug(f'about to step 2. compare with previous cent {pitch_class_moves = }, {cent_value_target_prev = }')
-            
-            # Step 2: cent-delta filter (only applied to survivors)
-            if cent_value_target_prev is None:
-                  indices_after_cent_delta = indices_after_pitch_class
+        cent_value_delta, cent_value_moves, cent_value_target = cent_value_interval(interval)
+        pitch_class_int = pitch_class_from_cents(interval)
+        pitch_class_delta, pitch_class_moves, pitch_class_target = pitch_class_interval(pitch_class_int)
+        logging.debug(f'In _select_ratios. {interval = }, {cent_value_delta = }, {cent_value_moves = }, {cent_value_target = }')
+        logging.debug(f'{pitch_class_delta = }, {pitch_class_moves = }, {pitch_class_target = }')
+        # best_ratio_index returns the index to the lowest number ratio within +/- tolerance range in the tonal diamond. It returns just one index value. This is the starting point to finding the optimum ratio.
+        initial_ratio_index = best_ratio_index(cent_value_delta, tolerance, self.tonal_diamond) 
+        indices_to_tonal_diamond = np.array(list(sequence_generator(num_ratios))) # returns 2*num_ratios values, up and down. It basically starts at the ideal ratio and provides indexes to ratios that are higher and lower.
+        # increment the list of 0,-1, 1, -2, 2 to the target index into tonal_diamond
+        indices_to_tonal_diamond += initial_ratio_index 
+        logging.debug(f'in _select_ratios. after recentering: {indices_to_tonal_diamond = }')
+        # clip indices_to_tonal_diamond to one less than tonal_diamond.shape[0] so you don't use non-existing ratios
+        indices_to_tonal_diamond = indices_to_tonal_diamond[(indices_to_tonal_diamond >= 0) & (indices_to_tonal_diamond < self.tonal_diamond.shape[0])]  # was 65 before 12/1/25
+        logging.debug(f'in _select_ratios. after clipping: {indices_to_tonal_diamond = }')
+        # create a list of booleans indicating valid ratios based on keeping the same midi values.
+        # we need to offset this by the cents up or down that all four midi notes dictate based on the top_notes. 
+        logging.info(f'in _select_ratios: before creating list of allowed_intervals: {pitch_class_delta = }, {[limit_format(inx) for inx in self.tonal_diamond[indices_to_tonal_diamond]]}')
+        logging.info(f'intervals: {interval[0] = }, {interval[1] = }, {cent_value_moves = } {pitch_class_moves = }, {pitch_class_delta}, {pitch_class_target = }')
+        # changed section on 12/1/25 - 12/3/25
+        
+        # Step 1: strict pitch-class filter
+        allowed_intervals = np.array([pitch_class_from_cents(interval[0] + self.tonal_diamond[inx,1] * cent_value_moves) == pitch_class_target for inx in indices_to_tonal_diamond])
+        
+        indices_after_pitch_class = indices_to_tonal_diamond[allowed_intervals]
+        logging.info(f'after step 1. strict pitch class filter. {interval[0] = }, {interval[1] = } {pitch_class_delta = }, {indices_after_pitch_class = }')
+        if indices_after_pitch_class.size == 0:
+                logging.info(f'in _select_ratios: no allowed intervals after step 1 pitch class filter. returning empty list.')
+                return np.array([], dtype=int), cent_value_moves
+        logging.debug(f'in _select_ratios: after creating list of allowed_intervals:, {[limit_format(inx) for inx in self.tonal_diamond[indices_after_pitch_class]]}')
+        logging.debug(f'about to step 2. compare with previous cent {pitch_class_moves = }, {cent_value_target_prev = }')
+        
+        # Step 2: cent-delta filter (only applied to survivors)
+        if cent_value_target_prev is None:
+                indices_after_cent_delta = indices_after_pitch_class
+        else:
+            prev_array = np.atleast_1d(cent_value_target_prev).astype(float)
+            if prev_array.size == 0:
+                indices_after_cent_delta = indices_after_pitch_class
             else:
-                  prev_array = np.atleast_1d(cent_value_target_prev).astype(float)
-                  if prev_array.size == 0:
-                        indices_after_cent_delta = indices_after_pitch_class
-                  else:
-                        deltas = []
-                        for inx_candidate in indices_after_pitch_class:
-                              candidate_cent = (
-                                    interval[0]
-                                    + self.tonal_diamond[inx_candidate, 1] * cent_value_moves
-                              ) % 1200
-                              min_gap = np.min([
-                                    cent_delta(candidate_cent, prev_cent)
-                                    for prev_cent in prev_array
-                              ])
-                              deltas.append(min_gap)
-                        deltas = np.asarray(deltas)
-                        if deltas.shape[0] < 5:
-                              logging.info(f'{deltas.shape = }, {deltas = }')
-                        mask_cent_delta = deltas <= max_delta
-                        logging.debug(f'{mask_cent_delta}')
-                        indices_after_cent_delta = indices_after_pitch_class[mask_cent_delta]
-            if indices_after_cent_delta.size == 0:
-                  logging.info(f'in _select_ratios: no allowed intervals after step 2 cent delta filter. returning empty list.')
-                  return np.array([], dtype=int), cent_value_moves
-            # Step 3: sort by consonance
-            sorted_indices = indices_after_cent_delta[np.argsort(self.tonal_diamond[indices_after_cent_delta, 2])]
+                deltas = []
+                for inx_candidate in indices_after_pitch_class:
+                    candidate_cent = (
+                        interval[0]
+                        + self.tonal_diamond[inx_candidate, 1] * cent_value_moves
+                    ) % 1200
+                    min_gap = np.min([
+                        cent_delta(candidate_cent, prev_cent)
+                        for prev_cent in prev_array
+                    ])
+                    deltas.append(min_gap)
+                deltas = np.asarray(deltas)
+                if deltas.shape[0] < 5:
+                    logging.info(f'{deltas.shape = }, {deltas = }')
+                mask_cent_delta = deltas <= max_delta
+                logging.debug(f'{mask_cent_delta}')
+                indices_after_cent_delta = indices_after_pitch_class[mask_cent_delta]
+        if indices_after_cent_delta.size == 0:
+            logging.info(f'in _select_ratios: no allowed intervals after step 2 cent delta filter. returning empty list.')
+            return np.array([], dtype=int), cent_value_moves
+        # Step 3: sort by consonance
+        sorted_indices = indices_after_cent_delta[np.argsort(self.tonal_diamond[indices_after_cent_delta, 2])]
 
-            # end of changed section on 12/1/25 - 12/3/25
-            # sorted_indices = indices_to_tonal_diamond[np.argsort(self.tonal_diamond[indices_after_cent_delta, 2])] # sort based on sum of numerator and denominator
-            
-            # added 12/2/25 to ensure ratios that are far from the previous chord get allowed    
-            logging.debug(f'in _select_ratios: {sorted_indices = }, {cent_value_moves = }')
-            logging.debug(f'in _select_ratios: allowed intervals: {[limit_format(inx) for inx in self.tonal_diamond[sorted_indices]]}')
-            return sorted_indices, cent_value_moves
+        # end of changed section on 12/1/25 - 12/3/25
+        # sorted_indices = indices_to_tonal_diamond[np.argsort(self.tonal_diamond[indices_after_cent_delta, 2])] # sort based on sum of numerator and denominator
+        
+        # added 12/2/25 to ensure ratios that are far from the previous chord get allowed    
+        logging.debug(f'in _select_ratios: {sorted_indices = }, {cent_value_moves = }')
+        logging.debug(f'in _select_ratios: allowed intervals: {[limit_format(inx) for inx in self.tonal_diamond[sorted_indices]]}')
+        return sorted_indices, cent_value_moves
 
-      def select_ratios(self, interval, cent_value_target_prev, tolerance, max_delta=33): # We already passed tonal_diamond when we constructed the object.
+    def select_ratios(self, interval, cent_value_target_prev, tolerance, max_delta=33): # We already passed tonal_diamond when we constructed the object.
         """
         Select valid ratio indices with caching.
         
@@ -2889,26 +2889,26 @@ class LowNumberRatioIntervals():
             - sorted_indices: np.ndarray, valid ratio indices sorted by consonance
             - cent_value_moves: int, direction (-1 or 1) for interval application
         """ 
-            interval_key = tuple(int(x) for x in np.asarray(interval, dtype=int))
-            if cent_value_target_prev is None:
-                  target_key = None
-            else:
-                  target_array = np.atleast_1d(cent_value_target_prev)
-                  if target_array.size == 0:
-                        target_key = None
-                  else:
-                        target_key = tuple(int(np.round(val)) % 1200 for val in target_array)
-            key = (interval_key, target_key, int(tolerance), int(max_delta))
-            if key in self.cache:
-                  self.hits += 1
-                  return self.cache[key]
-            else:
-                  self.misses += 1
-                  result = self._select_ratios(interval, cent_value_target_prev, tolerance, max_delta=max_delta)
-                  self.cache[key] = result
-                  return result
+        interval_key = tuple(int(x) for x in np.asarray(interval, dtype=int))
+        if cent_value_target_prev is None:
+                target_key = None
+        else:
+                target_array = np.atleast_1d(cent_value_target_prev)
+                if target_array.size == 0:
+                    target_key = None
+                else:
+                    target_key = tuple(int(np.round(val)) % 1200 for val in target_array)
+        key = (interval_key, target_key, int(tolerance), int(max_delta))
+        if key in self.cache:
+                self.hits += 1
+                return self.cache[key]
+        else:
+                self.misses += 1
+                result = self._select_ratios(interval, cent_value_target_prev, tolerance, max_delta=max_delta)
+                self.cache[key] = result
+                return result
       
-      def reset_cache(self):
+    def reset_cache(self):
         """
         Clear the cache.
         
@@ -2918,7 +2918,7 @@ class LowNumberRatioIntervals():
         """
         self.cache = {}
             
-      def return_cache_results(self):
+    def return_cache_results(self):
         """
         Get cache statistics.
         
@@ -2947,16 +2947,16 @@ class ChordScorer():
         tonal_diamond : np.ndarray
             Shape (N, 3), tonal diamond [ratio, cents, limit_score].
         """
-            self.tonal_diamond = tonal_diamond
-            self.cache = {}
-            self.hits = 0
-            self.misses = 0
+        self.tonal_diamond = tonal_diamond
+        self.cache = {}
+        self.hits = 0
+        self.misses = 0
       
       # this function takes in an interval and tolerance value
       # it tries to find the lowest scoring interval within the provided tolerance, rather than the exact interval provided.
       # It returns that index value and a boolean indicating if it found that interval within the tolerance of a ratio in the tonal diamond
       # If it doesn't find that a legitimate ratio, returns the result of the searchsorted function and the boolean is set to false. 
-      def find_best_interval(self, distance, tolerance):
+    def find_best_interval(self, distance, tolerance):
         """
         Find the best matching interval in the tonal diamond.
         
@@ -2976,26 +2976,26 @@ class ChordScorer():
             - best_idx: int, index into tonal_diamond of closest match
             - found: bool, True if match is within tolerance, False otherwise
         """
-            distance = abs(distance)
+        distance = abs(distance)
 
-            # Find the absolute difference to every cent value in tonal_diamond
-            diffs = np.abs(self.tonal_diamond[:, 1] - distance)
+        # Find the absolute difference to every cent value in tonal_diamond
+        diffs = np.abs(self.tonal_diamond[:, 1] - distance)
 
-            # Get the index of the closest entry
-            best_idx = np.argmin(diffs)
-            best_diff = diffs[best_idx]
+        # Get the index of the closest entry
+        best_idx = np.argmin(diffs)
+        best_diff = diffs[best_idx]
 
-            if best_diff <= tolerance:
-                  # Within tolerance → success
-                  _, _, interval_score = self.tonal_diamond[best_idx]
-                  logging.debug(f'found an interval within {tolerance = } returning {best_idx = }, with {interval_score = }')
-                  return best_idx, True
-            else:
-                  # Outside tolerance → fail
-                  logging.debug(f'closest interval to {distance} was {limit_format(self.tonal_diamond[best_idx])}. but {tolerance = } < {best_diff = }')
-                  return best_idx, False
+        if best_diff <= tolerance:
+                # Within tolerance → success
+                _, _, interval_score = self.tonal_diamond[best_idx]
+                logging.debug(f'found an interval within {tolerance = } returning {best_idx = }, with {interval_score = }')
+                return best_idx, True
+        else:
+                # Outside tolerance → fail
+                logging.debug(f'closest interval to {distance} was {limit_format(self.tonal_diamond[best_idx])}. but {tolerance = } < {best_diff = }')
+                return best_idx, False
             
-      def _score_chord(self, cent_values_chord, tolerance=1, method=combinations):
+    def _score_chord(self, cent_values_chord, tolerance=1, method=combinations):
         """
         Score a chord by summing interval limit scores.
         
@@ -3017,24 +3017,24 @@ class ChordScorer():
         float
             Chord score (sum of interval limit scores, rounded to 1 decimal).
         """
-            score = 0
-            for notes in method(cent_values_chord, 2):  # this used to be combinations(cent_values_chord, 2):
-                  cent_value_interval_pair = np.array([notes[0], notes[1]]) 
-                  cent_value_delta, cent_value_moves, cent_value_target = cent_value_interval(cent_value_interval_pair)
-                  logging.debug(f'In _score_chord. {cent_value_delta, cent_value_moves, cent_value_target = }')
-                  found = False
-                  if cent_value_delta > 0:
-                        best_index = 0
-                        best_index, found = self.find_best_interval(cent_value_delta, tolerance)
-                        logging.debug(f'In _score_chord. {best_index = }, {found = }')
-                        if found: logging.debug(f'In _score_chord. found cent value for interval: {limit_format(self.tonal_diamond[best_index])}')
-                        if not found:
-                              score += 1000  
-                        score += self.tonal_diamond[best_index, 2]  
-                        logging.debug(f'{score = }')
-            return round(score, 1)
+        score = 0
+        for notes in method(cent_values_chord, 2):  # this used to be combinations(cent_values_chord, 2):
+            cent_value_interval_pair = np.array([notes[0], notes[1]]) 
+            cent_value_delta, cent_value_moves, cent_value_target = cent_value_interval(cent_value_interval_pair)
+            logging.debug(f'In _score_chord. {cent_value_delta, cent_value_moves, cent_value_target = }')
+            found = False
+            if cent_value_delta > 0:
+                best_index = 0
+                best_index, found = self.find_best_interval(cent_value_delta, tolerance)
+                logging.debug(f'In _score_chord. {best_index = }, {found = }')
+                if found: logging.debug(f'In _score_chord. found cent value for interval: {limit_format(self.tonal_diamond[best_index])}')
+                if not found:
+                        score += 1000  
+                score += self.tonal_diamond[best_index, 2]  
+                logging.debug(f'{score = }')
+        return round(score, 1)
       
-      def score_chord(self, cent_values_chord, tolerance=1, method=combinations):
+    def score_chord(self, cent_values_chord, tolerance=1, method=combinations):
         """
         Score a chord with caching.
         
@@ -3055,19 +3055,19 @@ class ChordScorer():
         float
             Chord score (sum of interval limit scores, rounded to 1 decimal).
         """
-            key = tuple(cent_values_chord)
-            # logging.info(f'In score_chord function. {tolerance = }, {cent_values_chord = }')
-            if key in self.cache:
-                  self.hits += 1
-                  return self.cache[key]
+        key = tuple(cent_values_chord)
+        # logging.info(f'In score_chord function. {tolerance = }, {cent_values_chord = }')
+        if key in self.cache:
+                self.hits += 1
+                return self.cache[key]
+        
+        else:
+                self.misses += 1
+                result = self._score_chord(cent_values_chord, tolerance=tolerance, method=method)
+                self.cache[key] = result
+                return result
             
-            else:
-                  self.misses += 1
-                  result = self._score_chord(cent_values_chord, tolerance=tolerance, method=method)
-                  self.cache[key] = result
-                  return result
-            
-      def reset_cache(self):
+    def reset_cache(self):
         """
         Clear the cache.
         
@@ -3077,7 +3077,7 @@ class ChordScorer():
         """
         self.cache = {}
       
-      def return_cache_results(self):
+    def return_cache_results(self):
         """
         Get cache statistics.
         
@@ -3113,44 +3113,44 @@ def score_chord_cents_v2(chord_1200, tonal_diamond, tolerance = 1):
     float
         Chord score (sum of interval limit scores, rounded to 1 decimal).
     """
-      score = 0
-      logging.debug(f'{tonal_diamond.shape = }')
-      for inx, notes in zip(count(0,1), combinations(chord_1200, 2)): # compare every note in the chord to every other note in the chord two at a time, 6 compares for a 4 note chord
-      # for notes in permutations(chord_1200,2): # just gives 2x the score from combinations. No new information., 
-            distance = abs(notes[0] - notes[1])
-            # need to search for this distance in the tonal_diamond_cents array
-            logging.debug(f'{inx}: {notes = }, {distance = }')
-            found = False
-            index_to_limits = 0
-            if distance > 0:
-                  best_choice = 9_999
-                  best_index = 0
-                  # for gap in np.array([0, -1 * tolerance, tolerance]): # it checks the distance plus or minus tolerance
-                  for gap in np.arange(-1 * tolerance, tolerance + 1, 1):
-                        logging.debug(f'{inx}: checking near distances. {gap = }')
-                        logging.debug(f'{inx}: {np.searchsorted(tonal_diamond[:,1], distance + gap) = }')
-                        index_to_limits = np.min([np.searchsorted(tonal_diamond[:,1], distance + gap), tonal_diamond.shape[0] - 1])
-                        logging.debug(f'{inx}: {index_to_limits = }, {distance + gap = }') # gap = 0, distance = 316, index = 56
-                        if index_to_limits >= tonal_diamond.shape[0]:
-                              logging.debug(f'{inx}: {index_to_limits = }, should not exceed {tonal_diamond.shape = }')
-                        if tonal_diamond[index_to_limits, 1] == distance + gap: # example: 316 is in the table
-                              found = True
-                              interval_score = tonal_diamond[index_to_limits][2]
-                              if interval_score < best_choice:
-                                    best_choice = interval_score
-                                    best_index = index_to_limits
-                              logging.debug(f'{inx}: found a cent in the table. {limit_format(tonal_diamond[best_index])}')
-                              # break
-                  if not found:
-                        score += 1000 # this is a stopgap remedy to prevent moving a note. 
-                        logging.debug(f'{inx}: {notes} could not find the interval in the ratio table. {distance = }, closest distance found: {tonal_diamond[index_to_limits, 1]}')
-                  logging.debug(f'{notes[0]}, {notes[1]}, {distance = }, {tonal_diamond[best_index, 2]}')
-                  score += tonal_diamond[best_index, 2] # 2 is num_den for this discovered interval
-                  logging.debug(f'{inx}: {best_choice = } num_den: {tonal_diamond[best_index, 2]}, {score = }')
-      logging.debug(f'in score_chord_cents_v2. {score = }') # 8/19/23 should I make this division? 8/27/23: no, it's not necessary.
-      logging.debug(f'at end of score_chord_cents_v2.')
+    score = 0
+    logging.debug(f'{tonal_diamond.shape = }')
+    for inx, notes in zip(count(0,1), combinations(chord_1200, 2)): # compare every note in the chord to every other note in the chord two at a time, 6 compares for a 4 note chord
+    # for notes in permutations(chord_1200,2): # just gives 2x the score from combinations. No new information., 
+        distance = abs(notes[0] - notes[1])
+        # need to search for this distance in the tonal_diamond_cents array
+        logging.debug(f'{inx}: {notes = }, {distance = }')
+        found = False
+        index_to_limits = 0
+        if distance > 0:
+            best_choice = 9_999
+            best_index = 0
+            # for gap in np.array([0, -1 * tolerance, tolerance]): # it checks the distance plus or minus tolerance
+            for gap in np.arange(-1 * tolerance, tolerance + 1, 1):
+                logging.debug(f'{inx}: checking near distances. {gap = }')
+                logging.debug(f'{inx}: {np.searchsorted(tonal_diamond[:,1], distance + gap) = }')
+                index_to_limits = np.min([np.searchsorted(tonal_diamond[:,1], distance + gap), tonal_diamond.shape[0] - 1])
+                logging.debug(f'{inx}: {index_to_limits = }, {distance + gap = }') # gap = 0, distance = 316, index = 56
+                if index_to_limits >= tonal_diamond.shape[0]:
+                        logging.debug(f'{inx}: {index_to_limits = }, should not exceed {tonal_diamond.shape = }')
+                if tonal_diamond[index_to_limits, 1] == distance + gap: # example: 316 is in the table
+                    found = True
+                    interval_score = tonal_diamond[index_to_limits][2]
+                    if interval_score < best_choice:
+                        best_choice = interval_score
+                        best_index = index_to_limits
+                    logging.debug(f'{inx}: found a cent in the table. {limit_format(tonal_diamond[best_index])}')
+                    # break
+            if not found:
+                score += 1000 # this is a stopgap remedy to prevent moving a note. 
+                logging.debug(f'{inx}: {notes} could not find the interval in the ratio table. {distance = }, closest distance found: {tonal_diamond[index_to_limits, 1]}')
+            logging.debug(f'{notes[0]}, {notes[1]}, {distance = }, {tonal_diamond[best_index, 2]}')
+            score += tonal_diamond[best_index, 2] # 2 is num_den for this discovered interval
+            logging.debug(f'{inx}: {best_choice = } num_den: {tonal_diamond[best_index, 2]}, {score = }')
+    logging.debug(f'in score_chord_cents_v2. {score = }') # 8/19/23 should I make this division? 8/27/23: no, it's not necessary.
+    logging.debug(f'at end of score_chord_cents_v2.')
       
-      return round(score,1)
+    return round(score,1)
 
 
 
@@ -3194,56 +3194,56 @@ def print_simple_report(best_results, best_scores, keys, chord_scorer, tonal_dia
         - max_measured_chord: int, chord index with highest score
     """
       
-      prev_chord = np.zeros(4, dtype=int)
-      total_score = 0
-      chord_num = 0
-      max_measured_score = 0
-      max_measured_chord = 0
-      # limit_denominator = 50
-      score_results = []
-      logging.info(f'Chord# Midi Notes       Note Names                    Cent Values       Score')
-      for inx, chord, best_score in zip(count(0,1), best_results, best_scores):
-            if np.array_equal(prev_chord, chord):
-                  pass
-            else:
-                  total_score += best_score
-                  max_measured_score = np.max([best_score, max_measured_score])
-                  if best_score == max_measured_score: max_measured_chord = inx
-                  if print_to_output > 0:
-                        logging.info(f'{inx}:\t{[int(round(note/100)) % 12 for note in chord]}\t{[keys[int(round(note/100)) % 12] for note in chord]}\t{np.array2string(chord)}\t{best_score}')
-                  print_to_output -= 1
-                  if print_intervals:
-                        pass
-                        
-                  chord_num += 1 # only count unique chords in the total and average values
-                  prev_chord = chord.copy()
-                  score_results.append((best_score, inx))
-      # best_score = np.array([score_chord_cents_v2(chord,tonal_diamond) for chord in best_results])
-      logging.debug(f'Chord shape: {best_results.T.shape}, Chord scores: {best_scores.shape}')
-      # score_num = 15
-      start_value = 0
-      chord_numbers = np.arange(best_results.T.shape[1])
-      sorted_indices = np.argsort(best_scores)[::-1][:worse_count]
-      chorale_in_cents_sorted = best_results.T[:, sorted_indices]
-      scores_sorted = best_scores[sorted_indices]
-      chord_numbers = chord_numbers[sorted_indices]
-      logging.info(f'These are top {worse_count} scores sorted by scores, highest at the top')
-      logging.info(f'chord\tnote numbers\t\tnote names\t\t\tscores')
-      for inx, chord_num, chord, score in zip(count(start_value,1), chord_numbers, chorale_in_cents_sorted.T, scores_sorted):
-            if not np.array_equal(chord, prev_chord):
-                  chord_12 = np.array([int(round(note / 100,0)) for note in chord])
-                  logging.info(f'{inx}: {np.array2string(chord_num)}\t{[int(round(note, 0) % 12) for note in chord_12]}\t{[keys[int(round(note, 0) % 12)] for note in chord_12]}\t{np.array2string(score)}')
-            prev_chord = np.copy(chord)
-
-      prev_chord = np.zeros(4)
-      chord_list = []
-      for chord_num, score, chord in zip(chord_numbers, scores_sorted, chorale_in_cents_sorted.T):
-            if not np.array_equal(chord, prev_chord):
-                  chord_list.append(chord_num)
+    prev_chord = np.zeros(4, dtype=int)
+    total_score = 0
+    chord_num = 0
+    max_measured_score = 0
+    max_measured_chord = 0
+    # limit_denominator = 50
+    score_results = []
+    logging.info(f'Chord# Midi Notes       Note Names                    Cent Values       Score')
+    for inx, chord, best_score in zip(count(0,1), best_results, best_scores):
+        if np.array_equal(prev_chord, chord):
+            pass
+        else:
+            total_score += best_score
+            max_measured_score = np.max([best_score, max_measured_score])
+            if best_score == max_measured_score: max_measured_chord = inx
+            if print_to_output > 0:
+                logging.info(f'{inx}:\t{[int(round(note/100)) % 12 for note in chord]}\t{[keys[int(round(note/100)) % 12] for note in chord]}\t{np.array2string(chord)}\t{best_score}')
+            print_to_output -= 1
+            if print_intervals:
+                pass
+                
+            chord_num += 1 # only count unique chords in the total and average values
             prev_chord = chord.copy()
-      logging.info(f'Here are the worst chords in a list: include_list = np.array({chord_list})')
-      logging.info(f'End of print_simple_report.')
-      return score_results, total_score, chord_num, max_measured_score, max_measured_chord 
+            score_results.append((best_score, inx))
+    # best_score = np.array([score_chord_cents_v2(chord,tonal_diamond) for chord in best_results])
+    logging.debug(f'Chord shape: {best_results.T.shape}, Chord scores: {best_scores.shape}')
+    # score_num = 15
+    start_value = 0
+    chord_numbers = np.arange(best_results.T.shape[1])
+    sorted_indices = np.argsort(best_scores)[::-1][:worse_count]
+    chorale_in_cents_sorted = best_results.T[:, sorted_indices]
+    scores_sorted = best_scores[sorted_indices]
+    chord_numbers = chord_numbers[sorted_indices]
+    logging.info(f'These are top {worse_count} scores sorted by scores, highest at the top')
+    logging.info(f'chord\tnote numbers\t\tnote names\t\t\tscores')
+    for inx, chord_num, chord, score in zip(count(start_value,1), chord_numbers, chorale_in_cents_sorted.T, scores_sorted):
+        if not np.array_equal(chord, prev_chord):
+            chord_12 = np.array([int(round(note / 100,0)) for note in chord])
+            logging.info(f'{inx}: {np.array2string(chord_num)}\t{[int(round(note, 0) % 12) for note in chord_12]}\t{[keys[int(round(note, 0) % 12)] for note in chord_12]}\t{np.array2string(score)}')
+        prev_chord = np.copy(chord)
+
+    prev_chord = np.zeros(4)
+    chord_list = []
+    for chord_num, score, chord in zip(chord_numbers, scores_sorted, chorale_in_cents_sorted.T):
+        if not np.array_equal(chord, prev_chord):
+            chord_list.append(chord_num)
+        prev_chord = chord.copy()
+    logging.info(f'Here are the worst chords in a list: include_list = np.array({chord_list})')
+    logging.info(f'End of print_simple_report.')
+    return score_results, total_score, chord_num, max_measured_score, max_measured_chord 
       
 # this is all the necessaries.
 def compress_chorale(chorale, chorale_in_cents):
@@ -3324,26 +3324,7 @@ def decompress_chorale(unique_cents, inverse, tolerance=1):
     np.ndarray
         Shape (N, 4), restored chorale_in_cents array.
     """
-      """
-      Restore chorale and chorale_in_cents to their original shape.
-
-      Parameters
-      ----------
-      unique_chorale : np.ndarray, shape (M, 4)
-            Unique chorale rows
-      unique_cents : np.ndarray, shape (M, 4)
-            Processed chorale_in_cents aligned with unique_chorale.
-      inverse : np.ndarray, shape (N,)
-            Mapping back to the original order.
-
-      Returns
-      -------
-      chorale_restored : np.ndarray, shape (N, 4)
-            Restored chorale.
-      cents_restored : np.ndarray, shape (N, 4)
-            Restored chorale_in_cents (after processing).
-      """
-      cents_restored = unique_cents[inverse]
-      
-      
-      return cents_restored
+    cents_restored = unique_cents[inverse]
+    
+    
+    return cents_restored
