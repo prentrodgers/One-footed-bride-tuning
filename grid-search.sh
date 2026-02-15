@@ -4,51 +4,58 @@ set -euxo pipefail
 echo "Starting chord tuning optimization (Production - All Tolerance Levels)"
 
 CHORALES="bwv253 bwv254 bwv255 bwv256 bwv257 bwv258 bwv259 bwv260 bwv261 bwv262 bwv263 bwv264"
-NUM_RUNS=30 # recommend 30
+# CHORALES="bwv253"
+NUM_RUNS=3 # recommend 30
 MAX_PARALLEL=12 # recommend 12
-LIMIT_MAX="17 19 23 29 31" # recommend "19"
-TOLERANCES="1" # recommend "1 2 3 4"
-echo "Running $NUM_RUNS iterations at each tolerance level $LIMIT_MAX with parallelism of $MAX_PARALLEL"
+LIMIT_MAX="17 19 23" # recommend "19" # but try others lower and higher just to see the results.
+TOLERANCES="1 2 3 4" # recommend "1 2 3 4"
+echo "Running $NUM_RUNS iterations at each tolerance level ($TOLERANCES) and limit_max ($LIMIT_MAX) with parallelism of $MAX_PARALLEL"
 echo "Working directory: $(pwd)"
 
-for limit in $LIMIT_MAX; do
+for tolerance in $TOLERANCES; do
     echo ""
     echo "=========================================="
-    echo "LIMIT MAX $limit"
+    echo "TOLERANCE $tolerance"
     echo "=========================================="
     
     # Create tolerance directory if missing
-    mkdir -p Archive/opt/tolerance-$TOLERANCES
-    echo "Data directory: $(pwd)/Archive/opt/tolerance-$TOLERANCES"
+    mkdir -p Archive/opt/tolerance-$tolerance
+    echo "Data directory: $(pwd)/Archive/opt/tolerance-$tolerance"
     
-    for run in $(seq 1 $NUM_RUNS); do
-    echo "  Run $run of $NUM_RUNS (limit_max=$limit)"
-    
-    # Launch chorales in parallel
-    counter=0
-    for c in $CHORALES; do
-        python optimize_chords_sa_v2.py --tolerance $TOLERANCES --chorale $c --limit_max $limit &
-        counter=$((counter + 1))
+    for limit in $LIMIT_MAX; do
+        echo ""
+        echo "  --- LIMIT MAX $limit ---"
         
-        # Wait after every MAX_PARALLEL jobs
-        if [ $((counter % MAX_PARALLEL)) -eq 0 ]; then
-        wait
-        fi
+        for run in $(seq 1 $NUM_RUNS); do
+            echo "    Run $run of $NUM_RUNS (tolerance=$tolerance, limit_max=$limit)"
+            
+            # Launch chorales in parallel
+            counter=0
+            for c in $CHORALES; do
+                python optimize_chords_sa_v2.py --tolerance $tolerance --chorale $c --limit_max $limit &
+                counter=$((counter + 1))
+                
+                # Wait after every MAX_PARALLEL jobs
+                if [ $((counter % MAX_PARALLEL)) -eq 0 ]; then
+                    wait
+                fi
+            done
+            
+            # Wait for any remaining jobs
+            wait
+            
+            # Sync to disk after each run to prevent data loss on OOM kill
+            sync
+            
+            # Report files saved and disk usage
+            file_count=$(find Archive/opt/tolerance-$tolerance -name "*-sa-opt.npy" -type f | wc -l)
+            echo "      Files saved so far: $file_count"
+        done
+        
+        echo "    Limit max $limit complete - $NUM_RUNS runs finished"
     done
     
-    # Wait for any remaining jobs
-    wait
-    
-    # Sync to disk after each run to prevent data loss on OOM kill
-    sync
-    
-    # Report files saved and disk usage
-    file_count=$(find Archive/opt/tolerance-$TOLERANCES -name "*-sa-opt.npy" -type f | wc -l)
-    echo "    Files saved so far: $file_count"
-    
-    done
-    
-    echo "Limit max $limit complete - $NUM_RUNS runs finished"
+    echo "Tolerance $tolerance complete"
 done
 
 echo ""

@@ -13,7 +13,7 @@ or just add everything that's changed:
 git add .
 
 # 3. Commit with a message
-git commit -m "Update helper python files"
+git commit -m "Added more examples"
 
 # 4. Push to GitHub
 git push origin main
