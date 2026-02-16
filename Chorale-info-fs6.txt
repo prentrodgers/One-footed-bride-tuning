@@ -2,199 +2,199 @@ numpy_dir = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt', tolerance =
 tonal_diamond.shape = (84, 3), measure = 0
 input_file = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/tolerance-1/bwv253-trans-sa-opt.npy'
 
-version: bwv253, Tol: 1, Average score: 48.9, max score: 90.0 max chord: 122
-overall total: 48.9, num_scores = 1, Average Score: 48.9, max_score = 90.0
+version: bwv253, Tol: 1, Average score: 48.8, max score: 90.0 max chord: 122
+overall total: 48.8, num_scores = 1, Average Score: 48.8, max_score = 90.0
 input_file = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/tolerance-1/bwv254-trans-sa-opt.npy'
 
 version: bwv254, Tol: 1, Average score: 54.6, max score: 140.0 max chord: 158
-overall total: 103.5, num_scores = 2, Average Score: 51.8, max_score = 140.0
+overall total: 103.5, num_scores = 2, Average Score: 51.7, max_score = 140.0
 input_file = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/tolerance-1/bwv255-trans-sa-opt.npy'
 
 version: bwv255, Tol: 1, Average score: 50.7, max score: 82.0 max chord: 42
 overall total: 154.2, num_scores = 3, Average Score: 51.4, max_score = 140.0
 input_file = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/tolerance-1/bwv256-trans-sa-opt.npy'
 
-version: bwv256, Tol: 1, Average score: 54.1, max score: 140.0 max chord: 138
-overall total: 208.3, num_scores = 4, Average Score: 52.1, max_score = 140.0
+version: bwv256, Tol: 1, Average score: 53.9, max score: 140.0 max chord: 138
+overall total: 208.1, num_scores = 4, Average Score: 52.0, max_score = 140.0
 input_file = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/tolerance-1/bwv257-trans-sa-opt.npy'
 
-version: bwv257, Tol: 1, Average score: 57.0, max score: 140.0 max chord: 128
-overall total: 265.4, num_scores = 5, Average Score: 53.1, max_score = 140.0
+version: bwv257, Tol: 1, Average score: 56.9, max score: 140.0 max chord: 128
+overall total: 264.9, num_scores = 5, Average Score: 53.0, max_score = 140.0
 input_file = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/tolerance-1/bwv258-trans-sa-opt.npy'
 
 version: bwv258, Tol: 1, Average score: 57.5, max score: 140.0 max chord: 80
-overall total: 322.9, num_scores = 6, Average Score: 53.8, max_score = 140.0
+overall total: 322.4, num_scores = 6, Average Score: 53.7, max_score = 140.0
 input_file = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/tolerance-1/bwv259-trans-sa-opt.npy'
 
 version: bwv259, Tol: 1, Average score: 53.1, max score: 104.0 max chord: 74
-overall total: 376.0, num_scores = 7, Average Score: 53.7, max_score = 140.0
+overall total: 375.6, num_scores = 7, Average Score: 53.7, max_score = 140.0
 input_file = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/tolerance-1/bwv260-trans-sa-opt.npy'
 
-version: bwv260, Tol: 1, Average score: 52.1, max score: 105.0 max chord: 72
-overall total: 428.1, num_scores = 8, Average Score: 53.5, max_score = 140.0
+version: bwv260, Tol: 1, Average score: 52.0, max score: 105.0 max chord: 72
+overall total: 427.6, num_scores = 8, Average Score: 53.5, max_score = 140.0
 input_file = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/tolerance-1/bwv261-trans-sa-opt.npy'
 
-version: bwv261, Tol: 1, Average score: 56.1, max score: 145.0 max chord: 72
-overall total: 484.2, num_scores = 9, Average Score: 53.8, max_score = 145.0
+version: bwv261, Tol: 1, Average score: 55.9, max score: 140.0 max chord: 72
+overall total: 483.5, num_scores = 9, Average Score: 53.7, max_score = 140.0
 input_file = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/tolerance-1/bwv262-trans-sa-opt.npy'
 
 version: bwv262, Tol: 1, Average score: 47.4, max score: 93.0 max chord: 55
-overall total: 531.6, num_scores = 10, Average Score: 53.2, max_score = 145.0
+overall total: 530.9, num_scores = 10, Average Score: 53.1, max_score = 140.0
 input_file = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/tolerance-1/bwv263-trans-sa-opt.npy'
 
-version: bwv263, Tol: 1, Average score: 49.6, max score: 140.0 max chord: 104
-overall total: 581.2, num_scores = 11, Average Score: 52.8, max_score = 145.0
+version: bwv263, Tol: 1, Average score: 49.5, max score: 140.0 max chord: 104
+overall total: 580.4, num_scores = 11, Average Score: 52.8, max_score = 140.0
 input_file = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/tolerance-1/bwv264-trans-sa-opt.npy'
 
-version: bwv264, Tol: 1, Average score: 47.9, max score: 104.0 max chord: 110
-overall total: 629.0, num_scores = 12, Average Score: 52.4, max_score = 145.0
+version: bwv264, Tol: 1, Average score: 54.7, max score: 1097.0 max chord: 110
+overall total: 635.1, num_scores = 12, Average Score: 52.9, max_score = 1097.0
 numpy_dir = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt', tolerance = 2, limit_max = 19
 tonal_diamond.shape = (84, 3), measure = 0
 input_file = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/tolerance-2/bwv253-trans-sa-opt.npy'
 
 version: bwv253, Tol: 2, Average score: 48.9, max score: 90.0 max chord: 122
-overall total: 677.9, num_scores = 13, Average Score: 52.1, max_score = 145.0
+overall total: 684.0, num_scores = 13, Average Score: 52.6, max_score = 1097.0
 input_file = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/tolerance-2/bwv254-trans-sa-opt.npy'
 
 version: bwv254, Tol: 2, Average score: 54.4, max score: 123.0 max chord: 158
-overall total: 732.4, num_scores = 14, Average Score: 52.3, max_score = 145.0
+overall total: 738.4, num_scores = 14, Average Score: 52.7, max_score = 1097.0
 input_file = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/tolerance-2/bwv255-trans-sa-opt.npy'
 
 version: bwv255, Tol: 2, Average score: 50.7, max score: 82.0 max chord: 42
-overall total: 783.1, num_scores = 15, Average Score: 52.2, max_score = 145.0
+overall total: 789.1, num_scores = 15, Average Score: 52.6, max_score = 1097.0
 input_file = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/tolerance-2/bwv256-trans-sa-opt.npy'
 
-version: bwv256, Tol: 2, Average score: 53.9, max score: 123.0 max chord: 138
-overall total: 837.0, num_scores = 16, Average Score: 52.3, max_score = 145.0
+version: bwv256, Tol: 2, Average score: 53.7, max score: 123.0 max chord: 138
+overall total: 842.8, num_scores = 16, Average Score: 52.7, max_score = 1097.0
 input_file = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/tolerance-2/bwv257-trans-sa-opt.npy'
 
-version: bwv257, Tol: 2, Average score: 56.7, max score: 123.0 max chord: 128
-overall total: 893.7, num_scores = 17, Average Score: 52.6, max_score = 145.0
+version: bwv257, Tol: 2, Average score: 56.5, max score: 123.0 max chord: 128
+overall total: 899.3, num_scores = 17, Average Score: 52.9, max_score = 1097.0
 input_file = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/tolerance-2/bwv258-trans-sa-opt.npy'
 
-version: bwv258, Tol: 2, Average score: 57.1, max score: 140.0 max chord: 88
-overall total: 950.8, num_scores = 18, Average Score: 52.8, max_score = 145.0
+version: bwv258, Tol: 2, Average score: 82.7, max score: 1124.0 max chord: 88
+overall total: 982.1, num_scores = 18, Average Score: 54.6, max_score = 1124.0
 input_file = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/tolerance-2/bwv259-trans-sa-opt.npy'
 
 version: bwv259, Tol: 2, Average score: 53.1, max score: 104.0 max chord: 74
-overall total: 1003.9, num_scores = 19, Average Score: 52.8, max_score = 145.0
+overall total: 1035.2, num_scores = 19, Average Score: 54.5, max_score = 1124.0
 input_file = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/tolerance-2/bwv260-trans-sa-opt.npy'
 
 version: bwv260, Tol: 2, Average score: 52.1, max score: 105.0 max chord: 72
-overall total: 1056.0, num_scores = 20, Average Score: 52.8, max_score = 145.0
+overall total: 1087.3, num_scores = 20, Average Score: 54.4, max_score = 1124.0
 input_file = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/tolerance-2/bwv261-trans-sa-opt.npy'
 
-version: bwv261, Tol: 2, Average score: 56.3, max score: 140.0 max chord: 72
-overall total: 1112.3, num_scores = 21, Average Score: 53.0, max_score = 145.0
+version: bwv261, Tol: 2, Average score: 55.8, max score: 140.0 max chord: 72
+overall total: 1143.1, num_scores = 21, Average Score: 54.4, max_score = 1124.0
 input_file = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/tolerance-2/bwv262-trans-sa-opt.npy'
 
 version: bwv262, Tol: 2, Average score: 47.4, max score: 93.0 max chord: 55
-overall total: 1159.7, num_scores = 22, Average Score: 52.7, max_score = 145.0
+overall total: 1190.4, num_scores = 22, Average Score: 54.1, max_score = 1124.0
 input_file = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/tolerance-2/bwv263-trans-sa-opt.npy'
 
 version: bwv263, Tol: 2, Average score: 49.5, max score: 123.0 max chord: 104
-overall total: 1209.2, num_scores = 23, Average Score: 52.6, max_score = 145.0
+overall total: 1239.9, num_scores = 23, Average Score: 53.9, max_score = 1124.0
 input_file = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/tolerance-2/bwv264-trans-sa-opt.npy'
 
-version: bwv264, Tol: 2, Average score: 47.9, max score: 105.0 max chord: 110
-overall total: 1257.1, num_scores = 24, Average Score: 52.4, max_score = 145.0
+version: bwv264, Tol: 2, Average score: 68.6, max score: 1098.0 max chord: 18
+overall total: 1308.6, num_scores = 24, Average Score: 54.5, max_score = 1124.0
 numpy_dir = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt', tolerance = 3, limit_max = 19
 tonal_diamond.shape = (84, 3), measure = 0
 input_file = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/tolerance-3/bwv253-trans-sa-opt.npy'
 
-version: bwv253, Tol: 3, Average score: 49.0, max score: 90.0 max chord: 122
-overall total: 1306.1, num_scores = 25, Average Score: 52.2, max_score = 145.0
+version: bwv253, Tol: 3, Average score: 48.9, max score: 90.0 max chord: 122
+overall total: 1357.5, num_scores = 25, Average Score: 54.3, max_score = 1124.0
 input_file = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/tolerance-3/bwv254-trans-sa-opt.npy'
 
-version: bwv254, Tol: 3, Average score: 54.1, max score: 95.0 max chord: 158
-overall total: 1360.2, num_scores = 26, Average Score: 52.3, max_score = 145.0
+version: bwv254, Tol: 3, Average score: 53.9, max score: 82.0 max chord: 6
+overall total: 1411.4, num_scores = 26, Average Score: 54.3, max_score = 1124.0
 input_file = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/tolerance-3/bwv255-trans-sa-opt.npy'
 
 version: bwv255, Tol: 3, Average score: 50.7, max score: 82.0 max chord: 42
-overall total: 1410.9, num_scores = 27, Average Score: 52.3, max_score = 145.0
+overall total: 1462.1, num_scores = 27, Average Score: 54.2, max_score = 1124.0
 input_file = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/tolerance-3/bwv256-trans-sa-opt.npy'
 
-version: bwv256, Tol: 3, Average score: 53.3, max score: 94.0 max chord: 74
-overall total: 1464.2, num_scores = 28, Average Score: 52.3, max_score = 145.0
+version: bwv256, Tol: 3, Average score: 53.1, max score: 94.0 max chord: 74
+overall total: 1515.2, num_scores = 28, Average Score: 54.1, max_score = 1124.0
 input_file = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/tolerance-3/bwv257-trans-sa-opt.npy'
 
-version: bwv257, Tol: 3, Average score: 55.6, max score: 110.0 max chord: 86
-overall total: 1519.8, num_scores = 29, Average Score: 52.4, max_score = 145.0
+version: bwv257, Tol: 3, Average score: 69.8, max score: 1120.0 max chord: 86
+overall total: 1585.1, num_scores = 29, Average Score: 54.7, max_score = 1124.0
 input_file = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/tolerance-3/bwv258-trans-sa-opt.npy'
 
-version: bwv258, Tol: 3, Average score: 55.3, max score: 95.0 max chord: 88
-overall total: 1575.2, num_scores = 30, Average Score: 52.5, max_score = 145.0
+version: bwv258, Tol: 3, Average score: 54.9, max score: 95.0 max chord: 88
+overall total: 1639.9, num_scores = 30, Average Score: 54.7, max_score = 1124.0
 input_file = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/tolerance-3/bwv259-trans-sa-opt.npy'
 
 version: bwv259, Tol: 3, Average score: 53.1, max score: 100.0 max chord: 74
-overall total: 1628.3, num_scores = 31, Average Score: 52.5, max_score = 145.0
+overall total: 1693.0, num_scores = 31, Average Score: 54.6, max_score = 1124.0
 input_file = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/tolerance-3/bwv260-trans-sa-opt.npy'
 
-version: bwv260, Tol: 3, Average score: 51.9, max score: 105.0 max chord: 72
-overall total: 1680.2, num_scores = 32, Average Score: 52.5, max_score = 145.0
+version: bwv260, Tol: 3, Average score: 52.1, max score: 98.0 max chord: 72
+overall total: 1745.2, num_scores = 32, Average Score: 54.5, max_score = 1124.0
 input_file = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/tolerance-3/bwv261-trans-sa-opt.npy'
 
-version: bwv261, Tol: 3, Average score: 55.6, max score: 101.0 max chord: 242
-overall total: 1735.9, num_scores = 33, Average Score: 52.6, max_score = 145.0
+version: bwv261, Tol: 3, Average score: 55.4, max score: 101.0 max chord: 242
+overall total: 1800.6, num_scores = 33, Average Score: 54.6, max_score = 1124.0
 input_file = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/tolerance-3/bwv262-trans-sa-opt.npy'
 
-version: bwv262, Tol: 3, Average score: 47.4, max score: 105.0 max chord: 183
-overall total: 1783.3, num_scores = 34, Average Score: 52.4, max_score = 145.0
+version: bwv262, Tol: 3, Average score: 47.4, max score: 93.0 max chord: 55
+overall total: 1847.9, num_scores = 34, Average Score: 54.4, max_score = 1124.0
 input_file = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/tolerance-3/bwv263-trans-sa-opt.npy'
 
-version: bwv263, Tol: 3, Average score: 49.2, max score: 105.0 max chord: 86
-overall total: 1832.5, num_scores = 35, Average Score: 52.4, max_score = 145.0
+version: bwv263, Tol: 3, Average score: 49.2, max score: 95.0 max chord: 104
+overall total: 1897.2, num_scores = 35, Average Score: 54.2, max_score = 1124.0
 input_file = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/tolerance-3/bwv264-trans-sa-opt.npy'
 
-version: bwv264, Tol: 3, Average score: 47.9, max score: 96.0 max chord: 110
-overall total: 1880.3, num_scores = 36, Average Score: 52.2, max_score = 145.0
+version: bwv264, Tol: 3, Average score: 48.0, max score: 96.0 max chord: 110
+overall total: 1945.2, num_scores = 36, Average Score: 54.0, max_score = 1124.0
 numpy_dir = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt', tolerance = 4, limit_max = 19
 tonal_diamond.shape = (84, 3), measure = 0
 input_file = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/tolerance-4/bwv253-trans-sa-opt.npy'
 
 version: bwv253, Tol: 4, Average score: 48.9, max score: 90.0 max chord: 122
-overall total: 1929.2, num_scores = 37, Average Score: 52.1, max_score = 145.0
+overall total: 1994.1, num_scores = 37, Average Score: 53.9, max_score = 1124.0
 input_file = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/tolerance-4/bwv254-trans-sa-opt.npy'
 
 version: bwv254, Tol: 4, Average score: 53.9, max score: 82.0 max chord: 6
-overall total: 1983.2, num_scores = 38, Average Score: 52.2, max_score = 145.0
+overall total: 2048.0, num_scores = 38, Average Score: 53.9, max_score = 1124.0
 input_file = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/tolerance-4/bwv255-trans-sa-opt.npy'
 
 version: bwv255, Tol: 4, Average score: 50.7, max score: 82.0 max chord: 42
-overall total: 2033.9, num_scores = 39, Average Score: 52.2, max_score = 145.0
+overall total: 2098.8, num_scores = 39, Average Score: 53.8, max_score = 1124.0
 input_file = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/tolerance-4/bwv256-trans-sa-opt.npy'
 
-version: bwv256, Tol: 4, Average score: 53.2, max score: 94.0 max chord: 74
-overall total: 2087.1, num_scores = 40, Average Score: 52.2, max_score = 145.0
+version: bwv256, Tol: 4, Average score: 53.1, max score: 94.0 max chord: 74
+overall total: 2151.9, num_scores = 40, Average Score: 53.8, max_score = 1124.0
 input_file = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/tolerance-4/bwv257-trans-sa-opt.npy'
 
-version: bwv257, Tol: 4, Average score: 55.1, max score: 101.0 max chord: 74
-overall total: 2142.2, num_scores = 41, Average Score: 52.2, max_score = 145.0
+version: bwv257, Tol: 4, Average score: 55.2, max score: 94.0 max chord: 74
+overall total: 2207.0, num_scores = 41, Average Score: 53.8, max_score = 1124.0
 input_file = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/tolerance-4/bwv258-trans-sa-opt.npy'
 
-version: bwv258, Tol: 4, Average score: 54.6, max score: 94.0 max chord: 74
-overall total: 2196.8, num_scores = 42, Average Score: 52.3, max_score = 145.0
+version: bwv258, Tol: 4, Average score: 54.5, max score: 94.0 max chord: 74
+overall total: 2261.6, num_scores = 42, Average Score: 53.8, max_score = 1124.0
 input_file = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/tolerance-4/bwv259-trans-sa-opt.npy'
 
 version: bwv259, Tol: 4, Average score: 53.1, max score: 95.0 max chord: 74
-overall total: 2249.9, num_scores = 43, Average Score: 52.3, max_score = 145.0
+overall total: 2314.6, num_scores = 43, Average Score: 53.8, max_score = 1124.0
 input_file = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/tolerance-4/bwv260-trans-sa-opt.npy'
 
-version: bwv260, Tol: 4, Average score: 52.0, max score: 96.0 max chord: 72
-overall total: 2301.9, num_scores = 44, Average Score: 52.3, max_score = 145.0
+version: bwv260, Tol: 4, Average score: 52.3, max score: 96.0 max chord: 72
+overall total: 2366.9, num_scores = 44, Average Score: 53.8, max_score = 1124.0
 input_file = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/tolerance-4/bwv261-trans-sa-opt.npy'
 
-version: bwv261, Tol: 4, Average score: 55.5, max score: 101.0 max chord: 242
-overall total: 2357.4, num_scores = 45, Average Score: 52.4, max_score = 145.0
+version: bwv261, Tol: 4, Average score: 55.5, max score: 105.0 max chord: 72
+overall total: 2422.4, num_scores = 45, Average Score: 53.8, max_score = 1124.0
 input_file = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/tolerance-4/bwv262-trans-sa-opt.npy'
 
-version: bwv262, Tol: 4, Average score: 47.4, max score: 93.0 max chord: 55
-overall total: 2404.7, num_scores = 46, Average Score: 52.3, max_score = 145.0
+version: bwv262, Tol: 4, Average score: 47.3, max score: 93.0 max chord: 55
+overall total: 2469.7, num_scores = 46, Average Score: 53.7, max_score = 1124.0
 input_file = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/tolerance-4/bwv263-trans-sa-opt.npy'
 
-version: bwv263, Tol: 4, Average score: 49.0, max score: 93.0 max chord: 86
-overall total: 2453.7, num_scores = 47, Average Score: 52.2, max_score = 145.0
+version: bwv263, Tol: 4, Average score: 48.9, max score: 93.0 max chord: 86
+overall total: 2518.6, num_scores = 47, Average Score: 53.6, max_score = 1124.0
 input_file = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/tolerance-4/bwv264-trans-sa-opt.npy'
 
-version: bwv264, Tol: 4, Average score: 47.9, max score: 96.0 max chord: 110
-overall total: 2501.6, num_scores = 48, Average Score: 52.1, max_score = 145.0
+version: bwv264, Tol: 4, Average score: 55.0, max score: 1097.0 max chord: 110
+overall total: 2573.6, num_scores = 48, Average Score: 53.6, max_score = 1124.0
