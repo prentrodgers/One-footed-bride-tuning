@@ -13,7 +13,7 @@ or just add everything that's changed:
     git add .
 
 # 3. Commit with a message
-    git commit -m "Improve grid-search - include different tonality diamond limits"
+    git commit -m "Fix bug posting Improved incorrectly."
 
 # 4. Push to GitHub
     git push origin main
@@ -22,5 +22,3 @@ or just add everything that's changed:
 git pull origin main
 
 
-I should check if the max_no_improve=50 compares scores or actual cent tuning with np.array_equal(old, new). It should do that, since if it's still shifting things around with different cent values, I think I should keep going. 
-It does something entirely different. It just checks how many times in a row there is no improvement, not even looking at the score, much less that all the non-improving results were identical. But I set it pretty high at a default value of 50. What happens if you increase it. 

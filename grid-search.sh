@@ -1,14 +1,17 @@
 #!/bin/bash
 set -euxo pipefail
+
+# Kill all child processes on Ctrl+C
+trap 'echo "Interrupted - killing all jobs..."; jobs -p | xargs -r kill 2>/dev/null; exit 130' INT
             
 echo "Starting chord tuning optimization (Production - All Tolerance Levels)"
 
 CHORALES="bwv253 bwv254 bwv255 bwv256 bwv257 bwv258 bwv259 bwv260 bwv261 bwv262 bwv263 bwv264"
-# CHORALES="bwv253"
-NUM_RUNS=3 # recommend 30
+# CHORALES="bwv264"
+NUM_RUNS=10 # recommend 30
 MAX_PARALLEL=12 # recommend 12
 LIMIT_MAX="17 19 23" # recommend "19" # but try others lower and higher just to see the results.
-TOLERANCES="1 2 3 4" # recommend "1 2 3 4"
+TOLERANCES="2 3 4" # recommend "1 2 3 4"
 echo "Running $NUM_RUNS iterations at each tolerance level ($TOLERANCES) and limit_max ($LIMIT_MAX) with parallelism of $MAX_PARALLEL"
 echo "Working directory: $(pwd)"
 

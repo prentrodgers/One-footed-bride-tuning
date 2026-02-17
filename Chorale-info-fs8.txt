@@ -1,4 +1,4 @@
-numpy_dir = '/home/prent/One-footed-bride-tuning/Archive/opt', tolerance = 1, limit_max = 19
+numpy_dir = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt', tolerance = 1, limit_max = 19
 tonal_diamond.shape = (84, 3), measure = 0
 
 version: bwv253, Tol: 1, Average score: 48.8, max score: 90.0 max chord: 122
@@ -36,7 +36,7 @@ overall total: 580.4, num_scores = 11, Average Score: 52.8, max_score = 140.0
 
 version: bwv264, Tol: 1, Average score: 47.9, max score: 105.0 max chord: 110
 overall total: 628.3, num_scores = 12, Average Score: 52.4, max_score = 140.0
-numpy_dir = '/home/prent/One-footed-bride-tuning/Archive/opt', tolerance = 2, limit_max = 19
+numpy_dir = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt', tolerance = 2, limit_max = 19
 tonal_diamond.shape = (84, 3), measure = 0
 
 version: bwv253, Tol: 2, Average score: 48.9, max score: 90.0 max chord: 122
@@ -74,7 +74,7 @@ overall total: 1207.0, num_scores = 23, Average Score: 52.5, max_score = 140.0
 
 version: bwv264, Tol: 2, Average score: 47.9, max score: 105.0 max chord: 110
 overall total: 1254.9, num_scores = 24, Average Score: 52.3, max_score = 140.0
-numpy_dir = '/home/prent/One-footed-bride-tuning/Archive/opt', tolerance = 3, limit_max = 19
+numpy_dir = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt', tolerance = 3, limit_max = 19
 tonal_diamond.shape = (84, 3), measure = 0
 
 version: bwv253, Tol: 3, Average score: 48.9, max score: 90.0 max chord: 122
@@ -112,7 +112,7 @@ overall total: 1828.5, num_scores = 35, Average Score: 52.2, max_score = 140.0
 
 version: bwv264, Tol: 3, Average score: 47.8, max score: 96.0 max chord: 110
 overall total: 1876.3, num_scores = 36, Average Score: 52.1, max_score = 140.0
-numpy_dir = '/home/prent/One-footed-bride-tuning/Archive/opt', tolerance = 4, limit_max = 19
+numpy_dir = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt', tolerance = 4, limit_max = 19
 tonal_diamond.shape = (84, 3), measure = 0
 
 version: bwv253, Tol: 4, Average score: 48.9, max score: 90.0 max chord: 122
