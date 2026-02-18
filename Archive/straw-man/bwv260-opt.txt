@@ -1,0 +1,12 @@
+version: bwv260
+mean: 50.8
+median: 45.0
+min: 43.0
+max: 103
+argmax: 72
+workers: 8
+runs: 3
+sa_iterations: 500
+rolls: 4
+tolerance: 1
+limit_max: 23
