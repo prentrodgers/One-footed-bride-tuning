@@ -1,10 +1,10 @@
 version: bwv258
-mean: 56.6
+mean: 56.5
 median: 47.0
 min: 36.0
 max: 140
 argmax: 80
-workers: 8
+workers: 12
 runs: 3
 sa_iterations: 500
 rolls: 4

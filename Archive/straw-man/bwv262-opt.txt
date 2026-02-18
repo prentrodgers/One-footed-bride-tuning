@@ -4,7 +4,7 @@ median: 43.0
 min: 21.0
 max: 78
 argmax: 55
-workers: 8
+workers: 12
 runs: 3
 sa_iterations: 500
 rolls: 4
