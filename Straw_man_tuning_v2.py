@@ -62,9 +62,9 @@ def _choose_probabilities(num_choices, r=0.3):
 def find_cent_value_prev_target(pitch_class_target, pitch_class_chord_prev, cent_value_chord_prev, chord_num):
     if pitch_class_target in pitch_class_chord_prev:
         cent_value_target = np.unique(cent_value_chord_prev[np.where(pitch_class_chord_prev==pitch_class_target)])[0]
-        logging.info(f'chord#: {chord_num} found {pitch_class_target in pitch_class_chord_prev = }, {cent_value_target = }, {pitch_class_chord_prev = }')
+        logging.debug(f'chord#: {chord_num} found {pitch_class_target in pitch_class_chord_prev = }, {cent_value_target = }, {pitch_class_chord_prev = }')
     else:
-        logging.info(f'chord#: {chord_num} not found {pitch_class_target in pitch_class_chord_prev = }, {pitch_class_chord_prev = }')
+        logging.debug(f'chord#: {chord_num} not found {pitch_class_target in pitch_class_chord_prev = }, {pitch_class_chord_prev = }')
         cent_value_target = None
     return cent_value_target
 
@@ -95,7 +95,7 @@ def build_straw_man_chord_sa(cent_value_chord, cent_value_chord_prev, chord_num,
         temperature = initial_temperature
         current_solution = rolled_chord.copy()
         current_score = chord_scorer.score_chord(current_solution, tolerance=tolerance)
-        logging.info(f'chord#: {chord_num} roll_amount: {roll_amount}, initial score: {current_score}')
+        logging.debug(f'chord#: {chord_num} roll_amount: {roll_amount}, initial score: {current_score}')
 
         for sa_iter in range(sa_iterations):
             proposed = current_solution.copy()
@@ -138,7 +138,7 @@ def build_straw_man_chord_sa(cent_value_chord, cent_value_chord_prev, chord_num,
                 if new_score < best_score:
                     best_score = new_score
                     best_cent_value_chord_so_far = proposed.copy()
-                    logging.info(f'chord#: {chord_num} new best: roll={roll_amount}, sa_iter={sa_iter}, score={best_score}')
+                    logging.debug(f'chord#: {chord_num} new best: roll={roll_amount}, sa_iter={sa_iter}, score={best_score}')
             else:
                 unchanged_cent_value_count += 1
 
@@ -148,6 +148,7 @@ def build_straw_man_chord_sa(cent_value_chord, cent_value_chord_prev, chord_num,
             print(f'  roll {roll_amount}: best_score so far = {best_score}')
 
     proposed_cent_value_chord, _ = atu.rearrange_notes(best_cent_value_chord_so_far, initial_midi_chord)
+    logging.info(f'chord#: {chord_num} done. best_score={best_score}, changed={changed_cent_value_count}, unchanged={unchanged_cent_value_count}')
     return proposed_cent_value_chord, changed_cent_value_count, unchanged_cent_value_count
 
 

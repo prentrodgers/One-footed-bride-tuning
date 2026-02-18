@@ -2810,17 +2810,17 @@ class LowNumberRatioIntervals():
         logging.debug(f'in _select_ratios. after clipping: {indices_to_tonal_diamond = }')
         # create a list of booleans indicating valid ratios based on keeping the same midi values.
         # we need to offset this by the cents up or down that all four midi notes dictate based on the top_notes. 
-        logging.info(f'in _select_ratios: before creating list of allowed_intervals: {pitch_class_delta = }, {[limit_format(inx) for inx in self.tonal_diamond[indices_to_tonal_diamond]]}')
-        logging.info(f'intervals: {interval[0] = }, {interval[1] = }, {cent_value_moves = } {pitch_class_moves = }, {pitch_class_delta}, {pitch_class_target = }')
+        logging.debug(f'in _select_ratios: before creating list of allowed_intervals: {pitch_class_delta = }, {[limit_format(inx) for inx in self.tonal_diamond[indices_to_tonal_diamond]]}')
+        logging.debug(f'intervals: {interval[0] = }, {interval[1] = }, {cent_value_moves = } {pitch_class_moves = }, {pitch_class_delta}, {pitch_class_target = }')
         # changed section on 12/1/25 - 12/3/25
         
         # Step 1: strict pitch-class filter
         allowed_intervals = np.array([pitch_class_from_cents(interval[0] + self.tonal_diamond[inx,1] * cent_value_moves) == pitch_class_target for inx in indices_to_tonal_diamond])
         
         indices_after_pitch_class = indices_to_tonal_diamond[allowed_intervals]
-        logging.info(f'after step 1. strict pitch class filter. {interval[0] = }, {interval[1] = } {pitch_class_delta = }, {indices_after_pitch_class = }')
+        logging.debug(f'after step 1. strict pitch class filter. {interval[0] = }, {interval[1] = } {pitch_class_delta = }, {indices_after_pitch_class = }')
         if indices_after_pitch_class.size == 0:
-                logging.info(f'in _select_ratios: no allowed intervals after step 1 pitch class filter. returning empty list.')
+                logging.debug(f'in _select_ratios: no allowed intervals after step 1 pitch class filter. returning empty list.')
                 return np.array([], dtype=int), cent_value_moves
         logging.debug(f'in _select_ratios: after creating list of allowed_intervals:, {[limit_format(inx) for inx in self.tonal_diamond[indices_after_pitch_class]]}')
         logging.debug(f'about to step 2. compare with previous cent {pitch_class_moves = }, {cent_value_target_prev = }')
@@ -2846,12 +2846,12 @@ class LowNumberRatioIntervals():
                     deltas.append(min_gap)
                 deltas = np.asarray(deltas)
                 if deltas.shape[0] < 5:
-                    logging.info(f'{deltas.shape = }, {deltas = }')
+                    logging.debug(f'{deltas.shape = }, {deltas = }')
                 mask_cent_delta = deltas <= max_delta
                 logging.debug(f'{mask_cent_delta}')
                 indices_after_cent_delta = indices_after_pitch_class[mask_cent_delta]
         if indices_after_cent_delta.size == 0:
-            logging.info(f'in _select_ratios: no allowed intervals after step 2 cent delta filter. returning empty list.')
+            logging.debug(f'in _select_ratios: no allowed intervals after step 2 cent delta filter. returning empty list.')
             return np.array([], dtype=int), cent_value_moves
         # Step 3: sort by consonance
         sorted_indices = indices_after_cent_delta[np.argsort(self.tonal_diamond[indices_after_cent_delta, 2])]
