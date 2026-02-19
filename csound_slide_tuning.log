@@ -10047,37 +10047,37 @@ ftable 2:	64 points, scalemax 2.000
 
 ________________________________________________________________
 ftable 1500:
-ftable 1500:	256 points, scalemax 1.012
+ftable 1500:	256 points, scalemax 1.018
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 ftable 1501:
-ftable 1501:	256 points, scalemax 1.005
-''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-ftable 1502:
-ftable 1502:	256 points, scalemax 1.000
+ftable 1501:	256 points, scalemax 1.000
 _
  '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+ftable 1502:
+ftable 1502:	256 points, scalemax 1.002
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 ftable 1503:
 ftable 1503:	256 points, scalemax 1.000
 _
  '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 ftable 1504:
-ftable 1504:	256 points, scalemax 1.015
-''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+ftable 1504:	256 points, scalemax 1.000
+_
+ '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 ftable 1505:
-ftable 1505:	256 points, scalemax 1.004
-''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+ftable 1505:	256 points, scalemax 1.000
+_
+ '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 ftable 1506:
-ftable 1506:	256 points, scalemax 1.008
+ftable 1506:	256 points, scalemax 1.009
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 ftable 1507:
 ftable 1507:	256 points, scalemax 1.000
 _
  '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 ftable 1508:
-ftable 1508:	256 points, scalemax 1.000
-_
- '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-new alloc for instr 1:
+ftable 1508:	256 points, scalemax 1.004
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 new alloc for instr 1:
 new alloc for instr 1:
 new alloc for instr 1:
@@ -10111,7 +10111,7 @@ new alloc for instr 1:
 new alloc for instr 1:
 end of Performance
 inactive allocs returned to freespace
-		   overall amps:  19696.0  17968.4
+		   overall amps:  19362.6  17901.7
 	   overall samples out of range:        0        0
 0 errors in performance
 512 1536 sample blks of 24bit ints written to Music/sflib/ball9.wav (WAV)

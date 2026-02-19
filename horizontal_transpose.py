@@ -139,6 +139,18 @@ def improve_horizontal_consistency(data: np.ndarray, config: HorizontalTranspose
                 prev_chord = curr_chord
                 continue
             shifted = np.mod(curr_chord + delta_wrapped, 1200.0)
+
+            # Safety check: the shift must not change any pitch class (hard constraint).
+            if not np.array_equal(atu.pitch_class_from_cents(shifted), atu.pitch_class_from_cents(curr_chord)):
+                logging.warning(
+                    "Chord %d (orig idx %d): pitch class violated by shift of %+0.2f cents — skipping",
+                    chord_idx,
+                    start_indices[chord_idx],
+                    delta_wrapped,
+                )
+                prev_chord = curr_chord
+                continue
+
             adjusted[:, chord_idx] = shifted
             applied.append((start_indices[chord_idx], delta_wrapped))
             logging.debug(
@@ -222,6 +234,25 @@ def main(argv: Sequence[str] | None = None) -> None:
         raise ValueError(f"Expected shape (4, N), got {data.shape}")
 
     adjusted, applied = improve_horizontal_consistency(data, config)
+
+    # Final pitch class validation: every note in the adjusted array must have
+    # the same pitch class as the corresponding note in the original.
+    original_pcs = atu.pitch_class_from_cents(data)
+    adjusted_pcs = atu.pitch_class_from_cents(adjusted)
+    violated_chords = np.where(np.any(original_pcs != adjusted_pcs, axis=0))[0]
+    if violated_chords.size == 0:
+        logging.info("Pitch class validation: all %d chords preserved.", data.shape[1])
+        print("Pitch class check: OK — all pitch classes preserved.")
+    else:
+        for chord_idx in violated_chords:
+            logging.warning(
+                "Pitch class violation at chord %d: original %s, adjusted %s",
+                chord_idx,
+                original_pcs[:, chord_idx],
+                adjusted_pcs[:, chord_idx],
+            )
+        print(f"WARNING: {violated_chords.size} chord(s) have pitch class violations — see log.")
+
     dest = config.destination or f"{os.path.splitext(config.source)[0]}-horizontal.npy"
     np.save(dest, adjusted)
     save_msg = f"Saved adjusted chorale to {dest}"

@@ -8,17 +8,14 @@
 # <p>The outcome of this process is a chord that can be transposed to improve on horizontal consistency, that is choose a transposition that keeps cent values of pitch classes of adjacent chords in place, if possible. If it's not possible, then I build a glissando in csound to hide the change, to a certain degree. In this way we hear ideal intervals for every chord, at the expense of some effort of some voices to move from one cent value to another for the same pitch class, to optimize the current chord.</p>
 # 
 
-# In[13]:
-
-
 import argparse, logging, os, sys, time
 import numpy as np
 from math import exp
 from importlib import reload
 from collections import Counter, defaultdict
 from importlib import reload
-base_dir = os.path.join(os.path.expanduser('~'), 'Repos')
-numpy_dir = os.path.join(base_dir, 'One-footed-bride-tuning', 'Archive', 'straw-man')
+base_dir = os.path.dirname(os.path.abspath(__file__))
+numpy_dir = os.path.join(base_dir, 'Archive', 'straw-man')
 import diamond_music_utils as dmu
 import adaptive_tuning_util as atu
 from itertools import count, combinations, permutations

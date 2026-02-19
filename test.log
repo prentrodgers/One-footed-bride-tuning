@@ -1,215 +1,158 @@
-16 10:09:02 - INFO - base_dir = '/home/prent/Repos/One-footed-bride-tuning', numpy_dir = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt', WAVE_DIR = '/home/prent/Repos/One-footed-bride-tuning/Music/sflib'
-16 10:09:02 - INFO - limit_value = 19, limit_denominator = 50, tonal_diamond_values.shape = (84, 3)
-16 10:09:02 - INFO - save_midi_file = False, 
-16 10:09:02 - INFO - version = 'bwv253', chorale.shape = (4, 160), root = 9, keys[root] = 'A♮', mode = 'major', time_sig = '4/4'
-16 10:09:02 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/bwv253top-notes.npy'
-16 10:09:02 - INFO - chorale_in_cents.shape = (4, 160), chorale.shape = (4, 160)
-16 10:09:18 - INFO - limit_value = 19, limit_denominator = 50, tonal_diamond_values.shape = (84, 3)
-16 10:09:18 - INFO - save_midi_file = False, 
-16 10:09:18 - INFO - version = 'bwv253', chorale.shape = (4, 160), root = 9, keys[root] = 'A♮', mode = 'major', time_sig = '4/4'
-16 10:09:18 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/bwv253top-notes.npy'
-16 10:09:18 - INFO - chorale_in_cents.shape = (4, 160), chorale.shape = (4, 160)
-16 10:09:59 - INFO - limit_value = 19, limit_denominator = 50, tonal_diamond_values.shape = (84, 3)
-16 10:09:59 - INFO - save_midi_file = False, 
-16 10:09:59 - INFO - version = 'bwv253', chorale.shape = (4, 160), root = 9, keys[root] = 'A♮', mode = 'major', time_sig = '4/4'
-16 10:09:59 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/bwv253top-notes.npy'
-16 10:09:59 - INFO - chorale_in_cents.shape = (4, 160), chorale.shape = (4, 160)
-16 10:09:59 - INFO - save_midi_file = False, 
-16 10:09:59 - INFO - version = 'bwv254', chorale.shape = (4, 176), root = 2, keys[root] = 'D♮', mode = 'minor', time_sig = '4/4'
-16 10:09:59 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/bwv254top-notes.npy'
-16 10:09:59 - INFO - top_notes_dictionary file not there, Initializing the array to [[2],[200]]
-16 10:09:59 - INFO - chorale_in_cents.shape = (4, 176), chorale.shape = (4, 176)
-16 10:09:59 - INFO - save_midi_file = False, 
-16 10:09:59 - INFO - version = 'bwv255', chorale.shape = (4, 128), root = 7, keys[root] = 'G♮', mode = 'major', time_sig = '4/4'
-16 10:09:59 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/bwv255top-notes.npy'
-16 10:09:59 - INFO - top_notes_dictionary file not there, Initializing the array to [[7],[700]]
-16 10:09:59 - INFO - chorale_in_cents.shape = (4, 128), chorale.shape = (4, 128)
-16 10:09:59 - INFO - save_midi_file = False, 
-16 10:09:59 - INFO - version = 'bwv256', chorale.shape = (4, 160), root = 9, keys[root] = 'A♮', mode = 'minor', time_sig = '4/4'
-16 10:09:59 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/bwv256top-notes.npy'
-16 10:09:59 - INFO - top_notes_dictionary file not there, Initializing the array to [[9],[900]]
-16 10:09:59 - INFO - chorale_in_cents.shape = (4, 160), chorale.shape = (4, 160)
-16 10:09:59 - INFO - save_midi_file = False, 
-16 10:09:59 - INFO - version = 'bwv257', chorale.shape = (4, 160), root = 9, keys[root] = 'A♮', mode = 'minor', time_sig = '4/4'
-16 10:09:59 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/bwv257top-notes.npy'
-16 10:09:59 - INFO - top_notes_dictionary file not there, Initializing the array to [[9],[900]]
-16 10:09:59 - INFO - chorale_in_cents.shape = (4, 160), chorale.shape = (4, 160)
-16 10:09:59 - INFO - save_midi_file = False, 
-16 10:09:59 - INFO - version = 'bwv258', chorale.shape = (4, 160), root = 11, keys[root] = 'B♮', mode = 'minor', time_sig = '4/4'
-16 10:09:59 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/bwv258top-notes.npy'
-16 10:09:59 - INFO - top_notes_dictionary file not there, Initializing the array to [[11],[1100]]
-16 10:09:59 - INFO - chorale_in_cents.shape = (4, 160), chorale.shape = (4, 160)
-16 10:09:59 - INFO - save_midi_file = False, 
-16 10:09:59 - INFO - version = 'bwv259', chorale.shape = (4, 192), root = 4, keys[root] = 'E♮', mode = 'minor', time_sig = '4/4'
-16 10:09:59 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/bwv259top-notes.npy'
-16 10:09:59 - INFO - top_notes_dictionary file not there, Initializing the array to [[4],[400]]
-16 10:09:59 - INFO - chorale_in_cents.shape = (4, 192), chorale.shape = (4, 192)
-16 10:09:59 - INFO - save_midi_file = False, 
-16 10:09:59 - INFO - version = 'bwv260', chorale.shape = (4, 160), root = 7, keys[root] = 'G♮', mode = 'major', time_sig = '4/4'
-16 10:09:59 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/bwv260top-notes.npy'
-16 10:09:59 - INFO - top_notes_dictionary file not there, Initializing the array to [[7],[700]]
-16 10:09:59 - INFO - chorale_in_cents.shape = (4, 160), chorale.shape = (4, 160)
-16 10:09:59 - INFO - save_midi_file = False, 
-16 10:09:59 - INFO - version = 'bwv261', chorale.shape = (4, 280), root = 11, keys[root] = 'B♮', mode = 'minor', time_sig = '4/4'
-16 10:09:59 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/bwv261top-notes.npy'
-16 10:09:59 - INFO - top_notes_dictionary file not there, Initializing the array to [[11],[1100]]
-16 10:09:59 - INFO - chorale_in_cents.shape = (4, 280), chorale.shape = (4, 280)
-16 10:09:59 - INFO - save_midi_file = False, 
-16 10:09:59 - INFO - version = 'bwv262', chorale.shape = (4, 192), root = 2, keys[root] = 'D♮', mode = 'major', time_sig = '4/4'
-16 10:09:59 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/bwv262top-notes.npy'
-16 10:09:59 - INFO - top_notes_dictionary file not there, Initializing the array to [[2],[200]]
-16 10:09:59 - INFO - chorale_in_cents.shape = (4, 192), chorale.shape = (4, 192)
-16 10:09:59 - INFO - save_midi_file = False, 
-16 10:09:59 - INFO - version = 'bwv263', chorale.shape = (4, 192), root = 7, keys[root] = 'G♮', mode = 'major', time_sig = '4/4'
-16 10:09:59 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/bwv263top-notes.npy'
-16 10:09:59 - INFO - top_notes_dictionary file not there, Initializing the array to [[7],[700]]
-16 10:09:59 - INFO - chorale_in_cents.shape = (4, 192), chorale.shape = (4, 192)
-16 10:09:59 - INFO - save_midi_file = False, 
-16 10:09:59 - INFO - version = 'bwv264', chorale.shape = (4, 148), root = 7, keys[root] = 'G♮', mode = 'major', time_sig = '4/4'
-16 10:09:59 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/bwv264top-notes.npy'
-16 10:09:59 - INFO - top_notes_dictionary file not there, Initializing the array to [[7],[700]]
-16 10:09:59 - INFO - chorale_in_cents.shape = (4, 148), chorale.shape = (4, 148)
-16 10:09:59 - INFO - save_midi_file = False, 
-16 10:09:59 - INFO - version = 'bwv253', chorale.shape = (4, 160), root = 9, keys[root] = 'A♮', mode = 'major', time_sig = '4/4'
-16 10:09:59 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/bwv253top-notes.npy'
-16 10:09:59 - INFO - chorale_in_cents.shape = (4, 160), chorale.shape = (4, 160)
-16 10:09:59 - INFO - save_midi_file = False, 
-16 10:09:59 - INFO - version = 'bwv254', chorale.shape = (4, 176), root = 2, keys[root] = 'D♮', mode = 'minor', time_sig = '4/4'
-16 10:09:59 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/bwv254top-notes.npy'
-16 10:09:59 - INFO - chorale_in_cents.shape = (4, 176), chorale.shape = (4, 176)
-16 10:09:59 - INFO - save_midi_file = False, 
-16 10:09:59 - INFO - version = 'bwv255', chorale.shape = (4, 128), root = 7, keys[root] = 'G♮', mode = 'major', time_sig = '4/4'
-16 10:09:59 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/bwv255top-notes.npy'
-16 10:09:59 - INFO - chorale_in_cents.shape = (4, 128), chorale.shape = (4, 128)
-16 10:09:59 - INFO - save_midi_file = False, 
-16 10:09:59 - INFO - version = 'bwv256', chorale.shape = (4, 160), root = 9, keys[root] = 'A♮', mode = 'minor', time_sig = '4/4'
-16 10:09:59 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/bwv256top-notes.npy'
-16 10:09:59 - INFO - chorale_in_cents.shape = (4, 160), chorale.shape = (4, 160)
-16 10:09:59 - INFO - save_midi_file = False, 
-16 10:09:59 - INFO - version = 'bwv257', chorale.shape = (4, 160), root = 9, keys[root] = 'A♮', mode = 'minor', time_sig = '4/4'
-16 10:09:59 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/bwv257top-notes.npy'
-16 10:09:59 - INFO - chorale_in_cents.shape = (4, 160), chorale.shape = (4, 160)
-16 10:09:59 - INFO - save_midi_file = False, 
-16 10:09:59 - INFO - version = 'bwv258', chorale.shape = (4, 160), root = 11, keys[root] = 'B♮', mode = 'minor', time_sig = '4/4'
-16 10:09:59 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/bwv258top-notes.npy'
-16 10:09:59 - INFO - chorale_in_cents.shape = (4, 160), chorale.shape = (4, 160)
-16 10:09:59 - INFO - save_midi_file = False, 
-16 10:09:59 - INFO - version = 'bwv259', chorale.shape = (4, 192), root = 4, keys[root] = 'E♮', mode = 'minor', time_sig = '4/4'
-16 10:09:59 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/bwv259top-notes.npy'
-16 10:09:59 - INFO - chorale_in_cents.shape = (4, 192), chorale.shape = (4, 192)
-16 10:09:59 - INFO - save_midi_file = False, 
-16 10:09:59 - INFO - version = 'bwv260', chorale.shape = (4, 160), root = 7, keys[root] = 'G♮', mode = 'major', time_sig = '4/4'
-16 10:09:59 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/bwv260top-notes.npy'
-16 10:09:59 - INFO - chorale_in_cents.shape = (4, 160), chorale.shape = (4, 160)
-16 10:09:59 - INFO - save_midi_file = False, 
-16 10:09:59 - INFO - version = 'bwv261', chorale.shape = (4, 280), root = 11, keys[root] = 'B♮', mode = 'minor', time_sig = '4/4'
-16 10:09:59 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/bwv261top-notes.npy'
-16 10:09:59 - INFO - chorale_in_cents.shape = (4, 280), chorale.shape = (4, 280)
-16 10:10:00 - INFO - save_midi_file = False, 
-16 10:10:00 - INFO - version = 'bwv262', chorale.shape = (4, 192), root = 2, keys[root] = 'D♮', mode = 'major', time_sig = '4/4'
-16 10:10:00 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/bwv262top-notes.npy'
-16 10:10:00 - INFO - chorale_in_cents.shape = (4, 192), chorale.shape = (4, 192)
-16 10:10:00 - INFO - save_midi_file = False, 
-16 10:10:00 - INFO - version = 'bwv263', chorale.shape = (4, 192), root = 7, keys[root] = 'G♮', mode = 'major', time_sig = '4/4'
-16 10:10:00 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/bwv263top-notes.npy'
-16 10:10:00 - INFO - chorale_in_cents.shape = (4, 192), chorale.shape = (4, 192)
-16 10:10:00 - INFO - save_midi_file = False, 
-16 10:10:00 - INFO - version = 'bwv264', chorale.shape = (4, 148), root = 7, keys[root] = 'G♮', mode = 'major', time_sig = '4/4'
-16 10:10:00 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/bwv264top-notes.npy'
-16 10:10:00 - INFO - chorale_in_cents.shape = (4, 148), chorale.shape = (4, 148)
-16 10:10:00 - INFO - save_midi_file = False, 
-16 10:10:00 - INFO - version = 'bwv253', chorale.shape = (4, 160), root = 9, keys[root] = 'A♮', mode = 'major', time_sig = '4/4'
-16 10:10:00 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/bwv253top-notes.npy'
-16 10:10:00 - INFO - chorale_in_cents.shape = (4, 160), chorale.shape = (4, 160)
-16 10:10:00 - INFO - save_midi_file = False, 
-16 10:10:00 - INFO - version = 'bwv254', chorale.shape = (4, 176), root = 2, keys[root] = 'D♮', mode = 'minor', time_sig = '4/4'
-16 10:10:00 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/bwv254top-notes.npy'
-16 10:10:00 - INFO - chorale_in_cents.shape = (4, 176), chorale.shape = (4, 176)
-16 10:10:00 - INFO - save_midi_file = False, 
-16 10:10:00 - INFO - version = 'bwv255', chorale.shape = (4, 128), root = 7, keys[root] = 'G♮', mode = 'major', time_sig = '4/4'
-16 10:10:00 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/bwv255top-notes.npy'
-16 10:10:00 - INFO - chorale_in_cents.shape = (4, 128), chorale.shape = (4, 128)
-16 10:10:00 - INFO - save_midi_file = False, 
-16 10:10:00 - INFO - version = 'bwv256', chorale.shape = (4, 160), root = 9, keys[root] = 'A♮', mode = 'minor', time_sig = '4/4'
-16 10:10:00 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/bwv256top-notes.npy'
-16 10:10:00 - INFO - chorale_in_cents.shape = (4, 160), chorale.shape = (4, 160)
-16 10:10:00 - INFO - save_midi_file = False, 
-16 10:10:00 - INFO - version = 'bwv257', chorale.shape = (4, 160), root = 9, keys[root] = 'A♮', mode = 'minor', time_sig = '4/4'
-16 10:10:00 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/bwv257top-notes.npy'
-16 10:10:00 - INFO - chorale_in_cents.shape = (4, 160), chorale.shape = (4, 160)
-16 10:10:00 - INFO - save_midi_file = False, 
-16 10:10:00 - INFO - version = 'bwv258', chorale.shape = (4, 160), root = 11, keys[root] = 'B♮', mode = 'minor', time_sig = '4/4'
-16 10:10:00 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/bwv258top-notes.npy'
-16 10:10:00 - INFO - chorale_in_cents.shape = (4, 160), chorale.shape = (4, 160)
-16 10:10:00 - INFO - save_midi_file = False, 
-16 10:10:00 - INFO - version = 'bwv259', chorale.shape = (4, 192), root = 4, keys[root] = 'E♮', mode = 'minor', time_sig = '4/4'
-16 10:10:00 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/bwv259top-notes.npy'
-16 10:10:00 - INFO - chorale_in_cents.shape = (4, 192), chorale.shape = (4, 192)
-16 10:10:00 - INFO - save_midi_file = False, 
-16 10:10:00 - INFO - version = 'bwv260', chorale.shape = (4, 160), root = 7, keys[root] = 'G♮', mode = 'major', time_sig = '4/4'
-16 10:10:00 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/bwv260top-notes.npy'
-16 10:10:00 - INFO - chorale_in_cents.shape = (4, 160), chorale.shape = (4, 160)
-16 10:10:00 - INFO - save_midi_file = False, 
-16 10:10:00 - INFO - version = 'bwv261', chorale.shape = (4, 280), root = 11, keys[root] = 'B♮', mode = 'minor', time_sig = '4/4'
-16 10:10:00 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/bwv261top-notes.npy'
-16 10:10:00 - INFO - chorale_in_cents.shape = (4, 280), chorale.shape = (4, 280)
-16 10:10:00 - INFO - save_midi_file = False, 
-16 10:10:00 - INFO - version = 'bwv262', chorale.shape = (4, 192), root = 2, keys[root] = 'D♮', mode = 'major', time_sig = '4/4'
-16 10:10:00 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/bwv262top-notes.npy'
-16 10:10:00 - INFO - chorale_in_cents.shape = (4, 192), chorale.shape = (4, 192)
-16 10:10:00 - INFO - save_midi_file = False, 
-16 10:10:00 - INFO - version = 'bwv263', chorale.shape = (4, 192), root = 7, keys[root] = 'G♮', mode = 'major', time_sig = '4/4'
-16 10:10:00 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/bwv263top-notes.npy'
-16 10:10:00 - INFO - chorale_in_cents.shape = (4, 192), chorale.shape = (4, 192)
-16 10:10:00 - INFO - save_midi_file = False, 
-16 10:10:00 - INFO - version = 'bwv264', chorale.shape = (4, 148), root = 7, keys[root] = 'G♮', mode = 'major', time_sig = '4/4'
-16 10:10:00 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/bwv264top-notes.npy'
-16 10:10:00 - INFO - chorale_in_cents.shape = (4, 148), chorale.shape = (4, 148)
-16 10:10:00 - INFO - save_midi_file = False, 
-16 10:10:00 - INFO - version = 'bwv253', chorale.shape = (4, 160), root = 9, keys[root] = 'A♮', mode = 'major', time_sig = '4/4'
-16 10:10:00 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/bwv253top-notes.npy'
-16 10:10:00 - INFO - chorale_in_cents.shape = (4, 160), chorale.shape = (4, 160)
-16 10:10:00 - INFO - save_midi_file = False, 
-16 10:10:00 - INFO - version = 'bwv254', chorale.shape = (4, 176), root = 2, keys[root] = 'D♮', mode = 'minor', time_sig = '4/4'
-16 10:10:00 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/bwv254top-notes.npy'
-16 10:10:00 - INFO - chorale_in_cents.shape = (4, 176), chorale.shape = (4, 176)
-16 10:10:00 - INFO - save_midi_file = False, 
-16 10:10:00 - INFO - version = 'bwv255', chorale.shape = (4, 128), root = 7, keys[root] = 'G♮', mode = 'major', time_sig = '4/4'
-16 10:10:00 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/bwv255top-notes.npy'
-16 10:10:00 - INFO - chorale_in_cents.shape = (4, 128), chorale.shape = (4, 128)
-16 10:10:00 - INFO - save_midi_file = False, 
-16 10:10:00 - INFO - version = 'bwv256', chorale.shape = (4, 160), root = 9, keys[root] = 'A♮', mode = 'minor', time_sig = '4/4'
-16 10:10:00 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/bwv256top-notes.npy'
-16 10:10:00 - INFO - chorale_in_cents.shape = (4, 160), chorale.shape = (4, 160)
-16 10:10:00 - INFO - save_midi_file = False, 
-16 10:10:00 - INFO - version = 'bwv257', chorale.shape = (4, 160), root = 9, keys[root] = 'A♮', mode = 'minor', time_sig = '4/4'
-16 10:10:00 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/bwv257top-notes.npy'
-16 10:10:00 - INFO - chorale_in_cents.shape = (4, 160), chorale.shape = (4, 160)
-16 10:10:00 - INFO - save_midi_file = False, 
-16 10:10:00 - INFO - version = 'bwv258', chorale.shape = (4, 160), root = 11, keys[root] = 'B♮', mode = 'minor', time_sig = '4/4'
-16 10:10:00 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/bwv258top-notes.npy'
-16 10:10:00 - INFO - chorale_in_cents.shape = (4, 160), chorale.shape = (4, 160)
-16 10:10:00 - INFO - save_midi_file = False, 
-16 10:10:00 - INFO - version = 'bwv259', chorale.shape = (4, 192), root = 4, keys[root] = 'E♮', mode = 'minor', time_sig = '4/4'
-16 10:10:00 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/bwv259top-notes.npy'
-16 10:10:00 - INFO - chorale_in_cents.shape = (4, 192), chorale.shape = (4, 192)
-16 10:10:00 - INFO - save_midi_file = False, 
-16 10:10:00 - INFO - version = 'bwv260', chorale.shape = (4, 160), root = 7, keys[root] = 'G♮', mode = 'major', time_sig = '4/4'
-16 10:10:00 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/bwv260top-notes.npy'
-16 10:10:00 - INFO - chorale_in_cents.shape = (4, 160), chorale.shape = (4, 160)
-16 10:10:00 - INFO - save_midi_file = False, 
-16 10:10:00 - INFO - version = 'bwv261', chorale.shape = (4, 280), root = 11, keys[root] = 'B♮', mode = 'minor', time_sig = '4/4'
-16 10:10:00 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/bwv261top-notes.npy'
-16 10:10:00 - INFO - chorale_in_cents.shape = (4, 280), chorale.shape = (4, 280)
-16 10:10:00 - INFO - save_midi_file = False, 
-16 10:10:00 - INFO - version = 'bwv262', chorale.shape = (4, 192), root = 2, keys[root] = 'D♮', mode = 'major', time_sig = '4/4'
-16 10:10:00 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/bwv262top-notes.npy'
-16 10:10:00 - INFO - chorale_in_cents.shape = (4, 192), chorale.shape = (4, 192)
-16 10:10:00 - INFO - save_midi_file = False, 
-16 10:10:00 - INFO - version = 'bwv263', chorale.shape = (4, 192), root = 7, keys[root] = 'G♮', mode = 'major', time_sig = '4/4'
-16 10:10:00 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/bwv263top-notes.npy'
-16 10:10:00 - INFO - chorale_in_cents.shape = (4, 192), chorale.shape = (4, 192)
-16 10:10:00 - INFO - save_midi_file = False, 
-16 10:10:00 - INFO - version = 'bwv264', chorale.shape = (4, 148), root = 7, keys[root] = 'G♮', mode = 'major', time_sig = '4/4'
-16 10:10:00 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/opt/bwv264top-notes.npy'
-16 10:10:00 - INFO - chorale_in_cents.shape = (4, 148), chorale.shape = (4, 148)
+18 17:04:47 - INFO - base_dir = '/home/prent/Repos/One-footed-bride-tuning', numpy_dir = '/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man', WAVE_DIR = '/home/prent/Repos/One-footed-bride-tuning/Music/sflib'
+18 17:04:47 - INFO - limit_value = 23, limit_denominator = 50, tonal_diamond_values.shape = (118, 3)
+18 17:04:47 - INFO - input_file = '/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/bwv253-trans-sa-opt.npy'
+18 17:04:48 - INFO - save_midi_file = False, 
+18 17:04:48 - INFO - version = 'bwv253', chorale.shape = (4, 160), root = 9, keys[root] = 'A♮', mode = 'major', time_sig = '4/4'
+18 17:04:48 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/bwv253top-notes.npy'
+18 17:04:48 - INFO - chorale_in_cents.shape = (4, 160), chorale.shape = (4, 160)
+18 17:04:48 - INFO - input_file = '/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/bwv254-trans-sa-opt.npy'
+18 17:04:48 - INFO - save_midi_file = False, 
+18 17:04:48 - INFO - version = 'bwv254', chorale.shape = (4, 176), root = 2, keys[root] = 'D♮', mode = 'minor', time_sig = '4/4'
+18 17:04:48 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/bwv254top-notes.npy'
+18 17:04:48 - INFO - chorale_in_cents.shape = (4, 176), chorale.shape = (4, 176)
+18 17:04:48 - INFO - input_file = '/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/bwv255-trans-sa-opt.npy'
+18 17:04:48 - INFO - save_midi_file = False, 
+18 17:04:48 - INFO - version = 'bwv255', chorale.shape = (4, 128), root = 7, keys[root] = 'G♮', mode = 'major', time_sig = '4/4'
+18 17:04:48 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/bwv255top-notes.npy'
+18 17:04:48 - INFO - chorale_in_cents.shape = (4, 128), chorale.shape = (4, 128)
+18 17:04:48 - INFO - input_file = '/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/bwv256-trans-sa-opt.npy'
+18 17:04:48 - INFO - save_midi_file = False, 
+18 17:04:48 - INFO - version = 'bwv256', chorale.shape = (4, 160), root = 9, keys[root] = 'A♮', mode = 'minor', time_sig = '4/4'
+18 17:04:48 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/bwv256top-notes.npy'
+18 17:04:48 - INFO - chorale_in_cents.shape = (4, 160), chorale.shape = (4, 160)
+18 17:04:48 - INFO - input_file = '/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/bwv257-trans-sa-opt.npy'
+18 17:04:48 - INFO - save_midi_file = False, 
+18 17:04:48 - INFO - version = 'bwv257', chorale.shape = (4, 160), root = 9, keys[root] = 'A♮', mode = 'minor', time_sig = '4/4'
+18 17:04:48 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/bwv257top-notes.npy'
+18 17:04:48 - INFO - chorale_in_cents.shape = (4, 160), chorale.shape = (4, 160)
+18 17:04:48 - INFO - input_file = '/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/bwv258-trans-sa-opt.npy'
+18 17:04:48 - INFO - save_midi_file = False, 
+18 17:04:48 - INFO - version = 'bwv258', chorale.shape = (4, 160), root = 11, keys[root] = 'B♮', mode = 'minor', time_sig = '4/4'
+18 17:04:48 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/bwv258top-notes.npy'
+18 17:04:48 - INFO - chorale_in_cents.shape = (4, 160), chorale.shape = (4, 160)
+18 17:04:48 - INFO - input_file = '/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/bwv259-trans-sa-opt.npy'
+18 17:04:48 - INFO - save_midi_file = False, 
+18 17:04:48 - INFO - version = 'bwv259', chorale.shape = (4, 192), root = 4, keys[root] = 'E♮', mode = 'minor', time_sig = '4/4'
+18 17:04:48 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/bwv259top-notes.npy'
+18 17:04:48 - INFO - chorale_in_cents.shape = (4, 192), chorale.shape = (4, 192)
+18 17:04:48 - INFO - input_file = '/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/bwv260-trans-sa-opt.npy'
+18 17:04:48 - INFO - save_midi_file = False, 
+18 17:04:48 - INFO - version = 'bwv260', chorale.shape = (4, 160), root = 7, keys[root] = 'G♮', mode = 'major', time_sig = '4/4'
+18 17:04:48 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/bwv260top-notes.npy'
+18 17:04:48 - INFO - chorale_in_cents.shape = (4, 160), chorale.shape = (4, 160)
+18 17:04:48 - INFO - input_file = '/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/bwv261-trans-sa-opt.npy'
+18 17:04:48 - INFO - save_midi_file = False, 
+18 17:04:48 - INFO - version = 'bwv261', chorale.shape = (4, 280), root = 11, keys[root] = 'B♮', mode = 'minor', time_sig = '4/4'
+18 17:04:48 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/bwv261top-notes.npy'
+18 17:04:48 - INFO - chorale_in_cents.shape = (4, 280), chorale.shape = (4, 280)
+18 17:04:48 - INFO - input_file = '/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/bwv262-trans-sa-opt.npy'
+18 17:04:48 - INFO - save_midi_file = False, 
+18 17:04:48 - INFO - version = 'bwv262', chorale.shape = (4, 192), root = 2, keys[root] = 'D♮', mode = 'major', time_sig = '4/4'
+18 17:04:48 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/bwv262top-notes.npy'
+18 17:04:48 - INFO - chorale_in_cents.shape = (4, 192), chorale.shape = (4, 192)
+18 17:04:48 - INFO - input_file = '/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/bwv263-trans-sa-opt.npy'
+18 17:04:48 - INFO - save_midi_file = False, 
+18 17:04:48 - INFO - version = 'bwv263', chorale.shape = (4, 192), root = 7, keys[root] = 'G♮', mode = 'major', time_sig = '4/4'
+18 17:04:48 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/bwv263top-notes.npy'
+18 17:04:48 - INFO - chorale_in_cents.shape = (4, 192), chorale.shape = (4, 192)
+18 17:04:48 - INFO - input_file = '/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/bwv264-trans-sa-opt.npy'
+18 17:04:48 - INFO - save_midi_file = False, 
+18 17:04:48 - INFO - version = 'bwv264', chorale.shape = (4, 148), root = 7, keys[root] = 'G♮', mode = 'major', time_sig = '4/4'
+18 17:04:48 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/bwv264top-notes.npy'
+18 17:04:48 - INFO - chorale_in_cents.shape = (4, 148), chorale.shape = (4, 148)
+18 17:04:48 - INFO - save_midi_file = False, 
+18 17:04:48 - INFO - version = 'bwv253', chorale.shape = (4, 160), root = 9, keys[root] = 'A♮', mode = 'major', time_sig = '4/4'
+18 17:04:48 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/bwv253top-notes.npy'
+18 17:04:48 - INFO - chorale_in_cents.shape = (4, 160), chorale.shape = (4, 160)
+18 17:04:48 - INFO - save_midi_file = False, 
+18 17:04:48 - INFO - version = 'bwv254', chorale.shape = (4, 176), root = 2, keys[root] = 'D♮', mode = 'minor', time_sig = '4/4'
+18 17:04:48 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/bwv254top-notes.npy'
+18 17:04:48 - INFO - chorale_in_cents.shape = (4, 176), chorale.shape = (4, 176)
+18 17:04:48 - INFO - save_midi_file = False, 
+18 17:04:48 - INFO - version = 'bwv255', chorale.shape = (4, 128), root = 7, keys[root] = 'G♮', mode = 'major', time_sig = '4/4'
+18 17:04:48 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/bwv255top-notes.npy'
+18 17:04:48 - INFO - chorale_in_cents.shape = (4, 128), chorale.shape = (4, 128)
+18 17:04:48 - INFO - save_midi_file = False, 
+18 17:04:48 - INFO - version = 'bwv256', chorale.shape = (4, 160), root = 9, keys[root] = 'A♮', mode = 'minor', time_sig = '4/4'
+18 17:04:48 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/bwv256top-notes.npy'
+18 17:04:48 - INFO - chorale_in_cents.shape = (4, 160), chorale.shape = (4, 160)
+18 17:04:48 - INFO - save_midi_file = False, 
+18 17:04:48 - INFO - version = 'bwv257', chorale.shape = (4, 160), root = 9, keys[root] = 'A♮', mode = 'minor', time_sig = '4/4'
+18 17:04:48 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/bwv257top-notes.npy'
+18 17:04:48 - INFO - chorale_in_cents.shape = (4, 160), chorale.shape = (4, 160)
+18 17:04:48 - INFO - save_midi_file = False, 
+18 17:04:48 - INFO - version = 'bwv258', chorale.shape = (4, 160), root = 11, keys[root] = 'B♮', mode = 'minor', time_sig = '4/4'
+18 17:04:48 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/bwv258top-notes.npy'
+18 17:04:48 - INFO - chorale_in_cents.shape = (4, 160), chorale.shape = (4, 160)
+18 17:04:48 - INFO - save_midi_file = False, 
+18 17:04:48 - INFO - version = 'bwv259', chorale.shape = (4, 192), root = 4, keys[root] = 'E♮', mode = 'minor', time_sig = '4/4'
+18 17:04:48 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/bwv259top-notes.npy'
+18 17:04:48 - INFO - chorale_in_cents.shape = (4, 192), chorale.shape = (4, 192)
+18 17:04:48 - INFO - save_midi_file = False, 
+18 17:04:48 - INFO - version = 'bwv260', chorale.shape = (4, 160), root = 7, keys[root] = 'G♮', mode = 'major', time_sig = '4/4'
+18 17:04:48 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/bwv260top-notes.npy'
+18 17:04:48 - INFO - chorale_in_cents.shape = (4, 160), chorale.shape = (4, 160)
+18 17:04:48 - INFO - save_midi_file = False, 
+18 17:04:48 - INFO - version = 'bwv261', chorale.shape = (4, 280), root = 11, keys[root] = 'B♮', mode = 'minor', time_sig = '4/4'
+18 17:04:48 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/bwv261top-notes.npy'
+18 17:04:48 - INFO - chorale_in_cents.shape = (4, 280), chorale.shape = (4, 280)
+18 17:04:48 - INFO - save_midi_file = False, 
+18 17:04:48 - INFO - version = 'bwv262', chorale.shape = (4, 192), root = 2, keys[root] = 'D♮', mode = 'major', time_sig = '4/4'
+18 17:04:48 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/bwv262top-notes.npy'
+18 17:04:48 - INFO - chorale_in_cents.shape = (4, 192), chorale.shape = (4, 192)
+18 17:04:48 - INFO - save_midi_file = False, 
+18 17:04:48 - INFO - version = 'bwv263', chorale.shape = (4, 192), root = 7, keys[root] = 'G♮', mode = 'major', time_sig = '4/4'
+18 17:04:48 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/bwv263top-notes.npy'
+18 17:04:48 - INFO - chorale_in_cents.shape = (4, 192), chorale.shape = (4, 192)
+18 17:04:48 - INFO - save_midi_file = False, 
+18 17:04:48 - INFO - version = 'bwv264', chorale.shape = (4, 148), root = 7, keys[root] = 'G♮', mode = 'major', time_sig = '4/4'
+18 17:04:48 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/bwv264top-notes.npy'
+18 17:04:48 - INFO - chorale_in_cents.shape = (4, 148), chorale.shape = (4, 148)
+18 17:05:16 - INFO - save_midi_file = False, 
+18 17:05:16 - INFO - version = 'bwv253', chorale.shape = (4, 160), root = 9, keys[root] = 'A♮', mode = 'major', time_sig = '4/4'
+18 17:05:16 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/bwv253top-notes.npy'
+18 17:05:16 - INFO - chorale_in_cents.shape = (4, 160), chorale.shape = (4, 160)
+18 17:05:16 - INFO - save_midi_file = False, 
+18 17:05:16 - INFO - version = 'bwv254', chorale.shape = (4, 176), root = 2, keys[root] = 'D♮', mode = 'minor', time_sig = '4/4'
+18 17:05:16 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/bwv254top-notes.npy'
+18 17:05:16 - INFO - chorale_in_cents.shape = (4, 176), chorale.shape = (4, 176)
+18 17:05:16 - INFO - save_midi_file = False, 
+18 17:05:16 - INFO - version = 'bwv255', chorale.shape = (4, 128), root = 7, keys[root] = 'G♮', mode = 'major', time_sig = '4/4'
+18 17:05:16 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/bwv255top-notes.npy'
+18 17:05:16 - INFO - chorale_in_cents.shape = (4, 128), chorale.shape = (4, 128)
+18 17:05:16 - INFO - save_midi_file = False, 
+18 17:05:16 - INFO - version = 'bwv256', chorale.shape = (4, 160), root = 9, keys[root] = 'A♮', mode = 'minor', time_sig = '4/4'
+18 17:05:16 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/bwv256top-notes.npy'
+18 17:05:16 - INFO - chorale_in_cents.shape = (4, 160), chorale.shape = (4, 160)
+18 17:05:16 - INFO - save_midi_file = False, 
+18 17:05:16 - INFO - version = 'bwv257', chorale.shape = (4, 160), root = 9, keys[root] = 'A♮', mode = 'minor', time_sig = '4/4'
+18 17:05:16 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/bwv257top-notes.npy'
+18 17:05:16 - INFO - chorale_in_cents.shape = (4, 160), chorale.shape = (4, 160)
+18 17:05:16 - INFO - save_midi_file = False, 
+18 17:05:16 - INFO - version = 'bwv258', chorale.shape = (4, 160), root = 11, keys[root] = 'B♮', mode = 'minor', time_sig = '4/4'
+18 17:05:16 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/bwv258top-notes.npy'
+18 17:05:16 - INFO - chorale_in_cents.shape = (4, 160), chorale.shape = (4, 160)
+18 17:05:16 - INFO - save_midi_file = False, 
+18 17:05:16 - INFO - version = 'bwv259', chorale.shape = (4, 192), root = 4, keys[root] = 'E♮', mode = 'minor', time_sig = '4/4'
+18 17:05:16 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/bwv259top-notes.npy'
+18 17:05:16 - INFO - chorale_in_cents.shape = (4, 192), chorale.shape = (4, 192)
+18 17:05:16 - INFO - save_midi_file = False, 
+18 17:05:16 - INFO - version = 'bwv260', chorale.shape = (4, 160), root = 7, keys[root] = 'G♮', mode = 'major', time_sig = '4/4'
+18 17:05:16 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/bwv260top-notes.npy'
+18 17:05:16 - INFO - chorale_in_cents.shape = (4, 160), chorale.shape = (4, 160)
+18 17:05:16 - INFO - save_midi_file = False, 
+18 17:05:16 - INFO - version = 'bwv261', chorale.shape = (4, 280), root = 11, keys[root] = 'B♮', mode = 'minor', time_sig = '4/4'
+18 17:05:16 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/bwv261top-notes.npy'
+18 17:05:16 - INFO - chorale_in_cents.shape = (4, 280), chorale.shape = (4, 280)
+18 17:05:16 - INFO - save_midi_file = False, 
+18 17:05:16 - INFO - version = 'bwv262', chorale.shape = (4, 192), root = 2, keys[root] = 'D♮', mode = 'major', time_sig = '4/4'
+18 17:05:16 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/bwv262top-notes.npy'
+18 17:05:16 - INFO - chorale_in_cents.shape = (4, 192), chorale.shape = (4, 192)
+18 17:05:16 - INFO - save_midi_file = False, 
+18 17:05:16 - INFO - version = 'bwv263', chorale.shape = (4, 192), root = 7, keys[root] = 'G♮', mode = 'major', time_sig = '4/4'
+18 17:05:16 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/bwv263top-notes.npy'
+18 17:05:16 - INFO - chorale_in_cents.shape = (4, 192), chorale.shape = (4, 192)
+18 17:05:16 - INFO - save_midi_file = False, 
+18 17:05:16 - INFO - version = 'bwv264', chorale.shape = (4, 148), root = 7, keys[root] = 'G♮', mode = 'major', time_sig = '4/4'
+18 17:05:16 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/bwv264top-notes.npy'
+18 17:05:16 - INFO - chorale_in_cents.shape = (4, 148), chorale.shape = (4, 148)

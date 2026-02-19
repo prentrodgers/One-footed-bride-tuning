@@ -1484,15 +1484,19 @@ def chorale_to_wave_v4(version, album, include_sections, limit_max=47,\
 #### Take an already tuned chorale and make a full piece of music out of it ####
 ################################################################################
 ################################################################################
-def mainline(chorale_override=None, short_repeats=False, include_list=None, csound=True, convolve=True, 
+def mainline(chorale_override=None, short_repeats=False, include_list=None, csound=True, convolve=True,
              mp3=True, max_cents_slide=35, melody_sustain=3, cent_file_partial='-trans-sa-opt.npy',
-             show_volumes=True, mod_letter='a', album=3, use_werck_top_notes=False, tolerance=1):
+             show_volumes=True, mod_letter='a', album=3, use_werck_top_notes=False, tolerance=1,
+             numpy_dir_arg=None):
       if include_list is None:
             include_list = []
-      
-      # Override numpy_dir to use the tolerance-specific directory
+
+      # Override numpy_dir: use explicit argument if provided, otherwise use tolerance-specific directory
       global numpy_dir
-      numpy_dir = os.path.join(local_dir, 'Archive', 'opt', f'tolerance-{tolerance}')
+      if numpy_dir_arg is not None:
+            numpy_dir = os.path.join(local_dir, numpy_dir_arg) if not os.path.isabs(numpy_dir_arg) else numpy_dir_arg
+      else:
+            numpy_dir = os.path.join(local_dir, 'Archive', 'opt', f'tolerance-{tolerance}')
       
       total_cache_count_sr = 0
       non_cached_count_sr = 0
@@ -1659,12 +1663,14 @@ if __name__ == "__main__":
                           help="Use Werckmeister top notes (default: False)")
       parser.add_argument("--tolerance", dest="tolerance", type=int, default=1,
                           help="Tolerance level for matching intervals (1, 2, 3, or 4) (default: 1)")
+      parser.add_argument("--numpy_dir", dest="numpy_dir", type=str, default=None,
+                          help="Directory containing the numpy cent arrays (default: Archive/opt)")
       args = parser.parse_args()
       mainline(chorale_override=args.chorale_name, short_repeats=args.short_repeats,
                include_list=args.include_list, csound=args.csound, convolve=args.convolve,
                mp3=args.mp3, max_cents_slide=args.max_cents_slide, melody_sustain=args.melody_sustain,
                cent_file_partial=args.cent_file_partial, show_volumes=args.show_volumes,
                mod_letter=args.mod_letter, album=args.album, use_werck_top_notes=args.use_werck_top_notes,
-               tolerance=args.tolerance)
+               tolerance=args.tolerance, numpy_dir_arg=args.numpy_dir)
 
 

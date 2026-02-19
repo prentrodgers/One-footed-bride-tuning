@@ -112,7 +112,16 @@ def build_straw_man_chord_sa(cent_value_chord, cent_value_chord_prev, chord_num,
                 if indices_to_tonal_diamond.size == 0:
                     continue
 
-                num_available = min(len(indices_to_tonal_diamond), 15)
+                # Filter to only ratios that preserve the pitch class of the target voice (hard constraint)
+                required_pc = int(initial_midi_chord[interval_inx[1]])
+                pc_valid = [
+                    idx for idx in indices_to_tonal_diamond[:min(len(indices_to_tonal_diamond), 15)]
+                    if round(((proposed[interval_inx[0]] + tonal_diamond[idx][1] * cent_value_moves) % 1200) / 100) % 12 == required_pc
+                ]
+                if len(pc_valid) == 0:
+                    continue  # no ratio preserves pitch class; skip this interval
+
+                num_available = len(pc_valid)
 
                 # Temperature-dependent ratio selection
                 if num_available > 1:
@@ -125,8 +134,8 @@ def build_straw_man_chord_sa(cent_value_chord, cent_value_chord_prev, chord_num,
                 else:
                     interval_choice = 0
 
-                # Apply the interval change
-                proposed[interval_inx[1]] = (proposed[interval_inx[0]] + tonal_diamond[indices_to_tonal_diamond[interval_choice]][1] * cent_value_moves) % 1200
+                # Apply the interval change (pitch class is guaranteed preserved)
+                proposed[interval_inx[1]] = (proposed[interval_inx[0]] + tonal_diamond[pc_valid[interval_choice]][1] * cent_value_moves) % 1200
 
             # SA accept/reject on the COMPLETED chord
             new_score = chord_scorer.score_chord(proposed, tolerance=tolerance)

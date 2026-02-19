@@ -1,47 +1,47 @@
-09 10:11:46 - INFO - limit_value = 19, limit_denominator = 50, tonal_diamond_values.shape = (84, 3)
-09 10:11:46 - INFO - save_midi_file = False, 
-09 10:11:46 - INFO - version = 'bwv264', chorale.shape = (4, 148), root = 7, keys[root] = 'G♮', mode = 'major', time_sig = '4/4'
-09 10:11:46 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Dropbox/Tutorials/TonicNet/One-footed-bride-tuning/Archive/opt/tolerance-3/bwv264top-notes.npy'
-09 10:11:46 - INFO - chorale_in_cents.shape = (4, 148), chorale.shape = (4, 148)
-09 10:11:46 - INFO - Current top_notes:
-09 10:11:46 - INFO -    0    1    2    3    4    5    6    7    8    9   10   11
-09 10:11:46 - INFO -   G♮   C♮   C♯   D♮   D♯   E♮   F♮   F♯   G♯   A♮   A♯   B♮
-09 10:11:46 - INFO -    7    0    1    2    3    4    5    6    8    9   10   11
-09 10:11:46 - INFO -  700    0  100  200  300  400  500  600  800  900 1000 1100
-09 10:11:46 - INFO - version = 'bwv264', chorale.shape = (4, 148), cent_value_chorale.shape = (4, 148), top_notes.shape = (2, 12), short_repeats = True
-09 10:11:46 - INFO - chorale_in_cents_octaves.shape = (4, 148, 2), choral_octaves_repeated.shape = (4, 148, 2)
-09 10:11:46 - INFO - repeats.shape = (1,), after merging octaves and cents chorale_in_cents_octaves.shape = (4, 148, 2), after repeats applied: choral_octaves_repeated.shape = (4, 148, 2)
-09 10:11:46 - INFO - Before fixing octave values based on 1150+ cent values: (array([3., 4., 5., 6.]), array([ 54, 152, 362,  24]))
-09 10:11:46 - INFO - After fixing octave values based on 1150+ cent values: (array([3., 4., 5., 6.]), array([ 56, 159, 363,  14]))
-09 10:11:46 - INFO - about to call build_glides_array with choral_octaves_repeated.shape = (4, 148, 2)
-09 10:11:46 - INFO - stored_gliss.shape = (0, 9)
-09 10:11:46 - INFO - min_delta_cents = -23.0, max_delta_cents = 26.0
-09 10:11:46 - INFO - end of build_glides_array. chorale_in_cents_slides.shape = (4, 148, 2), glides.shape = (4, 148), stored_gliss.shape = (9, 9), t_num = 1509
-09 10:11:46 - INFO - Back in main line. back from build_glides_array. glides.shape = (4, 148), stored_gliss.shape = (9, 9), t_num = 1509
-09 10:11:46 - INFO - about to call expand_chorale with choral_octaves_repeated.shape = (4, 148, 2)
-chorale_in_cents_slides.shape = (4, 148, 2)
-09 10:11:46 - INFO - In expand_chorale. chorale_in_cents_slides.shape = (4, 148, 2), glides.shape = (4, 148), stored_gliss.shape = (9, 9) include_instruments = [],
-09 10:11:46 - INFO - repeats.shape = (1,), repeats_average = 2, quantization = 3
-09 10:11:46 - INFO - repeats_average * quantization = 6, tempo = 30
-09 10:11:46 - INFO - probabilities: probs.shape[0] = 6, round(step,4) = 0.0539, round(np.max(probs[:,1]),4) = 0.108, round(np.average(probs[:,1]),4) = 0.054, round(1 - max_silence, 4) = 1
-09 10:11:46 - INFO - before shuffle: [np.sum(vol) for vol in volume_function.T] = [16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16]
-09 10:11:46 - INFO - after shuffle: [np.sum(vol) for vol in volume_function.T] = [16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16]
-09 10:11:46 - INFO - volume_function.shape = (14,), chorale_in_cents_slides.shape[1] = 148, repeats = 2, sustain = 15, vol_arr_size = 56
-09 10:11:46 - INFO - volume_function = array([2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2])
-09 10:11:46 - INFO - volume_function.shape = (14,), chorale_in_cents_slides.shape[1] = 148, repeats = 2, sustain = 15, vol_arr_size = 14
-09 10:11:46 - INFO - volume_function = array([2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2])
-09 10:11:46 - INFO - print_only = 10
-09 10:11:46 - INFO -  1	2	3	4	5	6	7	8	9	0	11	12	13	14
-09 10:11:46 - INFO - Sta	Hold	Vel	Ton	Oct	Voi	Ste	En1	Gls	Ups	Ren	2gl	3gl	Vol
-09 10:11:46 - INFO - 0.0	1.01	61.0	1093.0	3.0	13.0	9.0	1.0	0.0	1.0	1.0	0.0	0.0	14.0
-09 10:11:46 - INFO - 0.0	1.01	61.0	209.0	4.0	25.0	2.0	16.0	0.0	2.0	16.0	0.0	0.0	15.0
-09 10:11:46 - INFO - 0.0	1.01	61.0	707.0	3.0	16.0	11.0	1.0	0.0	2.0	1.0	0.0	0.0	16.0
-09 10:11:46 - INFO - 0.0	1.01	63.0	707.0	3.0	26.0	8.0	1.0	0.0	2.0	1.0	0.0	0.0	15.0
-09 10:11:46 - INFO - 0.0	1.01	63.0	707.0	3.0	16.0	9.0	16.0	0.0	1.0	16.0	0.0	0.0	16.0
-09 10:11:46 - INFO - 0.0	1.01	63.0	707.0	3.0	12.0	3.0	16.0	0.0	2.0	16.0	0.0	0.0	16.0
-09 10:11:46 - INFO - 0.0	1.01	63.0	707.0	3.0	26.0	12.0	16.0	0.0	2.0	16.0	0.0	0.0	15.0
-09 10:11:46 - INFO - 0.0	1.01	63.0	209.0	4.0	14.0	11.0	16.0	0.0	2.0	16.0	0.0	0.0	17.0
-09 10:11:46 - INFO - 0.0	1.01	63.0	1093.0	3.0	13.0	13.0	1.0	0.0	2.0	1.0	0.0	0.0	14.0
-09 10:11:46 - INFO - 0.0	1.01	61.0	209.0	4.0	14.0	9.0	1.0	0.0	1.0	1.0	0.0	0.0	17.0
-09 10:11:50 - INFO - about to call trim_csound. mod = '64a_a0.05_w1.00_d01_20_t030', duration = 80.0
-09 10:11:52 - INFO - End of song generation step
+18 16:16:36 - INFO - limit_value = 19, limit_denominator = 50, tonal_diamond_values.shape = (84, 3)
+18 16:16:36 - INFO - save_midi_file = False, 
+18 16:16:36 - INFO - version = 'bwv253', chorale.shape = (4, 160), root = 9, keys[root] = 'A♮', mode = 'major', time_sig = '4/4'
+18 16:16:36 - INFO - In load_chorale_in_cents. About to load top_notes from file_name = '/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/bwv253top-notes.npy'
+18 16:16:36 - INFO - chorale_in_cents.shape = (4, 160), chorale.shape = (4, 160)
+18 16:16:36 - INFO - Current top_notes:
+18 16:16:36 - INFO -    0    1    2    3    4    5    6    7    8    9   10   11
+18 16:16:36 - INFO -   A♮   C♮   C♯   D♮   D♯   E♮   F♮   F♯   G♮   G♯   A♯   B♮
+18 16:16:36 - INFO -    9    0    1    2    3    4    5    6    7    8   10   11
+18 16:16:36 - INFO -  900    0  100  200  300  400  500  600  700  800 1000 1100
+18 16:16:36 - INFO - version = 'bwv253', chorale.shape = (4, 160), cent_value_chorale.shape = (4, 160), top_notes.shape = (2, 12), short_repeats = True
+18 16:16:36 - INFO - chorale_in_cents_octaves.shape = (4, 160, 2), choral_octaves_repeated.shape = (4, 160, 2)
+18 16:16:36 - INFO - repeats.shape = (1,), after merging octaves and cents chorale_in_cents_octaves.shape = (4, 160, 2), after repeats applied: choral_octaves_repeated.shape = (4, 160, 2)
+18 16:16:36 - INFO - Before fixing octave values based on 1150+ cent values: (array([3., 4., 5., 6.]), array([ 36, 224, 324,  56]))
+18 16:16:36 - INFO - After fixing octave values based on 1150+ cent values: (array([3., 4., 5., 6.]), array([ 36, 224, 324,  56]))
+18 16:16:36 - INFO - about to call build_glides_array with choral_octaves_repeated.shape = (4, 160, 2)
+18 16:16:36 - INFO - stored_gliss.shape = (0, 9)
+18 16:16:36 - INFO - min_delta_cents = -22.0, max_delta_cents = 31.0
+18 16:16:36 - INFO - end of build_glides_array. chorale_in_cents_slides.shape = (4, 160, 2), glides.shape = (4, 160), stored_gliss.shape = (9, 9), t_num = 1509
+18 16:16:36 - INFO - Back in main line. back from build_glides_array. glides.shape = (4, 160), stored_gliss.shape = (9, 9), t_num = 1509
+18 16:16:36 - INFO - about to call expand_chorale with choral_octaves_repeated.shape = (4, 160, 2)
+chorale_in_cents_slides.shape = (4, 160, 2)
+18 16:16:36 - INFO - In expand_chorale. chorale_in_cents_slides.shape = (4, 160, 2), glides.shape = (4, 160), stored_gliss.shape = (9, 9) include_instruments = [],
+18 16:16:36 - INFO - repeats.shape = (1,), repeats_average = 2, quantization = 3
+18 16:16:36 - INFO - repeats_average * quantization = 6, tempo = 38
+18 16:16:36 - INFO - probabilities: probs.shape[0] = 5, round(step,4) = 0.034, round(np.max(probs[:,1]),4) = 0.1359, round(np.average(probs[:,1]),4) = 0.068, round(1 - max_silence, 4) = 1
+18 16:16:36 - INFO - before shuffle: [np.sum(vol) for vol in volume_function.T] = [16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16]
+18 16:16:36 - INFO - after shuffle: [np.sum(vol) for vol in volume_function.T] = [16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16]
+18 16:16:36 - INFO - volume_function.shape = (14,), chorale_in_cents_slides.shape[1] = 160, repeats = 2, sustain = 15, vol_arr_size = 56
+18 16:16:36 - INFO - volume_function = array([2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2])
+18 16:16:36 - INFO - volume_function.shape = (14,), chorale_in_cents_slides.shape[1] = 160, repeats = 2, sustain = 15, vol_arr_size = 28
+18 16:16:36 - INFO - volume_function = array([2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2])
+18 16:16:36 - INFO - print_only = 10
+18 16:16:36 - INFO -  1	2	3	4	5	6	7	8	9	0	11	12	13	14
+18 16:16:36 - INFO - Sta	Hold	Vel	Ton	Oct	Voi	Ste	En1	Gls	Ups	Ren	2gl	3gl	Vol
+18 16:16:36 - INFO - 0.0	2.02	61.0	910.0	4.0	13.0	8.0	16.0	0.0	1.0	16.0	0.0	0.0	14.0
+18 16:16:36 - INFO - 0.0	2.02	63.0	910.0	4.0	25.0	1.0	16.0	0.0	2.0	16.0	0.0	0.0	15.0
+18 16:16:36 - INFO - 0.0	1.01	61.0	910.0	2.0	12.0	15.0	1.0	0.0	1.0	1.0	0.0	0.0	16.0
+18 16:16:36 - INFO - 0.0	1.52	61.0	96.0	5.0	14.0	8.0	1.0	0.0	1.0	1.0	0.0	0.0	17.0
+18 16:16:36 - INFO - 0.0	1.01	61.0	910.0	2.0	12.0	9.0	16.0	0.0	1.0	16.0	0.0	0.0	16.0
+18 16:16:36 - INFO - 0.0	2.02	63.0	910.0	4.0	13.0	5.0	1.0	0.0	2.0	1.0	0.0	0.0	14.0
+18 16:16:36 - INFO - 0.0	1.01	61.0	910.0	2.0	27.0	14.0	1.0	0.0	1.0	1.0	0.0	0.0	16.0
+18 16:16:36 - INFO - 0.0	4.54	61.0	412.0	4.0	16.0	1.0	1.0	0.0	1.0	1.0	0.0	0.0	16.0
+18 16:16:36 - INFO - 0.0	1.52	61.0	96.0	5.0	25.0	8.0	1.0	0.0	1.0	1.0	0.0	0.0	15.0
+18 16:16:36 - INFO - 0.0	4.54	63.0	412.0	4.0	16.0	16.0	16.0	0.0	2.0	16.0	0.0	0.0	16.0
+18 16:16:39 - INFO - about to call trim_csound. mod = '53a_a0.07_w1.00_d01_09_t038', duration = 69.0
+18 16:16:41 - INFO - End of song generation step

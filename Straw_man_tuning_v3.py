@@ -196,10 +196,15 @@ def build_straw_man_chord_v2(cent_value_chord,
                     continue
 
                 # Filter out any ratio choice that would create a "missing" interval
+                # or change the pitch class of the target voice (hard constraint).
+                required_pc = int(initial_midi_chord[interval_inx[1]])
                 valid_candidate_indices = []
                 for idx in indices_to_tonal_diamond:
                     # compute the new cent value for the target note if we used this ratio
                     new_cent = (candidate[interval_inx[0]] + tonal_diamond[int(idx)][1] * cent_value_moves) % 1200
+                    # Enforce pitch class preservation (hard constraint — Bach chose them with God on his shoulder)
+                    if round(new_cent / 100) % 12 != required_pc:
+                        continue
                     ok = True
                     # check the new note against every other note in the candidate chord
                     for j in range(chord_size):
@@ -216,10 +221,16 @@ def build_straw_man_chord_v2(cent_value_chord,
 
                 if len(valid_candidate_indices) == 0:
                     if current_score >= 1000:
-                        # Chord is already bad — fall back to unfiltered
-                        # candidates so the SA can explore aggressively.
-                        valid_candidate_indices = [int(i) for i in indices_to_tonal_diamond]
-                        logging.debug(f'chord#: {chord_num} filter fallback: using unfiltered ratios (current_score={current_score})')
+                        # Chord is already bad — fall back to unfiltered missing-interval check,
+                        # but still enforce pitch class as a hard constraint.
+                        valid_candidate_indices = [
+                            int(i) for i in indices_to_tonal_diamond
+                            if round(((candidate[interval_inx[0]] + tonal_diamond[int(i)][1] * cent_value_moves) % 1200) / 100) % 12 == required_pc
+                        ]
+                        if len(valid_candidate_indices) == 0:
+                            logging.debug(f'chord#: {chord_num} no ratio preserves pitch class for {interval_inx}; skipping interval update')
+                            continue
+                        logging.debug(f'chord#: {chord_num} filter fallback: using pitch-class-preserving unfiltered ratios (current_score={current_score})')
                     else:
                         logging.debug(f'chord#: {chord_num} no valid ratio choices that avoid missing intervals for {interval_inx}; skipping interval update')
                         continue
