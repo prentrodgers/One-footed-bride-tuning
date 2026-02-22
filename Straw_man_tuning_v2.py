@@ -77,7 +77,7 @@ def build_straw_man_chord_sa(cent_value_chord, cent_value_chord_prev, chord_num,
                               chord_scorer, low_number_ratios, tonal_diamond,
                               tolerance=1, print_values=False, rolls=4,
                               sa_iterations=100, initial_temperature=2.0, cooling_rate=0.995,
-                              rng=None):
+                              rng=None, ratio_factor=1.0):
     if rng is None:
         rng = np.random.default_rng()
     logging.info(f'chord#: {chord_num} In build_straw_man_chord_sa. {tolerance = }, {sa_iterations = }, {initial_temperature = }, {cooling_rate = }')
@@ -107,7 +107,7 @@ def build_straw_man_chord_sa(cent_value_chord, cent_value_chord_prev, chord_num,
                 cent_value_delta, cent_value_moves, cent_value_target = atu.cent_value_interval(cent_value_interval)
 
                 cent_value_target = find_cent_value_prev_target(pitch_class_target, pitch_class_chord_prev, cent_value_chord_prev, chord_num)
-                indices_to_tonal_diamond, _ = low_number_ratios.select_ratios(cent_value_interval, cent_value_target, tolerance)
+                indices_to_tonal_diamond, _ = low_number_ratios.select_ratios(cent_value_interval, cent_value_target, tolerance, ratio_factor=ratio_factor)
 
                 if indices_to_tonal_diamond.size == 0:
                     continue
@@ -116,7 +116,7 @@ def build_straw_man_chord_sa(cent_value_chord, cent_value_chord_prev, chord_num,
                 required_pc = int(initial_midi_chord[interval_inx[1]])
                 pc_valid = [
                     idx for idx in indices_to_tonal_diamond[:min(len(indices_to_tonal_diamond), 15)]
-                    if round(((proposed[interval_inx[0]] + tonal_diamond[idx][1] * cent_value_moves) % 1200) / 100) % 12 == required_pc
+                    if int(atu.pitch_class_from_cents((proposed[interval_inx[0]] + tonal_diamond[idx][1] * cent_value_moves) % 1200)) == required_pc
                 ]
                 if len(pc_valid) == 0:
                     continue  # no ratio preserves pitch class; skip this interval
@@ -173,6 +173,7 @@ def tune_chorale_worker(args_dict):
     sa_iterations = args_dict['sa_iterations']
     initial_temperature = args_dict['initial_temperature']
     cooling_rate = args_dict['cooling_rate']
+    ratio_factor = args_dict.get('ratio_factor', 1.0)
 
     chord_scorer = atu.ChordScorer(tonal_diamond)
     low_number_ratios = atu.LowNumberRatioIntervals(tonal_diamond)
@@ -195,7 +196,7 @@ def tune_chorale_worker(args_dict):
                 chord_scorer, low_number_ratios, tonal_diamond,
                 tolerance=tolerance, print_values=False, rolls=rolls,
                 sa_iterations=sa_iterations, initial_temperature=initial_temperature, cooling_rate=cooling_rate,
-                rng=worker_rng)
+                rng=worker_rng, ratio_factor=ratio_factor)
             tuned_cent_value_chord = tuned_cent_value_chord_compressed[cent_value_inverse]
 
         final_cent_value_chorale[inx] = tuned_cent_value_chord.copy()
@@ -242,6 +243,7 @@ def parse_args():
     parser.add_argument('--sa_iterations', type=int, default=100, help='Number of SA iterations per chord per roll (default: 100)')
     parser.add_argument('--initial_temperature', type=float, default=2.0, help='Starting SA temperature (default: 2.0)')
     parser.add_argument('--cooling_rate', type=float, default=0.995, help='Temperature multiplier per iteration (default: 0.995)')
+    parser.add_argument('--ratio_factor', type=float, default=1.0, help='Consonance/stability trade-off: high favours low-limit ratios, low favours staying near the current interval; balance point ~1.7 (default: 1.0)')
     parser.add_argument('--include_list', type=str, default=None,
                         help='Slice of chords to include, e.g. "8:17" (default: None, use all chords)')
     parser.add_argument('--chorale_list', type=str, nargs='+', default=['bwv253'],
@@ -331,7 +333,7 @@ def main():
                         chord_scorer, low_number_ratios, tonal_diamond,
                         tolerance=tolerance, print_values=print_values, rolls=rolls,
                         sa_iterations=sa_iterations, initial_temperature=initial_temperature, cooling_rate=cooling_rate,
-                        rng=rng)
+                        rng=rng, ratio_factor=args.ratio_factor)
                     # decompress it
                     tuned_cent_value_chord = tuned_cent_value_chord_compressed[cent_value_inverse]
                     tuned_pitch_class_chord = atu.pitch_class_from_cents(tuned_cent_value_chord)
@@ -374,6 +376,7 @@ def main():
                     'sa_iterations': sa_iterations,
                     'initial_temperature': initial_temperature,
                     'cooling_rate': cooling_rate,
+                    'ratio_factor': args.ratio_factor,
                 } for s in seeds]
 
                 t0 = time.time()
@@ -402,7 +405,7 @@ def main():
             final_cent_value_chorale, final_score = load_and_merge_previous(
                 output_file, final_cent_value_chorale, final_score, chord_scorer, tolerance)
 
-        print(f'{version = }, chords: {final_cent_value_chorale.shape[0]}, {tolerance = }, {rolls = }, {limit_max = }, {sa_iterations = }, {initial_temperature = }, {cooling_rate = }')
+        print(f'{version = }, chords: {final_cent_value_chorale.shape[0]}, {tolerance = }, {rolls = }, {limit_max = }, {sa_iterations = }, {initial_temperature = }, {cooling_rate = }, {args.ratio_factor = }')
 
         print(
             f"mean: {np.round(np.mean(final_score),1)}, ",
@@ -429,6 +432,7 @@ def main():
             f.write(f"rolls: {rolls}\n")
             f.write(f"tolerance: {tolerance}\n")
             f.write(f"limit_max: {limit_max}\n")
+            f.write(f"ratio_factor: {args.ratio_factor}\n")
 
 if __name__ == '__main__':
     main()

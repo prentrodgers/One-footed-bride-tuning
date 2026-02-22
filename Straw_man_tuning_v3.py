@@ -86,7 +86,8 @@ def _sa_restart_worker(seed_restart,
                        sa_iters,
                        sa_max_alpha,
                        rolls,
-                       tonal_diamond):
+                       tonal_diamond,
+                       ratio_factor=1.0):
     """Worker wrapper executed in a separate process for one SA restart.
 
     Returns: (tuned_chord_compressed, changed, unchanged, score, canonical)
@@ -115,7 +116,8 @@ def _sa_restart_worker(seed_restart,
         print_values=False,
         rolls=rolls,
         sa_iters=sa_iters,
-        sa_max_alpha=sa_max_alpha
+        sa_max_alpha=sa_max_alpha,
+        ratio_factor=ratio_factor,
     )
     score = chord_scorer_local.score_chord(tuned, tolerance=tolerance)
     canon = tuple(((tuned - tuned.min()) % 1200).astype(int))
@@ -132,7 +134,8 @@ def build_straw_man_chord_v2(cent_value_chord,
                              print_values=False,
                              rolls=4,
                              sa_iters=20,
-                             sa_max_alpha=5.0):
+                             sa_max_alpha=5.0,
+                             ratio_factor=1.0):
     """Build a tuned chord using simulated annealing over the whole chord.
 
     For each roll (like original), we run `sa_iters` simulated-annealing
@@ -189,7 +192,7 @@ def build_straw_man_chord_v2(cent_value_chord,
                 if pitch_class_target in pitch_class_chord_prev:
                     cent_value_target_hint = np.unique(cent_value_chord_prev[np.where(pitch_class_chord_prev == pitch_class_target)])[0]
 
-                indices_to_tonal_diamond, _ = low_number_ratios.select_ratios(cent_value_interval, cent_value_target_hint, tolerance)
+                indices_to_tonal_diamond, _ = low_number_ratios.select_ratios(cent_value_interval, cent_value_target_hint, tolerance, ratio_factor=ratio_factor)
 
                 if indices_to_tonal_diamond.size == 0:
                     logging.debug(f'chord#: {chord_num} no ratios found for this interval. skipping. {pitch_class_interval = }, {cent_value_interval = }')
@@ -203,7 +206,7 @@ def build_straw_man_chord_v2(cent_value_chord,
                     # compute the new cent value for the target note if we used this ratio
                     new_cent = (candidate[interval_inx[0]] + tonal_diamond[int(idx)][1] * cent_value_moves) % 1200
                     # Enforce pitch class preservation (hard constraint — Bach chose them with God on his shoulder)
-                    if round(new_cent / 100) % 12 != required_pc:
+                    if int(atu.pitch_class_from_cents(new_cent)) != required_pc:
                         continue
                     ok = True
                     # check the new note against every other note in the candidate chord
@@ -225,7 +228,7 @@ def build_straw_man_chord_v2(cent_value_chord,
                         # but still enforce pitch class as a hard constraint.
                         valid_candidate_indices = [
                             int(i) for i in indices_to_tonal_diamond
-                            if round(((candidate[interval_inx[0]] + tonal_diamond[int(i)][1] * cent_value_moves) % 1200) / 100) % 12 == required_pc
+                            if int(atu.pitch_class_from_cents((candidate[interval_inx[0]] + tonal_diamond[int(i)][1] * cent_value_moves) % 1200)) == required_pc
                         ]
                         if len(valid_candidate_indices) == 0:
                             logging.debug(f'chord#: {chord_num} no ratio preserves pitch class for {interval_inx}; skipping interval update')
@@ -324,6 +327,7 @@ def parse_args():
     parser.add_argument('--parallel_restarts', type=int, default=1, help='Run SA restarts in parallel across this many workers (default: 1)')
     parser.add_argument('--restart_repeat_threshold', type=int, default=3, help='Early-stop if the same (transposition-invariant) chord appears this many times across restarts (default: 3)')
     parser.add_argument('--seed', type=int, default=None, help='Optional RNG seed for reproducible runs')
+    parser.add_argument('--ratio_factor', type=float, default=1.0, help='Consonance/stability trade-off: high favours low-limit ratios, low favours staying near the current interval; balance point ~1.7 (default: 1.0)')
     return parser.parse_args()
 
 
@@ -417,7 +421,8 @@ def main():
                                     args.sa_iters,
                                     args.sa_max_alpha,
                                     rolls,
-                                    tonal_diamond
+                                    tonal_diamond,
+                                    args.ratio_factor,
                                 )
                                 futures[fut] = restart_index
                                 restart_index += 1
@@ -453,7 +458,8 @@ def main():
                             initial_cent_value_chord_compressed, cent_value_chord_prev, inx,
                             chord_scorer, low_number_ratios, tonal_diamond,
                             tolerance=tolerance, print_values=args.print_values, rolls=rolls,
-                            sa_iters=args.sa_iters, sa_max_alpha=args.sa_max_alpha
+                            sa_iters=args.sa_iters, sa_max_alpha=args.sa_max_alpha,
+                            ratio_factor=args.ratio_factor,
                         )
 
                         # canonicalize by transposition (subtract min and mod 1200)

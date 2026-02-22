@@ -2764,14 +2764,14 @@ class LowNumberRatioIntervals():
         self.hits = 0
         self.misses = 0
       
-    def _select_ratios(self, interval, cent_value_target_prev, tolerance, max_delta=33):
+    def _select_ratios(self, interval, cent_value_target_prev, tolerance, max_delta=33, ratio_factor=1.0):
         """
         Select valid ratio indices from tonal diamond for an interval.
-        
+
         Applies three filters:
         1. Strict pitch class filter: interval must map to target pitch class
         2. Cent delta filter: target cent must be within max_delta of previous chord
-        3. Sort by consonance: order by limit_score (lower is more consonant)
+        3. Sort by combined key: limit_score * ratio_factor + abs(ratio_cents - interval_cents) * (1/ratio_factor)
         
         Parameters
         ----------
@@ -2783,12 +2783,16 @@ class LowNumberRatioIntervals():
             Search tolerance for finding initial ratio index.
         max_delta : int, optional
             Maximum cent difference from previous chord (default: 33).
-        
+        ratio_factor : float, optional
+            Controls the consonance/stability trade-off (default: 1.0).
+            Higher values favour consonant (low-limit) ratios over staying near the
+            current interval. dist_factor is computed internally as 1/ratio_factor.
+
         Returns
         -------
         tuple
             (sorted_indices, cent_value_moves)
-            - sorted_indices: np.ndarray, valid ratio indices sorted by consonance
+            - sorted_indices: np.ndarray, valid ratio indices sorted by combined key
             - cent_value_moves: int, direction (-1 or 1) for interval application
         """
         # midi_note = np.zeros(2, dtype=int)
@@ -2853,8 +2857,12 @@ class LowNumberRatioIntervals():
         if indices_after_cent_delta.size == 0:
             logging.debug(f'in _select_ratios: no allowed intervals after step 2 cent delta filter. returning empty list.')
             return np.array([], dtype=int), cent_value_moves
-        # Step 3: sort by consonance
-        sorted_indices = indices_after_cent_delta[np.argsort(self.tonal_diamond[indices_after_cent_delta, 2])]
+        # Step 3: sort by combined key: limit_score * ratio_factor + distance_from_interval * (1/ratio_factor)
+        dist_factor = 1.0 / ratio_factor if ratio_factor > 0 else 0.0
+        candidate_cents = self.tonal_diamond[indices_after_cent_delta, 1]
+        candidate_limits = self.tonal_diamond[indices_after_cent_delta, 2]
+        sort_keys = candidate_limits * ratio_factor + np.abs(candidate_cents - cent_value_delta) * dist_factor
+        sorted_indices = indices_after_cent_delta[np.argsort(sort_keys)]
 
         # end of changed section on 12/1/25 - 12/3/25
         # sorted_indices = indices_to_tonal_diamond[np.argsort(self.tonal_diamond[indices_after_cent_delta, 2])] # sort based on sum of numerator and denominator
@@ -2864,13 +2872,13 @@ class LowNumberRatioIntervals():
         logging.debug(f'in _select_ratios: allowed intervals: {[limit_format(inx) for inx in self.tonal_diamond[sorted_indices]]}')
         return sorted_indices, cent_value_moves
 
-    def select_ratios(self, interval, cent_value_target_prev, tolerance, max_delta=33): # We already passed tonal_diamond when we constructed the object.
+    def select_ratios(self, interval, cent_value_target_prev, tolerance, max_delta=33, ratio_factor=1.0): # We already passed tonal_diamond when we constructed the object.
         """
         Select valid ratio indices with caching.
-        
+
         Wrapper around _select_ratios that caches results based on interval,
-        previous chord, tolerance, and max_delta.
-        
+        previous chord, tolerance, max_delta, and ratio_factor.
+
         Parameters
         ----------
         interval : array-like
@@ -2881,14 +2889,16 @@ class LowNumberRatioIntervals():
             Search tolerance for finding initial ratio index.
         max_delta : int, optional
             Maximum cent difference from previous chord (default: 33).
-        
+        ratio_factor : float, optional
+            Controls consonance/stability trade-off (default: 1.0).
+
         Returns
         -------
         tuple
             (sorted_indices, cent_value_moves)
-            - sorted_indices: np.ndarray, valid ratio indices sorted by consonance
+            - sorted_indices: np.ndarray, valid ratio indices sorted by combined key
             - cent_value_moves: int, direction (-1 or 1) for interval application
-        """ 
+        """
         interval_key = tuple(int(x) for x in np.asarray(interval, dtype=int))
         if cent_value_target_prev is None:
                 target_key = None
@@ -2898,13 +2908,13 @@ class LowNumberRatioIntervals():
                     target_key = None
                 else:
                     target_key = tuple(int(np.round(val)) % 1200 for val in target_array)
-        key = (interval_key, target_key, int(tolerance), int(max_delta))
+        key = (interval_key, target_key, int(tolerance), int(max_delta), float(ratio_factor))
         if key in self.cache:
                 self.hits += 1
                 return self.cache[key]
         else:
                 self.misses += 1
-                result = self._select_ratios(interval, cent_value_target_prev, tolerance, max_delta=max_delta)
+                result = self._select_ratios(interval, cent_value_target_prev, tolerance, max_delta=max_delta, ratio_factor=ratio_factor)
                 self.cache[key] = result
                 return result
       
