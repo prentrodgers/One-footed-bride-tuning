@@ -35,7 +35,7 @@ for limit_max in "${LIMIT_MAXES[@]}"; do
                     echo "========================================"
 
                     mkdir -p "$dir"
-                    rm -f "$dir"/*-opt.npy "$dir"/*-trans-sa-opt.npy
+                    # rm -f "$dir"/*-opt.npy "$dir"/*-trans-sa-opt.npy
 
                     # Step 1: tune with SA
                     time python Straw_man_tuning_v2.py \
