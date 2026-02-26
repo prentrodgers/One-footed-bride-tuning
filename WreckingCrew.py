@@ -1417,7 +1417,7 @@ def chorale_to_wave_v4(version, album, include_sections, ratio_factor, limit_max
     logging.info(f'{version = }, {chorale.shape = }, {cent_value_chorale.shape = }, {top_notes.shape = }, {short_repeats = }')
 
     # create a string of the key variables for use in the name of the MP3 file.    
-    mod = f'{version[-2:]}{mod_letter}' # need to add some more information once you have it.
+    mod = f'{version[-2:]}{mod_letter}_lm{limit_max}'
 
     # initialize some values based on other values
     # if you are just playing a chorale straight as Bach wrote it, only repeats=2, otherwise many more repeats
