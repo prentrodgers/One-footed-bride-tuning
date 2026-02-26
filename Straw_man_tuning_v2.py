@@ -77,7 +77,7 @@ def build_straw_man_chord_sa(cent_value_chord, cent_value_chord_prev, chord_num,
                               chord_scorer, low_number_ratios, tonal_diamond,
                               tolerance=1, print_values=False, rolls=4,
                               sa_iterations=100, initial_temperature=2.0, cooling_rate=0.995,
-                              rng=None, ratio_factor=1.0):
+                              rng=None, ratio_factor=1.0, stability_factor=0.0, spread=7):
     if rng is None:
         rng = np.random.default_rng()
     logging.info(f'chord#: {chord_num} In build_straw_man_chord_sa. {tolerance = }, {sa_iterations = }, {initial_temperature = }, {cooling_rate = }')
@@ -87,27 +87,41 @@ def build_straw_man_chord_sa(cent_value_chord, cent_value_chord_prev, chord_num,
     pitch_class_chord_prev = atu.pitch_class_from_cents(cent_value_chord_prev)
     changed_cent_value_count = 0
     unchanged_cent_value_count = 0
+    early_stop_count = 0
+    early_stop_iters = []
+    max_no_improve = max(10, sa_iterations // 10)
 
     for roll_amount in range(rolls):
         rolled_chord = np.roll(cent_value_chord, roll_amount)
-        chord_size = rolled_chord.shape[0]
-        pitch_class_chord = atu.pitch_class_from_cents(rolled_chord)
+        # Perturb starting position freshly for each roll so each roll explores a different neighbourhood
+        if spread > 0:
+            noise = np.array([
+                int(round(np.clip(rng.normal(0, scale=spread), -49, 49)))
+                for _ in range(rolled_chord.shape[0])
+            ])
+            perturbed_chord = (rolled_chord + noise) % 1200
+        else:
+            perturbed_chord = rolled_chord.copy()
+        chord_size = perturbed_chord.shape[0]
+        pitch_class_chord = atu.pitch_class_from_cents(rolled_chord)  # pitch classes from unperturbed chord
         temperature = initial_temperature
-        current_solution = rolled_chord.copy()
+        current_solution = perturbed_chord.copy()
         current_score = chord_scorer.score_chord(current_solution, tolerance=tolerance)
         logging.debug(f'chord#: {chord_num} roll_amount: {roll_amount}, initial score: {current_score}')
+        prev_roll_best = current_score
+        iterations_since_improvement = 0
 
         for sa_iter in range(sa_iterations):
             proposed = current_solution.copy()
 
-            for interval_inx in permutations(np.arange(chord_size), 2):
+            for interval_inx in combinations(np.arange(chord_size), 2):
                 pitch_class_interval = np.array([pitch_class_chord[interval_inx[0]], pitch_class_chord[interval_inx[1]]])
                 cent_value_interval = np.array([proposed[interval_inx[0]], proposed[interval_inx[1]]])
                 pitch_class_delta, pitch_class_moves, pitch_class_target = atu.pitch_class_interval(pitch_class_interval)
                 cent_value_delta, cent_value_moves, cent_value_target = atu.cent_value_interval(cent_value_interval)
 
                 cent_value_target = find_cent_value_prev_target(pitch_class_target, pitch_class_chord_prev, cent_value_chord_prev, chord_num)
-                indices_to_tonal_diamond, _ = low_number_ratios.select_ratios(cent_value_interval, cent_value_target, tolerance, ratio_factor=ratio_factor)
+                indices_to_tonal_diamond, _ = low_number_ratios.select_ratios(cent_value_interval, cent_value_target, tolerance, ratio_factor=ratio_factor, stability_factor=stability_factor)
 
                 if indices_to_tonal_diamond.size == 0:
                     continue
@@ -151,14 +165,26 @@ def build_straw_man_chord_sa(cent_value_chord, cent_value_chord_prev, chord_num,
             else:
                 unchanged_cent_value_count += 1
 
+            # Early stopping: break if this roll hasn't improved for max_no_improve consecutive iters
+            if current_score < prev_roll_best:
+                prev_roll_best = current_score
+                iterations_since_improvement = 0
+            else:
+                iterations_since_improvement += 1
+                if iterations_since_improvement >= max_no_improve:
+                    early_stop_count += 1
+                    early_stop_iters.append(sa_iter + 1)
+                    logging.debug(f'chord#: {chord_num} roll {roll_amount}: early stop at iter {sa_iter + 1}/{sa_iterations}')
+                    break
+
             temperature *= cooling_rate
 
         if print_values:
             print(f'  roll {roll_amount}: best_score so far = {best_score}')
 
     proposed_cent_value_chord, _ = atu.rearrange_notes(best_cent_value_chord_so_far, initial_midi_chord)
-    logging.info(f'chord#: {chord_num} done. best_score={best_score}, changed={changed_cent_value_count}, unchanged={unchanged_cent_value_count}')
-    return proposed_cent_value_chord, changed_cent_value_count, unchanged_cent_value_count
+    logging.info(f'chord#: {chord_num} done. best_score={best_score}, changed={changed_cent_value_count}, unchanged={unchanged_cent_value_count}, early_stops={early_stop_count}/{rolls}')
+    return proposed_cent_value_chord, changed_cent_value_count, unchanged_cent_value_count, early_stop_iters
 
 
 def tune_chorale_worker(args_dict):
@@ -174,6 +200,8 @@ def tune_chorale_worker(args_dict):
     initial_temperature = args_dict['initial_temperature']
     cooling_rate = args_dict['cooling_rate']
     ratio_factor = args_dict.get('ratio_factor', 1.0)
+    stability_factor = args_dict.get('stability_factor', 0.0)
+    spread = args_dict.get('spread', 7)
 
     chord_scorer = atu.ChordScorer(tonal_diamond)
     low_number_ratios = atu.LowNumberRatioIntervals(tonal_diamond)
@@ -184,6 +212,7 @@ def tune_chorale_worker(args_dict):
     final_score = np.zeros(chorale.T.shape[0])
 
     tuned_cent_value_chord = cent_value_chorale.T[0].copy()
+    all_early_stop_iters = []
 
     for inx, initial_midi_chord, initial_cent_value_chord in zip(count(0, 1), chorale.T, cent_value_chorale.T):
         if not np.array_equal(prev_midi_chord, initial_midi_chord):
@@ -191,47 +220,311 @@ def tune_chorale_worker(args_dict):
             initial_pitch_class_chord_compressed, pitch_class_inverse = atu.perturb(initial_pitch_class_chord, spread=0)
             initial_cent_value_chord_compressed, cent_value_inverse = atu.perturb(initial_cent_value_chord, spread=0)
 
-            tuned_cent_value_chord_compressed, changed, unchanged = build_straw_man_chord_sa(
+            tuned_cent_value_chord_compressed, changed, unchanged, es_iters = build_straw_man_chord_sa(
                 initial_cent_value_chord_compressed, cent_value_chord_prev, inx,
                 chord_scorer, low_number_ratios, tonal_diamond,
                 tolerance=tolerance, print_values=False, rolls=rolls,
                 sa_iterations=sa_iterations, initial_temperature=initial_temperature, cooling_rate=cooling_rate,
-                rng=worker_rng, ratio_factor=ratio_factor)
+                rng=worker_rng, ratio_factor=ratio_factor, stability_factor=stability_factor, spread=spread)
             tuned_cent_value_chord = tuned_cent_value_chord_compressed[cent_value_inverse]
+            all_early_stop_iters.extend(es_iters)
 
         final_cent_value_chorale[inx] = tuned_cent_value_chord.copy()
         final_score[inx] = chord_scorer.score_chord(tuned_cent_value_chord, tolerance=tolerance)
         prev_midi_chord = initial_midi_chord.copy()
         cent_value_chord_prev = tuned_cent_value_chord.copy()
 
-    return final_cent_value_chorale, final_score
+    return final_cent_value_chorale, final_score, all_early_stop_iters
 
 
 def merge_results(all_results):
-    """Per-chord best across all workers."""
-    best_cents = all_results[0][0].copy()
-    best_scores = all_results[0][1].copy()
-    for cents, scores in all_results[1:]:
-        improved = scores < best_scores
-        best_cents[improved] = cents[improved]
-        best_scores[improved] = scores[improved]
+    """Select the single run with the lowest total score.
+
+    Per-chord best selection was removed because it mixes chords from independent
+    tuning runs, breaking the continuity that each run carefully builds chord-by-chord.
+    """
+    best_total = None
+    best_cents = None
+    best_scores = None
+    all_iters = []
+    for cents, scores, es_iters in all_results:
+        total = float(np.sum(scores))
+        all_iters.extend(es_iters)
+        if best_total is None or total < best_total:
+            best_total = total
+            best_cents = cents.copy()
+            best_scores = scores.copy()
+    return best_cents, best_scores, all_iters
+
+
+def _print_early_stop_histogram(iters, sa_iterations, bucket_size=100):
+    """Print a one-line bucketed histogram of early-stop iteration counts."""
+    if not iters:
+        return
+    n_buckets = (sa_iterations + bucket_size - 1) // bucket_size
+    counts = [0] * n_buckets
+    for it in iters:
+        b = min((it - 1) // bucket_size, n_buckets - 1)
+        counts[b] += 1
+    parts = []
+    for i, c in enumerate(counts):
+        if c:
+            lo = i * bucket_size + 1
+            hi = min((i + 1) * bucket_size, sa_iterations)
+            parts.append(f"{lo}-{hi}: {c}")
+    print(f"  Early stops ({len(iters)} total): {', '.join(parts)}")
+
+
+def compute_spread_score(cent_value_chorale_4n, chorale):
+    """Frequency-weighted average pitch-class cent spread across the chorale (lower is better).
+
+    Parameters
+    ----------
+    cent_value_chorale_4n : np.ndarray, shape (4, N)
+        Tuned cent values, one column per chord.
+    chorale : np.ndarray, shape (4, N)
+        Original MIDI notes, used to compute pitch-class occurrence frequencies.
+    """
+    pitch_class_counts = Counter((chorale % 12).flatten().tolist())
+    total_count = sum(pitch_class_counts.values())
+
+    pc_cents = defaultdict(list)
+    for chord_cents in cent_value_chorale_4n.T:          # iterate over N chords
+        pcs = atu.pitch_class_from_cents(chord_cents)
+        for pc, cv in zip(pcs, chord_cents):
+            pc_cents[int(pc)].append(float(cv))
+
+    weighted_spread = 0.0
+    for pc, count in pitch_class_counts.items():
+        cvs = pc_cents.get(pc, [])
+        if len(cvs) < 2:
+            continue
+        weighted_spread += atu.circular_span(cvs)[0] * (count / total_count)
+    return weighted_spread
+
+
+def load_and_merge_previous(output_file, best_cents, best_scores, chord_scorer, tolerance,
+                             chorale=None, spread_weight=0.5):
+    """Keep whichever result has the lower combined metric: mean_score + spread_weight * spread.
+
+    spread_weight=0 falls back to score-only comparison.
+    Per-chord merging is intentionally absent: mixing chords from independent runs
+    breaks the adjacency continuity each run carefully builds.
+    """
+    if not os.path.exists(output_file):
+        return best_cents, best_scores
+
+    prev = np.load(output_file)          # shape (4, N)
+    prev_chords = (prev.T) % 1200        # shape (N, 4)
+    prev_scores = np.array([chord_scorer.score_chord(prev_chords[i], tolerance)
+                             for i in range(prev_chords.shape[0])])
+
+    if chorale is not None and spread_weight > 0:
+        # best_cents is (N, 4); transpose to (4, N) for compute_spread_score
+        curr_spread = compute_spread_score(best_cents.T, chorale)
+        prev_spread = compute_spread_score(prev, chorale)
+        curr_combined = np.mean(best_scores) + spread_weight * curr_spread
+        prev_combined = np.mean(prev_scores) + spread_weight * prev_spread
+        if prev_combined < curr_combined:
+            print(f"  Previous result is better — keeping previous"
+                  f" (combined {prev_combined:.2f} vs {curr_combined:.2f};"
+                  f" score {np.mean(prev_scores):.1f} vs {np.mean(best_scores):.1f};"
+                  f" spread {prev_spread:.1f} vs {curr_spread:.1f}¢)")
+            return prev_chords, prev_scores
+        else:
+            print(f"  Current result is better — keeping current"
+                  f" (combined {curr_combined:.2f} vs {prev_combined:.2f};"
+                  f" score {np.mean(best_scores):.1f} vs {np.mean(prev_scores):.1f};"
+                  f" spread {curr_spread:.1f} vs {prev_spread:.1f}¢)")
+    else:
+        if np.sum(prev_scores) < np.sum(best_scores):
+            print(f"  Previous result is better (total {np.sum(prev_scores):.1f} vs {np.sum(best_scores):.1f}) — keeping previous")
+            return prev_chords, prev_scores
+        else:
+            print(f"  Current result is better (total {np.sum(best_scores):.1f} vs {np.sum(prev_scores):.1f}) — keeping current")
     return best_cents, best_scores
 
 
-def load_and_merge_previous(output_file, best_cents, best_scores, chord_scorer, tolerance):
-    """Compare with previously saved results, keep per-chord best."""
-    if os.path.exists(output_file):
-        prev = np.load(output_file)  # shape (4, N)
-        prev_improved = 0
-        for i in range(prev.shape[1]):
-            prev_score = chord_scorer.score_chord(prev[:, i] % 1200, tolerance)
-            if prev_score < best_scores[i]:
-                best_cents[i] = prev[:, i] % 1200
-                best_scores[i] = prev_score
-                prev_improved += 1
-        if prev_improved > 0:
-            print(f"  Kept {prev_improved} chord(s) from previous best")
-    return best_cents, best_scores
+def _max_pitch_class_gap(prev_chord_cents, curr_chord_cents):
+    """Return the largest cent distance between shared pitch classes in adjacent chords."""
+    if prev_chord_cents is None or len(prev_chord_cents) == 0:
+        return 0.0, None, None, None, None
+
+    prev_map = {}
+    for pc, cents in zip(atu.pitch_class_from_cents(prev_chord_cents), prev_chord_cents):
+        pc = int(pc)
+        prev_map.setdefault(pc, []).append(float(cents))
+
+    worst_gap = 0.0
+    worst_pc = None
+    worst_curr = None
+    worst_prev = None
+    worst_idx = None
+
+    for idx, (pc, cents) in enumerate(zip(atu.pitch_class_from_cents(curr_chord_cents), curr_chord_cents)):
+        pc = int(pc)
+        prev_list = prev_map.get(pc)
+        if not prev_list:
+            continue
+        deltas = [atu.cent_distance_mod_1200(cents, p) for p in prev_list]
+        min_gap = float(min(deltas))
+        if min_gap > worst_gap:
+            worst_gap = min_gap
+            worst_pc = pc
+            worst_curr = float(cents)
+            worst_prev = prev_list[int(np.argmin(deltas))]
+            worst_idx = idx
+
+    return worst_gap, worst_pc, worst_curr, worst_prev, worst_idx
+
+
+def enforce_continuity(final_cent_value_chorale, chorale, chord_scorer, low_number_ratios,
+                       tonal_diamond, tolerance, rolls, sa_iterations, initial_temperature,
+                       cooling_rate, ratio_factor, rng, max_gap=40, retune_on_gaps=3,
+                       stability_factor=0.0, spread=7):
+    """Post-hoc pass: re-tune chords whose pitch classes jump more than max_gap cents
+    compared to the previous chord.  Three escalating fallbacks are tried:
+      1. Re-run SA (up to retune_on_gaps times)
+      2. Uniform shift of the whole chord toward the previous pitch class values
+      3. Force the worst-offending voice to the previous chord's cent value
+    """
+    adjusted = np.array(final_cent_value_chorale, dtype=float, copy=True)
+    fixes = 0
+    prev_midi_chord = np.zeros(4, dtype=int)
+
+    for chord_idx in range(1, adjusted.shape[0]):
+        curr_midi = chorale.T[chord_idx]
+        if np.array_equal(curr_midi, prev_midi_chord):
+            # Held note (identical consecutive MIDI chord): copy any re-tuning
+            # that was applied to the previous chord position so that both
+            # positions of the same held note always share the same cent values.
+            adjusted[chord_idx] = adjusted[chord_idx - 1]
+            prev_midi_chord = curr_midi.copy()
+            continue
+
+        prev_chord = adjusted[chord_idx - 1]
+        curr_chord = adjusted[chord_idx]
+        gap_value, pc, curr_cent, prev_cent, voice_idx = _max_pitch_class_gap(prev_chord, curr_chord)
+
+        if gap_value <= max_gap:
+            prev_midi_chord = curr_midi.copy()
+            continue
+
+        logging.info(
+            f'chord {chord_idx}: PC {pc} gap {gap_value:.1f}¢ > {max_gap}¢ — retuning'
+        )
+
+        retries = 0
+        while gap_value > max_gap and retries < retune_on_gaps:
+            retries += 1
+            fixes += 1
+            curr_compressed, inv = atu.perturb(curr_chord, spread=0)
+            retuned_compressed, _, _, _ = build_straw_man_chord_sa(
+                curr_compressed, prev_chord, chord_idx,
+                chord_scorer, low_number_ratios, tonal_diamond,
+                tolerance=tolerance, print_values=False, rolls=rolls,
+                sa_iterations=sa_iterations, initial_temperature=initial_temperature,
+                cooling_rate=cooling_rate, rng=rng, ratio_factor=ratio_factor,
+                stability_factor=stability_factor, spread=spread)
+            retuned = retuned_compressed[inv]
+            adjusted[chord_idx] = retuned
+            curr_chord = retuned
+            gap_value, pc, curr_cent, prev_cent, voice_idx = _max_pitch_class_gap(prev_chord, curr_chord)
+
+        # Fallback 1: uniform shift toward previous pitch class
+        if gap_value > max_gap and voice_idx is not None and prev_cent is not None:
+            direction = 1 if (curr_cent - prev_cent) >= 0 else -1
+            shift_value = (prev_cent + direction * max_gap) - curr_cent
+            if abs(shift_value) > 0.1:
+                logging.info(f'chord {chord_idx}: uniform shift {shift_value:+.1f}¢')
+                adjusted[chord_idx] = (curr_chord + shift_value + 1200) % 1200
+                curr_chord = adjusted[chord_idx]
+                gap_value, pc, curr_cent, prev_cent, voice_idx = _max_pitch_class_gap(prev_chord, curr_chord)
+
+        # Fallback 2: force the offending voice to the previous cent value
+        if gap_value > max_gap and voice_idx is not None and prev_cent is not None:
+            logging.warning(
+                f'chord {chord_idx}: forcing voice {voice_idx} (PC {pc}) to prev cent {prev_cent:.1f}¢'
+            )
+            adjusted[chord_idx, voice_idx] = prev_cent
+
+        prev_midi_chord = curr_midi.copy()
+
+    if fixes > 0:
+        logging.info(f'Continuity enforcement: {fixes} SA retune attempt(s)')
+    return adjusted
+
+
+def snap_pitch_classes_to_mode(final_cent_value_chorale, chorale, snap_tolerance):
+    """Snap pitch-class cent values toward the modal cent for that pitch class.
+
+    For each of the 12 pitch classes, compute the modal cent value (most common
+    value, rounded to the nearest 5¢) across the whole chorale.  Then, for each
+    voice in each chord, if the cent value is within snap_tolerance of the mode,
+    snap it to the mode — but only if doing so preserves the original pitch class.
+
+    Parameters
+    ----------
+    final_cent_value_chorale : np.ndarray, shape (N_chords, 4)
+        Tuned cent values, one row per chord.
+    chorale : np.ndarray, shape (4, N_chords)
+        Original MIDI notes (used only to skip repeated chords, not for PC checks).
+    snap_tolerance : float
+        Maximum cent distance from the mode to trigger a snap.  0 disables snapping.
+
+    Returns
+    -------
+    np.ndarray, shape (N_chords, 4)
+        Updated cent value array with snapped values where applicable.
+    """
+    if snap_tolerance <= 0:
+        return final_cent_value_chorale
+
+    adjusted = np.array(final_cent_value_chorale, dtype=float, copy=True)
+    n_chords, n_voices = adjusted.shape
+
+    # Collect all cent values per pitch class
+    pc_cents = {pc: [] for pc in range(12)}
+    for chord_idx in range(n_chords):
+        for v in range(n_voices):
+            c = float(adjusted[chord_idx, v]) % 1200
+            pc = int(atu.pitch_class_from_cents(c))
+            pc_cents[pc].append(c)
+
+    # Compute mode for each pitch class (rounded to nearest 5¢)
+    pc_mode = {}
+    for pc, cents_list in pc_cents.items():
+        if not cents_list:
+            continue
+        rounded = [round(c / 5) * 5 for c in cents_list]
+        # find most common rounded value
+        counts = {}
+        for v in rounded:
+            counts[v] = counts.get(v, 0) + 1
+        pc_mode[pc] = max(counts, key=counts.__getitem__)
+
+    # Snap values that are within snap_tolerance of their pitch class mode
+    snapped = 0
+    reverted = 0
+    for chord_idx in range(n_chords):
+        for v in range(n_voices):
+            orig_c = float(adjusted[chord_idx, v]) % 1200
+            orig_pc = int(atu.pitch_class_from_cents(orig_c))
+            mode_c = pc_mode.get(orig_pc)
+            if mode_c is None:
+                continue
+            dist = atu.cent_distance_mod_1200(orig_c, mode_c)
+            if dist <= snap_tolerance:
+                new_c = float(mode_c) % 1200
+                new_pc = int(atu.pitch_class_from_cents(new_c))
+                if new_pc == orig_pc:
+                    adjusted[chord_idx, v] = new_c
+                    snapped += 1
+                else:
+                    reverted += 1
+
+    logging.info(f'snap_pitch_classes_to_mode: snapped={snapped}, reverted (PC mismatch)={reverted}')
+    return adjusted
 
 
 def parse_args():
@@ -244,6 +537,9 @@ def parse_args():
     parser.add_argument('--initial_temperature', type=float, default=2.0, help='Starting SA temperature (default: 2.0)')
     parser.add_argument('--cooling_rate', type=float, default=0.995, help='Temperature multiplier per iteration (default: 0.995)')
     parser.add_argument('--ratio_factor', type=float, default=1.0, help='Consonance/stability trade-off: high favours low-limit ratios, low favours staying near the current interval; balance point ~1.7 (default: 1.0)')
+    parser.add_argument('--stability_factor', type=float, default=0.5, help='Weight for cent distance from previous chord in the sort key; reduces cumulative pitch-class drift (default: 0.5)')
+    parser.add_argument('--spread', type=int, default=7, help='Std dev of Gaussian noise (cents) added to each note at the start of each SA roll; 0 disables perturbation (default: 7)')
+    parser.add_argument('--spread_weight', type=float, default=0.5, help='Weight of pitch-class spread in the keep/discard comparison: combined = mean_score + spread_weight * weighted_spread; 0 disables spread comparison (default: 0.5)')
     parser.add_argument('--include_list', type=str, default=None,
                         help='Slice of chords to include, e.g. "8:17" (default: None, use all chords)')
     parser.add_argument('--chorale_list', type=str, nargs='+', default=['bwv253'],
@@ -258,6 +554,14 @@ def parse_args():
                         help='Number of parallel workers, each tuning the full chorale independently (default: 1)')
     parser.add_argument('--runs', type=int, default=1,
                         help='Number of sequential batches of --workers parallel runs. Total runs = workers × runs (default: 1)')
+    parser.add_argument('--numpy_dir', type=str, default=None,
+                        help='Directory to read/write chorale numpy files (default: Archive/straw-man)')
+    parser.add_argument('--max_gap', type=float, default=40.0,
+                        help='Maximum allowed cent jump between shared pitch classes in adjacent chords; 0 disables continuity enforcement (default: 40)')
+    parser.add_argument('--retune_on_gaps', type=int, default=3,
+                        help='Number of SA retune attempts for chords that exceed max_gap (default: 3)')
+    parser.add_argument('--snap_tolerance', type=float, default=0.0,
+                        help='Snap pitch-class cent values within this distance (¢) of the modal cent to the mode; 0 disables (default: 0)')
     return parser.parse_args()
 
 def main():
@@ -266,6 +570,10 @@ def main():
 
     reload(atu)
     start_logger(os.path.join(base_dir, 'test.log'), level = logging.INFO)
+    global numpy_dir
+    if args.numpy_dir is not None:
+        numpy_dir = args.numpy_dir if os.path.isabs(args.numpy_dir) else os.path.join(base_dir, args.numpy_dir)
+        os.makedirs(numpy_dir, exist_ok=True)
     print(f'{numpy_dir = }')
     limit_max = args.limit_max
     max_delta = args.max_delta
@@ -315,6 +623,7 @@ def main():
             final_cent_value_chorale = np.zeros_like(chorale.T)
             final_score = np.zeros(chorale.T.shape[0])
             tuned_cent_value_chord = cent_value_chorale.T[0].copy()
+            single_worker_early_stop_iters = []
             for inx, initial_midi_chord, initial_cent_value_chord in zip(count(0,1), chorale.T, cent_value_chorale.T):
                 chord_num = inx
                 if not np.array_equal(prev_midi_chord, initial_midi_chord):
@@ -328,12 +637,14 @@ def main():
                         print(f'{inx:>2}: initial chord. pitch class: {atu.format_chord(initial_pitch_class_chord,2)}, note names: {" ".join(keys[note] for note in initial_pitch_class_chord)}, cent_values: {atu.format_chord(initial_cent_value_chord_compressed,4)}, initial score: {proposed_chord_score}')
 
                     # build the chord using SA-based method
-                    tuned_cent_value_chord_compressed, changed, unchanged = build_straw_man_chord_sa(
+                    tuned_cent_value_chord_compressed, changed, unchanged, es_iters = build_straw_man_chord_sa(
                         initial_cent_value_chord_compressed, cent_value_chord_prev, inx,
                         chord_scorer, low_number_ratios, tonal_diamond,
                         tolerance=tolerance, print_values=print_values, rolls=rolls,
                         sa_iterations=sa_iterations, initial_temperature=initial_temperature, cooling_rate=cooling_rate,
-                        rng=rng, ratio_factor=args.ratio_factor)
+                        rng=rng, ratio_factor=args.ratio_factor, stability_factor=args.stability_factor,
+                        spread=args.spread)
+                    single_worker_early_stop_iters.extend(es_iters)
                     # decompress it
                     tuned_cent_value_chord = tuned_cent_value_chord_compressed[cent_value_inverse]
                     tuned_pitch_class_chord = atu.pitch_class_from_cents(tuned_cent_value_chord)
@@ -351,16 +662,19 @@ def main():
                 cent_value_chord_prev = tuned_cent_value_chord.copy()
             if mismatch_count > 0: print(f'{mismatch_count = }')
             if drift_count > 0: print(f'{drift_count = }')
+            _print_early_stop_histogram(single_worker_early_stop_iters, sa_iterations)
 
             # Compare with previously saved file
             output_file = os.path.join(numpy_dir, f'{version}-opt.npy')
             final_cent_value_chorale, final_score = load_and_merge_previous(
-                output_file, final_cent_value_chorale, final_score, chord_scorer, tolerance)
+                output_file, final_cent_value_chorale, final_score, chord_scorer, tolerance,
+                chorale=chorale, spread_weight=args.spread_weight)
 
         else:
             # Multi-worker: run parallel batches, merge per-chord bests
             overall_best_cents = None
             overall_best_scores = None
+            overall_early_stop_iters = []
             total_runs = workers * num_runs
             print(f"Running {total_runs} total tuning passes ({workers} workers x {num_runs} batch(es)) for {version}")
 
@@ -377,6 +691,8 @@ def main():
                     'initial_temperature': initial_temperature,
                     'cooling_rate': cooling_rate,
                     'ratio_factor': args.ratio_factor,
+                    'stability_factor': args.stability_factor,
+                    'spread': args.spread,
                 } for s in seeds]
 
                 t0 = time.time()
@@ -384,17 +700,19 @@ def main():
                     results = pool.map(tune_chorale_worker, worker_args)
                 elapsed = time.time() - t0
 
-                batch_best_cents, batch_best_scores = merge_results(results)
+                batch_best_cents, batch_best_scores, batch_iters = merge_results(results)
+                overall_early_stop_iters.extend(batch_iters)
                 print(f"  Batch {run_batch+1}/{num_runs}: {workers} workers in {elapsed:.1f}s — "
                       f"merged mean: {np.mean(batch_best_scores):.1f}, max: {np.max(batch_best_scores):.0f}")
+                _print_early_stop_histogram(batch_iters, sa_iterations)
 
                 # Merge with running best
                 if overall_best_cents is None:
                     overall_best_cents, overall_best_scores = batch_best_cents, batch_best_scores
                 else:
-                    overall_best_cents, overall_best_scores = merge_results([
-                        (overall_best_cents, overall_best_scores),
-                        (batch_best_cents, batch_best_scores)])
+                    overall_best_cents, overall_best_scores, _ = merge_results([
+                        (overall_best_cents, overall_best_scores, []),
+                        (batch_best_cents, batch_best_scores, [])])
 
 
             final_cent_value_chorale = overall_best_cents
@@ -403,9 +721,30 @@ def main():
             # Compare with previously saved file
             output_file = os.path.join(numpy_dir, f'{version}-opt.npy')
             final_cent_value_chorale, final_score = load_and_merge_previous(
-                output_file, final_cent_value_chorale, final_score, chord_scorer, tolerance)
+                output_file, final_cent_value_chorale, final_score, chord_scorer, tolerance,
+                chorale=chorale, spread_weight=args.spread_weight)
 
-        print(f'{version = }, chords: {final_cent_value_chorale.shape[0]}, {tolerance = }, {rolls = }, {limit_max = }, {sa_iterations = }, {initial_temperature = }, {cooling_rate = }, {args.ratio_factor = }')
+        # Post-hoc continuity enforcement: re-tune chords with large adjacent jumps
+        if args.max_gap > 0:
+            print(f"Running continuity enforcement (max_gap={args.max_gap}¢, retune_on_gaps={args.retune_on_gaps})...")
+            final_cent_value_chorale = enforce_continuity(
+                final_cent_value_chorale, chorale, chord_scorer, low_number_ratios,
+                tonal_diamond, tolerance, rolls, sa_iterations, initial_temperature,
+                cooling_rate, args.ratio_factor, rng,
+                max_gap=args.max_gap, retune_on_gaps=args.retune_on_gaps,
+                stability_factor=args.stability_factor, spread=args.spread)
+            final_score = np.array([chord_scorer.score_chord(final_cent_value_chorale[i], tolerance)
+                                    for i in range(final_cent_value_chorale.shape[0])])
+
+        # Post-hoc pitch-class snap: reduce residual spread toward the modal cent value
+        if args.snap_tolerance > 0:
+            print(f"Running snap_pitch_classes_to_mode (snap_tolerance={args.snap_tolerance}¢)...")
+            final_cent_value_chorale = snap_pitch_classes_to_mode(
+                final_cent_value_chorale, chorale, args.snap_tolerance)
+            final_score = np.array([chord_scorer.score_chord(final_cent_value_chorale[i], tolerance)
+                                    for i in range(final_cent_value_chorale.shape[0])])
+
+        print(f'{version = }, chords: {final_cent_value_chorale.shape[0]}, {tolerance = }, {rolls = }, {limit_max = }, {sa_iterations = }, {initial_temperature = }, {cooling_rate = }, {args.ratio_factor = }, {args.stability_factor = }')
 
         print(
             f"mean: {np.round(np.mean(final_score),1)}, ",
@@ -433,6 +772,12 @@ def main():
             f.write(f"tolerance: {tolerance}\n")
             f.write(f"limit_max: {limit_max}\n")
             f.write(f"ratio_factor: {args.ratio_factor}\n")
+            f.write(f"stability_factor: {args.stability_factor}\n")
+            f.write(f"spread: {args.spread}\n")
+            f.write(f"spread_weight: {args.spread_weight}\n")
+            f.write(f"snap_tolerance: {args.snap_tolerance}\n")
+            f.write(f"max_gap: {args.max_gap}\n")
+            f.write(f"retune_on_gaps: {args.retune_on_gaps}\n")
 
 if __name__ == '__main__':
     main()

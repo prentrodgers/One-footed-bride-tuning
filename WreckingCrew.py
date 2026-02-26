@@ -1165,8 +1165,9 @@ def generate_random_volumes_v2(time_slots = 8, max_value=25, sections = 8, max_s
 
 # this function takes the original chorale array and expands it dramatically. It is only called once per chorale.
 def expand_chorale(repeats, chorale_in_cents_slides, glides, stored_gliss, voice_time,\
-    include_sections, mod, mask=True, tpq=0, octave_reduce=0, woodwinds_volume=8,\
-    include_instruments=[], print_only=10, limit=0, melody_sustain=15, just_fp=False):
+    include_sections, mod, ratio_factor, mask=True, tpq=0, octave_reduce=0, woodwinds_volume=8,\
+    include_instruments=[], print_only=10, limit=0, melody_sustain=15, just_fp=False, tolerance=1,\
+    stability_factor=0.0, max_delta=33, spread=7):
     # As of 1/10/26 the chorale_in_cents_slides has already been repeated according to the repeats array. (no longer an integer)
     # send the arrays to the file new_output.csd which csound will convert to a wave file to make music
     # duration, volume_function = expand_chorale(repeats, chorale_in_cents, chorale_in_cents_slides, glides, stored_gliss, voice_time, \
@@ -1280,7 +1281,9 @@ def expand_chorale(repeats, chorale_in_cents_slides, glides, stored_gliss, voice
     logging.debug(f'duration: {dur_short}, {tempo = }')
     avg_probs = round(np.average(probs[:,1]),3)
     # avg_probs = 1.0 # why was this set to 1.0?
-    mod = f'{mod}_a{avg_probs:.2f}_w{round(1 - max_silence, 2):.2f}_d{dur_short}_t{tempo:03}'
+    # I want to switch the mod string to include the ratio_factor instead of avg_probs
+    # and I want to switch the round(1 - max_silence, 2) to tolerance.
+    mod = f'{mod}_r{ratio_factor:.2f}_sf{stability_factor:.2f}_md{int(max_delta):02d}_sp{int(spread):02d}_t{tolerance}_d{dur_short}_t{tempo:03}'
     mod = atu.windows_compliant_filename(mod) # get rid of the windows invalid characters in the file name
     print(f'{mod = }')
     return duration, volume_function, mod
@@ -1357,14 +1360,15 @@ def create_repeat_array_pattern(chorale_array, pattern=None, axis=1):
     return repeated_chords, repeat_values
 
 
-def chorale_to_wave_v4(version, album, include_sections, limit_max=47,\
+def chorale_to_wave_v4(version, album, include_sections, ratio_factor, limit_max=47,\
       short_repeats=True, include_list=np.array([]), csound=True,\
       convolve=True, mod_letter='a', max_cents_slide=48, print_only=0,\
       limit=0, use_opt_file=True, just_fp=False, \
       cent_file_partial='-cents.npy', show_volumes=False, woodwinds_volume=15,\
-      melody_sustain=15, use_werck_top_notes=False, mp3=True):
+      melody_sustain=15, use_werck_top_notes=False, mp3=True, tolerance=1,\
+      stability_factor=0.0, max_delta=33, spread=7):
 
-    print(f'In chorale_to_wave_v4. {version = }, {limit_max = }, {short_repeats = }')
+    print(f'In chorale_to_wave_v4. {version = }, {limit_max = }, {short_repeats = }, {ratio_factor = }')
     if short_repeats: # if you just want a straight woodwind/brass chorale, set short_repeats = True
         mask = False # no complex algorithm to create different repeating arpeggio patterns
         woodwinds_volume = 13
@@ -1456,9 +1460,10 @@ def chorale_to_wave_v4(version, album, include_sections, limit_max=47,\
 
     # apply the repeats to increase the density and length of the piece, select which instruments will play, and other tasks
     duration, volume_function, mod = expand_chorale(repeats, chorale_in_cents_slides,\
-        glides, stored_gliss, voice_time, include_sections, mod, mask=mask,\
+        glides, stored_gliss, voice_time, include_sections, mod, ratio_factor, mask=mask,\
         octave_reduce=1, woodwinds_volume=woodwinds_volume, print_only=print_only,\
-        limit=limit, melody_sustain=melody_sustain, just_fp=just_fp)
+        limit=limit, melody_sustain=melody_sustain, just_fp=just_fp, tolerance=tolerance,\
+        stability_factor=stability_factor, max_delta=max_delta, spread=spread)
 
     if csound: # send the results to csound
         result_of_call = play_csound(csound = True, play = False)
@@ -1484,10 +1489,10 @@ def chorale_to_wave_v4(version, album, include_sections, limit_max=47,\
 #### Take an already tuned chorale and make a full piece of music out of it ####
 ################################################################################
 ################################################################################
-def mainline(chorale_override=None, short_repeats=False, include_list=None, csound=True, convolve=True,
-             mp3=True, max_cents_slide=35, melody_sustain=3, cent_file_partial='-trans-sa-opt.npy',
-             show_volumes=True, mod_letter='a', album=3, use_werck_top_notes=False, tolerance=1,
-             numpy_dir_arg=None):
+def mainline(chorale_override=None, short_repeats=False, include_list=None, csound=True, convolve=True, \
+             mp3=True, max_cents_slide=35, melody_sustain=3, cent_file_partial='-trans-sa-opt.npy', \
+             show_volumes=True, mod_letter='a', album=3, use_werck_top_notes=False, tolerance=1, ratio_factor=0.75, \
+             numpy_dir_arg=None, stability_factor=0.0, max_delta=33, spread=7, limit_max=23):
       if include_list is None:
             include_list = []
 
@@ -1584,7 +1589,7 @@ def mainline(chorale_override=None, short_repeats=False, include_list=None, csou
       print_only = 10 # how many lines of csound code should be printed to the log file.
       total_averages = 0
       max_overall_score = 0
-      limit_max = 19 # I don't think I need this. 
+      # limit_max is now a parameter (was hardcoded to 19)
 
       chorale_list = ['bwv253','bwv254','bwv255','bwv256','bwv257','bwv258','bwv259','bwv260','bwv261','bwv262','bwv263','bwv264']
       # allow override from command-line: single name, comma-separated names, or 'all'
@@ -1602,12 +1607,14 @@ def mainline(chorale_override=None, short_repeats=False, include_list=None, csou
     #   chorale_list=['bwv253']
       for inx, version in enumerate(chorale_list):
             print(f'Running {version}')
-            chorale = chorale_to_wave_v4(version, album, include_sections, limit_max=limit_max,\
+            chorale = chorale_to_wave_v4(version, album, include_sections, ratio_factor, limit_max=limit_max,\
                   print_only=print_only, short_repeats=short_repeats, include_list=include_list,\
-                  csound=csound, convolve=convolve, mod_letter=mod_letter, just_fp=just_fp, \
-                  max_cents_slide=max_cents_slide, show_volumes=show_volumes, \
+                  csound=csound, convolve=convolve, mod_letter=mod_letter, \
+                  just_fp=just_fp, max_cents_slide=max_cents_slide, show_volumes=show_volumes, \
                   woodwinds_volume=woodwinds_volume, melody_sustain=melody_sustain, \
-                  cent_file_partial=cent_file_partial, use_werck_top_notes=use_werck_top_notes,mp3=mp3)
+                  cent_file_partial=cent_file_partial, use_werck_top_notes=use_werck_top_notes, mp3=mp3,\
+                  tolerance=tolerance, stability_factor=stability_factor, max_delta=max_delta,\
+                  spread=spread)
 
       # Generate a playlist of all the pieces in this album. This never worked correctly in the pod.
       print(f' {UPLOADS_DIR = }')
@@ -1663,14 +1670,26 @@ if __name__ == "__main__":
                           help="Use Werckmeister top notes (default: False)")
       parser.add_argument("--tolerance", dest="tolerance", type=int, default=1,
                           help="Tolerance level for matching intervals (1, 2, 3, or 4) (default: 1)")
+      parser.add_argument("--ratio_factor", dest="ratio_factor", type=float, default=0.75,
+                          help="ratio_factor used to create the array of cents (default: 0.75)")
       parser.add_argument("--numpy_dir", dest="numpy_dir", type=str, default=None,
                           help="Directory containing the numpy cent arrays (default: Archive/opt)")
+      parser.add_argument("--stability_factor", dest="stability_factor", type=float, default=0.0,
+                          help="stability_factor used when tuning (label only; included in filename as _sfX.XX) (default: 0.0)")
+      parser.add_argument("--max_delta", dest="max_delta", type=int, default=33,
+                          help="max_delta used when tuning (label only; included in filename as _mdXX) (default: 33)")
+      parser.add_argument("--spread", dest="spread", type=int, default=7,
+                          help="spread used when tuning (label only; included in filename as _spXX) (default: 7)")
+      parser.add_argument("--limit_max", dest="limit_max", type=int, default=23,
+                          help="Tonal diamond limit_max for scoring (default: 23)")
       args = parser.parse_args()
       mainline(chorale_override=args.chorale_name, short_repeats=args.short_repeats,
                include_list=args.include_list, csound=args.csound, convolve=args.convolve,
                mp3=args.mp3, max_cents_slide=args.max_cents_slide, melody_sustain=args.melody_sustain,
                cent_file_partial=args.cent_file_partial, show_volumes=args.show_volumes,
                mod_letter=args.mod_letter, album=args.album, use_werck_top_notes=args.use_werck_top_notes,
-               tolerance=args.tolerance, numpy_dir_arg=args.numpy_dir)
+               tolerance=args.tolerance, ratio_factor=args.ratio_factor, numpy_dir_arg=args.numpy_dir,
+               stability_factor=args.stability_factor, max_delta=args.max_delta,
+               spread=args.spread, limit_max=args.limit_max)
 
 

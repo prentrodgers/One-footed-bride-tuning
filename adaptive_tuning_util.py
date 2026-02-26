@@ -10,7 +10,7 @@ import math
 import multiprocessing as mp
 import music21 as m21
 import logging
-from collections import defaultdict
+from collections import defaultdict, Counter
 from itertools import count, combinations, permutations
 
 def set_accidentals(flats):
@@ -1123,6 +1123,41 @@ def signed_delta_mod_1200(current, target):
     if d > 600:
         d -= 1200
     return d
+
+def circular_span(values, octave=1200):
+    """Minimum arc on a circle of circumference `octave` that covers all values.
+
+    Handles the octave-boundary artifact (e.g. C♮ values near 0 and 1200
+    that are musically close but numerically distant).
+
+    Parameters
+    ----------
+    values : sequence of float
+        Cent values for one pitch class (already in [0, octave) range).
+    octave : float
+        Circle circumference in cents (default 1200).
+
+    Returns
+    -------
+    (span, lo, hi) : (float, float, float)
+        span  — minimum arc in cents covering all values (0 if len < 2)
+        lo    — lowest value on the arc (start after the largest gap)
+        hi    — highest value on the arc (end of the arc)
+    """
+    if len(values) < 2:
+        v = values[0] if values else 0.0
+        return 0.0, v, v
+    sv = sorted(values)
+    n = len(sv)
+    # Gaps between consecutive sorted values, plus the wrap-around gap
+    gaps = [sv[i + 1] - sv[i] for i in range(n - 1)]
+    gaps.append(octave - sv[-1] + sv[0])
+    max_gap_idx = max(range(n), key=lambda i: gaps[i])
+    span = octave - gaps[max_gap_idx]
+    lo = sv[(max_gap_idx + 1) % n]
+    hi = sv[max_gap_idx]
+    return span, lo, hi
+
 
 def wrap1200(x):
     """
@@ -2687,30 +2722,24 @@ def load_chorale_in_cents(version, numpy_dir, save_midi_file=False, save_top_not
     file_name = os.path.join(numpy_dir, f'{version}top-notes.npy')
     if werck_top_notes: 
         file_name = os.path.join(numpy_dir, f'{version}-w-top_notes.npy') # bwv260-w-top_notes
+    # Sort all 12 pitch classes by descending frequency in the chorale.
+    # Pitch classes absent from the chorale are placed at the end (freq=0), then by pc number.
+    pc_counts = Counter(int(p) for p in (chorale % 12).flatten())
+    sorted_pcs = sorted(range(12), key=lambda p: (-pc_counts.get(p, 0), p))
+
     logging.info(f'In load_chorale_in_cents. About to load top_notes from {file_name = }')
     try:
-        top_notes = np.load(file_name)
-        # print(f'loaded data from {file_name}')
+        loaded = np.load(file_name)
+        # Re-order existing cent values by current chorale frequency; fall back to 12-TET for any gap.
+        existing_cents = {int(loaded[0, i]): int(loaded[1, i]) for i in range(loaded.shape[1])}
+        ordered_cents = [existing_cents.get(p, p * 100) for p in sorted_pcs]
+        top_notes = np.array([sorted_pcs, ordered_cents])
+        logging.info(f'Loaded top_notes from {file_name}, re-ordered by chorale frequency')
     except OSError:
-        logging.info(f'top_notes_dictionary file not there, Initializing the array to [[{root}],[{root * 100}]]')
-        top_notes = np.array([[root],[root * 100]])
-        logging.debug(f'Could not find {file_name = }. Initialized {top_notes = }')
-    if top_notes.shape[1] < 12:
-        number_of_notes = top_notes.shape[1]
-        new_array = top_notes
-        logging.debug(f'{new_array.shape = }, {new_array = }')
-        for inx in np.arange(12):
-                if inx in top_notes[0]:
-                    pass
-                    # logging.info(f'found a value for {inx = } in the dictionary')
-                    # new_array[inx] = top_notes_dictionary[version][inx]
-                else:
-                    logging.debug(f'could not find note {inx} in the dictionary')
-                    number_of_notes += 1
-                    new_array = np.column_stack((new_array, np.array([inx, inx * 100])))
-                    logging.debug(f'{new_array.shape = }')
-        top_notes = new_array
-        if save_top_notes: np.save(file_name, new_array)
+        logging.info(f'top_notes file not found — building from chorale frequencies with 12-TET cent values')
+        top_notes = np.array([sorted_pcs, [p * 100 for p in sorted_pcs]])
+        if save_top_notes:
+            np.save(file_name, top_notes)
     logging.debug(f'In load_chorale_in_cents. {top_notes.shape = }')
     logging.debug(f'{[(keys[top_note[0]], top_note[1]) for top_note in top_notes.T]}')
     logging.debug(f'{chorale.T.shape = }')
@@ -2764,7 +2793,7 @@ class LowNumberRatioIntervals():
         self.hits = 0
         self.misses = 0
       
-    def _select_ratios(self, interval, cent_value_target_prev, tolerance, max_delta=33, ratio_factor=1.0):
+    def _select_ratios(self, interval, cent_value_target_prev, tolerance, max_delta=33, ratio_factor=1.0, stability_factor=0.0):
         """
         Select valid ratio indices from tonal diamond for an interval.
 
@@ -2772,7 +2801,8 @@ class LowNumberRatioIntervals():
         1. Strict pitch class filter: interval must map to target pitch class
         2. Cent delta filter: target cent must be within max_delta of previous chord
         3. Sort by combined key: limit_score * ratio_factor + abs(ratio_cents - interval_cents) * (1/ratio_factor)
-        
+           + delta_from_prev * stability_factor  (when prev chord is available)
+
         Parameters
         ----------
         interval : array-like
@@ -2787,6 +2817,10 @@ class LowNumberRatioIntervals():
             Controls the consonance/stability trade-off (default: 1.0).
             Higher values favour consonant (low-limit) ratios over staying near the
             current interval. dist_factor is computed internally as 1/ratio_factor.
+        stability_factor : float, optional
+            Weight applied to the cent distance from the previous chord in the sort key
+            (default: 0.0). Positive values bias selection toward pitch-class cent values
+            that are close to the previous chord, reducing cumulative drift.
 
         Returns
         -------
@@ -2828,8 +2862,9 @@ class LowNumberRatioIntervals():
                 return np.array([], dtype=int), cent_value_moves
         logging.debug(f'in _select_ratios: after creating list of allowed_intervals:, {[limit_format(inx) for inx in self.tonal_diamond[indices_after_pitch_class]]}')
         logging.debug(f'about to step 2. compare with previous cent {pitch_class_moves = }, {cent_value_target_prev = }')
-        
+
         # Step 2: cent-delta filter (only applied to survivors)
+        stability_deltas = None  # will be set when prev chord is available
         if cent_value_target_prev is None:
                 indices_after_cent_delta = indices_after_pitch_class
         else:
@@ -2854,14 +2889,18 @@ class LowNumberRatioIntervals():
                 mask_cent_delta = deltas <= max_delta
                 logging.debug(f'{mask_cent_delta}')
                 indices_after_cent_delta = indices_after_pitch_class[mask_cent_delta]
+                stability_deltas = deltas[mask_cent_delta]  # reuse in sort key
         if indices_after_cent_delta.size == 0:
             logging.debug(f'in _select_ratios: no allowed intervals after step 2 cent delta filter. returning empty list.')
             return np.array([], dtype=int), cent_value_moves
         # Step 3: sort by combined key: limit_score * ratio_factor + distance_from_interval * (1/ratio_factor)
+        #         + stability_deltas * stability_factor (when prev chord is available)
         dist_factor = 1.0 / ratio_factor if ratio_factor > 0 else 0.0
         candidate_cents = self.tonal_diamond[indices_after_cent_delta, 1]
         candidate_limits = self.tonal_diamond[indices_after_cent_delta, 2]
         sort_keys = candidate_limits * ratio_factor + np.abs(candidate_cents - cent_value_delta) * dist_factor
+        if stability_factor > 0 and stability_deltas is not None:
+            sort_keys = sort_keys + stability_deltas * stability_factor
         sorted_indices = indices_after_cent_delta[np.argsort(sort_keys)]
 
         # end of changed section on 12/1/25 - 12/3/25
@@ -2872,12 +2911,12 @@ class LowNumberRatioIntervals():
         logging.debug(f'in _select_ratios: allowed intervals: {[limit_format(inx) for inx in self.tonal_diamond[sorted_indices]]}')
         return sorted_indices, cent_value_moves
 
-    def select_ratios(self, interval, cent_value_target_prev, tolerance, max_delta=33, ratio_factor=1.0): # We already passed tonal_diamond when we constructed the object.
+    def select_ratios(self, interval, cent_value_target_prev, tolerance, max_delta=33, ratio_factor=1.0, stability_factor=0.0): # We already passed tonal_diamond when we constructed the object.
         """
         Select valid ratio indices with caching.
 
         Wrapper around _select_ratios that caches results based on interval,
-        previous chord, tolerance, max_delta, and ratio_factor.
+        previous chord, tolerance, max_delta, ratio_factor, and stability_factor.
 
         Parameters
         ----------
@@ -2891,6 +2930,9 @@ class LowNumberRatioIntervals():
             Maximum cent difference from previous chord (default: 33).
         ratio_factor : float, optional
             Controls consonance/stability trade-off (default: 1.0).
+        stability_factor : float, optional
+            Weight applied to the cent distance from the previous chord in the sort
+            key (default: 0.0). See _select_ratios for details.
 
         Returns
         -------
@@ -2908,13 +2950,13 @@ class LowNumberRatioIntervals():
                     target_key = None
                 else:
                     target_key = tuple(int(np.round(val)) % 1200 for val in target_array)
-        key = (interval_key, target_key, int(tolerance), int(max_delta), float(ratio_factor))
+        key = (interval_key, target_key, int(tolerance), int(max_delta), float(ratio_factor), float(stability_factor))
         if key in self.cache:
                 self.hits += 1
                 return self.cache[key]
         else:
                 self.misses += 1
-                result = self._select_ratios(interval, cent_value_target_prev, tolerance, max_delta=max_delta, ratio_factor=ratio_factor)
+                result = self._select_ratios(interval, cent_value_target_prev, tolerance, max_delta=max_delta, ratio_factor=ratio_factor, stability_factor=stability_factor)
                 self.cache[key] = result
                 return result
       
