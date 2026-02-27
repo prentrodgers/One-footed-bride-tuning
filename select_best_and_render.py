@@ -20,8 +20,10 @@ Usage:
 """
 
 import argparse
+import glob
 import os
 import re
+import shutil
 import subprocess
 import sys
 from collections import Counter, defaultdict
@@ -109,6 +111,10 @@ def main():
                         help='WreckingCrew max_cents_slide (default: 50)')
     parser.add_argument('--spread_render', type=int, default=7,
                         help='WreckingCrew spread argument (default: 7)')
+    parser.add_argument('--copy_mp3_to', type=str, default=None,
+                        help='Copy winning MP3s to this directory (e.g. ~/Dropbox/Uploads)')
+    parser.add_argument('--uploads_dir', type=str, default='Uploads',
+                        help='Directory to search for MP3s (default: Uploads)')
     args = parser.parse_args()
 
     root = (args.numpy_dir_root if os.path.isabs(args.numpy_dir_root)
@@ -202,6 +208,33 @@ def main():
         print('\nDone rendering.')
     else:
         print('\nRun with --render to produce audio for the winners.')
+
+    if args.copy_mp3_to:
+        uploads = (args.uploads_dir if os.path.isabs(args.uploads_dir)
+                   else os.path.join(base_dir, args.uploads_dir))
+        dest = os.path.expanduser(args.copy_mp3_to)
+        os.makedirs(dest, exist_ok=True)
+        print(f'\nCopying winning MP3s to {dest} ...\n')
+        for version, best_dir, params in winners:
+            tol = params['tolerance']
+            lm  = params['limit_max']
+            rf  = params['ratio_factor']
+            sf  = params['stability_factor']
+            md  = params['max_delta']
+            bwv_num = version[-2:]   # '53' for bwv253, '60' for bwv260
+            # Match any mod_letter and any spread/duration/tempo suffix
+            pattern = os.path.join(
+                uploads,
+                f'ball9-t{bwv_num}?_lm{lm}_r{rf:.2f}_sf{sf:.2f}_md{md:02d}_sp??_t{tol}_*.mp3'
+            )
+            matches = glob.glob(pattern)
+            if not matches:
+                print(f'  {version}: no MP3 found matching {os.path.basename(pattern)}')
+            else:
+                for src in matches:
+                    shutil.copy2(src, dest)
+                    print(f'  {version}  →  {os.path.basename(src)}')
+        print('\nDone copying.')
 
 
 if __name__ == '__main__':
