@@ -115,6 +115,8 @@ def main():
                         help='Copy winning MP3s to this directory (e.g. ~/Dropbox/Uploads)')
     parser.add_argument('--uploads_dir', type=str, default='Uploads',
                         help='Directory to search for MP3s (default: Uploads)')
+    parser.add_argument('--copy_npy_to', type=str, default=None,
+                        help='Copy winning .npy files for each chorale to this directory')
     args = parser.parse_args()
 
     root = (args.numpy_dir_root if os.path.isabs(args.numpy_dir_root)
@@ -234,6 +236,19 @@ def main():
                 for src in matches:
                     shutil.copy2(src, dest)
                     print(f'  {version}  →  {os.path.basename(src)}')
+        print('\nDone copying.')
+
+    if args.copy_npy_to:
+        dest = os.path.expanduser(args.copy_npy_to)
+        os.makedirs(dest, exist_ok=True)
+        print(f'\nCopying winning .npy files to {dest} ...\n')
+        for version, best_dir, params in winners:
+            src = os.path.join(best_dir, f'{version}{args.suffix}')
+            if not os.path.exists(src):
+                print(f'  {version}: not found — {src}')
+            else:
+                shutil.copy2(src, dest)
+                print(f'  {version}  →  {os.path.basename(src)}  (from {os.path.basename(best_dir)})')
         print('\nDone copying.')
 
 
