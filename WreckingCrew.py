@@ -1525,7 +1525,7 @@ def mainline(chorale_override=None, short_repeats=False, include_list=None, csou
       just_prent_samples = True # this is set so that I have a version that runs without the McGill samples
       if short_repeats:
             include_sections = {
-                  # The above code appears to be defining a dictionary in Python where each key
+                  # define a dictionary where each key
                   # represents a section of a musical ensemble and the corresponding value is a list
                   # containing a boolean indicating whether the section plays instruments or not, and
                   # a NumPy array listing the instruments in that section.
@@ -1533,10 +1533,10 @@ def mainline(chorale_override=None, short_repeats=False, include_list=None, csou
                   # np.repeat creates: Track 0,1=Soprano, 2,3=Alto, 4,5=Tenor, 6,7=Bass
                   # Use high-range instruments for S/A (tracks 0-3), low-range for T/B (tracks 4-7)
                   'finger_pianos': [False, np.array(['fing1', 'fing2', 'fing3', 'fing4', 'fing5', 'fing6', 'bfin1', 'bfin2'])],
-                  'wood_winds':    [True,  np.array(['flut1', 'flut2', 'clar1', 'clar2', 'frnh1', 'frnh2', 'basn1', 'basn2'])],
+                  'wood_winds':    [True, np.array(['flut1', 'clar1', 'oboe1', 'oboe2', 'frnh1', 'frnh2', 'basn1', 'basn2'])],
                   'pizz_strings':  [False, np.array(['vlip1', 'vlip2', 'vlip3', 'vlip4', 'vlap1', 'vlap2', 'celp1', 'celp2'])],
                   'bowed_strings': [False, np.array(['vliv1', 'vliv2', 'vliv3', 'vliv4', 'vlav1', 'vlav2', 'celv1', 'celv2'])],
-                  'brass_section': [True,  np.array(['trmp1', 'trmp2', 'trmp3', 'trmp4', 'trmb1', 'trmb2', 'tuba1', 'tuba2'])], 
+                  'brass_section': [True, np.array(['trmp1', 'trmp2', 'trmp3', 'trmp4', 'trmb1', 'trmb2', 'tuba1', 'tuba2'])],
                   'perc_guitar':   [False, np.array(['xylp1', 'mari1', 'vibp1', 'harp1', 'ebss1', 'stri1', 'bgui1', 'long1'])],
                   'bass_section':  [False, np.array(['bfin3', 'bfin4', 'celp3', 'celp4', 'bgui3', 'bgui2', 'long2', 'long3'])],
                   'melody_section':[False, np.array(['flut2', 'flut3', 'clar2', 'mari2', 'oboe3', 'basn4', 'trmp5', 'frnh3'])]}

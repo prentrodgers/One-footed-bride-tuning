@@ -117,6 +117,8 @@ def main():
                         help='Directory to search for MP3s (default: Uploads)')
     parser.add_argument('--copy_npy_to', type=str, default=None,
                         help='Copy winning .npy files for each chorale to this directory')
+    parser.add_argument('--short_repeats', action='store_true',
+                        help='Pass --short_repeats to WreckingCrew.py')
     args = parser.parse_args()
 
     root = (args.numpy_dir_root if os.path.isabs(args.numpy_dir_root)
@@ -192,7 +194,6 @@ def main():
             print(f'  {version}  →  {os.path.basename(best_dir)}')
             cmd = [
                 sys.executable, os.path.join(base_dir, 'WreckingCrew.py'),
-                '--short_repeats',
                 '--chorale_name', version,
                 f'--cent_file_partial={args.suffix}',
                 '--no_show_volumes',
@@ -206,6 +207,8 @@ def main():
                 '--spread', str(args.spread_render),
                 '--max_cents_slide', str(args.max_cents_slide),
             ]
+            if args.short_repeats:
+                cmd.append('--short_repeats')
             subprocess.run(cmd, check=True)
         print('\nDone rendering.')
     else:

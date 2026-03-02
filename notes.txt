@@ -13,7 +13,7 @@ or just add everything that's changed:
     git add .
 
 # 3. Commit with a message
-    git commit -m "Fix bug posting Improved incorrectly."
+    git commit -m "Fix pitch class of some cent values did not match the original midi values."
 
 # 4. Push to GitHub
     git push origin main

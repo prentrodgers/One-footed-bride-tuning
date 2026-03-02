@@ -478,7 +478,26 @@ ftable 631:	64 points, scalemax 79.000
 
 ________________________________________________________________
 ftable 632:
-ftable 632:	64 points, scalemax 0.000
+ftable 632:	64 points, scalemax 17.000
+     _
+
+
+
+
+
+
+
+
+   _
+________________________________________________________________
+
+
+      -
+ .
+  .
+
+
+    .
 ftable 633:
 ftable 633:	64 points, scalemax 0.000
 ftable 652:
@@ -499,7 +518,22 @@ ftable 653:	64 points, scalemax 81.000
 
 ________________________________________________________________
 ftable 654:
-ftable 654:	64 points, scalemax 0.000
+ftable 654:	64 points, scalemax 31.000
+         _
+
+
+       '
+________________________________________________________________
+
+
+
+
+ '
+
+
+
+
+  _
 ftable 655:
 ftable 655:	64 points, scalemax 0.000
 ftable 667:
@@ -520,7 +554,20 @@ ftable 668:	64 points, scalemax 74.000
 
 ________________________________________________________________
 ftable 669:
-ftable 669:	64 points, scalemax 0.000
+ftable 669:	64 points, scalemax 49.000
+  _
+
+
+
+
+
+
+
+ -  _
+      - -.
+________________________________________________________________
+
+   '
 ftable 670:
 ftable 670:	64 points, scalemax 0.000
 ftable 683:
@@ -541,26 +588,26 @@ ftable 684:	64 points, scalemax 83.000
 
 ________________________________________________________________
 ftable 685:
-ftable 685:	64 points, scalemax 10.000
-  _
+ftable 685:	64 points, scalemax 11.000
+    _
+
                _
-       _
-
-        _         _
-           __   _
-    _            _
-             _
-   _          _
-
+ . .
+     ..           .
+        .
+  -    -   --   -
+                 -
+             -
+              '
 ________________________________________________________________
-     _
-      _  _
 
- _
+         _
 
 
 
-          _
+
+
+          -
 ftable 686:
 ftable 686:	64 points, scalemax 0.000
 ftable 705:
@@ -581,7 +628,18 @@ ftable 706:	64 points, scalemax 85.000
 
 ________________________________________________________________
 ftable 707:
-ftable 707:	64 points, scalemax 0.000
+ftable 707:	64 points, scalemax 19.000
+                 _
+                .
+
+ .
+  ''..'.''
+
+
+
+
+
+________________________________________________________________
 ftable 708:
 ftable 708:	64 points, scalemax 0.000
 ftable 726:
@@ -602,15 +660,15 @@ ftable 727:	64 points, scalemax 77.000
 
 ________________________________________________________________
 ftable 728:
-ftable 728:	64 points, scalemax 6.000
- _ _
+ftable 728:	64 points, scalemax 7.000
+           _
 
-           .
-
-  - -       -
+ ----       -
      _   __
 
-      ...
+      ---
+
+
 
 
 ________________________________________________________________
@@ -634,18 +692,19 @@ ftable 743:	64 points, scalemax 83.000
  -'
 ________________________________________________________________
 ftable 744:
-ftable 744:	64 points, scalemax 36.000
-            _
-               .
-_____________-___-______________________________________________
-     - . ._
-        '  '    _
-                  '
-              '
+ftable 744:	64 points, scalemax 33.000
+        -   '
 
-                    _
-   '
- _
+               _
+____..____.__'___-______________________________________________
+      -_
+           '  _
+                ' -
+         -
+   _
+
+                    -
+ .
 
   _
 ftable 745:
@@ -668,7 +727,23 @@ ftable 767:	64 points, scalemax 75.000
 
 ________________________________________________________________
 ftable 768:
-ftable 768:	64 points, scalemax 0.000
+ftable 768:	64 points, scalemax 24.000
+          _
+
+
+
+
+           '
+
+    .   '
+      '
+   - .   -   .
+________________________________________________________________
+
+
+
+ .     -
+  _
 ftable 769:
 ftable 769:	64 points, scalemax 0.000
 ftable 787:
@@ -689,7 +764,20 @@ ftable 788:	64 points, scalemax 72.000
 
 ________________________________________________________________
 ftable 789:
-ftable 789:	64 points, scalemax 0.000
+ftable 789:	64 points, scalemax 33.000
+          -
+
+________________________________________________________________
+      ..
+
+
+ - _
+
+
+  -
+    .
+         -
+        _    -
 ftable 790:
 ftable 790:	64 points, scalemax 0.000
 ftable 807:
@@ -710,7 +798,25 @@ ftable 808:	64 points, scalemax 62.000
 
 ________________________________________________________________
 ftable 809:
-ftable 809:	64 points, scalemax 0.000
+ftable 809:	64 points, scalemax 38.000
+ _
+
+
+
+                .
+
+
+                  '_
+       _
+  -
+___________.____________________________________________________
+    _     .
+              -
+     -' .-     -
+
+                 '
+
+             .
 ftable 810:
 ftable 810:	64 points, scalemax 0.000
 ftable 830:
@@ -732,25 +838,22 @@ ftable 831:	64 points, scalemax 52.000
 ________________________________________________________________
 ftable 832:
 ftable 832:	64 points, scalemax 12.000
-   .
+   _
 
 
 
 
-             .
- --
-    - --
-________________________________________________________________
+  '
+ _    _
 
-     .  .       .
-              --
+         -
+    -  -     --
+________'______'________________________________________________
+           _
+     .
           -
 
-
-            .
-
-
-           _
+            _
 ftable 833:
 ftable 833:	64 points, scalemax 1.000
  ________________
@@ -783,22 +886,17 @@ ftable 851:	64 points, scalemax 74.000
 ________________________________________________________________
 ftable 852:
 ftable 852:	64 points, scalemax 7.000
-  _
+     _
 
 
-     _         _
+  _    _      _
 
-   -
-    .     .
+           - -
+               .
 
-           '
-              .
+      '  '      ''
+ . .    . . .     .
 ________________________________________________________________
-
- -          -   -
-      _ _         _
-
-       - -
 ftable 853:
 ftable 853:	64 points, scalemax 1.000
  __________________
@@ -830,23 +928,22 @@ ftable 873:	64 points, scalemax 84.000
 
 ________________________________________________________________
 ftable 874:
-ftable 874:	64 points, scalemax 16.000
+ftable 874:	64 points, scalemax 22.000
               _
 
 
+
+
+    .
    -
+       _- _  _
+         - -
+     .      '
+________________________________________________________________
+ _    _
 
 
-
-    '    '
-
-       .' ''.'
-_____-__________________________________________________________
-
-
-
-      .
-  -
+  .
 ftable 875:
 ftable 875:	64 points, scalemax 1.000
  ______________
@@ -878,27 +975,24 @@ ftable 891:	64 points, scalemax 76.000
 
 ________________________________________________________________
 ftable 892:
-ftable 892:	64 points, scalemax 16.000
+ftable 892:	64 points, scalemax 22.000
                _
 
-         '
-             --
-      .
-
-     .
-  _ _     '
-           -
-   '
-____________-___________________________________________________
 
 
-
-        .
+         '   .
+              .
+     _-
+    _     -
+   -       .
+  '
+____________'___________________________________________________
 
 
 
-       -
- '
+       .'
+
+ -
 ftable 893:
 ftable 893:	64 points, scalemax 1.000
  _______________
@@ -930,26 +1024,26 @@ ftable 910:	64 points, scalemax 62.000
 
 ________________________________________________________________
 ftable 911:
-ftable 911:	64 points, scalemax 10.000
-       _
+ftable 911:	64 points, scalemax 15.000
+       -
 
 
 
 
-             _
-  _
+     .
+   _             _
+             .
+_-__________-___-_______________________________________________
+        .
+  -
+      .
+         _ -   _
+              .
+          _
+
+
+
     _
-                __
-
-________________________________________________________________
-
-
-     _  _     _
-
-      _    _   _
-
-
-         __
 ftable 912:
 ftable 912:	64 points, scalemax 1.000
  _________________
@@ -981,18 +1075,25 @@ ftable 931:	64 points, scalemax 81.000
 
 ________________________________________________________________
 ftable 932:
-ftable 932:	64 points, scalemax 36.000
-                _
+ftable 932:	64 points, scalemax 30.000
+          _
 
-             _
+
          -
-                 '
- _  ._    _        '
-  __        .     _
-      -.   .  '
-        '
+                _
+            _ _   -
+ _   _
+____.___________________________________________________________
+  _-   .
 
-_______________'________________________________________________
+      - -    .
+
+
+                 _
+                   -
+
+
+               _
 ftable 933:
 ftable 933:	64 points, scalemax 1.000
  ___________________
@@ -1024,26 +1125,21 @@ ftable 954:	64 points, scalemax 73.000
 
 ________________________________________________________________
 ftable 955:
-ftable 955:	64 points, scalemax 18.000
-        '
-            _
-
-           _
+ftable 955:	64 points, scalemax 40.000
                .
-             '
-      '  _'      '
- -              -
-____-___________________________________________________________
 
 
+________________________________________________________________
+        .   '-  '
+           '     -'
+       -
+ -  ' '
+         -
 
-   _              _
-       _
+  -  -
 
-
-  _
-
-     _
+   '
+          _
 ftable 956:
 ftable 956:	64 points, scalemax 1.000
  __________________
@@ -1075,14 +1171,16 @@ ftable 976:	64 points, scalemax 63.000
 
 ________________________________________________________________
 ftable 977:
-ftable 977:	64 points, scalemax 31.000
-        . - .
-         '        .-
-_-'__-__________________________________________________________
-    . -      - -
-              _  -
-                _
+ftable 977:	64 points, scalemax 35.000
+                   _
 
+
+
+_.-_____'_______________________________________________________
+     - - __      ..
+      '     -  -'
+             --
+           '
 
 
 
@@ -1320,23 +1418,22 @@ ftable 1157:	64 points, scalemax 74.000
 
 ________________________________________________________________
 ftable 1158:
-ftable 1158:	64 points, scalemax 9.000
+ftable 1158:	64 points, scalemax 10.000
     _
 
+              _
+   _
 
-              '
-
-
-   .            .
-        .
-         _     _
-       _   __
+        _
+ _     _
+           __
 ________________________________________________________________
+         _
+                _
 
-
- '    '          '
-             -
-
+  _          _
+      _
+                 _
 
 
 
@@ -1372,25 +1469,24 @@ ftable 1178:	64 points, scalemax 58.000
 
 ________________________________________________________________
 ftable 1179:
-ftable 1179:	64 points, scalemax 8.000
+ftable 1179:	64 points, scalemax 9.000
         -
-         .
-      _
+         -
 
-
+          .
 
 
 ________________________________________________________________
 
+   '
 
 
+    -
 
+           .
+  _  _
 
-
-           '
-  -
-     . .
-    _
+       _
 ftable 1180:
 ftable 1180:	64 points, scalemax 1.000
  ___________
@@ -1423,16 +1519,16 @@ ftable 1193:	64 points, scalemax 55.000
 ________________________________________________________________
 ftable 1194:
 ftable 1194:	64 points, scalemax 6.000
- _
+ _              _
 
-   .
 
-                -
-      _     _
 
-  .  . .   .  .
+   -  -        -
+            _ _
 
-         -     -
+  .  .     .
+
+       - --  -
 ________________________________________________________________
 
 
@@ -1447,6 +1543,79 @@ ________________________________________________________________
 ftable 1195:
 ftable 1195:	64 points, scalemax 1.000
  ________________
+
+
+
+
+
+
+
+
+
+________________________________________________________________
+ftable 1212:
+ftable 1212:	128 points, scalemax 1216.000
+________________________________________________________________
+ftable 1213:
+ftable 1213:	64 points, scalemax 57.000
+ _
+
+
+
+
+
+
+
+
+
+________________________________________________________________
+ftable 1214:
+ftable 1214:	64 points, scalemax 7.000
+________________________________________________________________
+
+
+
+
+
+
+
+
+
+ _
+ftable 1215:
+ftable 1215:	64 points, scalemax 1.000
+ _
+
+
+
+
+
+
+
+
+
+________________________________________________________________
+ftable 1217:
+ftable 1217:	128 points, scalemax 1221.000
+________________________________________________________________
+ftable 1218:
+ftable 1218:	64 points, scalemax 57.000
+ _
+
+
+
+
+
+
+
+
+
+________________________________________________________________
+ftable 1219:
+ftable 1219:	64 points, scalemax 0.000
+ftable 1220:
+ftable 1220:	64 points, scalemax 1.000
+ _
 
 
 
@@ -10020,15 +10189,48 @@ _-_____________________________________'________________________________________
                  -   _   -                                            _-   '  _
                               .   _                           -   -       '
                                       _   .   .   -   -   '
+ftable 1216:
+deferred alloc for samples/sine/sine.wav
+audio sr = 44100, monaural
+opening WAV infile samples/sine/sine.wav
+  defer length 1323000
+ftable 1216:	1323000 points, scalemax 1.000
+                                    __...--'''''''''''''''---..__
+                              _..--'                             ''-.._
+                         _..-'                                         '--._
+                     _.-'                                                   '-._
+                 _.-'
+              _-'
+          _.-'
+       _.'
+    .-'
+_.-'____________________________________________________________________________
+'
+ftable 1221:
+deferred alloc for samples/sine/triangle.wav
+audio sr = 44100, monaural
+opening WAV infile samples/sine/triangle.wav
+  defer length 1323000
+ftable 1221:	1323000 points, scalemax 1.000
+                                              _.-'''-.__
+                                         _.-''          '-.__
+                                    _.-''                    '-.__
+                               _.-''                              '-.__
+                          _.-''                                        '-.__
+                     _.-''                                                  '-._
+                _.-''
+           _.-''
+      _.-''
+__.-''__________________________________________________________________________
 ftable 1:
-ftable 1:	64 points, scalemax 1192.000
-                           _
-                       ..-'
-                   _.-'
-             _..-''
-       __.-''
- _..--'
-
+ftable 1:	64 points, scalemax 1217.000
+                             _
+                       _..-''
+                   __.'
+              _..-'
+        _..-''
+  _..-''
+ '
 
 
 
@@ -10040,44 +10242,26 @@ ftable 2:	64 points, scalemax 2.000
 
 
 
- _      _           _____
+ _      _           _____   __
 
 
 
 
 ________________________________________________________________
 ftable 1500:
-ftable 1500:	256 points, scalemax 1.018
-''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-ftable 1501:
-ftable 1501:	256 points, scalemax 1.000
+ftable 1500:	256 points, scalemax 1.000
 _
  '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+ftable 1501:
+ftable 1501:	256 points, scalemax 1.005
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 ftable 1502:
-ftable 1502:	256 points, scalemax 1.002
+ftable 1502:	256 points, scalemax 1.010
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 ftable 1503:
 ftable 1503:	256 points, scalemax 1.000
 _
- '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-ftable 1504:
-ftable 1504:	256 points, scalemax 1.000
-_
- '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-ftable 1505:
-ftable 1505:	256 points, scalemax 1.000
-_
- '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-ftable 1506:
-ftable 1506:	256 points, scalemax 1.009
-''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-ftable 1507:
-ftable 1507:	256 points, scalemax 1.000
-_
- '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-ftable 1508:
-ftable 1508:	256 points, scalemax 1.004
-''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+ ''''''''''''''''''''''''''''''''''''''''''''''''''''-----------
 new alloc for instr 1:
 new alloc for instr 1:
 new alloc for instr 1:
@@ -10099,6 +10283,23 @@ new alloc for instr 1:
 new alloc for instr 1:
 new alloc for instr 1:
 new alloc for instr 1:
+voice: 5. no switch 687 == 687
+new alloc for instr 1:
+new alloc for instr 1:
+new alloc for instr 1:
+new alloc for instr 1:
+new alloc for instr 1:
+voice: 5. no switch 687 == 687
+voice: 5. no switch 687 == 687
+new alloc for instr 1:
+new alloc for instr 1:
+voice: 5. no switch 687 == 687
+voice: 5. no switch 687 == 687
+voice: 5. no switch 687 == 687
+voice: 5. no switch 687 == 687
+voice: 5. no switch 687 == 687
+voice: 5. no switch 687 == 687
+voice: 5. no switch 687 == 687
 new alloc for instr 1:
 new alloc for instr 1:
 new alloc for instr 1:
@@ -10109,9 +10310,1781 @@ new alloc for instr 1:
 new alloc for instr 1:
 new alloc for instr 1:
 new alloc for instr 1:
+voice: 5. no switch 687 == 687
+voice: 5. no switch 687 == 687
+voice: 5. no switch 687 == 687
+voice: 5. no switch 687 == 687
+voice: 5. no switch 687 == 687
+voice: 5. no switch 687 == 687
+voice: 5. no switch 687 == 687
+voice: 5. no switch 687 == 687
+voice: 5. no switch 687 == 687
+voice: 5. no switch 687 == 687
+new alloc for instr 1:
+voice: 2. no switch 634 == 634
+voice: 3. no switch 656 == 656
+voice: 3. no switch 656 == 656
+voice: 2. no switch 634 == 634
+new alloc for instr 1:
+voice: 2. no switch 634 == 634
+new alloc for instr 1:
+voice: 2. no switch 634 == 634
+new alloc for instr 1:
+new alloc for instr 1:
+new alloc for instr 1:
+new alloc for instr 1:
+voice: 4. no switch 671 == 671
+new alloc for instr 1:
+new alloc for instr 1:
+new alloc for instr 1:
+voice: 4. no switch 671 == 671
+new alloc for instr 1:
+new alloc for instr 1:
+new alloc for instr 1:
+new alloc for instr 1:
+new alloc for instr 1:
+voice: 2. no switch 634 == 634
+voice: 3. no switch 656 == 656
+voice: 2. no switch 634 == 634
+voice: 3. no switch 656 == 656
+voice: 4. no switch 671 == 671
+voice: 3. no switch 656 == 656
+voice: 4. no switch 671 == 671
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 3. no switch 656 == 656
+voice: 2. no switch 634 == 634
+voice: 4. no switch 671 == 671
+voice: 3. no switch 656 == 656
+voice: 4. no switch 671 == 671
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 3. no switch 656 == 656
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 3. no switch 656 == 656
+voice: 2. no switch 634 == 634
+voice: 4. no switch 671 == 671
+voice: 3. no switch 656 == 656
+voice: 2. no switch 634 == 634
+voice: 4. no switch 671 == 671
+voice: 3. no switch 656 == 656
+voice: 2. no switch 634 == 634
+voice: 3. no switch 656 == 656
+voice: 4. no switch 671 == 671
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 4. no switch 671 == 671
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 3. no switch 656 == 656
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 3. no switch 656 == 656
+voice: 4. no switch 671 == 671
+voice: 3. no switch 656 == 656
+voice: 4. no switch 671 == 671
+voice: 3. no switch 656 == 656
+voice: 4. no switch 671 == 671
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 3. no switch 656 == 656
+voice: 4. no switch 671 == 671
+voice: 2. no switch 634 == 634
+voice: 3. no switch 656 == 656
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 4. no switch 671 == 671
+voice: 2. no switch 634 == 634
+voice: 4. no switch 671 == 671
+voice: 2. no switch 634 == 634
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 2. no switch 634 == 634
+voice: 3. no switch 656 == 656
+voice: 2. no switch 634 == 634
+voice: 4. no switch 671 == 671
+voice: 3. no switch 656 == 656
+voice: 3. no switch 656 == 656
+voice: 2. no switch 634 == 634
+voice: 3. no switch 656 == 656
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 3. no switch 656 == 656
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 3. no switch 656 == 656
+voice: 4. no switch 671 == 671
+voice: 3. no switch 656 == 656
+voice: 2. no switch 634 == 634
+voice: 3. no switch 656 == 656
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 3. no switch 656 == 656
+voice: 3. no switch 656 == 656
+voice: 4. no switch 671 == 671
+voice: 2. no switch 634 == 634
+voice: 3. no switch 656 == 656
+voice: 2. no switch 634 == 634
+voice: 4. no switch 671 == 671
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 4. no switch 671 == 671
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 4. no switch 671 == 671
+voice: 2. no switch 634 == 634
+voice: 3. no switch 656 == 656
+voice: 4. no switch 671 == 671
+voice: 3. no switch 656 == 656
+voice: 3. no switch 656 == 656
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 4. no switch 671 == 671
+voice: 3. no switch 656 == 656
+voice: 3. no switch 656 == 656
+voice: 4. no switch 671 == 671
+voice: 3. no switch 656 == 656
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 4. no switch 671 == 671
+voice: 3. no switch 656 == 656
+voice: 2. no switch 634 == 634
+voice: 3. no switch 656 == 656
+voice: 4. no switch 671 == 671
+voice: 3. no switch 656 == 656
+voice: 4. no switch 671 == 671
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 3. no switch 656 == 656
+voice: 4. no switch 671 == 671
+voice: 2. no switch 634 == 634
+voice: 3. no switch 656 == 656
+voice: 4. no switch 671 == 671
+voice: 3. no switch 656 == 656
+voice: 2. no switch 634 == 634
+voice: 3. no switch 656 == 656
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 3. no switch 656 == 656
+voice: 2. no switch 634 == 634
+voice: 3. no switch 656 == 656
+voice: 2. no switch 634 == 634
+voice: 3. no switch 656 == 656
+voice: 4. no switch 671 == 671
+voice: 3. no switch 656 == 656
+voice: 2. no switch 634 == 634
+voice: 3. no switch 656 == 656
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 3. no switch 656 == 656
+voice: 2. no switch 634 == 634
+voice: 4. no switch 671 == 671
+voice: 2. no switch 634 == 634
+voice: 3. no switch 656 == 656
+voice: 2. no switch 634 == 634
+voice: 4. no switch 671 == 671
+voice: 3. no switch 656 == 656
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 2. switched sample from 635 to 634. Total moved so far: 187
+voice: 2. switched sample from 635 to 634. Total moved so far: 188
+voice: 2. no switch 634 == 634
+voice: 3. no switch 656 == 656
+new alloc for instr 1:
+new alloc for instr 1:
+voice: 2. no switch 634 == 634
+new alloc for instr 1:
+voice: 3. no switch 656 == 656
+voice: 2. no switch 634 == 634
+voice: 2. switched sample from 635 to 634. Total moved so far: 194
+voice: 2. switched sample from 635 to 634. Total moved so far: 195
+voice: 2. switched sample from 635 to 634. Total moved so far: 196
+voice: 4. no switch 671 == 671
+voice: 3. no switch 656 == 656
+voice: 4. no switch 671 == 671
+voice: 3. no switch 656 == 656
+voice: 4. no switch 671 == 671
+voice: 3. no switch 656 == 656
+voice: 2. no switch 634 == 634
+voice: 4. no switch 671 == 671
+voice: 2. no switch 634 == 634
+voice: 3. no switch 656 == 656
+voice: 2. switched sample from 635 to 634. Total moved so far: 207
+voice: 4. no switch 671 == 671
+voice: 2. switched sample from 635 to 634. Total moved so far: 209
+voice: 2. no switch 634 == 634
+voice: 2. switched sample from 635 to 634. Total moved so far: 211
+voice: 3. no switch 656 == 656
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 3. no switch 656 == 656
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 4. no switch 671 == 671
+voice: 2. switched sample from 635 to 634. Total moved so far: 219
+voice: 3. no switch 656 == 656
+voice: 4. no switch 671 == 671
+voice: 2. switched sample from 635 to 634. Total moved so far: 222
+voice: 3. no switch 656 == 656
+voice: 4. no switch 671 == 671
+voice: 3. no switch 656 == 656
+voice: 2. no switch 634 == 634
+voice: 4. no switch 671 == 671
+voice: 2. switched sample from 635 to 634. Total moved so far: 228
+voice: 3. no switch 656 == 656
+voice: 2. no switch 634 == 634
+voice: 4. no switch 671 == 671
+voice: 3. no switch 656 == 656
+voice: 2. no switch 634 == 634
+voice: 2. switched sample from 635 to 634. Total moved so far: 234
+voice: 3. no switch 656 == 656
+voice: 3. no switch 656 == 656
+voice: 3. no switch 656 == 656
+voice: 2. switched sample from 635 to 634. Total moved so far: 238
+voice: 2. no switch 634 == 634
+voice: 4. no switch 671 == 671
+voice: 2. switched sample from 635 to 634. Total moved so far: 241
+voice: 2. no switch 634 == 634
+voice: 3. no switch 656 == 656
+voice: 2. switched sample from 635 to 634. Total moved so far: 244
+voice: 3. no switch 656 == 656
+voice: 3. no switch 656 == 656
+voice: 4. no switch 671 == 671
+voice: 3. no switch 656 == 656
+voice: 3. no switch 656 == 656
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 3. no switch 656 == 656
+voice: 4. no switch 671 == 671
+voice: 2. no switch 634 == 634
+voice: 2. switched sample from 635 to 634. Total moved so far: 255
+voice: 3. no switch 656 == 656
+voice: 4. no switch 671 == 671
+voice: 2. no switch 634 == 634
+voice: 3. no switch 656 == 656
+voice: 2. no switch 634 == 634
+voice: 2. switched sample from 635 to 634. Total moved so far: 261
+voice: 4. no switch 671 == 671
+voice: 2. no switch 634 == 634
+voice: 3. no switch 656 == 656
+voice: 2. switched sample from 635 to 634. Total moved so far: 265
+voice: 2. no switch 634 == 634
+voice: 3. no switch 656 == 656
+voice: 2. switched sample from 635 to 634. Total moved so far: 268
+voice: 2. no switch 634 == 634
+voice: 4. no switch 671 == 671
+voice: 2. no switch 634 == 634
+voice: 3. no switch 656 == 656
+voice: 3. no switch 656 == 656
+voice: 4. no switch 671 == 671
+voice: 2. switched sample from 635 to 634. Total moved so far: 275
+voice: 3. no switch 656 == 656
+voice: 3. no switch 656 == 656
+voice: 2. switched sample from 635 to 634. Total moved so far: 278
+voice: 5. no switch 687 == 687
+voice: 2. switched sample from 635 to 634. Total moved so far: 280
+new alloc for instr 1:
+new alloc for instr 1:
+voice: 4. no switch 671 == 671
+new alloc for instr 1:
+new alloc for instr 1:
+new alloc for instr 1:
+voice: 2. no switch 634 == 634
+new alloc for instr 1:
+new alloc for instr 1:
+new alloc for instr 1:
+new alloc for instr 1:
+new alloc for instr 1:
+new alloc for instr 1:
+voice: 4. no switch 671 == 671
+new alloc for instr 1:
+voice: 2. no switch 634 == 634
+new alloc for instr 1:
+voice: 5. no switch 687 == 687
+voice: 3. no switch 656 == 656
+voice: 4. no switch 671 == 671
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 3. no switch 656 == 656
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 3. no switch 656 == 656
+voice: 2. no switch 634 == 634
+voice: 4. no switch 671 == 671
+voice: 3. no switch 656 == 656
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 3. no switch 656 == 656
+voice: 2. no switch 634 == 634
+voice: 4. no switch 671 == 671
+voice: 3. no switch 656 == 656
+voice: 2. no switch 634 == 634
+voice: 4. no switch 671 == 671
+voice: 2. no switch 634 == 634
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 3. no switch 656 == 656
+voice: 2. no switch 634 == 634
+voice: 3. no switch 656 == 656
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 4. no switch 671 == 671
+voice: 3. no switch 656 == 656
+voice: 4. no switch 671 == 671
+voice: 3. no switch 656 == 656
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 4. no switch 671 == 671
+voice: 3. no switch 656 == 656
+new alloc for instr 1:
+new alloc for instr 1:
+new alloc for instr 1:
+new alloc for instr 1:
+new alloc for instr 1:
+new alloc for instr 1:
+new alloc for instr 1:
+new alloc for instr 1:
+new alloc for instr 1:
+new alloc for instr 1:
+new alloc for instr 1:
+voice: 4. no switch 671 == 671
+new alloc for instr 1:
+new alloc for instr 1:
+new alloc for instr 1:
+voice: 2. no switch 634 == 634
+voice: 3. no switch 656 == 656
+voice: 2. no switch 634 == 634
+voice: 3. no switch 656 == 656
+voice: 2. no switch 634 == 634
+voice: 3. no switch 656 == 656
+voice: 2. no switch 634 == 634
+voice: 4. no switch 671 == 671
+voice: 3. no switch 656 == 656
+voice: 3. no switch 656 == 656
+voice: 3. no switch 656 == 656
+voice: 4. no switch 671 == 671
+voice: 2. no switch 634 == 634
+voice: 4. no switch 671 == 671
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 3. no switch 656 == 656
+voice: 2. no switch 634 == 634
+voice: 3. no switch 656 == 656
+voice: 4. no switch 671 == 671
+voice: 2. no switch 634 == 634
+voice: 3. no switch 656 == 656
+voice: 2. no switch 634 == 634
+voice: 3. no switch 656 == 656
+voice: 4. no switch 671 == 671
+voice: 2. no switch 634 == 634
+voice: 3. no switch 656 == 656
+voice: 4. no switch 671 == 671
+voice: 2. no switch 634 == 634
+voice: 3. no switch 656 == 656
+voice: 3. no switch 656 == 656
+voice: 2. no switch 634 == 634
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 4. no switch 671 == 671
+voice: 2. no switch 634 == 634
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 3. no switch 656 == 656
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 3. no switch 656 == 656
+voice: 4. no switch 671 == 671
+voice: 2. no switch 634 == 634
+voice: 3. no switch 656 == 656
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 4. no switch 671 == 671
+voice: 3. no switch 656 == 656
+voice: 2. no switch 634 == 634
+voice: 3. no switch 656 == 656
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 3. no switch 656 == 656
+voice: 4. no switch 671 == 671
+voice: 2. no switch 634 == 634
+voice: 4. no switch 671 == 671
+voice: 5. no switch 687 == 687
+voice: 5. no switch 687 == 687
+voice: 4. no switch 671 == 671
+voice: 2. no switch 634 == 634
+voice: 20. no switch 1003 == 1003
+voice: 4. no switch 671 == 671
+voice: 3. no switch 656 == 656
+voice: 2. no switch 634 == 634
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 2. no switch 634 == 634
+voice: 5. no switch 687 == 687
+voice: 5. no switch 687 == 687
+voice: 2. no switch 634 == 634
+voice: 5. no switch 687 == 687
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 3. no switch 656 == 656
+voice: 4. no switch 671 == 671
+voice: 2. no switch 634 == 634
+voice: 4. no switch 671 == 671
+voice: 2. no switch 634 == 634
+voice: 3. no switch 656 == 656
+voice: 2. no switch 634 == 634
+voice: 3. no switch 656 == 656
+voice: 2. no switch 634 == 634
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 2. no switch 634 == 634
+voice: 3. no switch 656 == 656
+voice: 2. no switch 634 == 634
+voice: 3. no switch 656 == 656
+voice: 2. no switch 634 == 634
+voice: 5. no switch 687 == 687
+voice: 3. no switch 656 == 656
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 4. no switch 671 == 671
+new alloc for instr 1:
+voice: 3. no switch 656 == 656
+new alloc for instr 1:
+voice: 4. no switch 671 == 671
+new alloc for instr 1:
+new alloc for instr 1:
+new alloc for instr 1:
+voice: 5. no switch 687 == 687
+voice: 3. no switch 656 == 656
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 3. no switch 656 == 656
+voice: 5. no switch 687 == 687
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 5. no switch 687 == 687
+voice: 2. no switch 634 == 634
+voice: 5. no switch 687 == 687
+voice: 4. no switch 671 == 671
+voice: 5. no switch 687 == 687
+voice: 3. no switch 656 == 656
+voice: 2. no switch 634 == 634
+voice: 5. no switch 687 == 687
+voice: 2. no switch 634 == 634
+voice: 5. no switch 687 == 687
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 5. no switch 687 == 687
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 3. no switch 656 == 656
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 3. no switch 656 == 656
+voice: 4. no switch 671 == 671
+voice: 2. no switch 634 == 634
+voice: 4. no switch 671 == 671
+voice: 5. no switch 687 == 687
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 3. no switch 656 == 656
+voice: 2. no switch 634 == 634
+voice: 4. no switch 671 == 671
+voice: 5. no switch 687 == 687
+voice: 4. no switch 671 == 671
+voice: 3. no switch 656 == 656
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 4. no switch 671 == 671
+voice: 5. no switch 687 == 687
+voice: 2. no switch 634 == 634
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 5. no switch 687 == 687
+voice: 4. no switch 671 == 671
+voice: 3. no switch 656 == 656
+voice: 4. no switch 671 == 671
+voice: 5. no switch 687 == 687
+voice: 2. no switch 634 == 634
+voice: 3. no switch 656 == 656
+voice: 5. no switch 687 == 687
+voice: 3. no switch 656 == 656
+voice: 3. no switch 656 == 656
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 3. no switch 656 == 656
+voice: 5. no switch 687 == 687
+voice: 5. no switch 687 == 687
+voice: 3. no switch 656 == 656
+voice: 3. no switch 656 == 656
+voice: 2. no switch 634 == 634
+voice: 3. no switch 656 == 656
+voice: 5. no switch 687 == 687
+voice: 2. no switch 634 == 634
+voice: 3. no switch 656 == 656
+voice: 5. no switch 687 == 687
+voice: 5. no switch 687 == 687
+voice: 2. no switch 634 == 634
+voice: 3. no switch 656 == 656
+voice: 5. no switch 687 == 687
+voice: 2. no switch 634 == 634
+voice: 20. no switch 1003 == 1003
+voice: 5. switched sample from 688 to 687. Total moved so far: 519
+voice: 5. switched sample from 688 to 687. Total moved so far: 520
+voice: 4. no switch 671 == 671
+voice: 5. switched sample from 688 to 687. Total moved so far: 522
+voice: 3. no switch 656 == 656
+voice: 5. switched sample from 688 to 687. Total moved so far: 524
+voice: 3. no switch 656 == 656
+voice: 5. no switch 687 == 687
+voice: 4. no switch 671 == 671
+voice: 5. switched sample from 688 to 687. Total moved so far: 528
+voice: 5. switched sample from 688 to 687. Total moved so far: 529
+voice: 3. no switch 656 == 656
+voice: 4. no switch 671 == 671
+voice: 5. switched sample from 688 to 687. Total moved so far: 532
+voice: 3. no switch 656 == 656
+voice: 3. no switch 656 == 656
+voice: 4. no switch 671 == 671
+voice: 5. switched sample from 688 to 687. Total moved so far: 536
+voice: 5. no switch 687 == 687
+voice: 5. no switch 687 == 687
+voice: 4. no switch 671 == 671
+voice: 5. no switch 687 == 687
+voice: 5. switched sample from 688 to 687. Total moved so far: 541
+voice: 4. no switch 671 == 671
+voice: 3. no switch 656 == 656
+voice: 4. no switch 671 == 671
+voice: 5. switched sample from 688 to 687. Total moved so far: 545
+voice: 5. no switch 687 == 687
+voice: 4. no switch 671 == 671
+voice: 5. switched sample from 688 to 687. Total moved so far: 548
+voice: 3. no switch 656 == 656
+voice: 3. no switch 656 == 656
+voice: 5. no switch 687 == 687
+voice: 3. no switch 656 == 656
+voice: 5. no switch 687 == 687
+voice: 5. switched sample from 688 to 687. Total moved so far: 554
+voice: 4. no switch 671 == 671
+voice: 3. no switch 656 == 656
+voice: 5. no switch 687 == 687
+voice: 5. switched sample from 688 to 687. Total moved so far: 558
+voice: 3. no switch 656 == 656
+voice: 5. switched sample from 688 to 687. Total moved so far: 560
+voice: 5. switched sample from 688 to 687. Total moved so far: 561
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 5. switched sample from 688 to 687. Total moved so far: 565
+voice: 5. no switch 687 == 687
+voice: 2. no switch 634 == 634
+voice: 4. no switch 671 == 671
+voice: 5. no switch 687 == 687
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 20. no switch 1003 == 1003
+voice: 3. no switch 656 == 656
+voice: 5. no switch 687 == 687
+voice: 3. no switch 656 == 656
+voice: 5. no switch 687 == 687
+voice: 3. no switch 656 == 656
+voice: 5. no switch 687 == 687
+voice: 5. switched sample from 688 to 687. Total moved so far: 579
+voice: 3. no switch 656 == 656
+voice: 5. no switch 687 == 687
+voice: 4. no switch 671 == 671
+voice: 5. no switch 687 == 687
+voice: 5. switched sample from 688 to 687. Total moved so far: 584
+voice: 5. no switch 687 == 687
+voice: 4. no switch 671 == 671
+voice: 3. no switch 656 == 656
+voice: 5. switched sample from 688 to 687. Total moved so far: 588
+voice: 4. no switch 671 == 671
+voice: 5. no switch 687 == 687
+voice: 3. no switch 656 == 656
+voice: 5. no switch 687 == 687
+voice: 3. no switch 656 == 656
+voice: 5. switched sample from 688 to 687. Total moved so far: 594
+voice: 4. no switch 671 == 671
+voice: 5. no switch 687 == 687
+voice: 3. no switch 656 == 656
+voice: 5. no switch 687 == 687
+voice: 4. no switch 671 == 671
+voice: 5. switched sample from 688 to 687. Total moved so far: 600
+voice: 5. no switch 687 == 687
+voice: 3. no switch 656 == 656
+voice: 5. switched sample from 688 to 687. Total moved so far: 603
+voice: 3. no switch 656 == 656
+voice: 4. no switch 671 == 671
+voice: 5. switched sample from 688 to 687. Total moved so far: 606
+voice: 5. no switch 687 == 687
+voice: 5. switched sample from 688 to 687. Total moved so far: 608
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 20. no switch 1003 == 1003
+voice: 4. no switch 671 == 671
+voice: 5. switched sample from 688 to 687. Total moved so far: 613
+voice: 5. no switch 687 == 687
+voice: 5. no switch 687 == 687
+voice: 4. no switch 671 == 671
+voice: 2. no switch 634 == 634
+voice: 5. no switch 687 == 687
+voice: 5. no switch 687 == 687
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 5. switched sample from 688 to 687. Total moved so far: 622
+voice: 4. no switch 671 == 671
+voice: 5. no switch 687 == 687
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 5. no switch 687 == 687
+voice: 2. no switch 634 == 634
+voice: 4. no switch 671 == 671
+voice: 2. no switch 634 == 634
+voice: 5. no switch 687 == 687
+voice: 5. switched sample from 688 to 687. Total moved so far: 635
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 5. no switch 687 == 687
+voice: 5. no switch 687 == 687
+voice: 4. no switch 671 == 671
+voice: 2. no switch 634 == 634
+voice: 5. no switch 687 == 687
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 2. no switch 634 == 634
+voice: 5. no switch 687 == 687
+voice: 5. switched sample from 688 to 687. Total moved so far: 647
+voice: 4. no switch 671 == 671
+voice: 20. no switch 1003 == 1003
+voice: 2. no switch 634 == 634
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 7. no switch 741 == 741
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 20. no switch 1003 == 1003
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 2. no switch 634 == 634
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 20. no switch 1003 == 1003
+voice: 2. no switch 634 == 634
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 20. no switch 1003 == 1003
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 20. no switch 1003 == 1003
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 20. no switch 1003 == 1003
+voice: 4. no switch 671 == 671
+voice: 20. no switch 1003 == 1003
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 20. no switch 1003 == 1003
+voice: 3. no switch 656 == 656
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 3. no switch 656 == 656
+voice: 4. no switch 671 == 671
+voice: 20. no switch 1003 == 1003
+voice: 4. no switch 671 == 671
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 3. no switch 656 == 656
+voice: 7. no switch 741 == 741
+voice: 20. no switch 1003 == 1003
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 3. no switch 656 == 656
+voice: 20. no switch 1003 == 1003
+voice: 2. no switch 634 == 634
+voice: 20. no switch 1003 == 1003
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 3. no switch 656 == 656
+voice: 3. no switch 656 == 656
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 3. no switch 656 == 656
+voice: 3. no switch 656 == 656
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 3. no switch 656 == 656
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 4. no switch 671 == 671
+voice: 7. no switch 741 == 741
+voice: 2. no switch 634 == 634
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+new alloc for instr 1:
+new alloc for instr 1:
+voice: 3. no switch 656 == 656
+voice: 4. no switch 671 == 671
+voice: 3. no switch 656 == 656
+voice: 2. no switch 634 == 634
+voice: 4. no switch 671 == 671
+voice: 2. no switch 634 == 634
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 3. no switch 656 == 656
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 3. no switch 656 == 656
+voice: 3. no switch 656 == 656
+voice: 3. no switch 656 == 656
+voice: 4. no switch 671 == 671
+voice: 3. no switch 656 == 656
+voice: 4. no switch 671 == 671
+voice: 3. no switch 656 == 656
+voice: 2. no switch 634 == 634
+voice: 2. no switch 634 == 634
+voice: 4. no switch 671 == 671
+voice: 3. no switch 656 == 656
+voice: 4. no switch 671 == 671
+voice: 2. no switch 634 == 634
+voice: 7. no switch 741 == 741
+voice: 4. no switch 671 == 671
+voice: 1. no switch 629 == 629
+voice: 20. no switch 1003 == 1003
+voice: 4. no switch 671 == 671
+voice: 1. no switch 629 == 629
+voice: 2. no switch 651 == 651
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 2. no switch 651 == 651
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 2. no switch 651 == 651
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 24. no switch 1155 == 1155
+voice: 2. no switch 651 == 651
+voice: 2. no switch 651 == 651
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 2. no switch 651 == 651
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 2. no switch 651 == 651
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 2. no switch 651 == 651
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 2. no switch 651 == 651
+voice: 2. no switch 651 == 651
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+new alloc for instr 1:
+new alloc for instr 1:
+new alloc for instr 1:
+new alloc for instr 1:
+new alloc for instr 1:
+new alloc for instr 1:
+new alloc for instr 1:
+new alloc for instr 1:
+new alloc for instr 1:
+new alloc for instr 1:
+voice: 1. no switch 629 == 629
+voice: 5. no switch 687 == 687
+voice: 5. switched sample from 688 to 687. Total moved so far: 835
+voice: 1. no switch 629 == 629
+voice: 2. no switch 651 == 651
+voice: 24. no switch 1155 == 1155
+voice: 1. no switch 629 == 629
+voice: 2. no switch 651 == 651
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 2. no switch 651 == 651
+voice: 2. no switch 651 == 651
+voice: 2. no switch 651 == 651
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 5. switched sample from 688 to 687. Total moved so far: 849
+voice: 1. no switch 629 == 629
+voice: 2. no switch 651 == 651
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 5. no switch 687 == 687
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 2. no switch 651 == 651
+voice: 1. no switch 629 == 629
+voice: 24. no switch 1155 == 1155
+voice: 5. no switch 704 == 704
+voice: 1. no switch 629 == 629
+voice: 24. no switch 1155 == 1155
+voice: 2. no switch 651 == 651
+voice: 2. no switch 651 == 651
+voice: 1. no switch 629 == 629
+voice: 5. no switch 704 == 704
+voice: 1. no switch 629 == 629
+voice: 2. no switch 651 == 651
+voice: 24. no switch 1155 == 1155
+voice: 5. no switch 704 == 704
+voice: 1. no switch 629 == 629
+voice: 2. no switch 651 == 651
+voice: 1. no switch 629 == 629
+voice: 2. no switch 651 == 651
+voice: 1. no switch 629 == 629
+voice: 24. no switch 1155 == 1155
+voice: 5. no switch 687 == 687
+voice: 5. no switch 704 == 704
+voice: 1. no switch 629 == 629
+voice: 24. no switch 1155 == 1155
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 2. no switch 651 == 651
+voice: 5. no switch 704 == 704
+voice: 5. switched sample from 688 to 687. Total moved so far: 886
+voice: 1. no switch 629 == 629
+voice: 2. no switch 651 == 651
+voice: 2. no switch 651 == 651
+voice: 5. no switch 687 == 687
+voice: 24. no switch 1155 == 1155
+voice: 1. no switch 629 == 629
+voice: 2. no switch 651 == 651
+voice: 2. no switch 651 == 651
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 2. no switch 651 == 651
+voice: 5. no switch 704 == 704
+voice: 5. no switch 687 == 687
+voice: 1. no switch 629 == 629
+voice: 2. no switch 651 == 651
+voice: 1. no switch 629 == 629
+voice: 2. no switch 651 == 651
+voice: 1. no switch 629 == 629
+voice: 5. switched sample from 688 to 687. Total moved so far: 905
+voice: 1. no switch 629 == 629
+voice: 24. no switch 1155 == 1155
+voice: 1. no switch 629 == 629
+voice: 2. no switch 651 == 651
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 24. no switch 1155 == 1155
+voice: 24. no switch 1155 == 1155
+voice: 5. no switch 704 == 704
+voice: 2. no switch 651 == 651
+voice: 1. no switch 629 == 629
+voice: 5. no switch 687 == 687
+voice: 5. no switch 704 == 704
+voice: 24. no switch 1155 == 1155
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 5. no switch 704 == 704
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 5. no switch 704 == 704
+voice: 2. no switch 651 == 651
+voice: 2. no switch 651 == 651
+voice: 5. switched sample from 688 to 687. Total moved so far: 930
+voice: 24. no switch 1155 == 1155
+voice: 1. no switch 629 == 629
+voice: 24. no switch 1155 == 1155
+voice: 1. no switch 629 == 629
+voice: 2. no switch 651 == 651
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 5. no switch 704 == 704
+voice: 24. no switch 1155 == 1155
+voice: 5. no switch 704 == 704
+voice: 1. no switch 629 == 629
+voice: 2. no switch 651 == 651
+voice: 1. no switch 629 == 629
+voice: 5. no switch 687 == 687
+voice: 2. no switch 651 == 651
+voice: 1. no switch 629 == 629
+voice: 5. no switch 704 == 704
+voice: 1. no switch 629 == 629
+voice: 5. switched sample from 688 to 687. Total moved so far: 949
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 5. switched sample from 688 to 687. Total moved so far: 952
+voice: 1. no switch 629 == 629
+voice: 2. no switch 651 == 651
+voice: 24. no switch 1155 == 1155
+voice: 1. no switch 629 == 629
+voice: 2. no switch 651 == 651
+voice: 1. no switch 629 == 629
+voice: 5. no switch 687 == 687
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 2. no switch 651 == 651
+voice: 5. switched sample from 688 to 687. Total moved so far: 963
+voice: 5. no switch 704 == 704
+voice: 5. no switch 704 == 704
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 2. no switch 651 == 651
+voice: 5. no switch 687 == 687
+voice: 1. no switch 629 == 629
+voice: 5. switched sample from 688 to 687. Total moved so far: 971
+voice: 24. no switch 1155 == 1155
+voice: 4. no switch 671 == 671
+voice: 5. switched sample from 688 to 687. Total moved so far: 974
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+new alloc for instr 1:
+new alloc for instr 1:
+voice: 5. switched sample from 688 to 687. Total moved so far: 977
+new alloc for instr 1:
+new alloc for instr 1:
+voice: 24. switched sample from 1154 to 1155. Total moved so far: 978
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 2. no switch 651 == 651
+voice: 5. switched sample from 688 to 687. Total moved so far: 982
+voice: 4. no switch 671 == 671
+voice: 24. switched sample from 1154 to 1155. Total moved so far: 984
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 5. switched sample from 688 to 687. Total moved so far: 991
+voice: 24. switched sample from 1154 to 1155. Total moved so far: 992
+voice: 1. no switch 629 == 629
+voice: 4. no switch 671 == 671
+voice: 1. no switch 629 == 629
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 1. no switch 629 == 629
+voice: 4. no switch 671 == 671
+voice: 2. no switch 651 == 651
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 2. no switch 651 == 651
+voice: 5. switched sample from 688 to 687. Total moved so far: 1005
+voice: 4. no switch 671 == 671
+voice: 24. switched sample from 1154 to 1155. Total moved so far: 1007
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 5. switched sample from 688 to 687. Total moved so far: 1010
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 5. switched sample from 688 to 687. Total moved so far: 1013
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 2. no switch 651 == 651
+voice: 5. no switch 704 == 704
+voice: 1. no switch 629 == 629
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 24. switched sample from 1154 to 1155. Total moved so far: 1021
+voice: 5. switched sample from 688 to 687. Total moved so far: 1022
+voice: 1. no switch 629 == 629
+voice: 4. no switch 671 == 671
+voice: 1. no switch 629 == 629
+voice: 5. no switch 704 == 704
+voice: 4. no switch 671 == 671
+voice: 1. no switch 629 == 629
+voice: 5. switched sample from 688 to 687. Total moved so far: 1029
+voice: 4. no switch 671 == 671
+voice: 24. switched sample from 1154 to 1155. Total moved so far: 1031
+voice: 1. no switch 629 == 629
+voice: 24. switched sample from 1154 to 1155. Total moved so far: 1033
+voice: 5. no switch 704 == 704
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 1. no switch 629 == 629
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 5. no switch 704 == 704
+voice: 1. no switch 629 == 629
+voice: 24. switched sample from 1154 to 1155. Total moved so far: 1042
+voice: 5. no switch 704 == 704
+voice: 5. no switch 704 == 704
+voice: 5. switched sample from 688 to 687. Total moved so far: 1045
+voice: 1. no switch 629 == 629
+voice: 5. switched sample from 688 to 687. Total moved so far: 1047
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 24. switched sample from 1154 to 1155. Total moved so far: 1050
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 24. switched sample from 1154 to 1155. Total moved so far: 1053
+voice: 1. no switch 629 == 629
+voice: 2. no switch 651 == 651
+voice: 1. no switch 629 == 629
+voice: 4. no switch 671 == 671
+voice: 5. no switch 704 == 704
+voice: 5. switched sample from 688 to 687. Total moved so far: 1059
+voice: 1. no switch 629 == 629
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 1. no switch 629 == 629
+voice: 5. no switch 704 == 704
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 5. no switch 704 == 704
+voice: 5. switched sample from 688 to 687. Total moved so far: 1069
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 5. no switch 704 == 704
+voice: 1. no switch 629 == 629
+voice: 2. no switch 651 == 651
+voice: 1. no switch 629 == 629
+voice: 5. switched sample from 688 to 687. Total moved so far: 1076
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 5. no switch 704 == 704
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 5. no switch 704 == 704
+voice: 5. switched sample from 688 to 687. Total moved so far: 1083
+voice: 24. switched sample from 1154 to 1155. Total moved so far: 1084
+voice: 5. no switch 704 == 704
+voice: 1. no switch 629 == 629
+voice: 2. no switch 651 == 651
+voice: 2. no switch 651 == 651
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 2. no switch 651 == 651
+voice: 2. no switch 651 == 651
+voice: 5. switched sample from 688 to 687. Total moved so far: 1093
+voice: 5. switched sample from 688 to 687. Total moved so far: 1094
+voice: 2. no switch 651 == 651
+voice: 1. no switch 629 == 629
+voice: 2. no switch 651 == 651
+voice: 1. no switch 629 == 629
+voice: 2. no switch 651 == 651
+voice: 2. no switch 651 == 651
+voice: 5. no switch 704 == 704
+voice: 1. no switch 629 == 629
+voice: 5. no switch 704 == 704
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 5. switched sample from 688 to 687. Total moved so far: 1106
+voice: 2. no switch 651 == 651
+voice: 1. no switch 629 == 629
+voice: 2. no switch 651 == 651
+voice: 1. no switch 629 == 629
+voice: 5. switched sample from 688 to 687. Total moved so far: 1111
+voice: 2. no switch 651 == 651
+voice: 1. no switch 629 == 629
+voice: 5. switched sample from 688 to 687. Total moved so far: 1114
+voice: 2. no switch 651 == 651
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 2. no switch 651 == 651
+voice: 2. no switch 651 == 651
+voice: 5. switched sample from 688 to 687. Total moved so far: 1121
+voice: 5. no switch 704 == 704
+voice: 1. no switch 629 == 629
+voice: 5. switched sample from 688 to 687. Total moved so far: 1124
+voice: 2. no switch 651 == 651
+voice: 2. no switch 651 == 651
+voice: 2. no switch 651 == 651
+voice: 2. no switch 651 == 651
+voice: 5. no switch 704 == 704
+voice: 1. no switch 629 == 629
+voice: 5. no switch 704 == 704
+voice: 2. no switch 651 == 651
+voice: 2. no switch 651 == 651
+voice: 5. no switch 704 == 704
+voice: 2. no switch 651 == 651
+voice: 2. no switch 651 == 651
+voice: 5. switched sample from 688 to 687. Total moved so far: 1137
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 2. no switch 651 == 651
+voice: 2. no switch 651 == 651
+voice: 2. no switch 651 == 651
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 2. no switch 651 == 651
+voice: 5. no switch 704 == 704
+voice: 2. no switch 651 == 651
+voice: 1. no switch 629 == 629
+voice: 5. no switch 704 == 704
+voice: 1. no switch 629 == 629
+voice: 2. no switch 651 == 651
+voice: 2. no switch 651 == 651
+voice: 1. no switch 629 == 629
+voice: 5. no switch 687 == 687
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 1. no switch 629 == 629
+voice: 2. switched sample from 650 to 651. Total moved so far: 1158
+voice: 1. no switch 629 == 629
+voice: 4. no switch 671 == 671
+voice: 24. no switch 1155 == 1155
+voice: 24. no switch 1155 == 1155
+voice: 4. no switch 671 == 671
+voice: 1. no switch 629 == 629
+voice: 2. no switch 651 == 651
+voice: 1. no switch 629 == 629
+voice: 4. no switch 671 == 671
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 2. no switch 651 == 651
+voice: 1. no switch 629 == 629
+voice: 2. switched sample from 650 to 651. Total moved so far: 1172
+voice: 1. no switch 629 == 629
+voice: 2. no switch 651 == 651
+voice: 1. no switch 629 == 629
+voice: 24. no switch 1155 == 1155
+voice: 5. switched sample from 688 to 687. Total moved so far: 1177
+voice: 4. no switch 671 == 671
+voice: 2. no switch 651 == 651
+voice: 4. no switch 671 == 671
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 5. no switch 687 == 687
+voice: 4. no switch 671 == 671
+voice: 1. no switch 629 == 629
+voice: 4. no switch 671 == 671
+voice: 1. no switch 629 == 629
+voice: 2. no switch 651 == 651
+voice: 1. no switch 629 == 629
+voice: 5. no switch 687 == 687
+voice: 24. no switch 1155 == 1155
+voice: 2. no switch 651 == 651
+voice: 1. no switch 629 == 629
+voice: 24. no switch 1155 == 1155
+voice: 2. no switch 651 == 651
+voice: 1. no switch 629 == 629
+voice: 2. no switch 651 == 651
+voice: 5. no switch 687 == 687
+voice: 4. no switch 671 == 671
+voice: 2. switched sample from 650 to 651. Total moved so far: 1201
+voice: 4. no switch 671 == 671
+voice: 5. no switch 687 == 687
+voice: 24. no switch 1155 == 1155
+voice: 2. no switch 651 == 651
+voice: 1. no switch 629 == 629
+voice: 24. no switch 1155 == 1155
+voice: 5. no switch 687 == 687
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 24. no switch 1155 == 1155
+voice: 2. no switch 651 == 651
+voice: 4. no switch 671 == 671
+voice: 1. no switch 629 == 629
+voice: 2. no switch 651 == 651
+voice: 2. switched sample from 650 to 651. Total moved so far: 1216
+voice: 4. no switch 671 == 671
+voice: 1. no switch 629 == 629
+voice: 2. no switch 651 == 651
+voice: 1. no switch 629 == 629
+voice: 5. switched sample from 688 to 687. Total moved so far: 1221
+voice: 1. no switch 629 == 629
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 24. no switch 1155 == 1155
+voice: 20. no switch 1003 == 1003
+voice: 2. no switch 651 == 651
+voice: 1. no switch 629 == 629
+voice: 24. no switch 1155 == 1155
+voice: 1. no switch 629 == 629
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 2. no switch 651 == 651
+voice: 2. switched sample from 650 to 651. Total moved so far: 1237
+voice: 2. switched sample from 650 to 651. Total moved so far: 1238
+voice: 1. no switch 629 == 629
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 20. no switch 1003 == 1003
+voice: 2. no switch 651 == 651
+voice: 2. no switch 651 == 651
+voice: 2. no switch 651 == 651
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 2. no switch 651 == 651
+voice: 2. no switch 651 == 651
+voice: 2. no switch 651 == 651
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 2. no switch 651 == 651
+voice: 1. no switch 629 == 629
+voice: 2. no switch 651 == 651
+voice: 1. no switch 629 == 629
+voice: 2. no switch 651 == 651
+voice: 2. no switch 651 == 651
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 20. no switch 1003 == 1003
+voice: 1. no switch 629 == 629
+voice: 2. no switch 651 == 651
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 20. no switch 1003 == 1003
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 4. no switch 671 == 671
+voice: 2. no switch 634 == 634
+voice: 20. no switch 1003 == 1003
+voice: 2. switched sample from 635 to 634. Total moved so far: 1368
+voice: 2. no switch 634 == 634
+voice: 2. switched sample from 635 to 634. Total moved so far: 1370
+voice: 2. no switch 634 == 634
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 4. no switch 671 == 671
+voice: 20. no switch 1003 == 1003
+voice: 5. switched sample from 703 to 704. Total moved so far: 1380
+voice: 4. no switch 671 == 671
+voice: 1. no switch 629 == 629
+voice: 5. no switch 704 == 704
+voice: 5. no switch 704 == 704
+voice: 5. switched sample from 703 to 704. Total moved so far: 1385
+voice: 1. no switch 629 == 629
+voice: 5. no switch 704 == 704
+voice: 5. switched sample from 703 to 704. Total moved so far: 1388
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 5. switched sample from 703 to 704. Total moved so far: 1392
+voice: 1. no switch 629 == 629
+voice: 5. switched sample from 703 to 704. Total moved so far: 1394
+voice: 5. no switch 704 == 704
+voice: 5. no switch 704 == 704
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 5. no switch 704 == 704
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 5. no switch 704 == 704
+voice: 1. no switch 629 == 629
+voice: 5. switched sample from 703 to 704. Total moved so far: 1404
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 5. switched sample from 703 to 704. Total moved so far: 1407
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 5. switched sample from 703 to 704. Total moved so far: 1410
+voice: 4. no switch 671 == 671
+voice: 20. no switch 1003 == 1003
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 5. no switch 704 == 704
+voice: 1. no switch 629 == 629
+voice: 5. no switch 704 == 704
+voice: 5. no switch 704 == 704
+voice: 1. no switch 629 == 629
+voice: 5. no switch 704 == 704
+voice: 1. no switch 629 == 629
+voice: 5. no switch 704 == 704
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 5. no switch 704 == 704
+voice: 5. no switch 704 == 704
+voice: 1. no switch 629 == 629
+voice: 5. no switch 704 == 704
+voice: 5. no switch 704 == 704
+voice: 5. no switch 704 == 704
+voice: 1. no switch 629 == 629
+voice: 5. no switch 704 == 704
+voice: 5. no switch 704 == 704
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 5. no switch 704 == 704
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 5. no switch 704 == 704
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 5. no switch 704 == 704
+voice: 5. no switch 704 == 704
+voice: 1. no switch 629 == 629
+voice: 5. no switch 704 == 704
+voice: 5. no switch 704 == 704
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 5. no switch 704 == 704
+voice: 1. no switch 629 == 629
+voice: 5. no switch 704 == 704
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 5. no switch 704 == 704
+voice: 5. no switch 704 == 704
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 5. no switch 704 == 704
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 5. no switch 704 == 704
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 5. no switch 704 == 704
+voice: 5. no switch 704 == 704
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 5. no switch 704 == 704
+voice: 1. no switch 629 == 629
+voice: 5. no switch 704 == 704
+voice: 1. no switch 629 == 629
+voice: 5. no switch 704 == 704
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 5. no switch 704 == 704
+voice: 5. no switch 704 == 704
+voice: 5. no switch 704 == 704
+voice: 1. no switch 629 == 629
+voice: 20. no switch 1003 == 1003
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 5. no switch 704 == 704
+voice: 1. no switch 629 == 629
+voice: 5. no switch 704 == 704
+voice: 1. no switch 629 == 629
+voice: 5. no switch 704 == 704
+voice: 5. no switch 704 == 704
+voice: 5. no switch 704 == 704
+voice: 4. no switch 671 == 671
+voice: 1. no switch 629 == 629
+voice: 4. no switch 671 == 671
+voice: 5. no switch 704 == 704
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 1. no switch 629 == 629
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 5. no switch 704 == 704
+voice: 4. no switch 671 == 671
+voice: 1. no switch 629 == 629
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 5. no switch 704 == 704
+voice: 4. no switch 671 == 671
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 4. no switch 671 == 671
+voice: 5. no switch 704 == 704
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 4. no switch 671 == 671
+voice: 5. no switch 704 == 704
+voice: 4. no switch 671 == 671
+voice: 1. no switch 629 == 629
+voice: 5. no switch 704 == 704
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 5. no switch 704 == 704
+voice: 5. no switch 704 == 704
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 1. no switch 629 == 629
+voice: 5. no switch 704 == 704
+voice: 4. no switch 671 == 671
+voice: 5. no switch 704 == 704
+voice: 4. no switch 671 == 671
+voice: 5. no switch 704 == 704
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 4. no switch 671 == 671
+voice: 1. no switch 629 == 629
+voice: 5. no switch 704 == 704
+voice: 4. no switch 671 == 671
+voice: 1. no switch 629 == 629
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 20. no switch 1003 == 1003
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 5. no switch 704 == 704
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 1. no switch 629 == 629
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 1. no switch 629 == 629
+voice: 4. no switch 671 == 671
+voice: 1. no switch 629 == 629
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 1. no switch 629 == 629
+voice: 4. no switch 671 == 671
+voice: 1. no switch 629 == 629
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 1. no switch 629 == 629
+voice: 5. switched sample from 703 to 704. Total moved so far: 1572
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 5. no switch 704 == 704
+voice: 5. switched sample from 703 to 704. Total moved so far: 1576
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 1. no switch 629 == 629
+voice: 5. no switch 704 == 704
+voice: 1. no switch 629 == 629
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 5. no switch 704 == 704
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 5. no switch 704 == 704
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 5. no switch 704 == 704
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 5. no switch 704 == 704
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 5. no switch 704 == 704
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 4. no switch 671 == 671
+voice: 20. no switch 1003 == 1003
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 5. no switch 704 == 704
+voice: 5. switched sample from 703 to 704. Total moved so far: 1617
+voice: 5. no switch 704 == 704
+voice: 5. no switch 704 == 704
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 20. no switch 1003 == 1003
+voice: 1. no switch 629 == 629
+voice: 4. no switch 671 == 671
+voice: 20. no switch 1003 == 1003
+voice: 4. no switch 671 == 671
+voice: 1. no switch 629 == 629
+voice: 5. switched sample from 703 to 704. Total moved so far: 1631
+voice: 1. no switch 629 == 629
+voice: 5. no switch 704 == 704
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 5. no switch 704 == 704
+voice: 1. no switch 629 == 629
+voice: 5. no switch 704 == 704
+voice: 1. no switch 629 == 629
+voice: 5. no switch 704 == 704
+voice: 5. no switch 704 == 704
+voice: 5. no switch 704 == 704
+voice: 5. no switch 704 == 704
+voice: 5. switched sample from 703 to 704. Total moved so far: 1647
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 5. switched sample from 703 to 704. Total moved so far: 1650
+voice: 5. no switch 704 == 704
+voice: 1. no switch 629 == 629
+voice: 5. no switch 704 == 704
+voice: 5. switched sample from 703 to 704. Total moved so far: 1654
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 5. no switch 704 == 704
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 5. switched sample from 703 to 704. Total moved so far: 1662
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 5. switched sample from 703 to 704. Total moved so far: 1666
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 5. switched sample from 703 to 704. Total moved so far: 1669
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 5. no switch 704 == 704
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 20. no switch 1003 == 1003
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 4. no switch 671 == 671
+voice: 24. no switch 1155 == 1155
+voice: 1. no switch 629 == 629
+voice: 5. no switch 704 == 704
+voice: 24. no switch 1155 == 1155
+voice: 1. no switch 629 == 629
+voice: 24. no switch 1155 == 1155
+voice: 5. no switch 704 == 704
+voice: 1. no switch 629 == 629
+voice: 24. no switch 1155 == 1155
+voice: 1. no switch 629 == 629
+voice: 1. no switch 629 == 629
+voice: 5. no switch 704 == 704
+voice: 1. no switch 629 == 629
+voice: 24. no switch 1155 == 1155
 end of Performance
 inactive allocs returned to freespace
-		   overall amps:  19362.6  17901.7
+		   overall amps:  27472.1  32406.2
 	   overall samples out of range:        0        0
 0 errors in performance
 512 1536 sample blks of 24bit ints written to Music/sflib/ball9.wav (WAV)
