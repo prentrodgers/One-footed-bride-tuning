@@ -121,6 +121,8 @@ def main():
                         help='Copy winning .npy files for each chorale to this directory')
     parser.add_argument('--short_repeats', action='store_true',
                         help='Pass --short_repeats to WreckingCrew.py')
+    parser.add_argument('--trim', action='store_true',
+                        help='Delete all non-winning directories from numpy_dir_root after scoring')
     args = parser.parse_args()
 
     root = (args.numpy_dir_root if os.path.isabs(args.numpy_dir_root)
@@ -156,7 +158,7 @@ def main():
             if not os.path.exists(input_file):
                 continue
             try:
-                cent_4n = np.load(input_file)          # shape (4, N)
+                cent_4n = np.load(input_file, allow_pickle=True)  # shape (4, N)
                 _, _, chorale, _, _, _ = atu.load_chorale_in_cents(
                     version, d, twelve_tet=True, save_top_notes=False)
             except Exception as e:
@@ -189,6 +191,43 @@ def main():
         winners.append((version, best_dir, best_params))
 
     print(f'\n{"=" * 78}')
+
+    if args.trim and winners:
+        winning_dirs = {best_dir for _, best_dir, _ in winners}
+        # Map each winning dir to the chorales it won
+        dir_winners = defaultdict(set)
+        for version, best_dir, _ in winners:
+            dir_winners[best_dir].add(version)
+
+        # Delete non-winning directories entirely
+        to_delete = [d for d in dirs if d not in winning_dirs]
+        if to_delete:
+            print(f'\nDeleting {len(to_delete)} non-winning directories ...')
+            for d in to_delete:
+                shutil.rmtree(d)
+                print(f'  deleted {os.path.basename(d)}')
+
+        # Within winning directories, keep only the suffix file for winning chorales
+        all_chorales = set(args.chorale_list)
+        print(f'\nPruning files within winning directories ...')
+        for d in sorted(winning_dirs):
+            losers = all_chorales - dir_winners[d]
+            removed = []
+            # Delete all files for losing chorales
+            for version in losers:
+                for f in glob.glob(os.path.join(d, f'{version}*')):
+                    os.remove(f)
+                    removed.append(os.path.basename(f))
+            # For winning chorales, keep only the suffix file
+            for version in dir_winners[d]:
+                for f in glob.glob(os.path.join(d, f'{version}*')):
+                    if not f.endswith(args.suffix):
+                        os.remove(f)
+                        removed.append(os.path.basename(f))
+            kept = sorted(dir_winners[d])
+            print(f'  {os.path.basename(d)}: kept {kept}, removed {len(removed)} file(s)')
+
+        print(f'\nDone. {len(winning_dirs)} director{"y" if len(winning_dirs) == 1 else "ies"} remaining.')
 
     if args.render:
         print('\nRendering winners with WreckingCrew.py...\n')
