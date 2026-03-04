@@ -43,7 +43,7 @@ spec:
         # intel.feature.node.kubernetes.io/gpu: "true"
       initContainers:
       - name: git-sync
-        image: quay.io/prentrodgers/python-music:0.6
+        image: quay.io/prentrodgers/python-music:0.7
         imagePullPolicy: IfNotPresent
         command: ["/bin/bash", "-c"]
         args:
@@ -70,7 +70,7 @@ spec:
           value: "/home/prent"
       containers:
       - name: one-footed-bride
-        image: quay.io/prentrodgers/python-music:0.6
+        image: quay.io/prentrodgers/python-music:0.7
         imagePullPolicy: IfNotPresent
         workingDir: /home/prent/Repos/One-footed-bride-tuning
         command: ["jupyter", "lab"]
@@ -97,7 +97,7 @@ spec:
         - name: LOGNAME
           value: "prent"
         - name: IMAGE_VERSION
-          value: "quay.io/prentrodgers/python-music:0.6"
+          value: "quay.io/prentrodgers/python-music:0.7"
         resources:
           requests:
             cpu: "0.5"

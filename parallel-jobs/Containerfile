@@ -1,5 +1,5 @@
-# Containerfile — python-music:0.6
-# Adds git-lfs relative to 0.5.
+# Containerfile — python-music:0.7
+# Adds sox + libsox-fmt-mp3 relative to 0.6.
 FROM python:3.12-slim AS runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -13,6 +13,8 @@ RUN apt-get update && \
         ffmpeg \
         git \
         git-lfs \
+        sox \
+        libsox-fmt-mp3 \
         libstdc++6 \
         libgomp1 \
         libfreetype6 \
