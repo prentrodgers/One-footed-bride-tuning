@@ -1,2 +1,4 @@
 *.wav filter=lfs diff=lfs merge=lfs -text
 samples/** filter=lfs diff=lfs merge=lfs -text
+Uploads/compositions/*.mp3 filter=lfs diff=lfs merge=lfs -text
+Uploads/original_Bach/*.mp3 filter=lfs diff=lfs merge=lfs -text
