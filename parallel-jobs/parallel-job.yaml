@@ -1,0 +1,78 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: python-job-args
+data:
+  args.txt: |
+    bwv261 --save_chorale_in_cents true --tolerance 3 --limit_max 31 --max_gap 40
+    bwv261 --save_chorale_in_cents true --tolerance 3 --limit_max 31 --max_gap 40
+    # bwv253 --save_chorale_in_cents true --tolerance 3 --limit_max 31 --max_gap 40
+    # bwv254 --save_chorale_in_cents true --tolerance 3 --limit_max 31 --max_gap 40 
+    # bwv255 --save_chorale_in_cents true --tolerance 3 --limit_max 31 --max_gap 40 
+    # bwv256 --save_chorale_in_cents true --tolerance 3 --limit_max 31 --max_gap 40 
+    # bwv257 --save_chorale_in_cents true --tolerance 3 --limit_max 31 --max_gap 40 
+    # bwv258 --save_chorale_in_cents true --tolerance 3 --limit_max 31 --max_gap 40 
+    # bwv259 --save_chorale_in_cents true --tolerance 3 --limit_max 31 --max_gap 40 
+    # bwv260 --save_chorale_in_cents true --tolerance 3 --limit_max 31 --max_gap 40 
+    # bwv261 --save_chorale_in_cents true --tolerance 3 --limit_max 31 --max_gap 40 
+    # bwv262 --save_chorale_in_cents true --tolerance 3 --limit_max 31 --max_gap 40 
+    # bwv263 --save_chorale_in_cents true --tolerance 3 --limit_max 31 --max_gap 40 
+    # bwv264 --save_chorale_in_cents true --tolerance 3 --limit_max 31 --max_gap 40   
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: python-music-job
+spec:
+  # Total pods that will run to completion (0..completions-1 as indices)
+  completions: 2
+  # How many run concurrently (tune to your node CPU capacity)
+  parallelism: 1
+  completionMode: Indexed
+  backoffLimit: 20
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels:
+        app: python-music-job
+    spec:
+      restartPolicy: Never
+      topologySpreadConstraints:   
+        - maxSkew: 5
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: python-music-job   
+      containers:
+        - name: worker
+          image: quay.io/prentrodgers/python-music:0.2
+          imagePullPolicy: IfNotPresent
+          workingDir: /home/prent
+          env:
+            - name: SCRIPT_PATH
+              value: /home/prent/Dropbox/Tutorials/TonicNet/new-tune-midi.py
+            - name: ARG_LIST_FILE
+              value: /config/args.txt
+          resources:
+            requests:
+              cpu: "1"
+              memory: "1Gi"
+            limits:
+              cpu: "20"
+              memory: "12Gi"
+          volumeMounts:
+            - name: dropbox
+              mountPath: /home/prent
+            - name: job-args
+              mountPath: /config
+              readOnly: true
+      volumes:
+        - name: dropbox
+          persistentVolumeClaim:
+            claimName: dropbox-pvc
+        - name: job-args
+          configMap:
+            name: python-job-args
+      imagePullSecrets: # allow me to pull images from my public quay.io account
+        - name: regcred

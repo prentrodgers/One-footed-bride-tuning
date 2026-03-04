@@ -109,6 +109,8 @@ def main():
                         help='WreckingCrew album number (default: 4)')
     parser.add_argument('--max_cents_slide', type=int, default=50,
                         help='WreckingCrew max_cents_slide (default: 50)')
+    parser.add_argument('--bass_sustain', type=int, default=15,
+                        help='Bass sustain duration passed to WreckingCrew.py (default: 15)')
     parser.add_argument('--spread_render', type=int, default=7,
                         help='WreckingCrew spread argument (default: 7)')
     parser.add_argument('--copy_mp3_to', type=str, default=None,
@@ -206,6 +208,7 @@ def main():
                 '--numpy_dir', best_dir,
                 '--spread', str(args.spread_render),
                 '--max_cents_slide', str(args.max_cents_slide),
+                '--bass_sustain', str(args.bass_sustain),
             ]
             if args.short_repeats:
                 cmd.append('--short_repeats')

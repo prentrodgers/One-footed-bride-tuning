@@ -468,33 +468,10 @@ def plot_sparsity_waveform(
         plt.show()
 
 
-# def save_demo_plots(output_dir: str = "waveform_demos", time_steps: int = 400, num_cycles: int = 5, duty: float = 0.3):
-#     """Save demo PNGs for each supported waveform into `output_dir`.
-
-#     Returns a list of saved file paths.
-#     """
-#     waveforms = ["sine", "triangle", "sawtooth_rise", "sawtooth_fall", "pulse"]
-#     saved = []
-#     for wf in waveforms:
-#         filename = f"{wf}.png" if wf != 'pulse' else f"{wf}_duty{int(duty*100)}.png"
-#         path = os.path.join(output_dir, filename)
-#         plot_sparsity_waveform(time_steps=time_steps, num_cycles=num_cycles, base_waveform=wf, duty=duty if wf=='pulse' else 0.5, save_path=path)
-#         saved.append(path)
-#     return saved
-
-
-# # if __name__ == "__main__":
-# #     try:
-# #         saved = save_demo_plots(output_dir="waveform_demos", time_steps=400, num_cycles=5, duty=30/100)
-#         print("Saved waveform demo PNGs:")
-#         for p in saved:
-#             print(" -", p)
-#     except Exception as e:
-#         print("Plotting demo failed:", e)
 
 # define the functions for the bass instruments, much like the finger_piano_part, except it only includes tenor and bass voices
 # chorale is already had repeats applied to it when it arrives here.
-def bass_part(chorale, glides, repeats, voice_names, voice_time, tpq, volume_function, probs = None, fp_volume = 1):
+def bass_part(chorale, glides, repeats, voice_names, voice_time, tpq, volume_function, probs = None, fp_volume = 1, bass_sustain=15):
     # set the default value for probs if it is not passed as a keyword argument.
     if probs is None:
         probs = [[0.99, 0.01], [0.95627622, 0.04372378]]
@@ -509,7 +486,7 @@ def bass_part(chorale, glides, repeats, voice_names, voice_time, tpq, volume_fun
     logging.debug(f'after doubling voices: {chorale.shape = }, {glides.shape = }') # (8, 3216, 2)
     # revised volume_array use a spline function 5/21/23
     logging.debug(f'{volume_function = }') # array([7, 7, 1, 3, 1, 1, 1, 4, 6]) # approximately 9 values
-    sustain = 15 # Influences how quickly the volume changes. Higher values = slower changes.
+    sustain = bass_sustain  # Influences how quickly the volume changes. Higher values = slower changes.
     # this next line needs to have an integer value for repeats. That will require everyone calling bass_part (and all the other xxx_part functions) to pass the average of the repeats as an integer. That would be repeats_average. I pass repeats_average and this function calls it repeats. 
     # volume_function in the xx_part functions is just the slice of the global volume_function that applies to that part
     vol_arr_size = volume_function.shape[0] * rng.choice([1,2,3,4]) # make the volume array size a multiple of the number of sections in the part
@@ -518,7 +495,10 @@ def bass_part(chorale, glides, repeats, voice_names, voice_time, tpq, volume_fun
     volume_array = dmu.build_density_function(volume_function, vol_arr_size) 
     logging.info(f'{volume_array.shape = }')
     logging.info(f'{volume_array = }')
-    volume_array = np.clip(np.repeat(volume_array, repeats * sustain, axis=0), 0, 14)
+    n_cycles = rng.choice([3, 4])
+    t = np.linspace(0, n_cycles, volume_array.shape[0])
+    sustain_ramp = np.round(1 + (sustain - 1) * (1 - np.abs(2 * (t % 1) - 1))).astype(int)
+    volume_array = np.clip(np.repeat(volume_array, repeats * sustain_ramp, axis=0), 0, 14)
     volume_array = volume_array[:chorale.shape[1]] # truncate to the length of the chorale
     volume_array = volume_array[:-24] # truncate so percussion ends before sustained instruments
     logging.debug(f'after repeat & clip: {volume_array.shape = }, {repeats = }, {sustain = }')
@@ -1166,7 +1146,7 @@ def generate_random_volumes_v2(time_slots = 8, max_value=25, sections = 8, max_s
 # this function takes the original chorale array and expands it dramatically. It is only called once per chorale.
 def expand_chorale(repeats, chorale_in_cents_slides, glides, stored_gliss, voice_time,\
     include_sections, mod, ratio_factor, mask=True, tpq=0, octave_reduce=0, woodwinds_volume=8,\
-    include_instruments=[], print_only=10, limit=0, melody_sustain=15, just_fp=False, tolerance=1,\
+    include_instruments=[], print_only=10, limit=0, melody_sustain=15, bass_sustain=15, just_fp=False, tolerance=1,\
     stability_factor=0.0, max_delta=33, spread=7):
     # As of 1/10/26 the chorale_in_cents_slides has already been repeated according to the repeats array. (no longer an integer)
     # send the arrays to the file new_output.csd which csound will convert to a wave file to make music
@@ -1245,7 +1225,7 @@ def expand_chorale(repeats, chorale_in_cents_slides, glides, stored_gliss, voice
                 np.save(f'winds_part_{section}.npy', notes_features_15)
             elif section in ['bass_section']:
                 print(f'playing {section}')
-                notes_features_15 = np.concatenate((notes_features_15, bass_part(chorale_in_cents_slides, glides, repeats_average, include_sections[section][1], voice_time, tpq, volume_function[sec_num], probs = probs)), axis = 0)
+                notes_features_15 = np.concatenate((notes_features_15, bass_part(chorale_in_cents_slides, glides, repeats_average, include_sections[section][1], voice_time, tpq, volume_function[sec_num], probs = probs, bass_sustain=bass_sustain)), axis = 0)
                 np.save(f'bass_part_{section}.npy', notes_features_15)
             print(f'{section}: {[(inst, voice_time[inst]["start"]) for inst in include_sections[section][1]]}')
             logging.debug(f'{notes_features_15.shape = }')
@@ -1365,7 +1345,7 @@ def chorale_to_wave_v4(version, album, include_sections, ratio_factor, limit_max
       convolve=True, mod_letter='a', max_cents_slide=48, print_only=0,\
       limit=0, use_opt_file=True, just_fp=False, \
       cent_file_partial='-cents.npy', show_volumes=False, woodwinds_volume=15,\
-      melody_sustain=15, use_werck_top_notes=False, mp3=True, tolerance=1,\
+      melody_sustain=15, bass_sustain=15, use_werck_top_notes=False, mp3=True, tolerance=1,\
       stability_factor=0.0, max_delta=33, spread=7):
 
     print(f'In chorale_to_wave_v4. {version = }, {limit_max = }, {short_repeats = }, {ratio_factor = }')
@@ -1462,7 +1442,7 @@ def chorale_to_wave_v4(version, album, include_sections, ratio_factor, limit_max
     duration, volume_function, mod = expand_chorale(repeats, chorale_in_cents_slides,\
         glides, stored_gliss, voice_time, include_sections, mod, ratio_factor, mask=mask,\
         octave_reduce=1, woodwinds_volume=woodwinds_volume, print_only=print_only,\
-        limit=limit, melody_sustain=melody_sustain, just_fp=just_fp, tolerance=tolerance,\
+        limit=limit, melody_sustain=melody_sustain, bass_sustain=bass_sustain, just_fp=just_fp, tolerance=tolerance,\
         stability_factor=stability_factor, max_delta=max_delta, spread=spread)
 
     if csound: # send the results to csound
@@ -1490,7 +1470,7 @@ def chorale_to_wave_v4(version, album, include_sections, ratio_factor, limit_max
 ################################################################################
 ################################################################################
 def mainline(chorale_override=None, short_repeats=False, include_list=None, csound=True, convolve=True, \
-             mp3=True, max_cents_slide=35, melody_sustain=3, cent_file_partial='-trans-sa-opt.npy', \
+             mp3=True, max_cents_slide=35, melody_sustain=3, bass_sustain=15, cent_file_partial='-trans-sa-opt.npy', \
              show_volumes=True, mod_letter='a', album=3, use_werck_top_notes=False, tolerance=1, ratio_factor=0.75, \
              numpy_dir_arg=None, stability_factor=0.0, max_delta=33, spread=7, limit_max=23):
       if include_list is None:
@@ -1611,7 +1591,7 @@ def mainline(chorale_override=None, short_repeats=False, include_list=None, csou
                   print_only=print_only, short_repeats=short_repeats, include_list=include_list,\
                   csound=csound, convolve=convolve, mod_letter=mod_letter, \
                   just_fp=just_fp, max_cents_slide=max_cents_slide, show_volumes=show_volumes, \
-                  woodwinds_volume=woodwinds_volume, melody_sustain=melody_sustain, \
+                  woodwinds_volume=woodwinds_volume, melody_sustain=melody_sustain, bass_sustain=bass_sustain, \
                   cent_file_partial=cent_file_partial, use_werck_top_notes=use_werck_top_notes, mp3=mp3,\
                   tolerance=tolerance, stability_factor=stability_factor, max_delta=max_delta,\
                   spread=spread)
@@ -1655,6 +1635,8 @@ if __name__ == "__main__":
                           help="Maximum cents slide (keep under 50 to avoid annoying glides) (default: 35)")
       parser.add_argument("--melody_sustain", dest="melody_sustain", type=float, default=3,
                           help="Melody sustain duration (default: 3)")
+      parser.add_argument("--bass_sustain", dest="bass_sustain", type=int, default=15,
+                          help="Bass sustain duration — lower values reduce simultaneous bass voices (default: 15)")
       parser.add_argument("--cent_file_partial", dest="cent_file_partial", type=str, 
                           default='-trans-sa-opt.npy',
                           help="Partial name of the cent file (default: '-trans-sa-opt.npy')")
@@ -1685,7 +1667,7 @@ if __name__ == "__main__":
       args = parser.parse_args()
       mainline(chorale_override=args.chorale_name, short_repeats=args.short_repeats,
                include_list=args.include_list, csound=args.csound, convolve=args.convolve,
-               mp3=args.mp3, max_cents_slide=args.max_cents_slide, melody_sustain=args.melody_sustain,
+               mp3=args.mp3, max_cents_slide=args.max_cents_slide, melody_sustain=args.melody_sustain, bass_sustain=args.bass_sustain,
                cent_file_partial=args.cent_file_partial, show_volumes=args.show_volumes,
                mod_letter=args.mod_letter, album=args.album, use_werck_top_notes=args.use_werck_top_notes,
                tolerance=args.tolerance, ratio_factor=args.ratio_factor, numpy_dir_arg=args.numpy_dir,

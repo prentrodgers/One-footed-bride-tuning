@@ -1,0 +1,6 @@
+numpy
+scipy
+matplotlib
+music21
+argon2-cffi
+jupyterlab
