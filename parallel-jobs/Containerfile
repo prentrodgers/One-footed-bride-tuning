@@ -1,5 +1,5 @@
-# Containerfile — python-music:0.5
-# Adds csound, ffmpeg, git, jupyterlab, argon2-cffi relative to 0.4.
+# Containerfile — python-music:0.6
+# Adds git-lfs relative to 0.5.
 FROM python:3.12-slim AS runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -12,6 +12,7 @@ RUN apt-get update && \
         csound \
         ffmpeg \
         git \
+        git-lfs \
         libstdc++6 \
         libgomp1 \
         libfreetype6 \

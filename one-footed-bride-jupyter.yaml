@@ -43,7 +43,7 @@ spec:
         # intel.feature.node.kubernetes.io/gpu: "true"
       initContainers:
       - name: git-sync
-        image: quay.io/prentrodgers/python-music:0.5
+        image: quay.io/prentrodgers/python-music:0.6
         imagePullPolicy: IfNotPresent
         command: ["/bin/bash", "-c"]
         args:
@@ -51,13 +51,15 @@ spec:
             set -euo pipefail
             REPO_DIR=/home/prent/Repos/One-footed-bride-tuning
             REPO_URL=https://github.com/prentrodgers/One-footed-bride-tuning.git
+            git lfs install
             if [ -d "$REPO_DIR/.git" ]; then
               echo "Repo exists — pulling latest..."
-              cd "$REPO_DIR" && git pull
+              cd "$REPO_DIR" && git pull && git lfs pull
             else
               echo "Cloning repo..."
               mkdir -p /home/prent/Repos
               git clone "$REPO_URL" "$REPO_DIR"
+              cd "$REPO_DIR" && git lfs pull
             fi
             echo "Repo ready at $REPO_DIR"
         volumeMounts:
@@ -68,7 +70,7 @@ spec:
           value: "/home/prent"
       containers:
       - name: one-footed-bride
-        image: quay.io/prentrodgers/python-music:0.5
+        image: quay.io/prentrodgers/python-music:0.6
         imagePullPolicy: IfNotPresent
         workingDir: /home/prent/Repos/One-footed-bride-tuning
         command: ["jupyter", "lab"]
@@ -95,7 +97,7 @@ spec:
         - name: LOGNAME
           value: "prent"
         - name: IMAGE_VERSION
-          value: "quay.io/prentrodgers/python-music:0.5"
+          value: "quay.io/prentrodgers/python-music:0.6"
         resources:
           requests:
             cpu: "0.5"
