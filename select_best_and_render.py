@@ -26,6 +26,7 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 from collections import Counter, defaultdict
 
 import numpy as np
@@ -229,7 +230,9 @@ def main():
 
         print(f'\nDone. {len(winning_dirs)} director{"y" if len(winning_dirs) == 1 else "ies"} remaining.')
 
+    render_start_time = None
     if args.render:
+        render_start_time = time.time()
         print('\nRendering winners with WreckingCrew.py...\n')
         for version, best_dir, params in winners:
             print(f'  {version}  →  {os.path.basename(best_dir)}')
@@ -275,6 +278,8 @@ def main():
                 f'ball9-t{bwv_num}?_lm{lm}_r{rf:.2f}_sf{sf:.2f}_md{md:02d}_sp??_t{tol}_*.mp3'
             )
             matches = glob.glob(pattern)
+            if render_start_time is not None:
+                matches = [m for m in matches if os.path.getmtime(m) >= render_start_time]
             if not matches:
                 print(f'  {version}: no MP3 found matching {os.path.basename(pattern)}')
             else:
