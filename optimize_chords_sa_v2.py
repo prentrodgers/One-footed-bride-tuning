@@ -138,7 +138,9 @@ def build_straw_man_chord_simulated_annealing(cent_value_chord, cent_value_chord
                                               initial_temperature=2.5, cooling_rate=0.999,
                                               max_iterations=1000, min_repeats=5,
                                               elbow_percent=0.5, r_value=0.3, spread=7,
-                                              roll_num=None, time_limit=0, max_no_improve=None):
+                                              roll_num=None, time_limit=0, max_no_improve=None,
+                                              max_delta=33, ratio_factor=1.0, stability_factor=0.0,
+                                              trace=None):
     """
     Build a straw man chord using simulated annealing with temperature-weighted choices.
     """
@@ -195,7 +197,9 @@ def build_straw_man_chord_simulated_annealing(cent_value_chord, cent_value_chord
             )
             
             interval_indices, cent_moves = low_number_ratios.select_ratios(
-                interval, cent_value_target, tolerance
+                interval, cent_value_target, tolerance,
+                max_delta=max_delta, ratio_factor=ratio_factor,
+                stability_factor=stability_factor
             )
             
             choose_from = min(len(interval_indices), 15)
@@ -223,14 +227,30 @@ def build_straw_man_chord_simulated_annealing(cent_value_chord, cent_value_chord
         new_score = chord_scorer.score_chord(new_solution[inverse], tolerance=tolerance)
 
         # Accept decision with SA probability
+        accepted = False
+        improved = False
         if new_score < current_score or rng.random() < np.exp((current_score - new_score) / temperature):
             current_solution = new_solution.copy()
             current_score = new_score
+            accepted = True
 
             if new_score < best_score:
                 best_cent_value_chord_so_far = new_solution.copy()
                 best_score = new_score
+                improved = True
                 logging.debug(f'chord#{chord_num} SA: new best {new_score:.1f}')
+
+        # Record trace event if collecting
+        if trace is not None:
+            trace.append({
+                'event': 'attempt',
+                'attempt': iteration,
+                'candidate_score': float(new_score),
+                'best_score': float(best_score),
+                'temperature': float(temperature),
+                'accept': accepted,
+                'improved_best': improved,
+            })
 
         # Early-stop: detect lack of improvement for consecutive iterations
         if best_score < prev_best_score:
@@ -250,8 +270,8 @@ def build_straw_man_chord_simulated_annealing(cent_value_chord, cent_value_chord
     if iteration >= max_iterations:
         logging.debug(f'chord#{chord_num} Reached max iterations {max_iterations}')
 
-    # Decompress if needed
-    if best_cent_value_chord_so_far.shape[0] < 4:
+    # Decompress if needed (perturb may have compressed duplicate pitch classes)
+    if best_cent_value_chord_so_far.shape[0] < len(cent_value_chord):
         best_cent_value_chord_so_far = best_cent_value_chord_so_far[inverse]
 
     # Rearrange and force pitch class match
@@ -269,17 +289,18 @@ def build_straw_man_chord_simulated_annealing(cent_value_chord, cent_value_chord
     return proposed_cent_value_chord, final_score
 
 
-def roll_and_tune(cent_value_chord, cent_value_chord_prev, chord_num, 
-                  tolerance=1, chord_scorer=None, low_number_ratios=None, 
+def roll_and_tune(cent_value_chord, cent_value_chord_prev, chord_num,
+                  tolerance=1, chord_scorer=None, low_number_ratios=None,
                   tonal_diamond=None, initial_temperature=2.5, cooling_rate=0.999,
-                  max_iterations=1000, min_repeats=5, elbow_percent=0.5, 
-                  r_value=0.3, spread=7, rolls=5, time_limit=0, max_no_improve=None):
+                  max_iterations=1000, min_repeats=5, elbow_percent=0.5,
+                  r_value=0.3, spread=7, rolls=5, time_limit=0, max_no_improve=None,
+                  max_delta=33, ratio_factor=1.0, stability_factor=0.0, trace=None):
     """
     Run SA optimization multiple times with rolled chords, keeping best result.
     """
     import adaptive_tuning_util as atu
 
-    temp_cents = np.zeros((rolls, 4), dtype=float)
+    temp_cents = np.zeros((rolls, len(cent_value_chord)), dtype=float)
     temp_scores = np.full(rolls, np.inf, dtype=float)
 
     rolls_without_improvement = 0
@@ -295,7 +316,9 @@ def roll_and_tune(cent_value_chord, cent_value_chord_prev, chord_num,
             initial_temperature=initial_temperature, cooling_rate=cooling_rate,
             max_iterations=max_iterations, min_repeats=min_repeats,
             elbow_percent=elbow_percent, r_value=r_value, spread=spread,
-            roll_num=roll_num + 1, time_limit=time_limit, max_no_improve=max_no_improve
+            roll_num=roll_num + 1, time_limit=time_limit, max_no_improve=max_no_improve,
+            max_delta=max_delta, ratio_factor=ratio_factor, stability_factor=stability_factor,
+            trace=trace
         )
 
         # Count consecutive non-improving rolls and stop after min_repeats

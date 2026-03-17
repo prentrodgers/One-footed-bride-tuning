@@ -223,6 +223,150 @@ def init_voice_time():
             "trian6": {"full_name": "triangle wave6", "start": 0, "csound_voice":29,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 1, "max_oct": 7},
             "trian7": {"full_name": "triangle wave7", "start": 0, "csound_voice":29,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 1, "max_oct": 7},
             "trian8": {"full_name": "triangle wave8", "start": 0, "csound_voice":29,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 1, "max_oct": 7},
+
+            # ── Additional voices (pad every instrument type to at least 8) ──
+
+            # violin pizzicato (was 4, add 4 with varied ranges)
+            "vlip5": {"full_name": "violin pizzicato5", "start": 0, "csound_voice": 2,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 3, "max_oct": 7},
+            "vlip6": {"full_name": "violin pizzicato6", "start": 0, "csound_voice": 2,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 3, "max_oct": 6},
+            "vlip7": {"full_name": "violin pizzicato7", "start": 0, "csound_voice": 2,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 4, "max_oct": 7},
+            "vlip8": {"full_name": "violin pizzicato8", "start": 0, "csound_voice": 2,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 3, "max_oct": 6},
+
+            # viola pizzicato (was 2, add 6)
+            "vlap3": {"full_name": "viola pizzicato3", "start": 0, "csound_voice": 3,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 2, "max_oct": 6},
+            "vlap4": {"full_name": "viola pizzicato4", "start": 0, "csound_voice": 3,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 2, "max_oct": 5},
+            "vlap5": {"full_name": "viola pizzicato5", "start": 0, "csound_voice": 3,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 3, "max_oct": 6},
+            "vlap6": {"full_name": "viola pizzicato6", "start": 0, "csound_voice": 3,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 2, "max_oct": 5},
+            "vlap7": {"full_name": "viola pizzicato7", "start": 0, "csound_voice": 3,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 3, "max_oct": 6},
+            "vlap8": {"full_name": "viola pizzicato8", "start": 0, "csound_voice": 3,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 2, "max_oct": 6},
+
+            # xylophone (was 1, add 7 — bright, upper register)
+            "xylp2": {"full_name": "xylophone2", "start": 0, "csound_voice": 6,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 4, "max_oct": 7},
+            "xylp3": {"full_name": "xylophone3", "start": 0, "csound_voice": 6,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 4, "max_oct": 7},
+            "xylp4": {"full_name": "xylophone4", "start": 0, "csound_voice": 6,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 3, "max_oct": 7},
+            "xylp5": {"full_name": "xylophone5", "start": 0, "csound_voice": 6,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 4, "max_oct": 7},
+            "xylp6": {"full_name": "xylophone6", "start": 0, "csound_voice": 6,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 3, "max_oct": 7},
+            "xylp7": {"full_name": "xylophone7", "start": 0, "csound_voice": 6,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 4, "max_oct": 7},
+            "xylp8": {"full_name": "xylophone8", "start": 0, "csound_voice": 6,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 4, "max_oct": 7},
+
+            # vibraphone (was 1, add 7)
+            "vibp2": {"full_name": "vibraphone2", "start": 0, "csound_voice": 7,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 4, "max_oct": 7},
+            "vibp3": {"full_name": "vibraphone3", "start": 0, "csound_voice": 7,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 3, "max_oct": 7},
+            "vibp4": {"full_name": "vibraphone4", "start": 0, "csound_voice": 7,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 4, "max_oct": 7},
+            "vibp5": {"full_name": "vibraphone5", "start": 0, "csound_voice": 7,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 3, "max_oct": 7},
+            "vibp6": {"full_name": "vibraphone6", "start": 0, "csound_voice": 7,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 4, "max_oct": 7},
+            "vibp7": {"full_name": "vibraphone7", "start": 0, "csound_voice": 7,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 3, "max_oct": 7},
+            "vibp8": {"full_name": "vibraphone8", "start": 0, "csound_voice": 7,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 4, "max_oct": 7},
+
+            # harp (was 1, add 7)
+            "harp2": {"full_name": "harp2", "start": 0, "csound_voice": 8,"time_tracker_number": 0,  "volume_factor": 2, "min_oct": 3, "max_oct": 7},
+            "harp3": {"full_name": "harp3", "start": 0, "csound_voice": 8,"time_tracker_number": 0,  "volume_factor": 2, "min_oct": 2, "max_oct": 7},
+            "harp4": {"full_name": "harp4", "start": 0, "csound_voice": 8,"time_tracker_number": 0,  "volume_factor": 2, "min_oct": 3, "max_oct": 6},
+            "harp5": {"full_name": "harp5", "start": 0, "csound_voice": 8,"time_tracker_number": 0,  "volume_factor": 2, "min_oct": 2, "max_oct": 7},
+            "harp6": {"full_name": "harp6", "start": 0, "csound_voice": 8,"time_tracker_number": 0,  "volume_factor": 2, "min_oct": 3, "max_oct": 7},
+            "harp7": {"full_name": "harp7", "start": 0, "csound_voice": 8,"time_tracker_number": 0,  "volume_factor": 2, "min_oct": 2, "max_oct": 6},
+            "harp8": {"full_name": "harp8", "start": 0, "csound_voice": 8,"time_tracker_number": 0,  "volume_factor": 2, "min_oct": 3, "max_oct": 7},
+
+            # violin martele (was 4, add 4)
+            "vlim5": {"full_name": "violin martele5", "start": 0, "csound_voice": 9,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 3, "max_oct": 6},
+            "vlim6": {"full_name": "violin martele6", "start": 0, "csound_voice": 9,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 4, "max_oct": 6},
+            "vlim7": {"full_name": "violin martele7", "start": 0, "csound_voice": 9,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 3, "max_oct": 6},
+            "vlim8": {"full_name": "violin martele8", "start": 0, "csound_voice": 9,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 3, "max_oct": 5},
+
+            # viola martele (was 2, add 6)
+            "vlam3": {"full_name": "viola martele3", "start": 0, "csound_voice": 10,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 2, "max_oct": 5},
+            "vlam4": {"full_name": "viola martele4", "start": 0, "csound_voice": 10,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 3, "max_oct": 5},
+            "vlam5": {"full_name": "viola martele5", "start": 0, "csound_voice": 10,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 2, "max_oct": 5},
+            "vlam6": {"full_name": "viola martele6", "start": 0, "csound_voice": 10,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 3, "max_oct": 5},
+            "vlam7": {"full_name": "viola martele7", "start": 0, "csound_voice": 10,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 2, "max_oct": 5},
+            "vlam8": {"full_name": "viola martele8", "start": 0, "csound_voice": 10,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 2, "max_oct": 5},
+
+            # cello martele (was 2, add 6)
+            "celm3": {"full_name": "cello martele3", "start": 0, "csound_voice": 11,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 2, "max_oct": 5},
+            "celm4": {"full_name": "cello martele4", "start": 0, "csound_voice": 11,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 1, "max_oct": 5},
+            "celm5": {"full_name": "cello martele5", "start": 0, "csound_voice": 11,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 2, "max_oct": 4},
+            "celm6": {"full_name": "cello martele6", "start": 0, "csound_voice": 11,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 1, "max_oct": 5},
+            "celm7": {"full_name": "cello martele7", "start": 0, "csound_voice": 11,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 2, "max_oct": 5},
+            "celm8": {"full_name": "cello martele8", "start": 0, "csound_voice": 11,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 2, "max_oct": 4},
+
+            # bassoon (was 3, add 5 — note: basn3 was missing)
+            "basn3": {"full_name": "bassoon3", "start": 0, "csound_voice": 12,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 1, "max_oct": 6},
+            "basn5": {"full_name": "bassoon5", "start": 0, "csound_voice": 12,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 1, "max_oct": 5},
+            "basn6": {"full_name": "bassoon6", "start": 0, "csound_voice": 12,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 2, "max_oct": 6},
+            "basn7": {"full_name": "bassoon7", "start": 0, "csound_voice": 12,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 1, "max_oct": 5},
+            "basn8": {"full_name": "bassoon8", "start": 0, "csound_voice": 12,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 1, "max_oct": 6},
+
+            # clarinet (was 2, add 6)
+            "clar3": {"full_name": "clarinet3", "start": 0, "csound_voice": 13,"time_tracker_number": 0,  "volume_factor": -1, "min_oct": 3, "max_oct": 6},
+            "clar4": {"full_name": "clarinet4", "start": 0, "csound_voice": 13,"time_tracker_number": 0,  "volume_factor": -1, "min_oct": 2, "max_oct": 6},
+            "clar5": {"full_name": "clarinet5", "start": 0, "csound_voice": 13,"time_tracker_number": 0,  "volume_factor": -1, "min_oct": 3, "max_oct": 6},
+            "clar6": {"full_name": "clarinet6", "start": 0, "csound_voice": 13,"time_tracker_number": 0,  "volume_factor": -1, "min_oct": 2, "max_oct": 5},
+            "clar7": {"full_name": "clarinet7", "start": 0, "csound_voice": 13,"time_tracker_number": 0,  "volume_factor": -1, "min_oct": 3, "max_oct": 6},
+            "clar8": {"full_name": "clarinet8", "start": 0, "csound_voice": 13,"time_tracker_number": 0,  "volume_factor": -1, "min_oct": 3, "max_oct": 6},
+
+            # flute (was 3, add 5)
+            "flut4": {"full_name": "flute4", "start": 0, "csound_voice": 14,"time_tracker_number": 0,  "volume_factor": 2, "min_oct": 3, "max_oct": 6},
+            "flut5": {"full_name": "flute5", "start": 0, "csound_voice": 14,"time_tracker_number": 0,  "volume_factor": 2, "min_oct": 4, "max_oct": 6},
+            "flut6": {"full_name": "flute6", "start": 0, "csound_voice": 14,"time_tracker_number": 0,  "volume_factor": 2, "min_oct": 3, "max_oct": 6},
+            "flut7": {"full_name": "flute7", "start": 0, "csound_voice": 14,"time_tracker_number": 0,  "volume_factor": 2, "min_oct": 3, "max_oct": 6},
+            "flut8": {"full_name": "flute8", "start": 0, "csound_voice": 14,"time_tracker_number": 0,  "volume_factor": 2, "min_oct": 4, "max_oct": 6},
+
+            # oboe (was 3, add 5)
+            "oboe4": {"full_name": "oboe4", "start": 0, "csound_voice": 15,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 3, "max_oct": 6},
+            "oboe5": {"full_name": "oboe5", "start": 0, "csound_voice": 15,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 3, "max_oct": 5},
+            "oboe6": {"full_name": "oboe6", "start": 0, "csound_voice": 15,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 3, "max_oct": 6},
+            "oboe7": {"full_name": "oboe7", "start": 0, "csound_voice": 15,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 3, "max_oct": 6},
+            "oboe8": {"full_name": "oboe8", "start": 0, "csound_voice": 15,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 3, "max_oct": 5},
+
+            # french horn (was 3, add 5)
+            "frnh4": {"full_name": "french horn4", "start": 0, "csound_voice": 16,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 1, "max_oct": 5},
+            "frnh5": {"full_name": "french horn5", "start": 0, "csound_voice": 16,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 2, "max_oct": 5},
+            "frnh6": {"full_name": "french horn6", "start": 0, "csound_voice": 16,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 1, "max_oct": 5},
+            "frnh7": {"full_name": "french horn7", "start": 0, "csound_voice": 16,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 1, "max_oct": 4},
+            "frnh8": {"full_name": "french horn8", "start": 0, "csound_voice": 16,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 2, "max_oct": 5},
+
+            # violin with vib (was 4, add 4)
+            "vliv5": {"full_name": "violin with vib5", "start": 0, "csound_voice": 17,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 3, "max_oct": 7},
+            "vliv6": {"full_name": "violin with vib6", "start": 0, "csound_voice": 17,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 4, "max_oct": 7},
+            "vliv7": {"full_name": "violin with vib7", "start": 0, "csound_voice": 17,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 3, "max_oct": 6},
+            "vliv8": {"full_name": "violin with vib8", "start": 0, "csound_voice": 17,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 3, "max_oct": 7},
+
+            # viola with vib (was 2, add 6)
+            "vlav3": {"full_name": "viola with vib3", "start": 0, "csound_voice": 18,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 3, "max_oct": 5},
+            "vlav4": {"full_name": "viola with vib4", "start": 0, "csound_voice": 18,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 2, "max_oct": 5},
+            "vlav5": {"full_name": "viola with vib5", "start": 0, "csound_voice": 18,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 3, "max_oct": 5},
+            "vlav6": {"full_name": "viola with vib6", "start": 0, "csound_voice": 18,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 2, "max_oct": 5},
+            "vlav7": {"full_name": "viola with vib7", "start": 0, "csound_voice": 18,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 3, "max_oct": 5},
+            "vlav8": {"full_name": "viola with vib8", "start": 0, "csound_voice": 18,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 2, "max_oct": 5},
+
+            # cello with vib (was 2, add 6)
+            "celv3": {"full_name": "cello with vib3", "start": 0, "csound_voice": 19,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 1, "max_oct": 5},
+            "celv4": {"full_name": "cello with vib4", "start": 0, "csound_voice": 19,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 2, "max_oct": 5},
+            "celv5": {"full_name": "cello with vib5", "start": 0, "csound_voice": 19,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 1, "max_oct": 4},
+            "celv6": {"full_name": "cello with vib6", "start": 0, "csound_voice": 19,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 2, "max_oct": 5},
+            "celv7": {"full_name": "cello with vib7", "start": 0, "csound_voice": 19,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 1, "max_oct": 5},
+            "celv8": {"full_name": "cello with vib8", "start": 0, "csound_voice": 19,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 1, "max_oct": 4},
+
+            # trumpet (was 5, add 3)
+            "trmp6": {"full_name": "trumpet6", "start": 0, "csound_voice": 25,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 2, "max_oct": 6},
+            "trmp7": {"full_name": "trumpet7", "start": 0, "csound_voice": 25,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 3, "max_oct": 6},
+            "trmp8": {"full_name": "trumpet8", "start": 0, "csound_voice": 25,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 2, "max_oct": 5},
+
+            # trombone (was 2, add 6)
+            "trmb3": {"full_name": "trombone3", "start": 0, "csound_voice": 26,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 1, "max_oct": 5},
+            "trmb4": {"full_name": "trombone4", "start": 0, "csound_voice": 26,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 1, "max_oct": 4},
+            "trmb5": {"full_name": "trombone5", "start": 0, "csound_voice": 26,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 2, "max_oct": 5},
+            "trmb6": {"full_name": "trombone6", "start": 0, "csound_voice": 26,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 1, "max_oct": 5},
+            "trmb7": {"full_name": "trombone7", "start": 0, "csound_voice": 26,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 1, "max_oct": 4},
+            "trmb8": {"full_name": "trombone8", "start": 0, "csound_voice": 26,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 2, "max_oct": 5},
+
+            # tuba (was 2, add 6)
+            "tuba3": {"full_name": "tuba3", "start": 0, "csound_voice": 27,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 1, "max_oct": 4},
+            "tuba4": {"full_name": "tuba4", "start": 0, "csound_voice": 27,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 1, "max_oct": 3},
+            "tuba5": {"full_name": "tuba5", "start": 0, "csound_voice": 27,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 1, "max_oct": 4},
+            "tuba6": {"full_name": "tuba6", "start": 0, "csound_voice": 27,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 1, "max_oct": 3},
+            "tuba7": {"full_name": "tuba7", "start": 0, "csound_voice": 27,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 1, "max_oct": 4},
+            "tuba8": {"full_name": "tuba8", "start": 0, "csound_voice": 27,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 1, "max_oct": 4},
             }
     for inx, voice in zip(count(0,1), voice_time):
             # logging.info(voice)
@@ -946,17 +1090,18 @@ def annealing(temperature, range = 7):
 def rearrange_notes(chord_in_cents, midi_notes):
     """
     Rearrange chord notes to match the original MIDI note order.
-    
-    Finds the permutation of chord_in_cents that matches the pitch class order
-    of midi_notes.
-    
+
+    For each target pitch class from midi_notes, finds the tuned cent value
+    in chord_in_cents with the matching pitch class. Uses direct matching
+    instead of permutation enumeration, so it scales to any chord size.
+
     Parameters
     ----------
     chord_in_cents : np.ndarray
-        Array of 4 cent values (may be in wrong order).
+        Array of cent values (may be in wrong order).
     midi_notes : np.ndarray
-        Array of 4 MIDI note numbers (target order).
-    
+        Array of MIDI note numbers or pitch classes (target order).
+
     Returns
     -------
     tuple
@@ -964,12 +1109,26 @@ def rearrange_notes(chord_in_cents, midi_notes):
         - final_result: np.ndarray, rearranged cent values matching MIDI order
         - final_12: np.ndarray, pitch classes (0-11) of final_result
     """
-    original_midi_12 = midi_notes % 12 # find the 0-11 value of the original midi chord
-    final_12 = np.array([int(round(note / 100,0) % 12) for note in chord_in_cents]) # find the 12TET scale (0-11) equivalent of the cent values in chord_in_cents
-    # find the permutation of the final_12 that is identical to the original midi chord
-    best_voicing = np.array([np.array_equal(original_midi_12, voicing) for voicing in np.array(list(permutations(final_12)))])
-    final_result = np.array(list(permutations(chord_in_cents)))[np.argmax(best_voicing)]
-    final_12 = np.array([int(round(note / 100,0) % 12) for note in final_result])
+    original_midi_12 = midi_notes % 12
+    tuned_12 = np.array([int(round(note / 100, 0) % 12) for note in chord_in_cents])
+    final_result = np.zeros_like(chord_in_cents)
+    matched = np.zeros(len(chord_in_cents), dtype=bool)
+    used = np.zeros(len(chord_in_cents), dtype=bool)
+    for i, target_pc in enumerate(original_midi_12):
+        for j, tuned_pc in enumerate(tuned_12):
+            if not used[j] and tuned_pc == target_pc:
+                final_result[i] = chord_in_cents[j]
+                used[j] = True
+                matched[i] = True
+                break
+    # Fill any unmatched positions with remaining unused tuned values
+    if not matched.all():
+        unused_indices = np.where(~used)[0]
+        unmatched_indices = np.where(~matched)[0]
+        for k, idx in enumerate(unmatched_indices):
+            if k < len(unused_indices):
+                final_result[idx] = chord_in_cents[unused_indices[k]]
+    final_12 = np.array([int(round(note / 100, 0) % 12) for note in final_result])
     return final_result, final_12
 
 def find_best_top_note(final_result, final_12, top_notes):

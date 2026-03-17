@@ -2,20 +2,15 @@
 ; last edit: 4/30/23 
 ; again on 3/8/26
 <CsoundSynthesizer> 
- 
 <CsOptions> 
-; use the following for writing to a file -G is to create a postscript eps output file of function tables 
- -o Music/sflib/ball9.wav -W -G -m2 -3 
-; -o dac ; live play 
+-odac ; :hw:1,0; live play may require -+rtaudio with -+portaudio (default) or -+alsa
 </CsOptions> 
- 
 <CsInstruments> 
  giMoved = 0 
  ; I changed the sample rate to the maximum, 24 bit audio -3 option 
  ; sr = 192000 ; my laptop audio supports this high sample rate, but not the docking station 
  sr = 44100 
- ksmps = 5; any higher than 10 and I hear clicks - use 1 for final take 
- ; typically save 5x processing time by increasing ksmps by 10x 
+ ksmps = 10; 
  nchnls = 2 
  instr 1 
  
@@ -35,9 +30,10 @@
 ; p14 3rd glissando 
 ; p15 volume 
 ; 
+;  print(p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15)
  if p4 = 1 goto skipVel 
 ; 
-; ; table f2 has the iSampleType values indicating type of sample 
+;  table f2 has the iSampleType values indicating type of sample 
  iSampleType table p7,2 ; from McGill.dat col 6 1: mono 2: stereo 4: Akai MDF??? 5: Gigasample 
 ; 
  iVelTemp = (p4 > 90 ? 90 : p4) ; make sure p4 velocity not greater than 90 
@@ -48,6 +44,7 @@
 ; 
 ; table f1 has the start location of the sample tables control functions 
  iSampWaveTable table iVoice,1 ; find the location of the sample wave tables base on input p7 
+;  print(p7, iVoice,iSampWaveTable)
  ipitch table p5, 3 ; look up the cent value in ftable 3 a table of 1200 values from 0.001 to 0.120 
  ioct = p6 ; convert from my octave form to midi standard 
 ;  iRatioFromCent = cent(p5) ; convert cents to ratio to be multiplied by a base frequency 
@@ -80,8 +77,8 @@
 ;                  +                        +     +                       +     +
  if iFtable != iFtableTemp then
  printf_i "voice: %i. switched sample from %i to %i. Total moved so far: %i\n", 1, iVoice, iFtableTemp, iFtable, giMoved 
- else
- printf_i "voice: %i. no switch %i == %i\n", 1, iVoice, iFtableTemp, iFtable
+;  else
+;  printf_i "voice: %i. no switch %i == %i\n", 1, iVoice, iFtableTemp, iFtable
  endif
 
  iFound: 
@@ -144,7 +141,7 @@
  a1 = a3 * kamp_l 
  a2 = a4 * kamp_r 
  ; 
- outs a1 * kpan_l ,a2 * kpan_r 
+ outs a1 * kpan_l ,a2 * kpan_r ; outs has been deprecated?
  skipVel: 
  endin 
  
@@ -248,48 +245,22 @@ f261 0 513 5 1024 384 1 ; e37- exponential - dead piano
 ; Orchestra: finger piano (112), bass finger piano (159), balloon drums (155, 156, 157), bass flute (96), oboe (10), 
 ; 9 10 11 
 ; clarinet (77), bassoon (71), french horn (102) 
-; 
+;  Start of the sample file definitions:
+; first is the function table that assigns samples based on midi value
 f601 0 128 -17 0 605 13 606 17 607 20 608 22 609 25 610 27 611 30 612 32 613 34 614 37 615 39 616 41 617 44 618 46 619 49 620 51 621 53 622 54 623 56 624 61 625 63 626 66 627 68 628 70 629 73 
+; the second is the list of midi base notes for each of the sample files for this instrument
 f602 0 64 -2 0  12  16  19  21  24  26  29  31  33  36  38  40  43  45  48  50  52  53  55  60  62  65  67  69  72 
+; the third is the list of cents to flatten each note to get it in tune
 f603 0 64 -2 0 +0  -4  0   0   0   0   0   0   0   0   -3  +5  +1  0   -1  +1  +4  +6  -1  -1  -1  0   -2  0   -1  
+; the fourth is the sample type: 0=mono 1=stero 2=mono with loop 3=stereo with loop 4=Akai MDF??? 5=Gigasample
 f604 0 64 -2 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
 ; Orchestra: 
-; voices instrument csound samples # samples 
-; finger_piano_part: McGill instrument number 
-; 8 finger piano 1 25 112 
-; 8 pizzicato 4 
-; violin-pizz 1 19 57 
-; viola-pizz 1 11 52 
-; cello-pizz 1 14 74 
-; 4 marimbas 1 18 8 
-; 4 xylophone 1 20 65 
-; 4 vibraphone 1 13 47 
-; 4 harp 1 20 3 
-; 8 martele strings 4 
-; violin martele 1 17 56 
-; viola martele 1 16 51 
-; cello martele 1 20 73 
-; woodwind_part: 
-; 8 woodwinds 5 
-; bassoon 1 6 71 
-; clarinet 1 19 77 
-; flute no vib 1 14 100 
-; oboe 1 15 10 
-; french horn 1 17 102 
-; 8 bowed strings vib 4 
-; violin 1 19 58 
-; viola 1 18 53 
-; cello 1 20 75 
-; ------------------------------------------ 
-; total samples 329 
-; both parts: Wait a bit before adding the piano. It's terribly complicated and prone to untraceable errors. 
-; 8 Bosendorfer 11 494 184 
-; ------- 
 ; 823 samples in total  
 f630 0 128 -17 0 634 44 635 48 636 50 637 52 638 54 639 56 640 58 641 60 642 62 643 64 644 66 645 68 646 70 647 72 648 74 649 76 650 78 651 80 
 f631 0 64 -2 0  43  47  49  51  53  55  57  59  61  63  65  67  69  71  73  75  77  79 
 f632 0 64 -2 0 -6  -8  +2  -13 +17 -4  0   0   0   0   0   0   0   0   0   0   0   0   
 f633 0 64 -2 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+;
 f652 0 128 -17 0 656 49 657 52 658 55 659 58 660 64 661 67 662 70 663 73 664 76 665 79 666 82 
 f653 0 64 -2 0  48  51  54  57  63  66  69  72  75  78  81 
 f654 0 64 -2 0 -13 -31 0   0   0   0   +6  0   +13 0   0   
@@ -905,8 +876,10 @@ f1210 0 0 1 "samples/TUBA/TUBA F4.aif" 0 0 0
 f1211 0 0 1 "samples/TUBA/TUBA G4.aif" 0 0 0
 f1216 0 0 1 "samples/sine/sine.wav" 0 0 0
 f1221 0 0 1 "samples/sine/triangle.wav" 0 0 0
+;inst numbers: 1   2   3   4   5   6   7   8   9  10  11  12  13  14  15  16  17  18  19  20  21  22  23  24  25  26  27  28  29  30  31
 f1 0 64 -2 0 601 630 652 667 683 705 726 742 766 787 807 830 850 872 890 909 930 953 975 999 1030 1070 1104 1130 1156 1177 1192 1212 1217 
 f2 0 64 -2 0 1 2 2 2 2 2 2 1 2 2 2 2 2 2 2 2 2 2 2 1 1 1 1 1 2 2 2 1 1
+f0 600 ; dummy f-statement to keep it running for 10 minutes
 ; end of modified 3/1/26
 ;Ins Star Dur Vel   Ton   Oct  Voice Stere Envlp Gliss Upsamp R-Env 2nd-gl 3rd Mult Line # ; Channel
 ;p1  p2   p3  p4    p5    p6   p7    p8    p9    p10   p11    p12   p13   p14  p15; Channel
@@ -934,6 +907,6 @@ f2 0 64 -2 0 1 2 2 2 2 2 2 1 2 2 2 2 2 2 2 2 2 2 2 1 1 1 1 1 2 2 2 1 1
 ; i1  +     4   69    000    .   22   8     1     0     0     1     0     0    35 ;  
 ; i1  +     4   69    000    .   23   8     1     0     0     1     0     0    35 ;  
 ; i1  +     4   69    000    .   24   8     1     0     0     1     0     0    35 ;  
-t0   600
+; t0   600
 </CsScore>
 </CsoundSynthesizer>

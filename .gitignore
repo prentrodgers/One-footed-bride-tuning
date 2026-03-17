@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.pyc
+
+# Generated audio / Csound output
+Music/sflib/*.wav
+Music/sflib/*.eps
+new_output.csd
+*.log
+
+# Runtime npy outputs (root level only)
+/bass_part_bass_section.npy
+/melody_part_melody_section.npy
+/perc_part_finger_pianos.npy
+/perc_part_perc_guitar.npy
+/perc_part_pizz_strings.npy
+/winds_part_bowed_strings.npy
+/winds_part_brass_section.npy
+/winds_part_wood_winds.npy
+
+# Generated analysis outputs
+/sa_animation.gif
+/spread.txt
+/spread-weight-*.txt
+/winners.txt
+/compare_chord_files.log
+/grid_search_output.log
+
+# Uploads (mp3s)
+Uploads/*.mp3
+Uploads/a1-*/
+Uploads/Playlist.m3u
+Uploads/sort-tol-rf.py
+
+# Samples (large audio)
+samples/*/
+
+# Waveform demos
+waveform_demos/
+
+# Test file
+test.py
+test.log

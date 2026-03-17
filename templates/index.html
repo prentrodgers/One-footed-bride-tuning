@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MIDI Tuning Controller</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+    background: #1a1a2e; color: #e0e0e0;
+    font-family: 'Courier New', monospace; font-size: 14px;
+    padding: 20px; max-width: 700px; margin: 0 auto;
+}
+h1 { font-size: 18px; margin-bottom: 16px; color: #c8c8ff; }
+h2 { font-size: 15px; margin: 16px 0 10px; color: #a0a0d0; }
+.controls-top {
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 20px; padding-bottom: 12px;
+    border-bottom: 1px solid #333;
+}
+button {
+    background: #2a2a4a; color: #e0e0e0; border: 1px solid #555;
+    padding: 8px 20px; cursor: pointer; font-family: inherit;
+    font-size: 14px; border-radius: 3px;
+}
+button:hover { background: #3a3a5a; }
+button.active { background: #4a6a4a; border-color: #6a9a6a; }
+button.stop-active { background: #6a4a4a; border-color: #9a6a6a; }
+label.toggle {
+    display: flex; align-items: center; gap: 6px;
+    cursor: pointer;
+}
+.toggles { display: flex; gap: 16px; margin-left: auto; }
+.slider-group {
+    display: grid; grid-template-columns: 110px 1fr 46px;
+    align-items: center; gap: 8px; margin-bottom: 10px;
+}
+.slider-group label { text-align: right; color: #aaa; }
+.slider-group input[type="range"] {
+    width: 100%; accent-color: #7a7aff; cursor: pointer;
+}
+.slider-group .val {
+    text-align: center; color: #c8c8ff; font-weight: bold;
+}
+.section { border-top: 1px solid #333; padding-top: 12px; margin-top: 12px; }
+select {
+    background: #2a2a4a; color: #e0e0e0; border: 1px solid #555;
+    padding: 4px 8px; font-family: inherit; font-size: 13px;
+    border-radius: 3px; cursor: pointer;
+}
+.preset-row {
+    display: grid; grid-template-columns: 110px 1fr;
+    align-items: center; gap: 8px; margin-bottom: 10px;
+}
+.preset-row label { text-align: right; color: #aaa; }
+.section-row {
+    display: grid; grid-template-columns: 22px 120px 140px 1fr 30px;
+    align-items: center; gap: 6px; margin-bottom: 6px;
+}
+.section-row input[type="checkbox"] { cursor: pointer; }
+.section-row .name { color: #aaa; font-size: 0.85em; }
+.section-row input[type="range"] {
+    width: 100%; accent-color: #7a7aff; cursor: pointer;
+}
+.section-row .val { text-align: center; color: #c8c8ff; font-weight: bold; }
+.inst-select {
+    background: #2a2a3a; color: #c8c8ff; border: 1px solid #555;
+    border-radius: 4px; padding: 2px 4px; font-size: 0.8em; cursor: pointer;
+}
+.chord-info {
+    border-top: 1px solid #333; padding-top: 12px; margin-top: 12px;
+}
+.chord-header {
+    display: flex; gap: 24px; align-items: baseline;
+    margin-bottom: 8px; flex-wrap: wrap;
+}
+.chord-header .label { color: #888; font-size: 12px; }
+.chord-header .value { color: #c8c8ff; font-weight: bold; }
+.chord-header .score { color: #8a8aff; }
+.interval-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 4px 16px; font-size: 13px;
+}
+.interval-item { color: #aaa; }
+.interval-item .idx { color: #666; }
+.interval-item .names { color: #c8c8ff; }
+.interval-item .cents { color: #aaa; }
+.interval-item .ratio { color: #8a8aff; font-weight: bold; }
+.status-bar {
+    margin-top: 20px; padding-top: 12px;
+    border-top: 1px solid #333; color: #888; font-size: 12px;
+}
+.status-bar span { margin-right: 16px; }
+.status-bar .connected { color: #6a9a6a; }
+.status-bar .disconnected { color: #9a6a6a; }
+</style>
+</head>
+<body>
+<h1>MIDI Tuning Controller</h1>
+
+<div class="controls-top">
+    <button id="playBtn" onclick="sendCmd('play')">PLAY</button>
+    <button id="stopBtn" onclick="sendCmd('stop')">STOP</button>
+    <div class="toggles">
+        <label class="toggle">
+            <input type="checkbox" id="tuningToggle" checked>
+            Straw Man Tuning
+        </label>
+        <label class="toggle">
+            <input type="checkbox" id="deepTuneToggle">
+            Deep Tune (SA)
+        </label>
+        <label class="toggle">
+            <input type="checkbox" id="engineToggle" checked>
+            Engine
+        </label>
+    </div>
+</div>
+
+<div class="section">
+    <h2>Orchestration</h2>
+    <div class="slider-group">
+        <label>Tempo:</label>
+        <input type="range" min="40" max="200" value="80" id="slider-tempo">
+        <span class="val" id="val-tempo">80</span>
+    </div>
+</div>
+
+<div class="section">
+    <h2>Straw Man Tuning</h2>
+    <div class="slider-group">
+        <label>Tolerance:</label>
+        <input type="range" min="1" max="4" value="4" id="slider-tolerance">
+        <span class="val" id="val-tolerance">4</span>
+    </div>
+    <div class="preset-row">
+        <label>Limit Max:</label>
+        <select id="limitMaxSelect">
+            <option value="17">17</option>
+            <option value="19" selected>19</option>
+            <option value="23">23</option>
+            <option value="29">29</option>
+            <option value="31">31</option>
+            <option value="37">37</option>
+            <option value="41">41</option>
+            <option value="43">43</option>
+            <option value="47">47</option>
+            <option value="53">53</option>
+        </select>
+    </div>
+</div>
+
+<div class="section">
+    <h2>Deep Tune (SA)</h2>
+    <div class="slider-group">
+        <label>Ratio Factor:</label>
+        <input type="range" min="1" max="8" step="0.5" value="4.0" id="slider-dt_ratio_factor">
+        <span class="val" id="val-dt_ratio_factor">4.0</span>
+    </div>
+    <div class="slider-group">
+        <label>Rolls:</label>
+        <input type="range" min="1" max="8" value="3" id="slider-dt_rolls">
+        <span class="val" id="val-dt_rolls">3</span>
+    </div>
+    <div class="slider-group">
+        <label>Tolerance:</label>
+        <input type="range" min="1" max="4" value="3" id="slider-dt_tolerance">
+        <span class="val" id="val-dt_tolerance">3</span>
+    </div>
+    <div class="preset-row">
+        <label>Limit Max:</label>
+        <select id="dtLimitMaxSelect">
+            <option value="17">17</option>
+            <option value="19">19</option>
+            <option value="23" selected>23</option>
+            <option value="29">29</option>
+            <option value="31">31</option>
+        </select>
+    </div>
+    <div class="slider-group">
+        <label>Max Iters:</label>
+        <input type="range" min="10" max="200" step="10" value="40" id="slider-dt_max_iterations">
+        <span class="val" id="val-dt_max_iterations">40</span>
+    </div>
+    <div class="slider-group">
+        <label>Cooling:</label>
+        <input type="range" min="0.70" max="0.99" step="0.01" value="0.85" id="slider-dt_cooling_rate">
+        <span class="val" id="val-dt_cooling_rate">0.85</span>
+    </div>
+    <div class="slider-group">
+        <label>Spread:</label>
+        <input type="range" min="0" max="15" value="5" id="slider-dt_spread">
+        <span class="val" id="val-dt_spread">5</span>
+    </div>
+</div>
+
+<div class="section">
+    <h2>Sections</h2>
+    <div id="sections"></div>
+</div>
+
+<div class="section">
+    <h2>Density</h2>
+    <div class="preset-row">
+        <label>Style:</label>
+        <select id="densityStyle">
+            <option value="arpeggio">Arpeggio</option>
+            <option value="oscillating">Oscillating</option>
+        </select>
+    </div>
+    <div class="preset-row">
+        <label>Waveform:</label>
+        <select id="waveformSelect">
+            <option value="sine">Sine</option>
+            <option value="triangle">Triangle</option>
+            <option value="sawtooth_rise">Sawtooth Rise</option>
+            <option value="sawtooth_fall">Sawtooth Fall</option>
+            <option value="pulse">Pulse</option>
+        </select>
+    </div>
+    <div class="slider-group">
+        <label>Cycles:</label>
+        <input type="range" min="1" max="20" value="5" id="slider-density_cycles">
+        <span class="val" id="val-density_cycles">5</span>
+    </div>
+    <div class="slider-group">
+        <label>Sparsity Min:</label>
+        <input type="range" min="0" max="100" value="5" id="slider-sparsity_min">
+        <span class="val" id="val-sparsity_min">5%</span>
+    </div>
+    <div class="slider-group">
+        <label>Sparsity Max:</label>
+        <input type="range" min="0" max="100" value="50" id="slider-sparsity_max">
+        <span class="val" id="val-sparsity_max">50%</span>
+    </div>
+</div>
+
+<div class="chord-info">
+    <h2>Chord</h2>
+    <div class="chord-header">
+        <div><span class="label">Cents: </span><span class="value" id="chordCents">--</span></div>
+        <div><span class="label">Notes: </span><span class="value" id="chordNames">--</span></div>
+        <div><span class="label">Score: </span><span class="score" id="chordScore">--</span></div>
+        <div><span class="label">PC: </span><span class="value" id="chordPC">--</span></div>
+    </div>
+    <div class="interval-grid" id="chordIntervals"></div>
+</div>
+
+<div class="status-bar">
+    <span id="connStatus" class="disconnected">Disconnected</span>
+    <span id="notesHeld">Notes: 0</span>
+    <span id="midiPort">MIDI: --</span>
+    <span id="stepInfo"></span>
+</div>
+
+<script>
+const SECTIONS = [
+    {name: 'finger_pianos',  label: 'Finger Pianos'},
+    {name: 'wood_winds',     label: 'Wood Winds'},
+    {name: 'pizz_strings',   label: 'Pizz Strings'},
+    {name: 'bowed_strings',  label: 'Bowed Strings'},
+    {name: 'brass_section',  label: 'Brass Section'},
+    {name: 'perc_guitar',    label: 'Perc Guitar'},
+    {name: 'bass_section',   label: 'Bass Section'},
+    {name: 'melody_section', label: 'Melody Section'},
+];
+
+let voiceTypeNames = [];  // populated from server state sync
+
+function buildSections() {
+    const container = document.getElementById('sections');
+    SECTIONS.forEach(s => {
+        const div = document.createElement('div');
+        div.className = 'section-row';
+        div.innerHTML = `
+            <input type="checkbox" id="sec-${s.name}" checked data-section="${s.name}">
+            <span class="name">${s.label}</span>
+            <select id="secinst-${s.name}" data-section="${s.name}" class="inst-select">
+                <option value="default">default</option>
+            </select>
+            <input type="range" min="0" max="15" value="8"
+                   id="secvol-${s.name}" data-section="${s.name}">
+            <span class="val" id="secval-${s.name}">8</span>`;
+        container.appendChild(div);
+    });
+}
+
+function populateInstrumentDropdowns() {
+    SECTIONS.forEach(s => {
+        const sel = document.getElementById(`secinst-${s.name}`);
+        if (!sel) return;
+        // Keep "default" option, clear the rest
+        while (sel.options.length > 1) sel.remove(1);
+        voiceTypeNames.forEach(vt => {
+            const opt = document.createElement('option');
+            opt.value = vt;
+            opt.textContent = vt;
+            sel.appendChild(opt);
+        });
+    });
+}
+
+buildSections();
+
+function updateChordInfo(info) {
+    document.getElementById('chordCents').textContent = info.cents.join('  ');
+    document.getElementById('chordNames').textContent = info.note_names.join(' ');
+    const scoreEl = document.getElementById('chordScore');
+    scoreEl.textContent = info.score.toFixed(1);
+    scoreEl.style.color = info.score >= 1000 ? '#ff4444' : '#8a8aff';
+    document.getElementById('chordPC').textContent = info.pitch_classes.join(' ');
+    const grid = document.getElementById('chordIntervals');
+    grid.innerHTML = '';
+    info.intervals.forEach((iv, i) => {
+        const item = document.createElement('div');
+        item.className = 'interval-item';
+        item.innerHTML = `<span class="idx">${i+1}</span> `
+            + `<span class="names">${iv.from} ${iv.to}</span> `
+            + `<span class="cents">${iv.cents}</span> `
+            + `<span class="ratio">${iv.ratio}</span>`;
+        grid.appendChild(item);
+    });
+}
+
+let ws;
+function connect() {
+    ws = new WebSocket(`ws://${location.host}/ws`);
+    ws.onopen = () => {
+        document.getElementById('connStatus').textContent = 'Connected';
+        document.getElementById('connStatus').className = 'connected';
+    };
+    ws.onclose = () => {
+        document.getElementById('connStatus').textContent = 'Disconnected';
+        document.getElementById('connStatus').className = 'disconnected';
+        setTimeout(connect, 2000);
+    };
+    ws.onmessage = (evt) => {
+        const data = JSON.parse(evt.data);
+        if (data.type === 'status') {
+            if (data.notes_held !== undefined)
+                document.getElementById('notesHeld').textContent = `Notes: ${data.notes_held}`;
+            if (data.midi_port !== undefined)
+                document.getElementById('midiPort').textContent = `MIDI: ${data.midi_port}`;
+            if (data.running !== undefined) {
+                document.getElementById('playBtn').className = data.running ? 'active' : '';
+                document.getElementById('stopBtn').className = data.running ? '' : 'stop-active';
+            }
+            if (data.current_step !== undefined)
+                document.getElementById('stepInfo').textContent =
+                    `Step: ${data.current_step}/${data.n_steps}`;
+            if (data.chord_info)
+                updateChordInfo(data.chord_info);
+        } else if (data.type === 'state') {
+            if (data.tuning_enabled !== undefined)
+                document.getElementById('tuningToggle').checked = data.tuning_enabled;
+            if (data.deep_tune_enabled !== undefined)
+                document.getElementById('deepTuneToggle').checked = data.deep_tune_enabled;
+            if (data.engine_enabled !== undefined)
+                document.getElementById('engineToggle').checked = data.engine_enabled;
+            if (data.tempo !== undefined) {
+                document.getElementById('slider-tempo').value = data.tempo;
+                document.getElementById('val-tempo').textContent = data.tempo;
+            }
+            if (data.sections_enabled) {
+                for (const [sec, enabled] of Object.entries(data.sections_enabled)) {
+                    const cb = document.getElementById(`sec-${sec}`);
+                    if (cb) cb.checked = enabled;
+                }
+            }
+            if (data.section_volumes) {
+                for (const [sec, vol] of Object.entries(data.section_volumes)) {
+                    const s = document.getElementById(`secvol-${sec}`);
+                    const v = document.getElementById(`secval-${sec}`);
+                    if (s) s.value = vol;
+                    if (v) v.textContent = vol;
+                }
+            }
+            if (data.density_style !== undefined)
+                document.getElementById('densityStyle').value = data.density_style;
+            if (data.density_cycles !== undefined) {
+                document.getElementById('slider-density_cycles').value = data.density_cycles;
+                document.getElementById('val-density_cycles').textContent = data.density_cycles;
+            }
+            if (data.waveform !== undefined)
+                document.getElementById('waveformSelect').value = data.waveform;
+            if (data.sparsity_min !== undefined) {
+                const pct = Math.round(data.sparsity_min * 100);
+                document.getElementById('slider-sparsity_min').value = pct;
+                document.getElementById('val-sparsity_min').textContent = pct + '%';
+            }
+            if (data.sparsity_max !== undefined) {
+                const pct = Math.round(data.sparsity_max * 100);
+                document.getElementById('slider-sparsity_max').value = pct;
+                document.getElementById('val-sparsity_max').textContent = pct + '%';
+            }
+            if (data.tolerance !== undefined) {
+                document.getElementById('slider-tolerance').value = data.tolerance;
+                document.getElementById('val-tolerance').textContent = data.tolerance;
+            }
+            if (data.limit_max !== undefined) {
+                document.getElementById('limitMaxSelect').value = data.limit_max;
+            }
+            if (data.voice_type_names) {
+                voiceTypeNames = data.voice_type_names;
+                populateInstrumentDropdowns();
+            }
+            if (data.dt_params) {
+                const dp = data.dt_params;
+                const sliderMap = {ratio_factor: 'dt_ratio_factor', rolls: 'dt_rolls',
+                    tolerance: 'dt_tolerance', max_iterations: 'dt_max_iterations',
+                    cooling_rate: 'dt_cooling_rate', spread: 'dt_spread'};
+                for (const [key, id] of Object.entries(sliderMap)) {
+                    if (dp[key] !== undefined) {
+                        document.getElementById('slider-' + id).value = dp[key];
+                        document.getElementById('val-' + id).textContent = dp[key];
+                    }
+                }
+                if (dp.limit_max !== undefined)
+                    document.getElementById('dtLimitMaxSelect').value = dp.limit_max;
+            }
+        }
+    };
+}
+connect();
+
+// Tempo slider
+document.getElementById('slider-tempo').addEventListener('input', (e) => {
+    const value = parseInt(e.target.value);
+    document.getElementById('val-tempo').textContent = value;
+    if (ws && ws.readyState === WebSocket.OPEN)
+        ws.send(JSON.stringify({type: 'tempo', value}));
+});
+
+// Density cycles slider
+document.getElementById('slider-density_cycles').addEventListener('input', (e) => {
+    const value = parseInt(e.target.value);
+    document.getElementById('val-density_cycles').textContent = value;
+    if (ws && ws.readyState === WebSocket.OPEN)
+        ws.send(JSON.stringify({type: 'density_cycles', value}));
+});
+
+// Section toggles
+document.querySelectorAll('#sections input[type="checkbox"]').forEach(cb => {
+    cb.addEventListener('change', () => {
+        if (ws && ws.readyState === WebSocket.OPEN)
+            ws.send(JSON.stringify({
+                type: 'section_toggle',
+                section: cb.dataset.section,
+                value: cb.checked
+            }));
+    });
+});
+
+// Section volume sliders
+document.querySelectorAll('#sections input[type="range"]').forEach(slider => {
+    slider.addEventListener('input', () => {
+        const section = slider.dataset.section;
+        const value = parseInt(slider.value);
+        document.getElementById(`secval-${section}`).textContent = value;
+        if (ws && ws.readyState === WebSocket.OPEN)
+            ws.send(JSON.stringify({type: 'section_volume', section, value}));
+    });
+});
+
+// Section instrument dropdowns
+document.querySelectorAll('.inst-select').forEach(sel => {
+    sel.addEventListener('change', () => {
+        const section = sel.dataset.section;
+        const voice_type = sel.value;
+        if (ws && ws.readyState === WebSocket.OPEN)
+            ws.send(JSON.stringify({type: 'section_instrument', section, voice_type}));
+    });
+});
+
+// Tuning toggle
+document.getElementById('tuningToggle').addEventListener('change', (e) => {
+    if (ws && ws.readyState === WebSocket.OPEN)
+        ws.send(JSON.stringify({type: 'tuning', value: e.target.checked}));
+});
+
+// Deep tune (SA) toggle
+document.getElementById('deepTuneToggle').addEventListener('change', (e) => {
+    if (ws && ws.readyState === WebSocket.OPEN)
+        ws.send(JSON.stringify({type: 'deep_tune', value: e.target.checked}));
+});
+
+// Engine toggle
+document.getElementById('engineToggle').addEventListener('change', (e) => {
+    if (ws && ws.readyState === WebSocket.OPEN)
+        ws.send(JSON.stringify({type: 'engine_toggle', value: e.target.checked}));
+});
+
+// Density style
+document.getElementById('densityStyle').addEventListener('change', (e) => {
+    if (ws && ws.readyState === WebSocket.OPEN)
+        ws.send(JSON.stringify({type: 'density_style', value: e.target.value}));
+});
+
+// Waveform select
+document.getElementById('waveformSelect').addEventListener('change', (e) => {
+    if (ws && ws.readyState === WebSocket.OPEN)
+        ws.send(JSON.stringify({type: 'waveform', value: e.target.value}));
+});
+
+// Tolerance slider
+document.getElementById('slider-tolerance').addEventListener('input', (e) => {
+    const value = parseInt(e.target.value);
+    document.getElementById('val-tolerance').textContent = value;
+    if (ws && ws.readyState === WebSocket.OPEN)
+        ws.send(JSON.stringify({type: 'tolerance', value}));
+});
+
+// Limit max select
+document.getElementById('limitMaxSelect').addEventListener('change', (e) => {
+    if (ws && ws.readyState === WebSocket.OPEN)
+        ws.send(JSON.stringify({type: 'limit_max', value: parseInt(e.target.value)}));
+});
+
+// Deep tune SA sliders
+['dt_ratio_factor', 'dt_rolls', 'dt_tolerance', 'dt_max_iterations', 'dt_cooling_rate', 'dt_spread'].forEach(param => {
+    document.getElementById('slider-' + param).addEventListener('input', (e) => {
+        const value = parseFloat(e.target.value);
+        document.getElementById('val-' + param).textContent = value;
+        if (ws && ws.readyState === WebSocket.OPEN)
+            ws.send(JSON.stringify({type: 'dt_param', param: param.replace('dt_', ''), value}));
+    });
+});
+document.getElementById('dtLimitMaxSelect').addEventListener('change', (e) => {
+    if (ws && ws.readyState === WebSocket.OPEN)
+        ws.send(JSON.stringify({type: 'dt_param', param: 'limit_max', value: parseInt(e.target.value)}));
+});
+
+// Sparsity sliders
+document.getElementById('slider-sparsity_min').addEventListener('input', (e) => {
+    const pct = parseInt(e.target.value);
+    document.getElementById('val-sparsity_min').textContent = pct + '%';
+    if (ws && ws.readyState === WebSocket.OPEN)
+        ws.send(JSON.stringify({type: 'sparsity', min: pct / 100, max: parseInt(document.getElementById('slider-sparsity_max').value) / 100}));
+});
+document.getElementById('slider-sparsity_max').addEventListener('input', (e) => {
+    const pct = parseInt(e.target.value);
+    document.getElementById('val-sparsity_max').textContent = pct + '%';
+    if (ws && ws.readyState === WebSocket.OPEN)
+        ws.send(JSON.stringify({type: 'sparsity', min: parseInt(document.getElementById('slider-sparsity_min').value) / 100, max: pct / 100}));
+});
+
+function sendCmd(cmd) {
+    if (ws && ws.readyState === WebSocket.OPEN)
+        ws.send(JSON.stringify({type: cmd}));
+}
+</script>
+</body>
+</html>

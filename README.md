@@ -4,96 +4,132 @@ A compact implementation of Harry Partch's "One-Footed Bride" tonality diamond t
 <br>
 <a href="one-footed-bride-pic.jpeg"><img src="one-footed-bride-pic.jpeg" alt="One‑footed Bride" width="400"/></a>
 
-## Overview ✅
+## Overview
 This project finds cent tunings for four-note chords that favor low-number rational intervals (small numerator+denominator). It uses:
 - A tonality diamond (variable limit) to enumerate candidate ratios
 - Simulated annealing to search for low‑score chord tunings
-- Optional post-processing (glissandi/slide smoothing) and Csound rendering
+- Grid search across hyperparameters (limit, tolerance, ratio_factor, etc.)
+- Optional post-processing (horizontal transposition, glissandi smoothing) and Csound rendering
+- A live MIDI-to-Csound web application for real-time performance
 
-## Features ✨
-- Computes valid interval ratios for each chord (limits configurable)
-- Simulated annealing search with configurable temperature and cooling
-- Permutes chord orders to reduce local minima effects
-- Caching and chord compression to speed repeated work
-- Parallel processing support to use multiple CPU cores
-- Exports data for visualization and Csound performance
+## Main Programs
 
-## Quick start ▶️
-**Prerequisites:** Python 3.10+, numpy, scipy, matplotlib, sox (audio processing), Csound (optional, for audio synthesis)
+### grid_search_tuning.py
+Tunes all 12 Bach chorales (bwv253–bwv264) across combinations of `limit_max`, `tolerance`, `rolls`, and `spread` to find the lowest-scoring chord tunings. Produces numpy arrays of cent values for each chord in each chorale, and writes results to `grid_search_results.csv`.
 
-### Install system dependencies
-
-**Ubuntu/Debian:**
 ```bash
-sudo apt-get update
-sudo apt-get install -y python3.10 python3-pip sox csound
+python grid_search_tuning.py
 ```
 
-**Fedora/RHEL:**
+Key functions:
+- `build_straw_man_chord()` — core per-chord tuning using permutation and roll search
+- `run_chorale()` — tune all chords in one chorale with given parameters
+- `grid_search()` — sweep all parameter combinations
+- `analyze()` — summarize CSV results and recommend best parameters
+
+### select_best_and_render.py
+Scans directories of tuned numpy arrays, ranks them by a combined metric of mean chord score and pitch-class spread, and optionally renders the winners as audio via WreckingCrew.py and Csound.
+
 ```bash
-sudo dnf install -y python3 python3-pip sox
-# Csound must be built from source on Fedora
-# See: https://github.com/csound/csound
-# Or install via conda: mamba install -c conda-forge csound
+# Rank all tunings for all chorales
+python select_best_and_render.py \
+  --numpy_dir_root Archive/straw-man \
+  --chorale_list bwv253 bwv254 bwv255 bwv256 bwv257 bwv258 bwv259 bwv260 bwv261 bwv262 bwv263 bwv264 \
+  --spread_weight 0.5
+
+# Render winners as audio
+python select_best_and_render.py \
+  --numpy_dir_root Archive/straw-man \
+  --chorale_list bwv253 --spread_weight 0.5 --render
 ```
 
-### Python environment
+Key arguments: `--spread_weight` (0–1, balance score vs. spread), `--render`, `--copy_mp3_to`, `--copy_npy_to`, `--bass_sustain`.
 
-1. Recommended: create a minimal mamba environment (fast and reproducible):
-   ```bash
-   # first install miniforge: https://github.com/conda-forge/miniforge
-   mamba create -n csound python jupyterlab matplotlib numpy scipy music21
-   mamba activate csound
-   
-   ```
+### midi_tuning_server.py
+A live MIDI-to-Csound web application. Reads MIDI from a keyboard, tunes chords in real time using the straw-man algorithm or simulated annealing, orchestrates across 8 instrument sections (finger pianos, bass, winds, strings, percussion), and sends score events to Csound. A browser-based WebSocket UI controls tuning parameters, instrument assignments, density, octave stretch, envelopes, and volume in real time.
 
-2. Or install dependencies with pip (project root or this subfolder):
-   ```bash
-   pip install -r requirements.txt
-   ```
+```bash
+python midi_tuning_server.py
+# Open http://localhost:8000
+```
 
-3. Run the main script:
-   ```bash
-   python WreckingCrew.py
-   ```
+### WreckingCrew.py
+The rendering engine. Takes tuned cent-value numpy arrays and generates Csound `.csd` files for audio synthesis. Manages instrument sections (finger pianos, bass, winds, melody, percussion), density masks, octave stretching, bass sustain shaping, and glissando smoothing between chords.
 
-### Usage examples
-   - Quick run (default list of Bach Wedding Chorales bwv253 through bwv264). It uses pre-tuned cent values:
-     ```bash
-     python WreckingCrew.py 
-     ```
-   - Tune a single chorale with the optimizer script:
-     ```bash
-     python optimize_chords_sa_v2.py --chorale bwv253
-     ```
-   - Show generated plots and volumes (saved to `plots/`):
-     Run `python WreckingCrew.py` and inspect `plots/{version}.jpg`
+```bash
+python WreckingCrew.py --short_repeats --chorale_name bwv253 \
+  --cent_file_partial="-trans-sa-opt.npy" --numpy_dir best-npy
+```
 
-4. Use the notebook `Chorale-info.ipynb` for exploration and printing results.
+### train.py
+SA tuning hyperparameter evaluator. Runs simulated annealing on test chords with configurable parameters and reports scores and timing as JSON. Supports `--animate` to generate an animated GIF showing SA convergence.
 
-Configuration is in `WreckingCrew.py` and supporting helper modules (e.g., `diamond_music_utils.py`, `adaptive_tuning_util.py`). Tweak limits and annealing parameters to experiment.
+```bash
+python train.py '{"ratio_factor": 4.0, "rolls": 5}'
+python train.py --animate '{"max_iterations": 200}'
+```
 
-## Key parameters ⚙️
-- `limit` (tonality diamond limit): controls the largest numerator/denominator allowed in candidate ratios. Common useful values are **31** or **47**.
-- `initial_temperature` / `temperature` (simulated annealing): typical sensible defaults used in the project are **64.0** for the starting temperature and a **cooling factor ~0.998** per iteration (lower values cool faster).
-- `caching`: the code caches valid-ratio lookups and chord scores to speed repeated tuning. Enable/inspect caching to improve performance (hit rates commonly >80%).
+## Helper Modules
 
-> Tip: Start with the default parameters and run a single chorale to get a feel for runtime and output before performing longer grid searches.
-## Notes & Tips 💡
-- Typical useful tonality diamond limits: 19, 23, or 31 (experiment with smaller/larger limits)
-- If adjacent chords produce slight cent differences for the same MIDI pitch, the pipeline applies short slides (glissandi) to smooth transitions
-- Caching and compressing unique chords dramatically speeds tuning (often >80% cache hit rates)
-- **Samples & shared demo set:** The repo does not contain the copyrighted McGill sample library. For development and demos we include a tiny, freely redistributable placeholder set generator and template Csound demo:
-  - `scripts/generate_public_samples.py` — generate short sine-wave WAVs under `samples/public/` (CC0 placeholders).
-  - `scripts/check_samples.py` — verify presence of sample directories (works with $SAMPLE_DIR or `./csound`).
-  - `ball0.csd` — demo Csound template pointing at the `samples/public/` placeholders.
+### adaptive_tuning_util.py
+Core utility library with 50+ functions for the entire tuning pipeline:
+- **I/O:** load chorales from MIDI files, music21 corpus, or numpy arrays
+- **Tonal diamond:** `build_tonal_diamond()`, ratio lookups and scoring via `ChordScorer` and `LowNumberRatioIntervals`
+- **Cent math:** modular cent arithmetic, pitch-class extraction, circular span
+- **Chord operations:** rearrangement, pitch-class compression, perturbation, force-match
+- **Rendering:** glide arrays, octave alteration masks, note feature clipping, density masks
 
-  Example:
+### horizontal_transpose.py
+Post-processes tuned chorales to improve horizontal (temporal) consistency. When adjacent chords share pitch classes, applies offsets so shared pitches reuse earlier cent values, minimizing pitch drift across the chorale.
 
-  ```bash
-  python scripts/generate_public_samples.py --out samples/public
-  csound ball0.csd
-  ```
+```bash
+python horizontal_transpose.py Archive/straw-man/bwv253-opt.npy \
+  --destination Archive/straw-man/bwv253-trans-sa-opt.npy --log-level DEBUG
+```
+
+### diamond_music_utils.py
+Utilities for tonality diamond music: ratio construction, scale building, cent/ratio conversion, chord and glissando generation, and Csound file I/O.
+
+## Notebooks
+
+### Straw_man_tuning.ipynb
+Illustrates the greedy (non-SA) tuning algorithm. Quickly tunes chords using permutation and roll search — useful for understanding the core algorithm and for live-performance latency testing.
+
+### compare_horizontal_chords.ipynb
+Compares chords before and after `horizontal_transpose.py`. Checks for pitch-class mismatches and analyzes chord-level gap statistics.
+
+### Chorale-info.ipynb
+Scores and studies tuned cent-value arrays. Computes per-pitch-class spread analysis, identifies the most important (frequent) pitch classes, and reports score statistics across the chorale.
+
+## Quick Start
+
+**Prerequisites:** Python 3.10+, numpy, scipy, matplotlib, sox, Csound (optional for audio)
+
+```bash
+# Create environment
+mamba create -n csound python jupyterlab matplotlib numpy scipy music21
+mamba activate csound
+pip install -r requirements.txt
+
+# Tune chorales
+python grid_search_tuning.py
+
+# Find the best tunings and render audio
+python select_best_and_render.py \
+  --numpy_dir_root Archive/straw-man \
+  --chorale_list bwv253 --spread_weight 0.5 --render
+
+# Or run the live MIDI server
+python midi_tuning_server.py
+```
+
+## Key Parameters
+- `limit_max` — tonality diamond limit; controls largest numerator/denominator in candidate ratios. Common values: 17, 19, 23.
+- `tolerance` — how many cents away from an exact ratio is still accepted [1–4]
+- `ratio_factor` — weight favoring lower-number ratios in selection (higher = more consonant)
+- `stability_factor` — weight favoring pitch stability across adjacent chords
+- `spread` — Gaussian noise σ for per-roll perturbation (default 7)
+- `max_delta` — maximum cent distance from 12-TET for candidate ratios (default 33)
 
 ## Contributing & License
 If you find bugs or want to propose improvements, open an issue or a PR. See the LICENSE file for licensing details.

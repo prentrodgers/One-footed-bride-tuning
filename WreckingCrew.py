@@ -380,7 +380,7 @@ def arpeggio_mask_variable_runs(
 
         # 5️⃣ Insert the run into the global mask
         mask[:, t : t + run_length] = base_pattern
-        logging.info(f'In arpeggio_mask_variable_runs. Started new run at {t = }, {num_cycles = }, {run_length = }, {sparsity = :.2f}, {np.sum(base_pattern) = }')
+        logging.debug(f'In arpeggio_mask_variable_runs. Started new run at {t = }, {num_cycles = }, {run_length = }, {sparsity = :.2f}, {np.sum(base_pattern) = }')
         # 6️⃣ Subtle mutation for next run
         if t + run_length < time_steps:
             for v in range(voices):
@@ -1325,7 +1325,7 @@ def create_repeat_array_pattern(chorale_array, pattern=None, axis=1):
         pattern = np.array(pattern, dtype=int)
     logging.info(f'Using repeat pattern: {pattern = }')
     # rng.shuffle(pattern)  # Shuffle the pattern for randomness
-    pattern = rng.choice(pattern, size=pattern.shape[0], replace=True) # much more randomsdfsdfsdg the piece will be. 
+    pattern = rng.choice(pattern, size=pattern.shape[0], replace=True) # much more random the piece will be. 
     logging.info(f'After shuffle: {pattern = }')
     # Create repeat sequence by cycling through pattern to length num_chords
     repeat_values = np.tile(pattern, int(np.ceil(num_chords / len(pattern))))[:num_chords].astype(int)
