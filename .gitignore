@@ -2,6 +2,9 @@
 __pycache__/
 *.pyc
 
+# IDE
+.vscode/
+
 # Generated audio / Csound output
 Music/sflib/*.wav
 Music/sflib/*.eps
