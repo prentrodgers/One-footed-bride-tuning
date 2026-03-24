@@ -2895,7 +2895,7 @@ def load_chorale_in_cents(version, numpy_dir, save_midi_file=False, save_top_not
 
     logging.info(f'In load_chorale_in_cents. About to load top_notes from {file_name = }')
     try:
-        loaded = np.load(file_name)
+        loaded = np.load(file_name, allow_pickle=True)
         # Re-order existing cent values by current chorale frequency; fall back to 12-TET for any gap.
         existing_cents = {int(loaded[0, i]): int(loaded[1, i]) for i in range(loaded.shape[1])}
         ordered_cents = [existing_cents.get(p, p * 100) for p in sorted_pcs]
@@ -2905,6 +2905,7 @@ def load_chorale_in_cents(version, numpy_dir, save_midi_file=False, save_top_not
         logging.info(f'top_notes file not found — building from chorale frequencies with 12-TET cent values')
         top_notes = np.array([sorted_pcs, [p * 100 for p in sorted_pcs]])
         if save_top_notes:
+            os.makedirs(os.path.dirname(file_name), exist_ok=True)
             np.save(file_name, top_notes)
     logging.debug(f'In load_chorale_in_cents. {top_notes.shape = }')
     logging.debug(f'{[(keys[top_note[0]], top_note[1]) for top_note in top_notes.T]}')

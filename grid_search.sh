@@ -12,12 +12,14 @@
 
 set -euo pipefail
 
+mkdir -p ~/Music/sflib
+
 # CHORALES="${1:-bwv253}"
 CHORALES="${1:-$(echo bwv{253..264})}"
 
-LIMIT_MAXES=(23)
-TOLERANCES=(1 2)
-RATIOS=(1.25 1.75)
+LIMIT_MAXES=(17 19)
+TOLERANCES=(1 2 4)
+RATIOS=(1.25 1.5 1.75)
 STABILITY_FACTORS=(0)
 MAX_DELTAS=(33)
 
@@ -69,22 +71,22 @@ for limit_max in "${LIMIT_MAXES[@]}"; do
                         --suffix="-trans-sa-opt.npy"
 
                     # Step 4: render all combinations (one chorale at a time)
-                    for c in $CHORALES; do
-                        python WreckingCrew.py \
-                            --short_repeats \
-                            --chorale_name "$c" \
-                            --cent_file_partial="-trans-sa-opt.npy" \
-                            --no_show_volumes \
-                            --album 4 \
-                            --tolerance "$tolerance" \
-                            --ratio_factor "$ratio" \
-                            --stability_factor "$stability_factor" \
-                            --max_delta "$max_delta" \
-                            --limit_max "$limit_max" \
-                            --numpy_dir "$dir" \
-                            --spread "$spread" \
-                            --max_cents_slide 50
-                    done
+                    # for c in $CHORALES; do
+                    #     python WreckingCrew.py \
+                    #         --short_repeats \
+                    #         --chorale_name "$c" \
+                    #         --cent_file_partial="-trans-sa-opt.npy" \
+                    #         --no_show_volumes \
+                    #         --album 4 \
+                    #         --tolerance "$tolerance" \
+                    #         --ratio_factor "$ratio" \
+                    #         --stability_factor "$stability_factor" \
+                    #         --max_delta "$max_delta" \
+                    #         --limit_max "$limit_max" \
+                    #         --numpy_dir "$dir" \
+                    #         --spread "$spread" \
+                    #         --max_cents_slide 50
+                    # done
 
                     echo "Done: limit_max=${limit_max}  tolerance=${tolerance}  ratio_factor=${ratio}  stability_factor=${stability_factor}  max_delta=${max_delta}  spread=${spread}"
                 done

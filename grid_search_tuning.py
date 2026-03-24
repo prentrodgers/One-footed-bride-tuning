@@ -28,7 +28,7 @@ import pandas as pd
 from itertools import count, permutations
 
 # ── paths ──────────────────────────────────────────────────────────────────
-BASE_DIR    = '/home/prent/Repos/One-footed-bride-tuning'
+BASE_DIR    = os.path.dirname(os.path.abspath(__file__))
 NUMPY_DIR   = os.path.join(BASE_DIR, 'Archive', 'straw-man')
 RESULTS_CSV = os.path.join(BASE_DIR, 'grid_search_results.csv')
 

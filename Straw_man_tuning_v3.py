@@ -328,12 +328,18 @@ def parse_args():
     parser.add_argument('--restart_repeat_threshold', type=int, default=3, help='Early-stop if the same (transposition-invariant) chord appears this many times across restarts (default: 3)')
     parser.add_argument('--seed', type=int, default=None, help='Optional RNG seed for reproducible runs')
     parser.add_argument('--ratio_factor', type=float, default=1.0, help='Consonance/stability trade-off: high favours low-limit ratios, low favours staying near the current interval; balance point ~1.7 (default: 1.0)')
+    parser.add_argument('--numpy_dir', type=str, default=None, help='Directory for loading/saving numpy files (default: Archive/straw-man)')
     return parser.parse_args()
 
 
 def main():
+    global numpy_dir
     args = parse_args()
     print(' '.join(f'--{arg} {value}' for arg, value in vars(args).items()))
+
+    if args.numpy_dir is not None:
+        numpy_dir = args.numpy_dir
+        os.makedirs(numpy_dir, exist_ok=True)
 
     reload(atu)
     start_logger(os.path.join(base_dir, 'test_v2.log'), level=logging.INFO)

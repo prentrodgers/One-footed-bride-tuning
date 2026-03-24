@@ -4,9 +4,12 @@
 #   mamba activate csound
 
 jupyterlab
-python
 matplotlib
 numpy
 scipy
 music21
+mido
+pandas
+sox
 # Note: Csound is a system package and should be installed separately if you want to render audio with it.
+# Note: SoX requires the system sox package (apt install sox). For MP3 support also install libsox-fmt-mp3.
