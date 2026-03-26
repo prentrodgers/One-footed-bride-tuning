@@ -60,7 +60,8 @@ def score_array(cent_4n, tonal_diamond, tolerance):
         chord_scorer.score_chord(cent_4n[:, i], tolerance=tolerance)
         for i in range(cent_4n.shape[1])
     ])
-    return float(np.mean(scores)), float(np.max(scores)), int(np.argmax(scores))
+    p80, p90 = np.percentile(scores, [80, 90]).astype(int)
+    return float(np.mean(scores)), float(np.max(scores)), int(np.argmax(scores)), p80, p90
 
 
 def discover_chorales(directories, suffix):
@@ -106,8 +107,8 @@ def main():
         print(f'Analyzing {len(args.files)} file(s)  (tolerance={args.tolerance}, '
               f'limit_max={args.limit_max}, spread_weight={args.spread_weight})')
         print(f'{"=" * 90}')
-        print(f'  {"File":<55} {"Mean":>6} {"Max":>6} {"MaxCh":>6} {"Spread":>8} {"Combined":>10}')
-        print(f'  {"-" * 55} {"-----":>6} {"-----":>6} {"-----":>6} {"-------":>8} {"---------":>10}')
+        print(f'  {"File":<55} {"Mean":>6} {"Max":>6} {"MaxCh":>6} {"Top2dec":>10} {"Spread":>8} {"Combined":>10}')
+        print(f'  {"-" * 55} {"-----":>6} {"-----":>6} {"-----":>6} {"--------":>10} {"-------":>8} {"---------":>10}')
 
         results = []
         for fpath in args.files:
@@ -130,16 +131,16 @@ def main():
                 print(f'  {fname}: could not load -- {e}')
                 continue
 
-            mean_sc, max_sc, max_ch = score_array(cent_4n, tonal_diamond, args.tolerance)
+            mean_sc, max_sc, max_ch, p80, p90 = score_array(cent_4n, tonal_diamond, args.tolerance)
             spread = compute_spread_score(cent_4n, chorale)
             combined = mean_sc + args.spread_weight * spread
             label = os.path.join(os.path.basename(d), fname)
-            results.append((combined, mean_sc, max_sc, max_ch, spread, label))
+            results.append((combined, mean_sc, max_sc, max_ch, p80, p90, spread, label))
 
         results.sort(key=lambda x: x[0])
-        for i, (combined, mean_sc, max_sc, max_ch, spread, label) in enumerate(results):
+        for i, (combined, mean_sc, max_sc, max_ch, p80, p90, spread, label) in enumerate(results):
             marker = ' <-- BEST' if i == 0 and len(results) > 1 else ''
-            print(f'  {label:<55} {mean_sc:>6.1f} {max_sc:>6.0f} {max_ch:>6} {spread:>8.1f} {combined:>10.1f}{marker}')
+            print(f'  {label:<55} {mean_sc:>6.1f} {max_sc:>6.0f} {max_ch:>6} {p80:>4} {p90:>4} {spread:>8.1f} {combined:>10.1f}{marker}')
         return
 
     # Mode 2: scan directories for chorales
@@ -161,47 +162,66 @@ def main():
         return
 
     print(f'\nFound {len(chorale_list)} chorale(s) across {len(dirs)} directory/directories')
+    print(f'\n{"=" * 90}')
+    print(f'Options: tolerance={args.tolerance}, limit_max={args.limit_max}, '
+          f'spread_weight={args.spread_weight}')
+    print(f'{"=" * 90}')
 
-    for version in chorale_list:
-        print(f'\n{"=" * 90}')
-        print(f'Chorale: {version}  (tolerance={args.tolerance}, limit_max={args.limit_max}, '
-              f'spread_weight={args.spread_weight})')
-        print(f'{"=" * 90}')
-        print(f'  {"Directory":<55} {"Mean":>6} {"Max":>6} {"MaxCh":>6} {"Spread":>8} {"Combined":>10}')
-        print(f'  {"-" * 55} {"-----":>6} {"-----":>6} {"-----":>6} {"-------":>8} {"---------":>10}')
+    # When multiple directories, show per-directory breakdown per chorale
+    if len(dirs) > 1:
+        print(f'  {"Chorale":<10} {"Directory":<45} {"Mean":>6} {"Max":>6} {"MaxCh":>6} {"Top2dec":>10} {"Spread":>8} {"Combined":>10}')
+        print(f'  {"-" * 10} {"-" * 45} {"-----":>6} {"-----":>6} {"-----":>6} {"--------":>10} {"-------":>8} {"---------":>10}')
 
-        results = []
-        for d in dirs:
+        for version in chorale_list:
+            results = []
+            for d in dirs:
+                input_file = os.path.join(d, f'{version}{args.suffix}')
+                if not os.path.exists(input_file):
+                    continue
+                try:
+                    cent_4n = np.load(input_file, allow_pickle=True)
+                    _, _, chorale, _, _, _ = atu.load_chorale_in_cents(
+                        version, d, twelve_tet=True, save_top_notes=False)
+                except Exception as e:
+                    print(f'  {version:<10} {os.path.basename(d):<45} could not load -- {e}')
+                    continue
+
+                mean_sc, max_sc, max_ch, p80, p90 = score_array(cent_4n, tonal_diamond, args.tolerance)
+                spread = compute_spread_score(cent_4n, chorale)
+                combined = mean_sc + args.spread_weight * spread
+                results.append((combined, mean_sc, max_sc, max_ch, p80, p90, spread, d))
+
+            if not results:
+                print(f'  {version:<10} No results found')
+                continue
+
+            results.sort(key=lambda x: x[0])
+            for i, (combined, mean_sc, max_sc, max_ch, p80, p90, spread, d) in enumerate(results):
+                marker = ' <-- BEST' if i == 0 and len(results) > 1 else ''
+                print(f'  {version:<10} {os.path.basename(d):<45} {mean_sc:>6.1f} {max_sc:>6.0f} {max_ch:>6} {p80:>4} {p90:>4} {spread:>8.1f} {combined:>10.1f}{marker}')
+    else:
+        # Single directory: one line per chorale
+        print(f'  {"Chorale":<10} {"Mean":>6} {"Max":>6} {"MaxCh":>6} {"Top2dec":>10} {"Spread":>8} {"Combined":>10}')
+        print(f'  {"-" * 10} {"-----":>6} {"-----":>6} {"-----":>6} {"--------":>10} {"-------":>8} {"---------":>10}')
+
+        for version in chorale_list:
+            d = dirs[0]
             input_file = os.path.join(d, f'{version}{args.suffix}')
             if not os.path.exists(input_file):
+                print(f'  {version:<10} not found')
                 continue
             try:
                 cent_4n = np.load(input_file, allow_pickle=True)
                 _, _, chorale, _, _, _ = atu.load_chorale_in_cents(
                     version, d, twelve_tet=True, save_top_notes=False)
             except Exception as e:
-                print(f'  {os.path.basename(d)}: could not load -- {e}')
+                print(f'  {version:<10} could not load -- {e}')
                 continue
 
-            mean_sc, max_sc, max_ch = score_array(cent_4n, tonal_diamond, args.tolerance)
+            mean_sc, max_sc, max_ch, p80, p90 = score_array(cent_4n, tonal_diamond, args.tolerance)
             spread = compute_spread_score(cent_4n, chorale)
             combined = mean_sc + args.spread_weight * spread
-            results.append((combined, mean_sc, max_sc, max_ch, spread, d))
-
-        if not results:
-            print(f'  No results found for {version}')
-            continue
-
-        results.sort(key=lambda x: x[0])
-        for i, (combined, mean_sc, max_sc, max_ch, spread, d) in enumerate(results):
-            marker = ' <-- BEST' if i == 0 and len(results) > 1 else ''
-            print(f'  {os.path.basename(d):<55} {mean_sc:>6.1f} {max_sc:>6.0f} {max_ch:>6} {spread:>8.1f} {combined:>10.1f}{marker}')
-
-        best = results[0]
-        if len(results) > 1:
-            print(f'\n  Winner: {os.path.basename(best[5])}')
-            print(f'    mean={best[1]:.1f}, max={best[2]:.0f} at chord {best[3]}, '
-                  f'spread={best[4]:.1f}, combined={best[0]:.1f}')
+            print(f'  {version:<10} {mean_sc:>6.1f} {max_sc:>6.0f} {max_ch:>6} {p80:>4} {p90:>4} {spread:>8.1f} {combined:>10.1f}')
 
     print()
 
