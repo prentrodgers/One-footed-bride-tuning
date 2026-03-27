@@ -99,7 +99,7 @@ def main():
     if not args.directories and not args.files:
         parser.error('Provide either directories or --files')
 
-    tonal_diamond = atu.build_tonal_diamond(args.limit_max)
+    tonal_diamond = atu.build_tonal_diamond(args.limit_max)[:-1]
 
     # Mode 1: analyze specific files directly
     if args.files:
