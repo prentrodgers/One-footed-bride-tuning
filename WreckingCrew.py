@@ -1574,7 +1574,9 @@ def mainline(chorale_override=None, short_repeats=False, include_list=None, csou
       chorale_list = ['bwv253','bwv254','bwv255','bwv256','bwv257','bwv258','bwv259','bwv260','bwv261','bwv262','bwv263','bwv264']
       # allow override from command-line: single name, comma-separated names, or 'all'
       if chorale_override:
-            if isinstance(chorale_override, str):
+            if isinstance(chorale_override, list):
+                  chorale_list = chorale_override
+            elif isinstance(chorale_override, str):
                   s = chorale_override.strip()
                   if s.lower() in ('all', '*'):
                         pass
@@ -1612,8 +1614,9 @@ def mainline(chorale_override=None, short_repeats=False, include_list=None, csou
 
 if __name__ == "__main__":
       parser = argparse.ArgumentParser(description='Generate chorale audio and plots')
-      parser.add_argument("--chorale_name", "--chorale", dest="chorale_name", 
-                          help="chorale name or comma-separated list (default: ['bwv253','bwv254','bwv255','bwv256','bwv257','bwv258','bwv259','bwv260','bwv261','bwv262','bwv263','bwv264'])", 
+      parser.add_argument("--chorale_list", "--chorale_name", "--chorale", dest="chorale_name",
+                          nargs='+',
+                          help="One or more chorale names, e.g. --chorale_list bwv253 bwv254 (default: all 12)",
                           default=None)
       parser.add_argument("--short_repeats", dest="short_repeats", action="store_true",
                           help="If True, get a basic chorale. Play it straight. If false, then use the arpeggio patterns")
