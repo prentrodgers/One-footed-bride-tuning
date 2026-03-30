@@ -1,6 +1,0 @@
-version: bwv256
-mean: 53.3
-median: 47.0
-min: 36.0
-max: 94.0
-deciles: 43 43 43 45 47 47 60 67 74

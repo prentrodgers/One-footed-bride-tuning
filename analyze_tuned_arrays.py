@@ -64,6 +64,28 @@ def score_array(cent_4n, tonal_diamond, tolerance):
     return float(np.mean(scores)), float(np.max(scores)), int(np.argmax(scores)), p80, p90
 
 
+def check_pitch_classes(cent_4n, chorale):
+    """Check that tuned cent values match the original MIDI pitch classes.
+
+    Returns (n_mismatches, total_notes, mismatch_details) where mismatch_details
+    is a list of (chord_idx, voice_idx, expected_pc, actual_pc) tuples.
+    """
+    n_chords = cent_4n.shape[1]
+    mismatches = []
+    total = 0
+    for chord_idx in range(n_chords):
+        midi_chord = chorale.T[chord_idx]
+        expected_pcs = midi_chord % 12
+        actual_pcs = atu.pitch_class_from_cents(cent_4n[:, chord_idx])
+        for voice_idx in range(cent_4n.shape[0]):
+            total += 1
+            if int(actual_pcs[voice_idx]) != int(expected_pcs[voice_idx]):
+                mismatches.append((chord_idx, voice_idx,
+                                   int(expected_pcs[voice_idx]),
+                                   int(actual_pcs[voice_idx])))
+    return len(mismatches), total, mismatches
+
+
 def discover_chorales(directories, suffix):
     """Find all chorale names available across the given directories."""
     chorales = set()
@@ -107,8 +129,8 @@ def main():
         print(f'Analyzing {len(args.files)} file(s)  (tolerance={args.tolerance}, '
               f'limit_max={args.limit_max}, spread_weight={args.spread_weight})')
         print(f'{"=" * 90}')
-        print(f'  {"File":<55} {"Mean":>6} {"Max":>6} {"MaxCh":>6} {"Top2dec":>10} {"Spread":>8} {"Combined":>10}')
-        print(f'  {"-" * 55} {"-----":>6} {"-----":>6} {"-----":>6} {"--------":>10} {"-------":>8} {"---------":>10}')
+        print(f'  {"File":<55} {"Mean":>6} {"Max":>6} {"MaxCh":>6} {"Top2dec":>10} {"Spread":>8} {"Combined":>10} {"PCerr":>6}')
+        print(f'  {"-" * 55} {"-----":>6} {"-----":>6} {"-----":>6} {"--------":>10} {"-------":>8} {"---------":>10} {"-----":>6}')
 
         results = []
         for fpath in args.files:
@@ -134,13 +156,20 @@ def main():
             mean_sc, max_sc, max_ch, p80, p90 = score_array(cent_4n, tonal_diamond, args.tolerance)
             spread = compute_spread_score(cent_4n, chorale)
             combined = mean_sc + args.spread_weight * spread
+            n_pc_err, _, pc_details = check_pitch_classes(cent_4n, chorale)
             label = os.path.join(os.path.basename(d), fname)
-            results.append((combined, mean_sc, max_sc, max_ch, p80, p90, spread, label))
+            results.append((combined, mean_sc, max_sc, max_ch, p80, p90, spread, label, n_pc_err, pc_details))
 
         results.sort(key=lambda x: x[0])
-        for i, (combined, mean_sc, max_sc, max_ch, p80, p90, spread, label) in enumerate(results):
+        for i, (combined, mean_sc, max_sc, max_ch, p80, p90, spread, label, n_pc_err, pc_details) in enumerate(results):
             marker = ' <-- BEST' if i == 0 and len(results) > 1 else ''
-            print(f'  {label:<55} {mean_sc:>6.1f} {max_sc:>6.0f} {max_ch:>6} {p80:>4} {p90:>4} {spread:>8.1f} {combined:>10.1f}{marker}')
+            pc_str = f'{n_pc_err:>6}' if n_pc_err == 0 else f'{n_pc_err:>5}!'
+            print(f'  {label:<55} {mean_sc:>6.1f} {max_sc:>6.0f} {max_ch:>6} {p80:>4} {p90:>4} {spread:>8.1f} {combined:>10.1f} {pc_str}{marker}')
+            if n_pc_err > 0:
+                for chord_idx, voice_idx, exp_pc, act_pc in pc_details[:10]:
+                    print(f'      chord {chord_idx}, voice {voice_idx}: expected PC {exp_pc}, got PC {act_pc}')
+                if n_pc_err > 10:
+                    print(f'      ... and {n_pc_err - 10} more')
         return
 
     # Mode 2: scan directories for chorales
@@ -169,8 +198,8 @@ def main():
 
     # When multiple directories, show per-directory breakdown per chorale
     if len(dirs) > 1:
-        print(f'  {"Chorale":<10} {"Directory":<45} {"Mean":>6} {"Max":>6} {"MaxCh":>6} {"Top2dec":>10} {"Spread":>8} {"Combined":>10}')
-        print(f'  {"-" * 10} {"-" * 45} {"-----":>6} {"-----":>6} {"-----":>6} {"--------":>10} {"-------":>8} {"---------":>10}')
+        print(f'  {"Chorale":<10} {"Directory":<45} {"Mean":>6} {"Max":>6} {"MaxCh":>6} {"Top2dec":>10} {"Spread":>8} {"Combined":>10} {"PCerr":>6}')
+        print(f'  {"-" * 10} {"-" * 45} {"-----":>6} {"-----":>6} {"-----":>6} {"--------":>10} {"-------":>8} {"---------":>10} {"-----":>6}')
 
         for version in chorale_list:
             results = []
@@ -189,20 +218,27 @@ def main():
                 mean_sc, max_sc, max_ch, p80, p90 = score_array(cent_4n, tonal_diamond, args.tolerance)
                 spread = compute_spread_score(cent_4n, chorale)
                 combined = mean_sc + args.spread_weight * spread
-                results.append((combined, mean_sc, max_sc, max_ch, p80, p90, spread, d))
+                n_pc_err, _, pc_details = check_pitch_classes(cent_4n, chorale)
+                results.append((combined, mean_sc, max_sc, max_ch, p80, p90, spread, d, n_pc_err, pc_details))
 
             if not results:
                 print(f'  {version:<10} No results found')
                 continue
 
             results.sort(key=lambda x: x[0])
-            for i, (combined, mean_sc, max_sc, max_ch, p80, p90, spread, d) in enumerate(results):
+            for i, (combined, mean_sc, max_sc, max_ch, p80, p90, spread, d, n_pc_err, pc_details) in enumerate(results):
                 marker = ' <-- BEST' if i == 0 and len(results) > 1 else ''
-                print(f'  {version:<10} {os.path.basename(d):<45} {mean_sc:>6.1f} {max_sc:>6.0f} {max_ch:>6} {p80:>4} {p90:>4} {spread:>8.1f} {combined:>10.1f}{marker}')
+                pc_str = f'{n_pc_err:>6}' if n_pc_err == 0 else f'{n_pc_err:>5}!'
+                print(f'  {version:<10} {os.path.basename(d):<45} {mean_sc:>6.1f} {max_sc:>6.0f} {max_ch:>6} {p80:>4} {p90:>4} {spread:>8.1f} {combined:>10.1f} {pc_str}{marker}')
+                if n_pc_err > 0:
+                    for chord_idx, voice_idx, exp_pc, act_pc in pc_details[:10]:
+                        print(f'      chord {chord_idx}, voice {voice_idx}: expected PC {exp_pc}, got PC {act_pc}')
+                    if n_pc_err > 10:
+                        print(f'      ... and {n_pc_err - 10} more')
     else:
         # Single directory: one line per chorale
-        print(f'  {"Chorale":<10} {"Mean":>6} {"Max":>6} {"MaxCh":>6} {"Top2dec":>10} {"Spread":>8} {"Combined":>10}')
-        print(f'  {"-" * 10} {"-----":>6} {"-----":>6} {"-----":>6} {"--------":>10} {"-------":>8} {"---------":>10}')
+        print(f'  {"Chorale":<10} {"Mean":>6} {"Max":>6} {"MaxCh":>6} {"Top2dec":>10} {"Spread":>8} {"Combined":>10} {"PCerr":>6}')
+        print(f'  {"-" * 10} {"-----":>6} {"-----":>6} {"-----":>6} {"--------":>10} {"-------":>8} {"---------":>10} {"-----":>6}')
 
         for version in chorale_list:
             d = dirs[0]
@@ -221,7 +257,14 @@ def main():
             mean_sc, max_sc, max_ch, p80, p90 = score_array(cent_4n, tonal_diamond, args.tolerance)
             spread = compute_spread_score(cent_4n, chorale)
             combined = mean_sc + args.spread_weight * spread
-            print(f'  {version:<10} {mean_sc:>6.1f} {max_sc:>6.0f} {max_ch:>6} {p80:>4} {p90:>4} {spread:>8.1f} {combined:>10.1f}')
+            n_pc_err, _, pc_details = check_pitch_classes(cent_4n, chorale)
+            pc_str = f'{n_pc_err:>6}' if n_pc_err == 0 else f'{n_pc_err:>5}!'
+            print(f'  {version:<10} {mean_sc:>6.1f} {max_sc:>6.0f} {max_ch:>6} {p80:>4} {p90:>4} {spread:>8.1f} {combined:>10.1f} {pc_str}')
+            if n_pc_err > 0:
+                for chord_idx, voice_idx, exp_pc, act_pc in pc_details[:10]:
+                    print(f'      chord {chord_idx}, voice {voice_idx}: expected PC {exp_pc}, got PC {act_pc}')
+                if n_pc_err > 10:
+                    print(f'      ... and {n_pc_err - 10} more')
 
     print()
 
