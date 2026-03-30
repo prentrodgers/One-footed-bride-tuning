@@ -390,6 +390,9 @@ def enforce_continuity(final_cent_value_chorale, chorale, chord_scorer, low_numb
     """
     adjusted = np.array(final_cent_value_chorale, dtype=float, copy=True)
     fixes = 0
+    sa_solved = 0       # SA retune closed the gap
+    fallback1_used = 0  # uniform shift needed
+    fallback2_used = 0  # force voice needed
     prev_midi_chord = np.zeros(4, dtype=int)
 
     for chord_idx in range(1, adjusted.shape[0]):
@@ -431,18 +434,24 @@ def enforce_continuity(final_cent_value_chorale, chorale, chord_scorer, low_numb
             curr_chord = retuned
             gap_value, pc, curr_cent, prev_cent, voice_idx = _max_pitch_class_gap(prev_chord, curr_chord)
 
+        if gap_value <= max_gap:
+            sa_solved += 1
+            logging.info(f'chord {chord_idx}: SA solved gap in {retries} attempt(s), residual {gap_value:.1f}¢')
+
         # Fallback 1: uniform shift toward previous pitch class
         if gap_value > max_gap and voice_idx is not None and prev_cent is not None:
             direction = 1 if (curr_cent - prev_cent) >= 0 else -1
             shift_value = (prev_cent + direction * max_gap) - curr_cent
             if abs(shift_value) > 0.1:
-                logging.info(f'chord {chord_idx}: uniform shift {shift_value:+.1f}¢')
+                fallback1_used += 1
+                logging.info(f'chord {chord_idx}: SA exhausted {retries} attempts, uniform shift {shift_value:+.1f}¢')
                 adjusted[chord_idx] = (curr_chord + shift_value + 1200) % 1200
                 curr_chord = adjusted[chord_idx]
                 gap_value, pc, curr_cent, prev_cent, voice_idx = _max_pitch_class_gap(prev_chord, curr_chord)
 
         # Fallback 2: force the offending voice to the previous cent value
         if gap_value > max_gap and voice_idx is not None and prev_cent is not None:
+            fallback2_used += 1
             logging.warning(
                 f'chord {chord_idx}: forcing voice {voice_idx} (PC {pc}) to prev cent {prev_cent:.1f}¢'
             )
@@ -451,7 +460,12 @@ def enforce_continuity(final_cent_value_chorale, chorale, chord_scorer, low_numb
         prev_midi_chord = curr_midi.copy()
 
     if fixes > 0:
-        logging.info(f'Continuity enforcement: {fixes} SA retune attempt(s)')
+        total_gaps = sa_solved + fallback1_used + fallback2_used
+        logging.info(
+            f'Continuity enforcement: {total_gaps} gap(s) found, '
+            f'{sa_solved} solved by SA ({fixes} total attempts), '
+            f'{fallback1_used} uniform shift, {fallback2_used} forced'
+        )
     return adjusted
 
 
