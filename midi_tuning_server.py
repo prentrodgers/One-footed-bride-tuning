@@ -37,6 +37,8 @@ from optimize_chords_sa_v2 import build_straw_man_chord_simulated_annealing, rol
 from live_engine import (LiveEngine, LiveEngineConfig, SECTION_NAMES,
                          VOICE_TYPE_NAMES, VOICE_TYPE_REGISTRY,
                          SECTION_VOICES, DEFAULT_SECTION_VOICES,
+                         VOLUME_PRESETS, VOLUME_PRESET_NAMES,
+                         generate_random_volume_preset,
                          set_section_instrument, reset_section_voices)
 
 # Set up logging independently — don't rely on diamond_music_utils.start_logger.
@@ -123,20 +125,20 @@ class AppState:
         self.limit_max = 19
         self.tolerance = 4
         self.rolls = 1
-        self.deep_tune_enabled = False
+        self.deep_tune_enabled = True
         self.chord_num = 0  # counter for SA logging
         td, cs, lnr = _build_tuning_objects(self.limit_max)
         self.tonal_diamond = td
         self.chord_scorer = cs
         self.low_number_ratios = lnr
         # Deep tune parameters (mutable, winning defaults from train.py)
-        self.dt_ratio_factor = 4.0
-        self.dt_rolls = 3
-        self.dt_tolerance = 3
+        self.dt_ratio_factor = 1.375
+        self.dt_rolls = 5
+        self.dt_tolerance = 1
         self.dt_max_iterations = 40
         self.dt_cooling_rate = 0.85
         self.dt_spread = 5
-        self.dt_limit_max = 23
+        self.dt_limit_max = 17
         # Deep tune tuning objects (built from dt_limit_max)
         dt_td, dt_cs, dt_lnr = _build_tuning_objects(self.dt_limit_max)
         self.dt_tonal_diamond = dt_td
@@ -151,6 +153,14 @@ class AppState:
         self.chord_changed = threading.Event()
         self.engine_enabled = True      # master toggle for the orchestration engine
         self.prev_active_snapshot = np.array([], dtype=int)  # track chord changes
+
+        # Background SA refinement state
+        self.sa_thread: threading.Thread | None = None
+        self.sa_cancel = threading.Event()
+        self.current_tuned_cents: np.ndarray | None = None
+        self.glide_ftable_cache: dict = {}   # ratio (rounded) -> ftable_number
+        self.next_glide_ftable: int = 1500
+        self.missing_ftables_log: list = []  # ftable definition strings
 
 
 state = AppState()
@@ -327,13 +337,19 @@ def midi_loop():
 # ── Chord processor thread ────────────────────────────────────────────────
 
 def chord_processor_loop():
-    """Watch for chord changes and regenerate the orchestration."""
+    """Watch for chord changes, fast-tune immediately, then optionally refine via SA."""
     while not state.shutdown:
-        # Wait for a chord change signal (with timeout for shutdown check)
         triggered = state.chord_changed.wait(timeout=0.5)
         if not triggered:
             continue
         state.chord_changed.clear()
+
+        # Cancel any running background SA and reset chart
+        state.sa_cancel.set()
+        if state.sa_thread and state.sa_thread.is_alive():
+            state.sa_thread.join(timeout=1.0)
+        state.sa_cancel.clear()
+        broadcast_status({'sa_progress': None})  # clear the chart
 
         with state.lock:
             engine_enabled = state.engine_enabled
@@ -346,30 +362,57 @@ def chord_processor_loop():
             continue
 
         if len(active) == 0:
-            # No notes held — clear the prepared chord
             state.prepared_chord = None
             state.current_step = 0
             continue
 
-        # Tune the chord
+        # Phase 1: Fast tuning with build_straw_man_chord (immediate)
         if tuning_enabled and len(active) >= 2:
-            tuned_map = tune_chord(active)
-            tuned_cents = np.array([tuned_map[n] for n in active])
+            tet_cents = np.array([(n % 12) * 100 for n in active])
+            with state.lock:
+                n = len(active)
+                if n != state.prev_chord_size:
+                    prev = np.zeros(n)
+                    state.prev_chord_size = n
+                else:
+                    prev = state.cent_value_chord_prev.copy()
+                tolerance = state.tolerance
+                rolls = state.rolls
+                scorer = state.chord_scorer
+                lnr = state.low_number_ratios
+                td = state.tonal_diamond
+            fast_cents = build_straw_man_chord(
+                tet_cents, prev, tolerance, rolls, scorer, lnr, td)
+            with state.lock:
+                state.cent_value_chord_prev = fast_cents.copy()
         else:
-            tuned_cents = np.array([(n % 12) * 100 for n in active], dtype=float)
+            fast_cents = np.array([(n % 12) * 100 for n in active], dtype=float)
 
-        # Generate the orchestration
+        # Generate orchestration and start playing immediately
         try:
-            prepared = state.engine.prepare_chord(tuned_cents, active, config)
-            state.prepared_chord = prepared
-            state.current_step = 0
-            logger.info(f"Chord processed: {len(active)} notes, "
+            prepared = state.engine.prepare_chord(fast_cents, active, config)
+            with state.lock:
+                state.current_tuned_cents = fast_cents.copy()
+                state.prepared_chord = prepared
+                state.current_step = 0
+            logger.info(f"Chord processed (fast): {len(active)} notes, "
                         f"{sum(len(s) for s in prepared.step_events)} total events")
-            # Broadcast chord analysis to UI
-            chord_info = build_chord_info(active, tuned_cents)
+            chord_info = build_chord_info(active, fast_cents)
             broadcast_status({'chord_info': chord_info})
         except Exception as e:
             logger.error(f"Chord processing error: {e}", exc_info=True)
+            continue
+
+        # Phase 2: Background SA refinement (if deep_tune enabled)
+        with state.lock:
+            deep_tune = state.deep_tune_enabled
+        if deep_tune and tuning_enabled and 2 <= len(active) <= 6:
+            state.sa_thread = threading.Thread(
+                target=_background_sa_refine,
+                args=(active.copy(), fast_cents.copy(), config),
+                daemon=True)
+            state.sa_thread.start()
+            broadcast_status({'sa_running': True})
 
     logger.info("Chord processor stopped.")
 
@@ -389,6 +432,152 @@ def _snapshot_engine_config() -> LiveEngineConfig:
     )
 
 
+# ── Background SA refinement ──────────────────────────────────────────────
+
+def _background_sa_refine(active_midi: np.ndarray, current_cents: np.ndarray,
+                           config: LiveEngineConfig):
+    """Run SA tuning in background; if better result found, apply via glide."""
+    tet_cents = np.array([(n % 12) * 100 for n in active_midi])
+
+    with state.lock:
+        dt_cs = state.dt_chord_scorer
+        dt_lnr = state.dt_low_number_ratios
+        dt_td = state.dt_tonal_diamond
+        dt_rf = state.dt_ratio_factor
+        dt_rolls = state.dt_rolls
+        dt_tol = state.dt_tolerance
+        dt_mi = state.dt_max_iterations
+        dt_cr = state.dt_cooling_rate
+        dt_sp = state.dt_spread
+        state.chord_num += 1
+        chord_num = state.chord_num
+
+    if state.sa_cancel.is_set():
+        return
+
+    # Broadcast initial score so chart shows starting point
+    initial_score = float(dt_cs.score_chord(np.array(current_cents, dtype=int), dt_tol))
+    broadcast_status({'sa_progress': {'i': 0, 'cs': round(initial_score, 1),
+                                      'bs': round(initial_score, 1), 't': 1.0}})
+
+    def _sa_progress(iteration, candidate_score, best_score, temperature):
+        if state.sa_cancel.is_set():
+            return
+        broadcast_status({'sa_progress': {
+            'i': iteration,
+            'cs': round(candidate_score, 1),
+            'bs': round(best_score, 1),
+            't': round(temperature, 4),
+        }})
+
+    sa_cents, sa_score = roll_and_tune(
+        tet_cents, current_cents, chord_num,
+        tolerance=dt_tol, chord_scorer=dt_cs,
+        low_number_ratios=dt_lnr, tonal_diamond=dt_td,
+        initial_temperature=1.0, cooling_rate=dt_cr,
+        max_iterations=dt_mi, max_no_improve=12,
+        spread=dt_sp, elbow_percent=0.4, r_value=0.3,
+        ratio_factor=dt_rf, rolls=dt_rolls, min_repeats=2,
+        progress_callback=_sa_progress,
+    )
+
+    if state.sa_cancel.is_set():
+        return
+
+    # Compare scores (lower is better)
+    current_score = float(dt_cs.score_chord(np.array(current_cents, dtype=int), dt_tol))
+    if sa_score >= current_score:
+        logger.info(f"SA found no improvement: {sa_score:.1f} >= {current_score:.1f}")
+        broadcast_status({'sa_running': False, 'sa_improved': False})
+        return
+
+    logger.info(f"SA improved chord: {current_score:.1f} -> {sa_score:.1f}")
+    _apply_glide_transition(active_midi, current_cents, sa_cents, config)
+    broadcast_status({'sa_running': False, 'sa_improved': True})
+
+
+def _apply_glide_transition(active_midi: np.ndarray, old_cents: np.ndarray,
+                             new_cents: np.ndarray, config: LiveEngineConfig):
+    """Apply glide from old_cents to new_cents tuning, or restart without glide."""
+    # Guard: discard if chord has changed since SA started
+    with state.lock:
+        current_active = np.where(state.one_hot_note > 0)[0]
+    if not np.array_equal(np.sort(current_active), np.sort(active_midi)):
+        logger.info("SA result discarded: chord changed before apply")
+        return
+
+    delta_cents = new_cents - old_cents
+    ratios = np.power(2.0, delta_cents / 1200.0)
+
+    # Try to create runtime glide ftables for each voice
+    glide_ftables = {}  # note_index -> ftable_number
+    for i, ratio in enumerate(ratios):
+        if abs(ratio - 1.0) < 1e-6:
+            continue
+        ftable_num = _find_or_create_glide_ftable(ratio)
+        if ftable_num is not None:
+            glide_ftables[i] = ftable_num
+
+    # Update tuned cents
+    with state.lock:
+        state.current_tuned_cents = new_cents.copy()
+        state.cent_value_chord_prev = new_cents.copy()
+
+    if glide_ftables:
+        # Regenerate orchestration with glide on first events
+        try:
+            prepared = state.engine.prepare_chord(new_cents, active_midi, config,
+                                                   glide_ftables=glide_ftables)
+            with state.lock:
+                state.prepared_chord = prepared
+                state.current_step = 0
+            logger.info(f"Glide transition applied with {len(glide_ftables)} ftable(s)")
+        except Exception as e:
+            logger.error(f"Glide orchestration error: {e}", exc_info=True)
+    else:
+        # No glide available — restart chord with new cents
+        try:
+            prepared = state.engine.prepare_chord(new_cents, active_midi, config)
+            with state.lock:
+                state.prepared_chord = prepared
+                state.current_step = 0
+            logger.info("SA restart (no glide): new cents applied")
+        except Exception as e:
+            logger.error(f"SA restart error: {e}", exc_info=True)
+
+    chord_info = build_chord_info(active_midi, new_cents)
+    broadcast_status({'chord_info': chord_info})
+
+
+def _find_or_create_glide_ftable(ratio: float):
+    """Look up or create a glide ftable for the given ratio. Returns ftable number or None."""
+    # Round ratio for cache lookup
+    rounded = round(ratio, 6)
+    if rounded in state.glide_ftable_cache:
+        return state.glide_ftable_cache[rounded]
+
+    ftable_num = state.next_glide_ftable
+    midpoint = (1.0 + ratio) / 2.0
+
+    # Try to create the ftable at runtime via Csound scoreEvent
+    # GEN06 cubic polynomial: f num 0 256 -6 1 128 midpoint 128 ratio
+    ftable_params = (float(ftable_num), 0.0, 256.0, -6.0,
+                     1.0, 128.0, midpoint, 128.0, ratio)
+    try:
+        state.csound_thread.scoreEvent(False, 'f', ftable_params)
+        state.glide_ftable_cache[rounded] = ftable_num
+        state.next_glide_ftable += 1
+        logger.info(f"Created glide ftable f{ftable_num} ratio={ratio:.6f}")
+        return ftable_num
+    except Exception as e:
+        # Log the missing ftable for post-performance appending
+        ftable_str = (f"f{ftable_num} 0 256 -6 1 128 "
+                      f"{midpoint} 128 {ratio}")
+        state.missing_ftables_log.append(ftable_str)
+        logger.warning(f"Could not create ftable at runtime: {e}. Logged: {ftable_str}")
+        return None
+
+
 # ── Playback ticker thread ────────────────────────────────────────────────
 
 def playback_ticker_loop():
@@ -403,23 +592,26 @@ def playback_ticker_loop():
             time.sleep(0.01)
             continue
 
-        prepared = state.prepared_chord
+        with state.lock:
+            prepared = state.prepared_chord
+            current_step = state.current_step
         if prepared is None or prepared.n_steps == 0:
             time.sleep(0.01)
             continue
 
-        step = state.current_step % prepared.n_steps
+        step = current_step % prepared.n_steps
         events = prepared.step_events[step]
 
         # Send all events at this step to Csound
         for event in events:
             try:
                 state.csound_thread.scoreEvent(False, 'i', event)
-                logger.info(f"step={step} scoreEvent: {event}")
+                logger.debug(f"step={step} scoreEvent: {event}")
             except Exception as e:
                 logger.error(f"scoreEvent error: {e}")
 
-        state.current_step = (step + 1) % prepared.n_steps
+        with state.lock:
+            state.current_step = (step + 1) % prepared.n_steps
 
         # Broadcast current step for UI
         if step % 10 == 0:
@@ -464,6 +656,7 @@ async def lifespan(app: FastAPI):
 
     # Shutdown
     state.shutdown = True
+    state.sa_cancel.set()  # cancel any running SA
     state.chord_changed.set()  # unblock processor
     midi_thread.join(timeout=2.0)
     processor_thread.join(timeout=2.0)
@@ -472,6 +665,13 @@ async def lifespan(app: FastAPI):
     csound_thread.join()
     del state.cs
     logger.info("Csound stopped.")
+
+    # Write missing ftables log if any
+    if state.missing_ftables_log:
+        ftable_log_path = os.path.join(local_dir, 'missing_ftables.log')
+        with open(ftable_log_path, 'w') as f:
+            f.write('\n'.join(state.missing_ftables_log) + '\n')
+        logger.info(f"Wrote {len(state.missing_ftables_log)} missing ftable(s) to {ftable_log_path}")
 
 
 app = FastAPI(lifespan=lifespan)
@@ -521,6 +721,7 @@ async def websocket_endpoint(websocket: WebSocket):
         },
         'voice_type_names': VOICE_TYPE_NAMES,
         'section_voices': {s: SECTION_VOICES[s] for s in SECTION_NAMES},
+        'volume_preset_names': VOLUME_PRESET_NAMES,
     })
     await websocket.send_json({
         'type': 'status',
@@ -597,6 +798,20 @@ async def websocket_endpoint(websocket: WebSocket):
                         state.engine_config.section_volumes[section] = value
                 state.chord_changed.set()
                 logger.info(f"Section volume {section} = {value}")
+
+            elif data['type'] == 'volume_preset':
+                preset_name = data.get('value', 'Random')
+                if preset_name == 'Random':
+                    volumes = generate_random_volume_preset()
+                else:
+                    volumes = VOLUME_PRESETS.get(preset_name)
+                    if volumes is None:
+                        volumes = generate_random_volume_preset()
+                with state.lock:
+                    state.engine_config.section_volumes = dict(volumes)
+                state.chord_changed.set()
+                await websocket.send_json({'type': 'state', 'section_volumes': volumes})
+                logger.info(f"Volume preset = {preset_name}")
 
             elif data['type'] == 'density_style':
                 with state.lock:

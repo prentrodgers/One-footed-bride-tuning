@@ -1325,6 +1325,41 @@ def circular_span(values, octave=1200):
     return span, lo, hi
 
 
+def circular_mad(values, octave=1200):
+    """Mean absolute deviation from the circular mean (lower = more tightly clustered).
+
+    Unlike circular_span (which is a range measure), this rewards having most values
+    clustered near the mean even when a few outliers are present.  A single outlier
+    at the far end of the circle contributes one large distance to the average, but
+    the remaining tightly-clustered values keep the mean low.
+
+    Handles the octave-boundary wrap: values near 0 and near `octave` are treated
+    as close, matching the behaviour of circular_span.
+
+    Parameters
+    ----------
+    values : sequence of float
+        Cent values for one pitch class (already in [0, octave) range).
+    octave : float
+        Circle circumference in cents (default 1200).
+
+    Returns
+    -------
+    float
+        Mean absolute deviation in cents (0 if len < 2).
+    """
+    if len(values) < 2:
+        return 0.0
+    theta = np.array([2.0 * np.pi * v / octave for v in values])
+    mean_sin = np.mean(np.sin(theta))
+    mean_cos = np.mean(np.cos(theta))
+    mean_angle = np.arctan2(mean_sin, mean_cos) % (2.0 * np.pi)
+    mean_cents = mean_angle * octave / (2.0 * np.pi)
+    diffs = np.abs(np.array(values, dtype=float) - mean_cents) % octave
+    diffs = np.minimum(diffs, octave - diffs)
+    return float(np.mean(diffs))
+
+
 def wrap1200(x):
     """
     Wrap values to [0, 1200) range.

@@ -140,7 +140,7 @@ def build_straw_man_chord_simulated_annealing(cent_value_chord, cent_value_chord
                                               elbow_percent=0.5, r_value=0.3, spread=7,
                                               roll_num=None, time_limit=0, max_no_improve=None,
                                               max_delta=33, ratio_factor=1.0, stability_factor=0.0,
-                                              trace=None):
+                                              trace=None, progress_callback=None):
     """
     Build a straw man chord using simulated annealing with temperature-weighted choices.
     """
@@ -252,6 +252,10 @@ def build_straw_man_chord_simulated_annealing(cent_value_chord, cent_value_chord
                 'improved_best': improved,
             })
 
+        # Stream progress to caller (every 10 iterations to avoid flooding)
+        if progress_callback is not None and iteration % 10 == 0:
+            progress_callback(iteration, float(new_score), float(best_score), float(temperature))
+
         # Early-stop: detect lack of improvement for consecutive iterations
         if best_score < prev_best_score:
             prev_best_score = best_score
@@ -294,7 +298,8 @@ def roll_and_tune(cent_value_chord, cent_value_chord_prev, chord_num,
                   tonal_diamond=None, initial_temperature=2.5, cooling_rate=0.999,
                   max_iterations=1000, min_repeats=5, elbow_percent=0.5,
                   r_value=0.3, spread=7, rolls=5, time_limit=0, max_no_improve=None,
-                  max_delta=33, ratio_factor=1.0, stability_factor=0.0, trace=None):
+                  max_delta=33, ratio_factor=1.0, stability_factor=0.0, trace=None,
+                  progress_callback=None):
     """
     Run SA optimization multiple times with rolled chords, keeping best result.
     """
@@ -318,7 +323,7 @@ def roll_and_tune(cent_value_chord, cent_value_chord_prev, chord_num,
             elbow_percent=elbow_percent, r_value=r_value, spread=spread,
             roll_num=roll_num + 1, time_limit=time_limit, max_no_improve=max_no_improve,
             max_delta=max_delta, ratio_factor=ratio_factor, stability_factor=stability_factor,
-            trace=trace
+            trace=trace, progress_callback=progress_callback
         )
 
         # Count consecutive non-improving rolls and stop after min_repeats

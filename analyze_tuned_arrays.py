@@ -36,21 +36,24 @@ import adaptive_tuning_util as atu
 
 
 def compute_spread_score(cent_value_chorale_4n, chorale):
-    """Frequency-weighted average pitch-class cent spread (lower is better)."""
+    """Worst-case pitch-class tuning consistency (lower is better).
+
+    Returns the maximum circular MAD across all pitch classes — the single most
+    inconsistently-tuned note name in the piece.
+    """
     pitch_class_counts = Counter((chorale % 12).flatten().tolist())
-    total_count = sum(pitch_class_counts.values())
     pc_cents = defaultdict(list)
     for chord_cents in cent_value_chorale_4n.T:
         pcs = atu.pitch_class_from_cents(chord_cents)
         for pc, cv in zip(pcs, chord_cents):
             pc_cents[int(pc)].append(float(cv))
-    weighted_spread = 0.0
-    for pc, count in pitch_class_counts.items():
+    max_mad = 0.0
+    for pc in pitch_class_counts:
         cvs = pc_cents.get(pc, [])
         if len(cvs) < 2:
             continue
-        weighted_spread += atu.circular_span(cvs)[0] * (count / total_count)
-    return weighted_spread
+        max_mad = max(max_mad, atu.circular_mad(cvs))
+    return max_mad
 
 
 def score_array(cent_4n, tonal_diamond, tolerance):

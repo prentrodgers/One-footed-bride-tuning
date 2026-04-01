@@ -276,17 +276,21 @@ def _print_early_stop_histogram(iters, sa_iterations, bucket_size=100):
 
 
 def compute_spread_score(cent_value_chorale_4n, chorale):
-    """Frequency-weighted average pitch-class cent spread across the chorale (lower is better).
+    """Worst-case pitch-class tuning consistency across the chorale (lower is better).
+
+    Returns the maximum circular MAD across all pitch classes — the single most
+    inconsistently-tuned note name in the piece.  One unstable pitch class is
+    enough to make a chorale sound wrong, so the worst offender drives the score
+    rather than an average that lets bad notes hide in the crowd.
 
     Parameters
     ----------
     cent_value_chorale_4n : np.ndarray, shape (4, N)
         Tuned cent values, one column per chord.
     chorale : np.ndarray, shape (4, N)
-        Original MIDI notes, used to compute pitch-class occurrence frequencies.
+        Original MIDI notes, used to identify pitch classes.
     """
     pitch_class_counts = Counter((chorale % 12).flatten().tolist())
-    total_count = sum(pitch_class_counts.values())
 
     pc_cents = defaultdict(list)
     for chord_cents in cent_value_chorale_4n.T:          # iterate over N chords
@@ -294,13 +298,13 @@ def compute_spread_score(cent_value_chorale_4n, chorale):
         for pc, cv in zip(pcs, chord_cents):
             pc_cents[int(pc)].append(float(cv))
 
-    weighted_spread = 0.0
-    for pc, count in pitch_class_counts.items():
+    max_mad = 0.0
+    for pc in pitch_class_counts:
         cvs = pc_cents.get(pc, [])
         if len(cvs) < 2:
             continue
-        weighted_spread += atu.circular_span(cvs)[0] * (count / total_count)
-    return weighted_spread
+        max_mad = max(max_mad, atu.circular_mad(cvs))
+    return max_mad
 
 
 def load_and_merge_previous(output_file, best_cents, best_scores, chord_scorer, tolerance,

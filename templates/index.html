@@ -93,6 +93,18 @@ select {
 .status-bar span { margin-right: 16px; }
 .status-bar .connected { color: #6a9a6a; }
 .status-bar .disconnected { color: #9a6a6a; }
+#saChartPanel {
+    margin-top: 16px; display: none;
+}
+#saChartPanel canvas {
+    background: #111; border: 1px solid #333; border-radius: 4px;
+    display: block;
+}
+#saChartTitle {
+    font-size: 12px; color: #888; margin-bottom: 6px;
+    display: flex; justify-content: space-between; align-items: center;
+}
+#saChartTitle .sa-legend span { margin-left: 12px; font-size: 11px; }
 </style>
 </head>
 <body>
@@ -124,6 +136,44 @@ select {
         <input type="range" min="40" max="200" value="80" id="slider-tempo">
         <span class="val" id="val-tempo">80</span>
     </div>
+    <div class="preset-row">
+        <label>Vol Preset:</label>
+        <div style="display:flex; gap:8px; align-items:center;">
+            <select id="volumePresetSelect"></select>
+            <button id="randomizeVolBtn" style="padding:4px 12px; font-size:13px;">Randomize</button>
+        </div>
+    </div>
+</div>
+
+<div class="chord-info">
+    <h2>Chord</h2>
+    <div class="chord-header">
+        <div><span class="label">Cents: </span><span class="value" id="chordCents">--</span></div>
+        <div><span class="label">Notes: </span><span class="value" id="chordNames">--</span></div>
+        <div><span class="label">Score: </span><span class="score" id="chordScore">--</span></div>
+        <div><span class="label">PC: </span><span class="value" id="chordPC">--</span></div>
+    </div>
+    <div class="interval-grid" id="chordIntervals"></div>
+</div>
+
+<div class="status-bar">
+    <span id="connStatus" class="disconnected">Disconnected</span>
+    <span id="notesHeld">Notes: 0</span>
+    <span id="midiPort">MIDI: --</span>
+    <span id="stepInfo"></span>
+    <span id="saStatus"></span>
+</div>
+
+<div id="saChartPanel">
+    <div id="saChartTitle">
+        <span id="saChartLabel">SA Search</span>
+        <span class="sa-legend">
+            <span style="color:#e8a040">&#9644; candidate</span>
+            <span style="color:#50c050">&#9644; best</span>
+            <span style="color:#e04040">&#9644; temp</span>
+        </span>
+    </div>
+    <canvas id="saChart" width="700" height="180"></canvas>
 </div>
 
 <div class="section">
@@ -235,24 +285,6 @@ select {
     </div>
 </div>
 
-<div class="chord-info">
-    <h2>Chord</h2>
-    <div class="chord-header">
-        <div><span class="label">Cents: </span><span class="value" id="chordCents">--</span></div>
-        <div><span class="label">Notes: </span><span class="value" id="chordNames">--</span></div>
-        <div><span class="label">Score: </span><span class="score" id="chordScore">--</span></div>
-        <div><span class="label">PC: </span><span class="value" id="chordPC">--</span></div>
-    </div>
-    <div class="interval-grid" id="chordIntervals"></div>
-</div>
-
-<div class="status-bar">
-    <span id="connStatus" class="disconnected">Disconnected</span>
-    <span id="notesHeld">Notes: 0</span>
-    <span id="midiPort">MIDI: --</span>
-    <span id="stepInfo"></span>
-</div>
-
 <script>
 const SECTIONS = [
     {name: 'finger_pianos',  label: 'Finger Pianos'},
@@ -266,6 +298,18 @@ const SECTIONS = [
 ];
 
 let voiceTypeNames = [];  // populated from server state sync
+let volumePresetNames = [];  // populated from server state sync
+
+function populateVolumePresets() {
+    const sel = document.getElementById('volumePresetSelect');
+    sel.innerHTML = '';
+    volumePresetNames.forEach(name => {
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name;
+        sel.appendChild(opt);
+    });
+}
 
 function buildSections() {
     const container = document.getElementById('sections');
@@ -350,6 +394,29 @@ function connect() {
                     `Step: ${data.current_step}/${data.n_steps}`;
             if (data.chord_info)
                 updateChordInfo(data.chord_info);
+            if (data.sa_running !== undefined) {
+                const el = document.getElementById('saStatus');
+                if (data.sa_running) {
+                    el.textContent = 'SA: refining...';
+                    el.style.color = '#c8c860';
+                    saChartRunning = true;
+                } else if (data.sa_improved) {
+                    el.textContent = 'SA: improved!';
+                    el.style.color = '#6a9a6a';
+                    saChartRunning = false;
+                    saFinishLabel = `improved: ${saInitialScore.toFixed(1)} → ${saBestSeen.toFixed(1)}`;
+                    drawSaChart();
+                } else {
+                    el.textContent = 'SA: no gain';
+                    el.style.color = '#888';
+                    saChartRunning = false;
+                    saFinishLabel = `no gain (${saBestSeen.toFixed(1)})`;
+                    drawSaChart();
+                }
+            }
+            if (data.sa_progress !== undefined) {
+                handleSaProgress(data.sa_progress);
+            }
         } else if (data.type === 'state') {
             if (data.tuning_enabled !== undefined)
                 document.getElementById('tuningToggle').checked = data.tuning_enabled;
@@ -403,6 +470,10 @@ function connect() {
             if (data.voice_type_names) {
                 voiceTypeNames = data.voice_type_names;
                 populateInstrumentDropdowns();
+            }
+            if (data.volume_preset_names) {
+                volumePresetNames = data.volume_preset_names;
+                populateVolumePresets();
             }
             if (data.dt_params) {
                 const dp = data.dt_params;
@@ -502,6 +573,17 @@ document.getElementById('waveformSelect').addEventListener('change', (e) => {
         ws.send(JSON.stringify({type: 'waveform', value: e.target.value}));
 });
 
+// Volume preset select
+document.getElementById('volumePresetSelect').addEventListener('change', (e) => {
+    if (ws && ws.readyState === WebSocket.OPEN)
+        ws.send(JSON.stringify({type: 'volume_preset', value: e.target.value}));
+});
+document.getElementById('randomizeVolBtn').addEventListener('click', () => {
+    if (ws && ws.readyState === WebSocket.OPEN)
+        ws.send(JSON.stringify({type: 'volume_preset', value: 'Random'}));
+    document.getElementById('volumePresetSelect').value = 'Random';
+});
+
 // Tolerance slider
 document.getElementById('slider-tolerance').addEventListener('input', (e) => {
     const value = parseInt(e.target.value);
@@ -547,6 +629,160 @@ document.getElementById('slider-sparsity_max').addEventListener('input', (e) => 
 function sendCmd(cmd) {
     if (ws && ws.readyState === WebSocket.OPEN)
         ws.send(JSON.stringify({type: cmd}));
+}
+
+// ── SA Progress Chart ────────────────────────────────────────────────────────
+
+let saPoints = [];          // [{i, cs, bs, t}, ...]
+let saChartRunning = false;
+let saFinishLabel = '';
+let saBestSeen = Infinity;
+let saInitialScore = 0;
+let saDrawPending = false;
+
+function handleSaProgress(progress) {
+    if (progress === null) {
+        // New chord: reset chart
+        saPoints = [];
+        saChartRunning = false;
+        saFinishLabel = '';
+        saBestSeen = Infinity;
+        saInitialScore = 0;
+        document.getElementById('saChartPanel').style.display = 'none';
+        return;
+    }
+    if (saPoints.length === 0) {
+        saInitialScore = progress.bs;
+        document.getElementById('saChartPanel').style.display = 'block';
+    }
+    if (progress.bs < saBestSeen) saBestSeen = progress.bs;
+    saPoints.push({...progress, gb: saBestSeen});
+    if (!saDrawPending) {
+        saDrawPending = true;
+        requestAnimationFrame(() => { saDrawPending = false; drawSaChart(); });
+    }
+}
+
+function drawSaChart() {
+    const canvas = document.getElementById('saChart');
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width, H = canvas.height;
+    const PAD = {top: 14, right: 50, bottom: 24, left: 52};
+    const plotW = W - PAD.left - PAD.right;
+    const plotH = H - PAD.top - PAD.bottom;
+
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#111';
+    ctx.fillRect(0, 0, W, H);
+
+    if (saPoints.length < 2) return;
+
+    // Compute data ranges (use gb = global best, not per-roll bs)
+    const maxI = saPoints[saPoints.length - 1].i;
+    let scoreMin = Infinity, scoreMax = -Infinity;
+    for (const p of saPoints) {
+        if (p.cs < scoreMin) scoreMin = p.cs;
+        if (p.cs > scoreMax) scoreMax = p.cs;
+        if (p.gb < scoreMin) scoreMin = p.gb;
+        if (p.gb > scoreMax) scoreMax = p.gb;
+    }
+    // Add 10% padding to score range
+    const scoreRange = Math.max(1, scoreMax - scoreMin);
+    scoreMin = Math.max(0, scoreMin - scoreRange * 0.05);
+    scoreMax = scoreMax + scoreRange * 0.1;
+
+    // Temperature range: 0..initial (first point's t)
+    const tempMax = saPoints[0].t || 1.0;
+
+    function scoreY(s) {
+        return PAD.top + plotH - ((s - scoreMin) / (scoreMax - scoreMin)) * plotH;
+    }
+    function tempY(t) {
+        return PAD.top + plotH - (t / tempMax) * plotH;
+    }
+    function xPos(i) {
+        return PAD.left + (maxI > 0 ? (i / maxI) * plotW : 0);
+    }
+
+    // Grid lines
+    ctx.strokeStyle = '#222';
+    ctx.lineWidth = 1;
+    for (let g = 0; g <= 4; g++) {
+        const y = PAD.top + (g / 4) * plotH;
+        ctx.beginPath(); ctx.moveTo(PAD.left, y); ctx.lineTo(PAD.left + plotW, y);
+        ctx.stroke();
+    }
+    for (let g = 0; g <= 4; g++) {
+        const x = PAD.left + (g / 4) * plotW;
+        ctx.beginPath(); ctx.moveTo(x, PAD.top); ctx.lineTo(x, PAD.top + plotH);
+        ctx.stroke();
+    }
+
+    // Temperature line (right axis, thin red)
+    ctx.strokeStyle = '#c03030';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath();
+    for (let idx = 0; idx < saPoints.length; idx++) {
+        const p = saPoints[idx];
+        const x = xPos(p.i), y = tempY(p.t);
+        idx === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Candidate score (orange, thin)
+    ctx.strokeStyle = '#e8a040';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let idx = 0; idx < saPoints.length; idx++) {
+        const p = saPoints[idx];
+        const x = xPos(p.i), y = scoreY(p.cs);
+        idx === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    // Global best score (green, thicker) — monotonically non-increasing
+    ctx.strokeStyle = '#50c050';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (let idx = 0; idx < saPoints.length; idx++) {
+        const p = saPoints[idx];
+        const x = xPos(p.i), y = scoreY(p.gb);
+        idx === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    // Axes labels
+    ctx.fillStyle = '#666';
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText(scoreMax.toFixed(0), PAD.left - 4, PAD.top + 4);
+    ctx.fillText(scoreMin.toFixed(0), PAD.left - 4, PAD.top + plotH);
+
+    ctx.fillStyle = '#703030';
+    ctx.textAlign = 'left';
+    ctx.fillText(tempMax.toFixed(2), PAD.left + plotW + 4, PAD.top + 4);
+    ctx.fillText('0', PAD.left + plotW + 4, PAD.top + plotH);
+
+    // X axis labels
+    ctx.fillStyle = '#555';
+    ctx.textAlign = 'center';
+    ctx.fillText('0', PAD.left, PAD.top + plotH + 14);
+    ctx.fillText(maxI, PAD.left + plotW, PAD.top + plotH + 14);
+
+    // Title / finish label
+    const label = document.getElementById('saChartLabel');
+    if (saFinishLabel) {
+        label.textContent = 'SA: ' + saFinishLabel;
+        label.style.color = saFinishLabel.startsWith('improved') ? '#50c050' : '#888';
+    } else if (saChartRunning) {
+        label.textContent = `SA searching... best: ${saBestSeen === Infinity ? '—' : saBestSeen.toFixed(1)}`;
+        label.style.color = '#c8c860';
+    } else {
+        label.textContent = 'SA Search';
+        label.style.color = '#888';
+    }
 }
 </script>
 </body>
