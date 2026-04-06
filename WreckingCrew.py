@@ -129,7 +129,7 @@ def display_volumes(volume_function, include_sections, save_path: str | None = N
       else:
             plt.show()
             
-# I think I need to get rid of this function and just concentrate on Chrorale-info.ipynb.
+# I think I need to get rid of this function and just concentrate on Chorale-info.ipynb.
 def print_scores(version, chorale, limit_max):
       cent_file_name = os.path.join(numpy_dir, f'{version}-cents.npy')
       chorale_in_cents = np.load(cent_file_name)
@@ -1502,7 +1502,7 @@ def mainline(chorale_override=None, short_repeats=False, include_list=None, csou
       # set the instrument sections you want to include to True in the following dictionary
       just_sustained = False # for debugging purposes if you only want the sustained instruments to play
       just_fp = False # for debugging purposes if you only want the finger pianos to play
-      just_prent_samples = True # this is set so that I have a version that runs without the McGill samples
+      just_piano_samples = True # this is set so that I have a version that runs without the McGill samples
       if short_repeats:
             include_sections = {
                   # define a dictionary where each key
@@ -1542,12 +1542,12 @@ def mainline(chorale_override=None, short_repeats=False, include_list=None, csou
                   'perc_guitar':   [True, np.array(['bgui1', 'bgui2', 'bgui3', 'bgui4', 'bgui5', 'bgui6', 'bgui7', 'bgui8'])],
                   'bass_section':  [True, np.array(['bfin1', 'bfin2', 'bfin3', 'bfin4', 'bfin5', 'bfin6', 'bfin7', 'bfin8'])], 
                   'melody_section':[False, np.array([])]}
-      elif just_prent_samples:
+      elif just_piano_samples:
             include_sections = {
                   # section --      play or not --    instruments in the section
                   'finger_pianos': [True, np.array(['fing1', 'fing2', 'fing3', 'fing4', 'fing5', 'fing6', 'bfin1', 'bfin2'])],
                   'wood_winds':    [True, np.array(['flut1', 'clar1', 'oboe1', 'oboe2', 'frnh1', 'frnh2', 'basn1', 'basn2'])],
-                  'pizz_strings':  [True, np.array(['vlip1', 'vlip2', 'vlip3', 'vlip4', 'vlap1', 'vlap2', 'celp1', 'celp2'])],
+                  'pizz_strings':  [True, np.array(['bosen01', 'bosen02', 'bosen03', 'bosen04', 'bosen05', 'bosen06', 'bosen07', 'bosen08'])],
                   'bowed_strings': [True, np.array(['vliv1', 'vliv2', 'vliv3', 'vliv4', 'vlav1', 'vlav2', 'celv1', 'celv2'])],
                   'brass_section': [True, np.array(['trmp1', 'trmp2', 'trmp3', 'trmp4', 'trmb1', 'trmb2', 'tuba1', 'tuba2'])], 
                   'perc_guitar':   [True, np.array(['mari1', 'mari2', 'mari3', 'mari4', 'mari5', 'mari6', 'mari7', 'mari8'])],
@@ -1558,7 +1558,7 @@ def mainline(chorale_override=None, short_repeats=False, include_list=None, csou
                   # section --      play or not --    instruments in the section
                   'finger_pianos': [True, np.array(['fing1', 'fing2', 'fing3', 'fing4', 'fing5', 'fing6', 'bfin1', 'bfin2'])],
                   'wood_winds':    [True, np.array(['flut1', 'clar1', 'oboe1', 'oboe2', 'frnh1', 'frnh2', 'basn1', 'basn2'])],
-                  'pizz_strings':  [True, np.array(['vlip1', 'vlip2', 'vlip3', 'vlip4', 'vlap1', 'vlap2', 'celp1', 'celp2'])],
+                  'pizz_strings':  [True, np.array(['bosen01', 'vlip2', 'vlip3', 'vlip4', 'vlap1', 'vlap2', 'celp1', 'celp2'])],
                   'bowed_strings': [True, np.array(['vliv1', 'vliv2', 'vliv3', 'vliv4', 'vlav1', 'vlav2', 'celv1', 'celv2'])],
                   'brass_section': [True, np.array(['trmp1', 'trmp2', 'trmp3', 'trmp4', 'trmb1', 'trmb2', 'tuba1', 'tuba2'])], 
                   'perc_guitar':   [True, np.array(['mari1', 'mari2', 'mari3', 'mari4', 'mari5', 'mari6', 'mari7', 'mari8'])],
