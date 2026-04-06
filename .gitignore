@@ -35,8 +35,7 @@ Uploads/a1-*/
 Uploads/Playlist.m3u
 Uploads/sort-tol-rf.py
 
-# Samples (large audio)
-samples/*/
+# Samples (large audio) - now tracked by Git LFS via .gitattributes
 
 # Waveform demos
 waveform_demos/
