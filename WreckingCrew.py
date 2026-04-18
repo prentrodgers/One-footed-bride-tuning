@@ -1214,6 +1214,11 @@ def expand_chorale(repeats, chorale_in_cents_slides, glides, stored_gliss, voice
             if section in ['pizz_strings', 'perc_guitar', 'finger_pianos']:
                 print(f'playing {section}')
                 notes_features_15 = np.concatenate((notes_features_15, finger_piano_part(chorale_in_cents_slides, glides, repeats_average, include_sections[section][1], voice_time, tpq, volume_function[sec_num], probs = probs)), axis = 0)
+                logging.info(f'octaves before change: {np.unique(notes_features_15[:, 5].astype(int),return_counts=True)}')
+                # if section == 'pizz_strings': 
+                    # notes_features_15[:, 5] += 1 # raise the octaves by one to prevent mud 
+                    # notes_features_15[:, 5] = np.clip(notes_features_15[:, 5], 1, 7) # clip at 7 max to prevent chirps
+                logging.info(f'octaves after change: {np.unique(notes_features_15[:, 5].astype(int),return_counts=True)}')
                 np.save(f'perc_part_{section}.npy', notes_features_15)
             elif section in ['melody_section']:
                 print(f'playing {section}')
@@ -1512,14 +1517,16 @@ def mainline(chorale_override=None, short_repeats=False, include_list=None, csou
                   # section --      play or not --    instruments in the section
                   # np.repeat creates: Track 0,1=Soprano, 2,3=Alto, 4,5=Tenor, 6,7=Bass
                   # Use high-range instruments for S/A (tracks 0-3), low-range for T/B (tracks 4-7)
-                  'finger_pianos': [False, np.array(['fing1', 'fing2', 'fing3', 'fing4', 'fing5', 'fing6', 'bfin1', 'bfin2'])],
-                  'wood_winds':    [True, np.array(['flut1', 'clar1', 'oboe1', 'oboe2', 'frnh1', 'frnh2', 'basn1', 'basn2'])],
-                  'pizz_strings':  [False, np.array(['vlip1', 'vlip2', 'vlip3', 'vlip4', 'vlap1', 'vlap2', 'celp1', 'celp2'])],
-                  'bowed_strings': [False, np.array(['vliv1', 'vliv2', 'vliv3', 'vliv4', 'vlav1', 'vlav2', 'celv1', 'celv2'])],
-                  'brass_section': [True, np.array(['trmp1', 'trmp2', 'trmp3', 'trmp4', 'trmb1', 'trmb2', 'tuba1', 'tuba2'])],
-                  'perc_guitar':   [False, np.array(['xylp1', 'mari1', 'vibp1', 'harp1', 'ebss1', 'stri1', 'bgui1', 'long1'])],
-                  'bass_section':  [False, np.array(['bfin3', 'bfin4', 'celp3', 'celp4', 'bgui3', 'bgui2', 'long2', 'long3'])],
-                  'melody_section':[False, np.array(['flut2', 'flut3', 'clar2', 'mari2', 'oboe3', 'basn4', 'trmp5', 'frnh3'])]}
+                #   'finger_pianos': [False, np.array(['fing1', 'fing2', 'fing3', 'fing4', 'fing5', 'fing6', 'bfin1', 'bfin2'])],
+                #   'wood_winds':    [True, np.array(['flut1', 'clar1', 'oboe1', 'oboe2', 'frnh1', 'frnh2', 'basn1', 'basn2'])],
+                #   'pizz_strings':  [False, np.array(['vlip1', 'vlip2', 'vlip3', 'vlip4', 'vlap1', 'vlap2', 'celp1', 'celp2'])],
+                #   'bowed_strings': [False, np.array(['vliv1', 'vliv2', 'vliv3', 'vliv4', 'vlav1', 'vlav2', 'celv1', 'celv2'])],
+                #   'brass_section': [True, np.array(['trmp1', 'trmp2', 'trmp3', 'trmp4', 'trmb1', 'trmb2', 'tuba1', 'tuba2'])],
+                #   'perc_guitar':   [False, np.array(['xylp1', 'mari1', 'vibp1', 'harp1', 'ebss1', 'stri1', 'bgui1', 'long1'])],
+                #   'bass_section':  [False, np.array(['bfin3', 'bfin4', 'celp3', 'celp4', 'bgui3', 'bgui2', 'long2', 'long3'])],
+                #   'melody_section':[False, np.array(['flut2', 'flut3', 'clar2', 'mari2', 'oboe3', 'basn4', 'trmp5', 'frnh3'])]}
+                 'wood_winds':  [True, np.array(['bosen01', 'bosen02', 'bosen03', 'bosen04', 'bosen05', 'bosen06', 'bosen07', 'bosen08'])],
+                 'brass_section': [True, np.array(['bosen09', 'bosen10', 'bosen11', 'bosen12', 'bosen13', 'bosen14', 'bosen15', 'bosen16'])],}
       elif just_sustained:
             include_sections = {
                   # section --      play or nocelp4t --    instruments in the section
@@ -1547,11 +1554,11 @@ def mainline(chorale_override=None, short_repeats=False, include_list=None, csou
                   # section --      play or not --    instruments in the section
                   'finger_pianos': [True, np.array(['fing1', 'fing2', 'fing3', 'fing4', 'fing5', 'fing6', 'bfin1', 'bfin2'])],
                   'wood_winds':    [True, np.array(['flut1', 'clar1', 'oboe1', 'oboe2', 'frnh1', 'frnh2', 'basn1', 'basn2'])],
-                  'pizz_strings':  [True, np.array(['bosen01', 'bosen02', 'bosen03', 'bosen04', 'bosen05', 'bosen06', 'bosen07', 'bosen08'])],
+                  'pizz_strings':  [True, np.array(['vlip1', 'vlip2', 'vlap1', 'celp1', 'vlip3', 'vlip4', 'vlap2', 'celp2',])],
                   'bowed_strings': [True, np.array(['vliv1', 'vliv2', 'vliv3', 'vliv4', 'vlav1', 'vlav2', 'celv1', 'celv2'])],
                   'brass_section': [True, np.array(['trmp1', 'trmp2', 'trmp3', 'trmp4', 'trmb1', 'trmb2', 'tuba1', 'tuba2'])], 
                   'perc_guitar':   [True, np.array(['mari1', 'mari2', 'mari3', 'mari4', 'mari5', 'mari6', 'mari7', 'mari8'])],
-                  'bass_section':  [True, np.array(['bfin5', 'bfin6', 'bfin7', 'bfin8', 'celp5', 'celp6', 'celp7', 'bgui1'])],
+                  'bass_section':  [True, np.array(['bosen01', 'bosen02', 'bfin3', 'long1', 'celp5', 'celp6', 'bfin4', 'bgui1'])],
                   'melody_section':[True, np.array(['flut2', 'flut3', 'clar2', 'vibp1', 'oboe3', 'basn4', 'trmp5', 'frnh3'])]}
       else:
             include_sections = {

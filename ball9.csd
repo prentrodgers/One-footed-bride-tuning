@@ -1,13 +1,12 @@
 ; started: 8/13/18 
 ; last edit: 4/30/23 
-; again on 3/8/26
-; again on 4/3/26 to try to implement the bosendorfer piano samples.
+; again: 4/17/26 and many before that.
 <CsoundSynthesizer> 
  
 <CsOptions> 
 ; use the following for writing to a file -G is to create a postscript eps output file of function tables 
- -o Music/sflib/ball9.wav -W -G -m2 -3 
 ; -o dac ; live play 
+ -o Music/sflib/ball9.wav -W -G -m2 -3 
 </CsOptions> 
  
 <CsInstruments> 
@@ -43,12 +42,13 @@
 ; 
  iVelTemp = (p4 > 90 ? 90 : p4) ; make sure p4 velocity not greater than 90 
  iVel = (iVelTemp < 50 ? 50 : iVelTemp) ; nor less than 50 
- iVel = p4
- iVoicet = (iSampleType = 5 ? (p7 + (iVel - 60)/2) : p7) ; alter voice if SampleType is 5, otherwise don't touch it 
- iVoice = round(iVoicet) 
-; 
+ iVoicet = (iSampleType == 5 ? (p7 + max(iVel - 60, 0)/2) : p7) ; 2:1 volume change to sample change
+ iVoicet = (iSampleType == 5 ? (min(iVoicet, 38)) : p7) 
+ iVoice = int(iVoicet + 0.5) 
+ print(p4, iVel, p7, iSampleType, iVoicet, iVoice) 
 ; table f1 has the start location of the sample tables control functions 
  iSampWaveTable table iVoice,1 ; find the location of the sample wave tables base on input p7 
+ print(iSampWaveTable) 
  ipitch table p5, 3 ; look up the cent value in ftable 3 a table of 1200 values from 0.001 to 0.120 
  ioct = p6 ; convert from my octave form to midi standard 
 ;  iRatioFromCent = cent(p5) ; convert cents to ratio to be multiplied by a base frequency 
@@ -76,16 +76,15 @@
  else 
  iFtable = iLowValue 
  endif 
-; printf_i "switched to %i. giMoved now: %d\n", 1, iFtableTemp , giMoved 
-;                ivoice,          iFtableTemp    iFtable             giMoved   always print
-;                  +                        +     +                       +     +
- if iFtable != iFtableTemp then
+ ; printf_i "switched to %i. giMoved now: %d\n", 1, iFtableTemp , giMoved 
+ ; ivoice, iFtableTemp iFtable giMoved always print 
+ ; + + + + + 
+ if iFtable != iFtableTemp then 
  printf_i "voice: %i. switched sample from %i to %i. Total moved so far: %i\n", 1, iVoice, iFtableTemp, iFtable, giMoved 
- else
- printf_i "voice: %i. no switch %i == %i\n", 1, iVoice, iFtableTemp, iFtable
- endif
-
- iFound: 
+ else 
+ printf_i "voice: %i. no switch %i == %i\n", 1, iVoice, iFtableTemp, iFtable 
+ endif 
+ iFound: ; nothing found the target sample in the sample collection. Move ok. 
  
  iamp = ampdb(iVel) * p15 / 5 ; velocity input is 60-80 - convert to amplitude 
  ; End of modification 5/4/22 
@@ -256,8 +255,9 @@ f603 0 64 -2 0 +0  -4  0   0   0   0   0   0   0   0   -3  +5  +1  0   -1  +1  +
 f604 0 64 -2 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
 ; Orchestra: 
 ; voices instrument csound samples # samples 
-; finger_piano_part: McGill instrument number 
-; 8 finger piano 1 25 112 
+; finger_piano_part: voice # McGill instrument # 
+; 6 finger piano 1 1 112 
+; 2 bass finger piano 1 24 
 ; 8 pizzicato 4 
 ; violin-pizz 1 19 57 
 ; viola-pizz 1 11 52 
@@ -281,12 +281,16 @@ f604 0 64 -2 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
 ; violin 1 19 58 
 ; viola 1 18 53 
 ; cello 1 20 75 
+; 8 trumpet 2 25 40 
+; trombone 
+; tuba 
 ; ------------------------------------------ 
 ; total samples 329 
 ; both parts: Wait a bit before adding the piano. It's terribly complicated and prone to untraceable errors. 
 ; 8 Bosendorfer 11 494 184 
 ; ------- 
-; 823 samples in total  
+; 823 samples in total 
+; 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 
 f630 0 128 -17 0 634 44 635 48 636 50 637 52 638 54 639 56 640 58 641 60 642 62 643 64 644 66 645 68 646 70 647 72 648 74 649 76 650 78 651 80 
 f631 0 64 -2 0  43  47  49  51  53  55  57  59  61  63  65  67  69  71  73  75  77  79 
 f632 0 64 -2 0 -6  -8  +2  -13 +17 -4  0   0   0   0   0   0   0   0   0   0   0   0   
@@ -395,12 +399,59 @@ f1194 0 64 -2 0 +6  +2  +4  0   +2  +4  +1  -6  +1  +1  +2  +3  +1  +3  +4  +6
 f1195 0 64 -2 0 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 
 f1212 0 128 -17 0 1216 58 
 f1213 0 64 -2 0  57 
-f1214 0 64 -2 0 -7  
+f1214 0 64 -2 0  0  
 f1215 0 64 -2 0 1 
-f1217 0 128 -17 0 1221 58 
-f1218 0 64 -2 0  57 
-f1219 0 64 -2 0  0  
-f1220 0 64 -2 0 1 
+f1217 0 128 -17 0 1221 10 1222 12 1223 13 1224 15 1225 17 1226 18 1227 20 1228 22 1229 24 1230 25 1231 27 1232 29 1233 30 1234 32 1235 34 1236 36 1237 37 1238 48 1239 51 1240 53 1241 60 1242 61 1243 63 1244 65 1245 66 1246 68 1247 73 1248 75 
+  1249 77 1250 78 1251 80 1252 82 1253 84 1254 85 1255 87 1256 89 1257 90 1258 92 1259 94 1260 96 1261 97 
+f1218 0 64 -2 0   9  11  12  14  16  17  19  21  23  24  26  28  29  31  33  35  36  47  50  52  59  60  62  64  65  67  72  74  76  77  79  81  83  84  86  88  89  91  93  95  96 
+f1219 0 64 -2 0 0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   
+f1220 0 64 -2 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+f1262 0 128 -17 0 1266 10 1267 12 1268 13 1269 15 1270 17 1271 18 1272 20 1273 22 1274 24 1275 25 1276 27 1277 29 1278 30 1279 32 1280 34 1281 36 1282 37 1283 39 1284 41 1285 42 1286 44 1287 46 1288 48 1289 49 1290 51 1291 53 1292 54 1293 56 
+  1294 58 1295 60 1296 61 1297 63 1298 65 1299 66 1300 68 1301 70 1302 72 1303 73 1304 75 1305 77 1306 78 1307 80 1308 82 1309 85 1310 87 1311 89 1312 90 1313 92 1314 94 1315 96 1316 97 
+f1263 0 64 -2 0   9  11  12  14  16  17  19  21  23  24  26  28  29  31  33  35  36  38  40  41  43  45  47  48  50  52  53  55  57  59  60  62  64  65  67  69  71  72  74  76  77  79  81  84  86  88  89  91  93  95  96 
+f1264 0 64 -2 0 0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   
+f1265 0 64 -2 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+f1317 0 128 -17 0 1321 10 1322 12 1323 13 1324 15 1325 17 1326 18 1327 20 1328 22 1329 25 1330 27 1331 29 1332 30 1333 32 1334 34 1335 36 1336 37 1337 41 1338 44 1339 48 1340 49 1341 51 1342 61 1343 63 1344 65 1345 66 1346 68 1347 72 1348 73 
+  1349 75 1350 77 1351 78 1352 80 1353 82 1354 84 1355 85 1356 87 1357 89 1358 90 1359 92 1360 94 1361 96 1362 97 
+f1318 0 64 -2 0   9  11  12  14  16  17  19  21  24  26  28  29  31  33  35  36  40  43  47  48  50  60  62  64  65  67  71  72  74  76  77  79  81  83  84  86  88  89  91  93  95  96 
+f1319 0 64 -2 0 0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   
+f1320 0 64 -2 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+f1363 0 128 -17 0 1367 10 1368 12 1369 13 1370 15 1371 17 1372 18 1373 20 1374 22 1375 24 1376 27 1377 29 1378 30 1379 32 1380 34 1381 36 1382 37 1383 39 1384 41 1385 42 1386 44 1387 46 1388 48 1389 49 1390 51 1391 53 1392 54 1393 56 1394 58 
+  1395 60 1396 61 1397 63 1398 65 1399 66 1400 68 1401 70 1402 72 1403 73 1404 75 1405 77 1406 78 1407 80 1408 82 1409 84 1410 85 1411 87 1412 89 1413 90 1414 92 1415 94 1416 96 1417 97 
+f1364 0 64 -2 0   9  11  12  14  16  17  19  21  23  26  28  29  31  33  35  36  38  40  41  43  45  47  48  50  52  53  55  57  59  60  62  64  65  67  69  71  72  74  76  77  79  81  83  84  86  88  89  91  93  95  96 
+f1365 0 64 -2 0 0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   
+f1366 0 64 -2 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+f1418 0 128 -17 0 1422 10 1423 12 1424 13 1425 15 1426 17 1427 18 1428 20 1429 22 1430 24 1431 25 1432 27 1433 29 1434 30 1435 32 1436 34 1437 36 1438 37 1439 39 1440 41 1441 42 1442 44 1443 46 1444 48 1445 49 1446 51 1447 53 1448 54 1449 56 
+  1450 58 1451 60 1452 61 1453 63 1454 65 1455 66 1456 68 1457 70 1458 72 1459 73 1460 75 1461 77 1462 78 1463 80 1464 82 1465 84 1466 85 1467 87 1468 89 1469 90 1470 92 1471 94 1472 96 1473 97 
+f1419 0 64 -2 0   9  11  12  14  16  17  19  21  23  24  26  28  29  31  33  35  36  38  40  41  43  45  47  48  50  52  53  55  57  59  60  62  64  65  67  69  71  72  74  76  77  79  81  83  84  86  88  89  91  93  95  96 
+f1420 0 64 -2 0 0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   
+f1421 0 64 -2 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+f1474 0 128 -17 0 1478 12 1479 13 1480 15 1481 17 1482 18 1483 20 1484 22 1485 24 1486 25 1487 27 1488 29 1489 30 1490 32 1491 34 1492 36 1493 37 1494 39 1495 41 1496 42 1497 44 1498 46 1499 48 1500 49 1501 51 1502 53 1503 54 1504 56 1505 58 
+  1506 60 1507 61 1508 63 1509 65 1510 66 1511 68 1512 70 1513 72 1514 73 1515 75 1516 77 1517 78 1518 80 1519 82 1520 84 1521 85 1522 87 1523 89 1524 90 1525 92 1526 94 1527 96 1528 97 
+f1475 0 64 -2 0  11  12  14  16  17  19  21  23  24  26  28  29  31  33  35  36  38  40  41  43  45  47  48  50  52  53  55  57  59  60  62  64  65  67  69  71  72  74  76  77  79  81  83  84  86  88  89  91  93  95  96 
+f1476 0 64 -2 0 0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   
+f1477 0 64 -2 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+f1529 0 128 -17 0 1533 10 1534 12 1535 13 1536 15 1537 17 1538 18 1539 20 1540 22 1541 24 1542 25 1543 27 1544 29 1545 30 1546 32 1547 34 1548 36 1549 37 1550 39 1551 41 1552 42 1553 44 1554 46 1555 48 1556 49 1557 51 1558 53 1559 54 1560 56 
+  1561 58 1562 60 1563 61 1564 63 1565 65 1566 66 1567 68 1568 70 1569 72 1570 73 1571 75 1572 77 1573 78 1574 80 1575 82 1576 84 1577 85 1578 87 1579 89 1580 90 1581 92 1582 94 1583 96 1584 97 
+f1530 0 64 -2 0   9  11  12  14  16  17  19  21  23  24  26  28  29  31  33  35  36  38  40  41  43  45  47  48  50  52  53  55  57  59  60  62  64  65  67  69  71  72  74  76  77  79  81  83  84  86  88  89  91  93  95  96 
+f1531 0 64 -2 0 0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   
+f1532 0 64 -2 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+f1585 0 128 -17 0 1589 10 1590 12 1591 13 1592 15 1593 17 1594 18 1595 20 1596 22 1597 24 1598 25 1599 27 1600 29 1601 30 1602 32 1603 34 1604 36 1605 37 1606 39 1607 41 1608 42 1609 44 1610 46 1611 48 1612 49 1613 51 1614 53 1615 54 1616 56 
+  1617 58 1618 60 1619 61 1620 63 1621 65 1622 66 1623 68 1624 70 1625 72 1626 73 1627 75 1628 77 1629 78 1630 80 1631 82 1632 84 1633 85 1634 87 1635 89 1636 90 1637 92 1638 94 1639 96 1640 97 
+f1586 0 64 -2 0   9  11  12  14  16  17  19  21  23  24  26  28  29  31  33  35  36  38  40  41  43  45  47  48  50  52  53  55  57  59  60  62  64  65  67  69  71  72  74  76  77  79  81  83  84  86  88  89  91  93  95  96 
+f1587 0 64 -2 0 0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   
+f1588 0 64 -2 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+f1641 0 128 -17 0 1645 10 1646 12 1647 13 1648 15 1649 17 1650 18 1651 20 1652 22 1653 24 1654 25 1655 27 1656 29 1657 30 1658 34 1659 36 1660 37 1661 39 1662 41 1663 42 1664 44 1665 46 1666 48 1667 49 1668 51 1669 53 1670 54 1671 56 1672 58 
+  1673 60 1674 61 1675 63 1676 65 1677 66 1678 68 1679 70 1680 72 1681 73 1682 75 1683 77 1684 78 1685 80 1686 82 1687 84 1688 85 1689 87 1690 89 1691 90 1692 92 1693 94 1694 96 1695 97 
+f1642 0 64 -2 0   9  11  12  14  16  17  19  21  23  24  26  28  29  33  35  36  38  40  41  43  45  47  48  50  52  53  55  57  59  60  62  64  65  67  69  71  72  74  76  77  79  81  83  84  86  88  89  91  93  95  96 
+f1643 0 64 -2 0 0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   
+f1644 0 64 -2 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+f1696 0 128 -17 0 1700 10 1701 12 1702 13 1703 15 1704 17 1705 18 1706 20 1707 22 1708 24 1709 25 1710 27 1711 29 1712 30 1713 32 1714 34 1715 36 1716 39 1717 41 1718 42 1719 44 1720 46 1721 48 1722 49 1723 51 1724 53 1725 54 1726 56 1727 58 
+  1728 60 1729 61 1730 63 1731 65 1732 66 1733 68 1734 70 1735 72 1736 73 1737 75 1738 77 1739 78 1740 80 1741 82 1742 84 1743 85 1744 87 1745 89 1746 90 1747 92 1748 94 1749 96 1750 97 
+f1697 0 64 -2 0   9  11  12  14  16  17  19  21  23  24  26  28  29  31  33  35  38  40  41  43  45  47  48  50  52  53  55  57  59  60  62  64  65  67  69  71  72  74  76  77  79  81  83  84  86  88  89  91  93  95  96 
+f1698 0 64 -2 0 0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   
+f1699 0 64 -2 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+; 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 
 f605 0 0 1 "samples/FingerP/c1.aif" 0 0 0
 f606 0 0 1 "samples/FingerP/e1.aif" 0 0 0
 f607 0 0 1 "samples/FingerP/g1.aif" 0 0 0
@@ -904,413 +955,505 @@ f1208 0 0 1 "samples/TUBA/TUBA C#4.aif" 0 0 0
 f1209 0 0 1 "samples/TUBA/TUBA D#4.aif" 0 0 0
 f1210 0 0 1 "samples/TUBA/TUBA F4.aif" 0 0 0
 f1211 0 0 1 "samples/TUBA/TUBA G4.aif" 0 0 0
-f1216 0 0 1 "samples/sine/sine.wav" 0 0 0
-f1221 0 0 1 "samples/sine/triangle.wav" 0 0 0
-f1230 0 128 -17 0 1234 22 1235 24 1236 25 1237 27 1238 29 1239 30 1240 32 1241 34 1242 36 1243 37 1244 39 1245 41 1246 42 1247 44 1248 46 1249 48 1250 49 1251 60 1252 63 1253 65 1254 72 1255 73 1256 75 1257 77 1258 78 1259 80 1260 85 1261 87 1262 89 1263 90 1264 92 1265 94 
-  1266 96 1267 97 1268 99 1269 101 1270 102 1271 104 1272 106 1273 108 1273 109 
-f1231 0 64 -2 0  21  23  24  26  28  29  31  33  35  36  38  40  41  43  45  47  48  59  62  64  71  72  74  76  77  79  84  86  88  89  91  93  95  96  98 100 101 103 105 107 108 
-f1232 0 64 -2 0 0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-f1233 0 64 -2 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
-f1275 0 128 -17 0 1279 22 1280 24 1281 25 1282 27 1283 29 1284 30 1285 32 1286 34 1287 36 1288 37 1289 39 1290 41 1291 42 1292 44 1293 46 1294 48 1295 49 1296 51 1297 53 1298 54 1299 56 1300 58 1301 60 1302 61 1303 63 1304 65 1305 66 1306 68 1307 70 1308 72 1309 73 1310 75 
-  1311 77 1312 78 1313 80 1314 82 1315 84 1316 85 1317 87 1318 89 1319 90 1320 92 1321 94 1322 97 1323 99 1324 101 1325 102 1326 104 1327 106 1328 108 1328 109 
-f1276 0 64 -2 0  21  23  24  26  28  29  31  33  35  36  38  40  41  43  45  47  48  50  52  53  55  57  59  60  62  64  65  67  69  71  72  74  76  77  79  81  83  84  86  88  89  91  93  96  98 100 101 103 105 107 108 
-f1277 0 64 -2 0 0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   
-f1278 0 64 -2 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
-f1330 0 128 -17 0 1334 22 1335 24 1336 25 1337 27 1338 29 1339 30 1340 32 1341 34 1342 37 1343 39 1344 41 1345 42 1346 44 1347 46 1348 48 1349 49 1350 53 1351 56 1352 60 1353 61 1354 63 1355 73 1356 75 1357 77 1358 78 1359 80 1360 84 1361 85 1362 87 1363 89 1364 90 1365 92 
-  1366 94 1367 96 1368 97 1369 99 1370 101 1371 102 1372 104 1373 106 1374 108 746 109 
-f1331 0 64 -2 0  21  23  24  26  28  29  31  33  36  38  40  41  43  45  47  48  52  55  59  60  62  72  74  76  77  79  83  84  86  88  89  91  93  95  96  98 100 101 103 105 107 108 
-f1332 0 64 -2 0 0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   
-f1333 0 64 -2 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
-f1385 0 128 -17 0 1389 22 1390 24 1391 25 1392 27 1393 29 1394 30 1395 32 1396 34 1397 36 1398 39 1399 41 1400 42 1401 44 1402 46 1403 48 1404 49 1405 51 1406 53 1407 54 1408 56 1409 58 1410 60 1411 61 1412 63 1413 65 1414 66 1415 68 1416 70 1417 72 1418 73 1419 75 1420 77 
-  1421 78 1422 80 1423 82 1424 84 1425 85 1426 87 1427 89 1428 90 1429 92 1430 94 1431 96 1432 97 1433 99 1434 101 1435 102 1436 104 1437 106 1438 108 1439 109 
-f1386 0 64 -2 0  21  23  24  26  28  29  31  33  35  38  40  41  43  45  47  48  50  52  53  55  57  59  60  62  64  65  67  69  71  72  74  76  77  79  81  83  84  86  88  89  91  93  95  96  98 100 101 103 105 107 108 
-f1387 0 64 -2 0 0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   
-f1388 0 64 -2 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
-f1440 0 128 -17 0 1444 22 1445 24 1446 25 1447 27 1448 29 1449 30 1450 32 1451 34 1452 36 1453 37 1454 39 1455 41 1456 42 1457 44 1458 46 1459 48 1460 49 1461 51 1462 53 1463 54 1464 56 1465 58 1466 60 1467 61 1468 63 1469 65 1470 66 1471 68 1472 70 1473 72 1474 73 1475 75 
-  1476 77 1477 78 1478 80 1479 82 1480 84 1481 85 1482 87 1483 89 1484 90 1485 92 1486 94 1487 96 1488 97 1489 99 1490 101 1491 102 1492 104 1493 106 1494 108 1495 109 
-f1441 0 64 -2 0  21  23  24  26  28  29  31  33  35  36  38  40  41  43  45  47  48  50  52  53  55  57  59  60  62  64  65  67  69  71  72  74  76  77  79  81  83  84  86  88  89  91  93  95  96  98 100 101 103 105 107 108 
-f1442 0 64 -2 0 0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   
-f1443 0 64 -2 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
-f1495 0 128 -17 0 1499 24 1500 25 1501 27 1502 29 1503 30 1504 32 1505 34 1506 36 1507 37 1508 39 1509 41 1510 42 1511 44 1512 46 1513 48 1514 49 1515 51 1516 53 1517 54 1518 56 1519 58 1520 60 1521 61 1522 63 1523 65 1524 66 1525 68 1526 70 1527 72 1528 73 1529 75 1530 77 
-  1531 78 1532 80 1533 82 1534 84 1535 85 1536 87 1537 89 1538 90 1539 92 1540 94 1541 96 1542 97 1543 99 1544 101 1545 102 1546 104 1547 106 1548 108 1549 109 
-f1496 0 64 -2 0  23  24  26  28  29  31  33  35  36  38  40  41  43  45  47  48  50  52  53  55  57  59  60  62  64  65  67  69  71  72  74  76  77  79  81  83  84  86  88  89  91  93  95  96  98 100 101 103 105 107 108 
-f1497 0 64 -2 0 0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   
-f1498 0 64 -2 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
-f1549 0 128 -17 0 1553 22 1554 24 1555 25 1556 27 1557 29 1558 30 1559 32 1560 34 1561 36 1562 37 1563 39 1564 41 1565 42 1566 44 1567 46 1568 48 1569 49 1570 51 1571 53 1572 54 1573 56 1574 58 1575 60 1576 61 1577 63 1578 65 1579 66 1580 68 1581 70 1582 72 1583 73 1584 75 
-  1585 77 1586 78 1587 80 1588 82 1589 84 1590 85 1591 87 1592 89 1593 90 1594 92 1595 94 1596 96 1597 97 1598 99 1599 101 1600 102 1601 104 1602 106 1603 108 1604 109 
-f1550 0 64 -2 0  21  23  24  26  28  29  31  33  35  36  38  40  41  43  45  47  48  50  52  53  55  57  59  60  62  64  65  67  69  71  72  74  76  77  79  81  83  84  86  88  89  91  93  95  96  98 100 101 103 105 107 108 
-f1551 0 64 -2 0 0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   
-f1552 0 64 -2 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
-f1234 0 0 1 "samples/Bosendor/25 emp A0.wav" 0 0 0
-f1235 0 0 1 "samples/Bosendor/25 emp B0-.wav" 0 0 0
-f1236 0 0 1 "samples/Bosendor/25 emp C1-.wav" 0 0 0
-f1237 0 0 1 "samples/Bosendor/25 emp D1-.wav" 0 0 0
-f1238 0 0 1 "samples/Bosendor/25 emp E1-.wav" 0 0 0
-f1239 0 0 1 "samples/Bosendor/25 emp F1-.wav" 0 0 0
-f1240 0 0 1 "samples/Bosendor/25 emp G1-.wav" 0 0 0
-f1241 0 0 1 "samples/Bosendor/25 emp A1.wav" 0 0 0
-f1242 0 0 1 "samples/Bosendor/25 emp B1-.wav" 0 0 0
-f1243 0 0 1 "samples/Bosendor/25 emp C2-.wav" 0 0 0
-f1244 0 0 1 "samples/Bosendor/25 emp D2-.wav" 0 0 0
-f1245 0 0 1 "samples/Bosendor/25 emp E2-.wav" 0 0 0
-f1246 0 0 1 "samples/Bosendor/25 emp F2-.wav" 0 0 0
-f1247 0 0 1 "samples/Bosendor/25 emp G2-.wav" 0 0 0
-f1248 0 0 1 "samples/Bosendor/25 emp A2-.wav" 0 0 0
-f1249 0 0 1 "samples/Bosendor/25 emp B2-.wav" 0 0 0
-f1250 0 0 1 "samples/Bosendor/25 emp C3-.wav" 0 0 0
-f1251 0 0 1 "samples/Bosendor/25 emp B3-.wav" 0 0 0
-f1252 0 0 1 "samples/Bosendor/25 emp D4-.wav" 0 0 0
-f1253 0 0 1 "samples/Bosendor/25 emp E4-.wav" 0 0 0
-f1254 0 0 1 "samples/Bosendor/25 emp B4-.wav" 0 0 0
-f1255 0 0 1 "samples/Bosendor/25 emp C5-.wav" 0 0 0
-f1256 0 0 1 "samples/Bosendor/25 emp D5-.wav" 0 0 0
-f1257 0 0 1 "samples/Bosendor/25 emp E5-.wav" 0 0 0
-f1258 0 0 1 "samples/Bosendor/25 emp F5-.wav" 0 0 0
-f1259 0 0 1 "samples/Bosendor/25 emp G5-.wav" 0 0 0
-f1260 0 0 1 "samples/Bosendor/25 emp C6-.wav" 0 0 0
-f1261 0 0 1 "samples/Bosendor/25 emp D6-.wav" 0 0 0
-f1262 0 0 1 "samples/Bosendor/25 emp E6-.wav" 0 0 0
-f1263 0 0 1 "samples/Bosendor/25 emp F6-.wav" 0 0 0
-f1264 0 0 1 "samples/Bosendor/25 emp G6-.wav" 0 0 0
-f1265 0 0 1 "samples/Bosendor/25 emp A6-.wav" 0 0 0
-f1266 0 0 1 "samples/Bosendor/25 emp B6-.wav" 0 0 0
-f1267 0 0 1 "samples/Bosendor/25 emp C7-.wav" 0 0 0
-f1268 0 0 1 "samples/Bosendor/25 emp D7-.wav" 0 0 0
-f1269 0 0 1 "samples/Bosendor/25 emp E7-.wav" 0 0 0
-f1270 0 0 1 "samples/Bosendor/25 emp F7-.wav" 0 0 0
-f1271 0 0 1 "samples/Bosendor/25 emp G7-.wav" 0 0 0
-f1272 0 0 1 "samples/Bosendor/25 emp A7-.wav" 0 0 0
-f1273 0 0 1 "samples/Bosendor/25 emp B7-.wav" 0 0 0
-f1273 0 0 1 "samples/Bosendor/25 emp C8-.wav" 0 0 0
-f1279 0 0 1 "samples/Bosendor/31 emp A0.wav" 0 0 0
-f1280 0 0 1 "samples/Bosendor/31 emp B0-.wav" 0 0 0
-f1281 0 0 1 "samples/Bosendor/31 emp C1-.wav" 0 0 0
-f1282 0 0 1 "samples/Bosendor/31 emp D1-.wav" 0 0 0
-f1283 0 0 1 "samples/Bosendor/31 emp E1-.wav" 0 0 0
-f1284 0 0 1 "samples/Bosendor/31 emp F1-.wav" 0 0 0
-f1285 0 0 1 "samples/Bosendor/31 emp G1-.wav" 0 0 0
-f1286 0 0 1 "samples/Bosendor/31 emp A1.wav" 0 0 0
-f1287 0 0 1 "samples/Bosendor/31 emp B1-.wav" 0 0 0
-f1288 0 0 1 "samples/Bosendor/31 emp C2-.wav" 0 0 0
-f1289 0 0 1 "samples/Bosendor/31 emp D2-.wav" 0 0 0
-f1290 0 0 1 "samples/Bosendor/31 emp E2-.wav" 0 0 0
-f1291 0 0 1 "samples/Bosendor/31 emp F2-.wav" 0 0 0
-f1292 0 0 1 "samples/Bosendor/31 emp G2-.wav" 0 0 0
-f1293 0 0 1 "samples/Bosendor/31 emp A2-.wav" 0 0 0
-f1294 0 0 1 "samples/Bosendor/31 emp B2-.wav" 0 0 0
-f1295 0 0 1 "samples/Bosendor/31 emp C3-.wav" 0 0 0
-f1296 0 0 1 "samples/Bosendor/31 emp D3-.wav" 0 0 0
-f1297 0 0 1 "samples/Bosendor/31 emp E3-.wav" 0 0 0
-f1298 0 0 1 "samples/Bosendor/31 emp F3-.wav" 0 0 0
-f1299 0 0 1 "samples/Bosendor/31 emp G3-.wav" 0 0 0
-f1300 0 0 1 "samples/Bosendor/31 emp A3-.wav" 0 0 0
-f1301 0 0 1 "samples/Bosendor/31 emp B3-.wav" 0 0 0
-f1302 0 0 1 "samples/Bosendor/31 emp C4-.wav" 0 0 0
-f1303 0 0 1 "samples/Bosendor/31 emp D4-.wav" 0 0 0
-f1304 0 0 1 "samples/Bosendor/31 emp E4-.wav" 0 0 0
-f1305 0 0 1 "samples/Bosendor/31 emp F4-.wav" 0 0 0
-f1306 0 0 1 "samples/Bosendor/31 emp G4-.wav" 0 0 0
-f1307 0 0 1 "samples/Bosendor/31 emp A4-.wav" 0 0 0
-f1308 0 0 1 "samples/Bosendor/31 emp B4-.wav" 0 0 0
-f1309 0 0 1 "samples/Bosendor/31 emp C5-.wav" 0 0 0
-f1310 0 0 1 "samples/Bosendor/31 emp D5-.wav" 0 0 0
-f1311 0 0 1 "samples/Bosendor/31 emp E5-.wav" 0 0 0
-f1312 0 0 1 "samples/Bosendor/31 emp F5-.wav" 0 0 0
-f1313 0 0 1 "samples/Bosendor/31 emp G5-.wav" 0 0 0
-f1314 0 0 1 "samples/Bosendor/31 emp A5-.wav" 0 0 0
-f1315 0 0 1 "samples/Bosendor/31 emp B5-.wav" 0 0 0
-f1316 0 0 1 "samples/Bosendor/31 emp C6-.wav" 0 0 0
-f1317 0 0 1 "samples/Bosendor/31 emp D6-.wav" 0 0 0
-f1318 0 0 1 "samples/Bosendor/31 emp E6-.wav" 0 0 0
-f1319 0 0 1 "samples/Bosendor/31 emp F6-.wav" 0 0 0
-f1320 0 0 1 "samples/Bosendor/31 emp G6-.wav" 0 0 0
-f1321 0 0 1 "samples/Bosendor/31 emp A6-.wav" 0 0 0
-f1322 0 0 1 "samples/Bosendor/31 emp C7-.wav" 0 0 0
-f1323 0 0 1 "samples/Bosendor/31 emp D7-.wav" 0 0 0
-f1324 0 0 1 "samples/Bosendor/31 emp E7-.wav" 0 0 0
-f1325 0 0 1 "samples/Bosendor/31 emp F7-.wav" 0 0 0
-f1326 0 0 1 "samples/Bosendor/31 emp G7-.wav" 0 0 0
-f1327 0 0 1 "samples/Bosendor/31 emp A7-.wav" 0 0 0
-f1328 0 0 1 "samples/Bosendor/31 emp B7-.wav" 0 0 0
-f1328 0 0 1 "samples/Bosendor/31 emp C8-.wav" 0 0 0
-f1334 0 0 1 "samples/Bosendor/39 emp A0.wav" 0 0 0
-f1335 0 0 1 "samples/Bosendor/39 emp B0-.wav" 0 0 0
-f1336 0 0 1 "samples/Bosendor/39 emp C1-.wav" 0 0 0
-f1337 0 0 1 "samples/Bosendor/39 emp D1-.wav" 0 0 0
-f1338 0 0 1 "samples/Bosendor/39 emp E1-.wav" 0 0 0
-f1339 0 0 1 "samples/Bosendor/39 emp F1-.wav" 0 0 0
-f1340 0 0 1 "samples/Bosendor/39 emp G1-.wav" 0 0 0
-f1341 0 0 1 "samples/Bosendor/39 emp A1.wav" 0 0 0
-f1342 0 0 1 "samples/Bosendor/39 emp C2-.wav" 0 0 0
-f1343 0 0 1 "samples/Bosendor/39 emp D2-.wav" 0 0 0
-f1344 0 0 1 "samples/Bosendor/39 emp E2-.wav" 0 0 0
-f1345 0 0 1 "samples/Bosendor/39 emp F2-.wav" 0 0 0
-f1346 0 0 1 "samples/Bosendor/39 emp G2-.wav" 0 0 0
-f1347 0 0 1 "samples/Bosendor/39 emp A2-.wav" 0 0 0
-f1348 0 0 1 "samples/Bosendor/39 emp B2-.wav" 0 0 0
-f1349 0 0 1 "samples/Bosendor/39 emp C3-.wav" 0 0 0
-f1350 0 0 1 "samples/Bosendor/39 emp E3-.wav" 0 0 0
-f1351 0 0 1 "samples/Bosendor/39 emp G3-.wav" 0 0 0
-f1352 0 0 1 "samples/Bosendor/39 emp B3-.wav" 0 0 0
-f1353 0 0 1 "samples/Bosendor/39 emp C4-.wav" 0 0 0
-f1354 0 0 1 "samples/Bosendor/39 emp D4-.wav" 0 0 0
-f1355 0 0 1 "samples/Bosendor/39 emp C5-.wav" 0 0 0
-f1356 0 0 1 "samples/Bosendor/39 emp D5-.wav" 0 0 0
-f1357 0 0 1 "samples/Bosendor/39 emp E5-.wav" 0 0 0
-f1358 0 0 1 "samples/Bosendor/39 emp F5-.wav" 0 0 0
-f1359 0 0 1 "samples/Bosendor/39 emp G5-.wav" 0 0 0
-f1360 0 0 1 "samples/Bosendor/39 emp B5-.wav" 0 0 0
-f1361 0 0 1 "samples/Bosendor/39 emp C6-.wav" 0 0 0
-f1362 0 0 1 "samples/Bosendor/39 emp D6-.wav" 0 0 0
-f1363 0 0 1 "samples/Bosendor/39 emp E6-.wav" 0 0 0
-f1364 0 0 1 "samples/Bosendor/39 emp F6-.wav" 0 0 0
-f1365 0 0 1 "samples/Bosendor/39 emp G6-.wav" 0 0 0
-f1366 0 0 1 "samples/Bosendor/39 emp A6-.wav" 0 0 0
-f1367 0 0 1 "samples/Bosendor/39 emp B6-.wav" 0 0 0
-f1368 0 0 1 "samples/Bosendor/39 emp C7-.wav" 0 0 0
-f1369 0 0 1 "samples/Bosendor/39 emp D7-.wav" 0 0 0
-f1370 0 0 1 "samples/Bosendor/39 emp E7-.wav" 0 0 0
-f1371 0 0 1 "samples/Bosendor/39 emp F7-.wav" 0 0 0
-f1372 0 0 1 "samples/Bosendor/39 emp G7-.wav" 0 0 0
-f1373 0 0 1 "samples/Bosendor/39 emp A7-.wav" 0 0 0
-f1374 0 0 1 "samples/Bosendor/39 emp B7-.wav" 0 0 0
-f746 0 0 1 "samples/Bosendor/39 emp C8-.wav" 0 0 0
-f1389 0 0 1 "samples/Bosendor/47 emp A0.wav" 0 0 0
-f1390 0 0 1 "samples/Bosendor/47 emp B0-.wav" 0 0 0
-f1391 0 0 1 "samples/Bosendor/47 emp C1-.wav" 0 0 0
-f1392 0 0 1 "samples/Bosendor/47 emp D1-.wav" 0 0 0
-f1393 0 0 1 "samples/Bosendor/47 emp E1-.wav" 0 0 0
-f1394 0 0 1 "samples/Bosendor/47 emp F1-.wav" 0 0 0
-f1395 0 0 1 "samples/Bosendor/47 emp G1-.wav" 0 0 0
-f1396 0 0 1 "samples/Bosendor/47 emp A1.wav" 0 0 0
-f1397 0 0 1 "samples/Bosendor/47 emp B1-.wav" 0 0 0
-f1398 0 0 1 "samples/Bosendor/47 emp D2-.wav" 0 0 0
-f1399 0 0 1 "samples/Bosendor/47 emp E2-.wav" 0 0 0
-f1400 0 0 1 "samples/Bosendor/47 emp F2-.wav" 0 0 0
-f1401 0 0 1 "samples/Bosendor/47 emp G2-.wav" 0 0 0
-f1402 0 0 1 "samples/Bosendor/47 emp A2-.wav" 0 0 0
-f1403 0 0 1 "samples/Bosendor/47 emp B2-.wav" 0 0 0
-f1404 0 0 1 "samples/Bosendor/47 emp C3-.wav" 0 0 0
-f1405 0 0 1 "samples/Bosendor/47 emp D3-.wav" 0 0 0
-f1406 0 0 1 "samples/Bosendor/47 emp E3-.wav" 0 0 0
-f1407 0 0 1 "samples/Bosendor/47 emp F3-.wav" 0 0 0
-f1408 0 0 1 "samples/Bosendor/47 emp G3-.wav" 0 0 0
-f1409 0 0 1 "samples/Bosendor/47 emp A3-.wav" 0 0 0
-f1410 0 0 1 "samples/Bosendor/47 emp B3-.wav" 0 0 0
-f1411 0 0 1 "samples/Bosendor/47 emp C4-.wav" 0 0 0
-f1412 0 0 1 "samples/Bosendor/47 emp D4-.wav" 0 0 0
-f1413 0 0 1 "samples/Bosendor/47 emp E4-.wav" 0 0 0
-f1414 0 0 1 "samples/Bosendor/47 emp F4-.wav" 0 0 0
-f1415 0 0 1 "samples/Bosendor/47 emp G4-.wav" 0 0 0
-f1416 0 0 1 "samples/Bosendor/47 emp A4-.wav" 0 0 0
-f1417 0 0 1 "samples/Bosendor/47 emp B4-.wav" 0 0 0
-f1418 0 0 1 "samples/Bosendor/47 emp C5-.wav" 0 0 0
-f1419 0 0 1 "samples/Bosendor/47 emp D5-.wav" 0 0 0
-f1420 0 0 1 "samples/Bosendor/47 emp E5-.wav" 0 0 0
-f1421 0 0 1 "samples/Bosendor/47 emp F5-.wav" 0 0 0
-f1422 0 0 1 "samples/Bosendor/47 emp G5-.wav" 0 0 0
-f1423 0 0 1 "samples/Bosendor/47 emp A5-.wav" 0 0 0
-f1424 0 0 1 "samples/Bosendor/47 emp B5-.wav" 0 0 0
-f1425 0 0 1 "samples/Bosendor/47 emp C6-.wav" 0 0 0
-f1426 0 0 1 "samples/Bosendor/47 emp D6-.wav" 0 0 0
-f1427 0 0 1 "samples/Bosendor/47 emp E6-.wav" 0 0 0
-f1428 0 0 1 "samples/Bosendor/47 emp F6-.wav" 0 0 0
-f1429 0 0 1 "samples/Bosendor/47 emp G6-.wav" 0 0 0
-f1430 0 0 1 "samples/Bosendor/47 emp A6-.wav" 0 0 0
-f1431 0 0 1 "samples/Bosendor/47 emp B6-.wav" 0 0 0
-f1432 0 0 1 "samples/Bosendor/47 emp C7-.wav" 0 0 0
-f1433 0 0 1 "samples/Bosendor/47 emp D7-.wav" 0 0 0
-f1434 0 0 1 "samples/Bosendor/47 emp E7-.wav" 0 0 0
-f1435 0 0 1 "samples/Bosendor/47 emp F7-.wav" 0 0 0
-f1436 0 0 1 "samples/Bosendor/47 emp G7-.wav" 0 0 0
-f1437 0 0 1 "samples/Bosendor/47 emp A7-.wav" 0 0 0
-f1438 0 0 1 "samples/Bosendor/47 emp B7-.wav" 0 0 0
-f1439 0 0 1 "samples/Bosendor/47 emp C8-.wav" 0 0 0
-f1444 0 0 1 "samples/Bosendor/63 emp A0.wav" 0 0 0
-f1445 0 0 1 "samples/Bosendor/63 emp B0-.wav" 0 0 0
-f1446 0 0 1 "samples/Bosendor/63 emp C1-.wav" 0 0 0
-f1447 0 0 1 "samples/Bosendor/63 emp D1-.wav" 0 0 0
-f1448 0 0 1 "samples/Bosendor/63 emp E1-.wav" 0 0 0
-f1449 0 0 1 "samples/Bosendor/63 emp F1-.wav" 0 0 0
-f1450 0 0 1 "samples/Bosendor/63 emp G1-.wav" 0 0 0
-f1451 0 0 1 "samples/Bosendor/63 emp A1.wav" 0 0 0
-f1452 0 0 1 "samples/Bosendor/63 emp B1-.wav" 0 0 0
-f1453 0 0 1 "samples/Bosendor/63 emp C2-.wav" 0 0 0
-f1454 0 0 1 "samples/Bosendor/63 emp D2-.wav" 0 0 0
-f1455 0 0 1 "samples/Bosendor/63 emp E2-.wav" 0 0 0
-f1456 0 0 1 "samples/Bosendor/63 emp F2-.wav" 0 0 0
-f1457 0 0 1 "samples/Bosendor/63 emp G2-.wav" 0 0 0
-f1458 0 0 1 "samples/Bosendor/63 emp A2-.wav" 0 0 0
-f1459 0 0 1 "samples/Bosendor/63 emp B2-.wav" 0 0 0
-f1460 0 0 1 "samples/Bosendor/63 emp C3-.wav" 0 0 0
-f1461 0 0 1 "samples/Bosendor/63 emp D3-.wav" 0 0 0
-f1462 0 0 1 "samples/Bosendor/63 emp E3-.wav" 0 0 0
-f1463 0 0 1 "samples/Bosendor/63 emp F3-.wav" 0 0 0
-f1464 0 0 1 "samples/Bosendor/63 emp G3-.wav" 0 0 0
-f1465 0 0 1 "samples/Bosendor/63 emp A3-.wav" 0 0 0
-f1466 0 0 1 "samples/Bosendor/63 emp B3-.wav" 0 0 0
-f1467 0 0 1 "samples/Bosendor/63 emp C4-.wav" 0 0 0
-f1468 0 0 1 "samples/Bosendor/63 emp D4-.wav" 0 0 0
-f1469 0 0 1 "samples/Bosendor/63 emp E4-.wav" 0 0 0
-f1470 0 0 1 "samples/Bosendor/63 emp F4-.wav" 0 0 0
-f1471 0 0 1 "samples/Bosendor/63 emp G4-.wav" 0 0 0
-f1472 0 0 1 "samples/Bosendor/63 emp A4-.wav" 0 0 0
-f1473 0 0 1 "samples/Bosendor/63 emp B4-.wav" 0 0 0
-f1474 0 0 1 "samples/Bosendor/63 emp C5-.wav" 0 0 0
-f1475 0 0 1 "samples/Bosendor/63 emp D5-.wav" 0 0 0
-f1476 0 0 1 "samples/Bosendor/63 emp E5-.wav" 0 0 0
-f1477 0 0 1 "samples/Bosendor/63 emp F5-.wav" 0 0 0
-f1478 0 0 1 "samples/Bosendor/63 emp G5-.wav" 0 0 0
-f1479 0 0 1 "samples/Bosendor/63 emp A5-.wav" 0 0 0
-f1480 0 0 1 "samples/Bosendor/63 emp B5-.wav" 0 0 0
-f1481 0 0 1 "samples/Bosendor/63 emp C6-.wav" 0 0 0
-f1482 0 0 1 "samples/Bosendor/63 emp D6-.wav" 0 0 0
-f1483 0 0 1 "samples/Bosendor/63 emp E6-.wav" 0 0 0
-f1484 0 0 1 "samples/Bosendor/63 emp F6-.wav" 0 0 0
-f1485 0 0 1 "samples/Bosendor/63 emp G6-.wav" 0 0 0
-f1486 0 0 1 "samples/Bosendor/63 emp A6-.wav" 0 0 0
-f1487 0 0 1 "samples/Bosendor/63 emp B6-.wav" 0 0 0
-f1488 0 0 1 "samples/Bosendor/63 emp C7-.wav" 0 0 0
-f1489 0 0 1 "samples/Bosendor/63 emp D7-.wav" 0 0 0
-f1490 0 0 1 "samples/Bosendor/63 emp E7-.wav" 0 0 0
-f1491 0 0 1 "samples/Bosendor/63 emp F7-.wav" 0 0 0
-f1492 0 0 1 "samples/Bosendor/63 emp G7-.wav" 0 0 0
-f1493 0 0 1 "samples/Bosendor/63 emp A7-.wav" 0 0 0
-f1494 0 0 1 "samples/Bosendor/63 emp B7-.wav" 0 0 0
-f1495 0 0 1 "samples/Bosendor/63 emp C8-.wav" 0 0 0
-f1499 0 0 1 "samples/Bosendor/78 emp B0-.wav" 0 0 0
-f1500 0 0 1 "samples/Bosendor/78 emp C1-.wav" 0 0 0
-f1501 0 0 1 "samples/Bosendor/78 emp D1-.wav" 0 0 0
-f1502 0 0 1 "samples/Bosendor/78 emp E1-.wav" 0 0 0
-f1503 0 0 1 "samples/Bosendor/78 emp F1-.wav" 0 0 0
-f1504 0 0 1 "samples/Bosendor/78 emp G1-.wav" 0 0 0
-f1505 0 0 1 "samples/Bosendor/78 emp A1.wav" 0 0 0
-f1506 0 0 1 "samples/Bosendor/78 emp B1-.wav" 0 0 0
-f1507 0 0 1 "samples/Bosendor/78 emp C2-.wav" 0 0 0
-f1508 0 0 1 "samples/Bosendor/78 emp D2-.wav" 0 0 0
-f1509 0 0 1 "samples/Bosendor/78 emp E2-.wav" 0 0 0
-f1510 0 0 1 "samples/Bosendor/78 emp F2-.wav" 0 0 0
-f1511 0 0 1 "samples/Bosendor/78 emp G2-.wav" 0 0 0
-f1512 0 0 1 "samples/Bosendor/78 emp A2-.wav" 0 0 0
-f1513 0 0 1 "samples/Bosendor/78 emp B2-.wav" 0 0 0
-f1514 0 0 1 "samples/Bosendor/78 emp C3-.wav" 0 0 0
-f1515 0 0 1 "samples/Bosendor/78 emp D3-.wav" 0 0 0
-f1516 0 0 1 "samples/Bosendor/78 emp E3-.wav" 0 0 0
-f1517 0 0 1 "samples/Bosendor/78 emp F3-.wav" 0 0 0
-f1518 0 0 1 "samples/Bosendor/78 emp G3-.wav" 0 0 0
-f1519 0 0 1 "samples/Bosendor/78 emp A3-.wav" 0 0 0
-f1520 0 0 1 "samples/Bosendor/78 emp B3-.wav" 0 0 0
-f1521 0 0 1 "samples/Bosendor/78 emp C4-.wav" 0 0 0
-f1522 0 0 1 "samples/Bosendor/78 emp D4-.wav" 0 0 0
-f1523 0 0 1 "samples/Bosendor/78 emp E4-.wav" 0 0 0
-f1524 0 0 1 "samples/Bosendor/78 emp F4-.wav" 0 0 0
-f1525 0 0 1 "samples/Bosendor/78 emp G4-.wav" 0 0 0
-f1526 0 0 1 "samples/Bosendor/78 emp A4-.wav" 0 0 0
-f1527 0 0 1 "samples/Bosendor/78 emp B4-.wav" 0 0 0
-f1528 0 0 1 "samples/Bosendor/78 emp C5-.wav" 0 0 0
-f1529 0 0 1 "samples/Bosendor/78 emp D5-.wav" 0 0 0
-f1530 0 0 1 "samples/Bosendor/78 emp E5-.wav" 0 0 0
-f1531 0 0 1 "samples/Bosendor/78 emp F5-.wav" 0 0 0
-f1532 0 0 1 "samples/Bosendor/78 emp G5-.wav" 0 0 0
-f1533 0 0 1 "samples/Bosendor/78 emp A5-.wav" 0 0 0
-f1534 0 0 1 "samples/Bosendor/78 emp B5-.wav" 0 0 0
-f1535 0 0 1 "samples/Bosendor/78 emp C6-.wav" 0 0 0
-f1536 0 0 1 "samples/Bosendor/78 emp D6-.wav" 0 0 0
-f1537 0 0 1 "samples/Bosendor/78 emp E6-.wav" 0 0 0
-f1538 0 0 1 "samples/Bosendor/78 emp F6-.wav" 0 0 0
-f1539 0 0 1 "samples/Bosendor/78 emp G6-.wav" 0 0 0
-f1540 0 0 1 "samples/Bosendor/78 emp A6-.wav" 0 0 0
-f1541 0 0 1 "samples/Bosendor/78 emp B6-.wav" 0 0 0
-f1542 0 0 1 "samples/Bosendor/78 emp C7-.wav" 0 0 0
-f1543 0 0 1 "samples/Bosendor/78 emp D7-.wav" 0 0 0
-f1544 0 0 1 "samples/Bosendor/78 emp E7-.wav" 0 0 0
-f1545 0 0 1 "samples/Bosendor/78 emp F7-.wav" 0 0 0
-f1546 0 0 1 "samples/Bosendor/78 emp G7-.wav" 0 0 0
-f1547 0 0 1 "samples/Bosendor/78 emp A7-.wav" 0 0 0
-f1548 0 0 1 "samples/Bosendor/78 emp B7-.wav" 0 0 0
-f1549 0 0 1 "samples/Bosendor/78 emp C8-.wav" 0 0 0
-f1553 0 0 1 "samples/Bosendor/85 emp A0.wav" 0 0 0
-f1554 0 0 1 "samples/Bosendor/85 emp B0-.wav" 0 0 0
-f1555 0 0 1 "samples/Bosendor/85 emp C1-.wav" 0 0 0
-f1556 0 0 1 "samples/Bosendor/85 emp D1-.wav" 0 0 0
-f1557 0 0 1 "samples/Bosendor/85 emp E1-.wav" 0 0 0
-f1558 0 0 1 "samples/Bosendor/85 emp F1-.wav" 0 0 0
-f1559 0 0 1 "samples/Bosendor/85 emp G1-.wav" 0 0 0
-f1560 0 0 1 "samples/Bosendor/85 emp A1.wav" 0 0 0
-f1561 0 0 1 "samples/Bosendor/85 emp B1-.wav" 0 0 0
-f1562 0 0 1 "samples/Bosendor/85 emp C2-.wav" 0 0 0
-f1563 0 0 1 "samples/Bosendor/85 emp D2-.wav" 0 0 0
-f1564 0 0 1 "samples/Bosendor/85 emp E2-.wav" 0 0 0
-f1565 0 0 1 "samples/Bosendor/85 emp F2-.wav" 0 0 0
-f1566 0 0 1 "samples/Bosendor/85 emp G2-.wav" 0 0 0
-f1567 0 0 1 "samples/Bosendor/85 emp A2-.wav" 0 0 0
-f1568 0 0 1 "samples/Bosendor/85 emp B2-.wav" 0 0 0
-f1569 0 0 1 "samples/Bosendor/85 emp C3-.wav" 0 0 0
-f1570 0 0 1 "samples/Bosendor/85 emp D3-.wav" 0 0 0
-f1571 0 0 1 "samples/Bosendor/85 emp E3-.wav" 0 0 0
-f1572 0 0 1 "samples/Bosendor/85 emp F3-.wav" 0 0 0
-f1573 0 0 1 "samples/Bosendor/85 emp G3-.wav" 0 0 0
-f1574 0 0 1 "samples/Bosendor/85 emp A3-.wav" 0 0 0
-f1575 0 0 1 "samples/Bosendor/85 emp B3-.wav" 0 0 0
-f1576 0 0 1 "samples/Bosendor/85 emp C4-.wav" 0 0 0
-f1577 0 0 1 "samples/Bosendor/85 emp D4-.wav" 0 0 0
-f1578 0 0 1 "samples/Bosendor/85 emp E4-.wav" 0 0 0
-f1579 0 0 1 "samples/Bosendor/85 emp F4-.wav" 0 0 0
-f1580 0 0 1 "samples/Bosendor/85 emp G4-.wav" 0 0 0
-f1581 0 0 1 "samples/Bosendor/85 emp A4-.wav" 0 0 0
-f1582 0 0 1 "samples/Bosendor/85 emp B4-.wav" 0 0 0
-f1583 0 0 1 "samples/Bosendor/85 emp C5-.wav" 0 0 0
-f1584 0 0 1 "samples/Bosendor/85 emp D5-.wav" 0 0 0
-f1585 0 0 1 "samples/Bosendor/85 emp E5-.wav" 0 0 0
-f1586 0 0 1 "samples/Bosendor/85 emp F5-.wav" 0 0 0
-f1587 0 0 1 "samples/Bosendor/85 emp G5-.wav" 0 0 0
-f1588 0 0 1 "samples/Bosendor/85 emp A5-.wav" 0 0 0
-f1589 0 0 1 "samples/Bosendor/85 emp B5-.wav" 0 0 0
-f1590 0 0 1 "samples/Bosendor/85 emp C6-.wav" 0 0 0
-f1591 0 0 1 "samples/Bosendor/85 emp D6-.wav" 0 0 0
-f1592 0 0 1 "samples/Bosendor/85 emp E6-.wav" 0 0 0
-f1593 0 0 1 "samples/Bosendor/85 emp F6-.wav" 0 0 0
-f1594 0 0 1 "samples/Bosendor/85 emp G6-.wav" 0 0 0
-f1595 0 0 1 "samples/Bosendor/85 emp A6-.wav" 0 0 0
-f1596 0 0 1 "samples/Bosendor/85 emp B6-.wav" 0 0 0
-f1597 0 0 1 "samples/Bosendor/85 emp C7-.wav" 0 0 0
-f1598 0 0 1 "samples/Bosendor/85 emp D7-.wav" 0 0 0
-f1599 0 0 1 "samples/Bosendor/85 emp E7-.wav" 0 0 0
-f1600 0 0 1 "samples/Bosendor/85 emp F7-.wav" 0 0 0
-f1601 0 0 1 "samples/Bosendor/85 emp G7-.wav" 0 0 0
-f1602 0 0 1 "samples/Bosendor/85 emp A7-.wav" 0 0 0
-f1603 0 0 1 "samples/Bosendor/85 emp B7-.wav" 0 0 0
-f1604 0 0 1 "samples/Bosendor/85 emp C8-.wav" 0 0 0
-; address of the ftables for instrument metadata. Instrument #1 metadata is located at 1230, and #2 is a louder version of the same sample, located at 1275. The rest of the instruments are located at 1330, 1385, 1440, 1495, and 1549, where the loudest is located. The csound orchestra will choose which instrument number at execution time based on the volume level of the note being played. The louder the note, the higher the instrument number, and thus the more pressure on the piano hammer that was played to make the louder samples.
-f1 0 128 -2 0 601 630 652 667 683 705 726 742 766 787 807 830 850 872 890 909 930 953 975 999 1030 1070 1104 1130 1156 1177 1192 1212 1217 1230 1275 1330 1385 1440 1495 1549 
-f2 0 128 -2 0 1 2 2 2 2 2 2 1 2 2 2 2 2 2 2 2 2 2 2 1 1 1 1 1 2 2 2 1 1 5 5 5 5 5 5 5
-; end of modified 3/1/26
-;Ins Star Dur Vel   Ton   Oct  Voice Stere Envlp Gliss Upsamp R-Env 2nd-gl 3rd Mult Line # ; Channel
-;p1  p2   p3  p4    p5    p6   p7    p8    p9    p10   p11    p12   p13   p14  p15; Channel
-; i1  0     4   69    000    4   1    8     1     0     0     1     0     0    35 ;  
-; i1  +     4   69    000    .   2    8     1     0     0     1     0     0    35 ;  
-; i1  +     4   69    000    .   3    8     1     0     0     1     0     0    35 ;  
-; i1  +     4   69    000    .   4    8     1     0     0     1     0     0    35 ;  
-; i1  +     4   69    000    .   5    8     1     0     0     1     0     0    35 ;  
-; i1  +     4   69    000    .   6    8     1     0     0     1     0     0    35 ;  
-; i1  +     4   69    000    .   7    8     1     0     0     1     0     0    35 ;  
-; i1  +     4   69    000    .   8    8     1     0     0     1     0     0    35 ;  
-; i1  +     4   69    000    .   9    8     1     0     0     1     0     0    35 ;  
-; i1  +     4   69    000    .   10   8     1     0     0     1     0     0    35 ;  
-; i1  +     4   69    000    .   11   8     1     0     0     1     0     0    35 ;  
-; i1  +     4   69    000    .   12   8     1     0     0     1     0     0    35 ;  
-; i1  +     4   69    000    .   13   8     1     0     0     1     0     0    35 ;  
-; i1  +     4   69    000    .   14   8     1     0     0     1     0     0    35 ;  
-; i1  +     4   69    000    .   15   8     1     0     0     1     0     0    35 ;  
-; i1  +     4   69    000    .   16   8     1     0     0     1     0     0    35 ;  
-; i1  +     4   69    000    .   17   8     1     0     0     1     0     0    35 ;  
-; i1  +     4   69    000    .   18   8     1     0     0     1     0     0    35 ;  
-; i1  +     4   69    000    .   19   8     1     0     0     1     0     0    35 ;  
-; i1  +     4   69    000    .   20   8     1     0     0     1     0     0    35 ;  
-; i1  +     4   69    000    .   21   8     1     0     0     1     0     0    35 ;  
-; i1  +     4   69    000    .   22   8     1     0     0     1     0     0    35 ;  
-; i1  +     4   69    000    .   23   8     1     0     0     1     0     0    35 ;  
-; i1  +     4   69    000    .   24   8     1     0     0     1     0     0    35 ;  
-t0   600
+f1216 0 0 1 "samples/sine/triangle.wav" 0 0 0
+f1221 0 0 1 "./samples/Bosendor/25 emp A0.wav" 0 0 0
+f1222 0 0 1 "./samples/Bosendor/25 emp B0-.wav" 0 0 0
+f1223 0 0 1 "./samples/Bosendor/25 emp C1-.wav" 0 0 0
+f1224 0 0 1 "./samples/Bosendor/25 emp D1-.wav" 0 0 0
+f1225 0 0 1 "./samples/Bosendor/25 emp E1-.wav" 0 0 0
+f1226 0 0 1 "./samples/Bosendor/25 emp F1-.wav" 0 0 0
+f1227 0 0 1 "./samples/Bosendor/25 emp G1-.wav" 0 0 0
+f1228 0 0 1 "./samples/Bosendor/25 emp A1.wav" 0 0 0
+f1229 0 0 1 "./samples/Bosendor/25 emp B1-.wav" 0 0 0
+f1230 0 0 1 "./samples/Bosendor/25 emp C2-.wav" 0 0 0
+f1231 0 0 1 "./samples/Bosendor/25 emp D2-.wav" 0 0 0
+f1232 0 0 1 "./samples/Bosendor/25 emp E2-.wav" 0 0 0
+f1233 0 0 1 "./samples/Bosendor/25 emp F2-.wav" 0 0 0
+f1234 0 0 1 "./samples/Bosendor/25 emp G2-.wav" 0 0 0
+f1235 0 0 1 "./samples/Bosendor/25 emp A2-.wav" 0 0 0
+f1236 0 0 1 "./samples/Bosendor/25 emp B2-.wav" 0 0 0
+f1237 0 0 1 "./samples/Bosendor/25 emp C3-.wav" 0 0 0
+f1238 0 0 1 "./samples/Bosendor/25 emp B3-.wav" 0 0 0
+f1239 0 0 1 "./samples/Bosendor/25 emp D4-.wav" 0 0 0
+f1240 0 0 1 "./samples/Bosendor/25 emp E4-.wav" 0 0 0
+f1241 0 0 1 "./samples/Bosendor/25 emp B4-.wav" 0 0 0
+f1242 0 0 1 "./samples/Bosendor/25 emp C5-.wav" 0 0 0
+f1243 0 0 1 "./samples/Bosendor/25 emp D5-.wav" 0 0 0
+f1244 0 0 1 "./samples/Bosendor/25 emp E5-.wav" 0 0 0
+f1245 0 0 1 "./samples/Bosendor/25 emp F5-.wav" 0 0 0
+f1246 0 0 1 "./samples/Bosendor/25 emp G5-.wav" 0 0 0
+f1247 0 0 1 "./samples/Bosendor/25 emp C6-.wav" 0 0 0
+f1248 0 0 1 "./samples/Bosendor/25 emp D6-.wav" 0 0 0
+f1249 0 0 1 "./samples/Bosendor/25 emp E6-.wav" 0 0 0
+f1250 0 0 1 "./samples/Bosendor/25 emp F6-.wav" 0 0 0
+f1251 0 0 1 "./samples/Bosendor/25 emp G6-.wav" 0 0 0
+f1252 0 0 1 "./samples/Bosendor/25 emp A6-.wav" 0 0 0
+f1253 0 0 1 "./samples/Bosendor/25 emp B6-.wav" 0 0 0
+f1254 0 0 1 "./samples/Bosendor/25 emp C7-.wav" 0 0 0
+f1255 0 0 1 "./samples/Bosendor/25 emp D7-.wav" 0 0 0
+f1256 0 0 1 "./samples/Bosendor/25 emp E7-.wav" 0 0 0
+f1257 0 0 1 "./samples/Bosendor/25 emp F7-.wav" 0 0 0
+f1258 0 0 1 "./samples/Bosendor/25 emp G7-.wav" 0 0 0
+f1259 0 0 1 "./samples/Bosendor/25 emp A7-.wav" 0 0 0
+f1260 0 0 1 "./samples/Bosendor/25 emp B7-.wav" 0 0 0
+f1261 0 0 1 "./samples/Bosendor/25 emp C8-.wav" 0 0 0
+f1266 0 0 1 "./samples/Bosendor/31 emp A0.wav" 0 0 0
+f1267 0 0 1 "./samples/Bosendor/31 emp B0-.wav" 0 0 0
+f1268 0 0 1 "./samples/Bosendor/31 emp C1-.wav" 0 0 0
+f1269 0 0 1 "./samples/Bosendor/31 emp D1-.wav" 0 0 0
+f1270 0 0 1 "./samples/Bosendor/31 emp E1-.wav" 0 0 0
+f1271 0 0 1 "./samples/Bosendor/31 emp F1-.wav" 0 0 0
+f1272 0 0 1 "./samples/Bosendor/31 emp G1-.wav" 0 0 0
+f1273 0 0 1 "./samples/Bosendor/31 emp A1.wav" 0 0 0
+f1274 0 0 1 "./samples/Bosendor/31 emp B1-.wav" 0 0 0
+f1275 0 0 1 "./samples/Bosendor/31 emp C2-.wav" 0 0 0
+f1276 0 0 1 "./samples/Bosendor/31 emp D2-.wav" 0 0 0
+f1277 0 0 1 "./samples/Bosendor/31 emp E2-.wav" 0 0 0
+f1278 0 0 1 "./samples/Bosendor/31 emp F2-.wav" 0 0 0
+f1279 0 0 1 "./samples/Bosendor/31 emp G2-.wav" 0 0 0
+f1280 0 0 1 "./samples/Bosendor/31 emp A2-.wav" 0 0 0
+f1281 0 0 1 "./samples/Bosendor/31 emp B2-.wav" 0 0 0
+f1282 0 0 1 "./samples/Bosendor/31 emp C3-.wav" 0 0 0
+f1283 0 0 1 "./samples/Bosendor/31 emp D3-.wav" 0 0 0
+f1284 0 0 1 "./samples/Bosendor/31 emp E3-.wav" 0 0 0
+f1285 0 0 1 "./samples/Bosendor/31 emp F3-.wav" 0 0 0
+f1286 0 0 1 "./samples/Bosendor/31 emp G3-.wav" 0 0 0
+f1287 0 0 1 "./samples/Bosendor/31 emp A3-.wav" 0 0 0
+f1288 0 0 1 "./samples/Bosendor/31 emp B3-.wav" 0 0 0
+f1289 0 0 1 "./samples/Bosendor/31 emp C4-.wav" 0 0 0
+f1290 0 0 1 "./samples/Bosendor/31 emp D4-.wav" 0 0 0
+f1291 0 0 1 "./samples/Bosendor/31 emp E4-.wav" 0 0 0
+f1292 0 0 1 "./samples/Bosendor/31 emp F4-.wav" 0 0 0
+f1293 0 0 1 "./samples/Bosendor/31 emp G4-.wav" 0 0 0
+f1294 0 0 1 "./samples/Bosendor/31 emp A4-.wav" 0 0 0
+f1295 0 0 1 "./samples/Bosendor/31 emp B4-.wav" 0 0 0
+f1296 0 0 1 "./samples/Bosendor/31 emp C5-.wav" 0 0 0
+f1297 0 0 1 "./samples/Bosendor/31 emp D5-.wav" 0 0 0
+f1298 0 0 1 "./samples/Bosendor/31 emp E5-.wav" 0 0 0
+f1299 0 0 1 "./samples/Bosendor/31 emp F5-.wav" 0 0 0
+f1300 0 0 1 "./samples/Bosendor/31 emp G5-.wav" 0 0 0
+f1301 0 0 1 "./samples/Bosendor/31 emp A5-.wav" 0 0 0
+f1302 0 0 1 "./samples/Bosendor/31 emp B5-.wav" 0 0 0
+f1303 0 0 1 "./samples/Bosendor/31 emp C6-.wav" 0 0 0
+f1304 0 0 1 "./samples/Bosendor/31 emp D6-.wav" 0 0 0
+f1305 0 0 1 "./samples/Bosendor/31 emp E6-.wav" 0 0 0
+f1306 0 0 1 "./samples/Bosendor/31 emp F6-.wav" 0 0 0
+f1307 0 0 1 "./samples/Bosendor/31 emp G6-.wav" 0 0 0
+f1308 0 0 1 "./samples/Bosendor/31 emp A6-.wav" 0 0 0
+f1309 0 0 1 "./samples/Bosendor/31 emp C7-.wav" 0 0 0
+f1310 0 0 1 "./samples/Bosendor/31 emp D7-.wav" 0 0 0
+f1311 0 0 1 "./samples/Bosendor/31 emp E7-.wav" 0 0 0
+f1312 0 0 1 "./samples/Bosendor/31 emp F7-.wav" 0 0 0
+f1313 0 0 1 "./samples/Bosendor/31 emp G7-.wav" 0 0 0
+f1314 0 0 1 "./samples/Bosendor/31 emp A7-.wav" 0 0 0
+f1315 0 0 1 "./samples/Bosendor/31 emp B7-.wav" 0 0 0
+f1316 0 0 1 "./samples/Bosendor/31 emp C8-.wav" 0 0 0
+f1321 0 0 1 "./samples/Bosendor/39 emp A0.wav" 0 0 0
+f1322 0 0 1 "./samples/Bosendor/39 emp B0-.wav" 0 0 0
+f1323 0 0 1 "./samples/Bosendor/39 emp C1-.wav" 0 0 0
+f1324 0 0 1 "./samples/Bosendor/39 emp D1-.wav" 0 0 0
+f1325 0 0 1 "./samples/Bosendor/39 emp E1-.wav" 0 0 0
+f1326 0 0 1 "./samples/Bosendor/39 emp F1-.wav" 0 0 0
+f1327 0 0 1 "./samples/Bosendor/39 emp G1-.wav" 0 0 0
+f1328 0 0 1 "./samples/Bosendor/39 emp A1.wav" 0 0 0
+f1329 0 0 1 "./samples/Bosendor/39 emp C2-.wav" 0 0 0
+f1330 0 0 1 "./samples/Bosendor/39 emp D2-.wav" 0 0 0
+f1331 0 0 1 "./samples/Bosendor/39 emp E2-.wav" 0 0 0
+f1332 0 0 1 "./samples/Bosendor/39 emp F2-.wav" 0 0 0
+f1333 0 0 1 "./samples/Bosendor/39 emp G2-.wav" 0 0 0
+f1334 0 0 1 "./samples/Bosendor/39 emp A2-.wav" 0 0 0
+f1335 0 0 1 "./samples/Bosendor/39 emp B2-.wav" 0 0 0
+f1336 0 0 1 "./samples/Bosendor/39 emp C3-.wav" 0 0 0
+f1337 0 0 1 "./samples/Bosendor/39 emp E3-.wav" 0 0 0
+f1338 0 0 1 "./samples/Bosendor/39 emp G3-.wav" 0 0 0
+f1339 0 0 1 "./samples/Bosendor/39 emp B3-.wav" 0 0 0
+f1340 0 0 1 "./samples/Bosendor/39 emp C4-.wav" 0 0 0
+f1341 0 0 1 "./samples/Bosendor/39 emp D4-.wav" 0 0 0
+f1342 0 0 1 "./samples/Bosendor/39 emp C5-.wav" 0 0 0
+f1343 0 0 1 "./samples/Bosendor/39 emp D5-.wav" 0 0 0
+f1344 0 0 1 "./samples/Bosendor/39 emp E5-.wav" 0 0 0
+f1345 0 0 1 "./samples/Bosendor/39 emp F5-.wav" 0 0 0
+f1346 0 0 1 "./samples/Bosendor/39 emp G5-.wav" 0 0 0
+f1347 0 0 1 "./samples/Bosendor/39 emp B5-.wav" 0 0 0
+f1348 0 0 1 "./samples/Bosendor/39 emp C6-.wav" 0 0 0
+f1349 0 0 1 "./samples/Bosendor/39 emp D6-.wav" 0 0 0
+f1350 0 0 1 "./samples/Bosendor/39 emp E6-.wav" 0 0 0
+f1351 0 0 1 "./samples/Bosendor/39 emp F6-.wav" 0 0 0
+f1352 0 0 1 "./samples/Bosendor/39 emp G6-.wav" 0 0 0
+f1353 0 0 1 "./samples/Bosendor/39 emp A6-.wav" 0 0 0
+f1354 0 0 1 "./samples/Bosendor/39 emp B6-.wav" 0 0 0
+f1355 0 0 1 "./samples/Bosendor/39 emp C7-.wav" 0 0 0
+f1356 0 0 1 "./samples/Bosendor/39 emp D7-.wav" 0 0 0
+f1357 0 0 1 "./samples/Bosendor/39 emp E7-.wav" 0 0 0
+f1358 0 0 1 "./samples/Bosendor/39 emp F7-.wav" 0 0 0
+f1359 0 0 1 "./samples/Bosendor/39 emp G7-.wav" 0 0 0
+f1360 0 0 1 "./samples/Bosendor/39 emp A7-.wav" 0 0 0
+f1361 0 0 1 "./samples/Bosendor/39 emp B7-.wav" 0 0 0
+f1362 0 0 1 "./samples/Bosendor/39 emp C8-.wav" 0 0 0
+f1367 0 0 1 "./samples/Bosendor/47 emp A0.wav" 0 0 0
+f1368 0 0 1 "./samples/Bosendor/47 emp B0-.wav" 0 0 0
+f1369 0 0 1 "./samples/Bosendor/47 emp C1-.wav" 0 0 0
+f1370 0 0 1 "./samples/Bosendor/47 emp D1-.wav" 0 0 0
+f1371 0 0 1 "./samples/Bosendor/47 emp E1-.wav" 0 0 0
+f1372 0 0 1 "./samples/Bosendor/47 emp F1-.wav" 0 0 0
+f1373 0 0 1 "./samples/Bosendor/47 emp G1-.wav" 0 0 0
+f1374 0 0 1 "./samples/Bosendor/47 emp A1.wav" 0 0 0
+f1375 0 0 1 "./samples/Bosendor/47 emp B1-.wav" 0 0 0
+f1376 0 0 1 "./samples/Bosendor/47 emp D2-.wav" 0 0 0
+f1377 0 0 1 "./samples/Bosendor/47 emp E2-.wav" 0 0 0
+f1378 0 0 1 "./samples/Bosendor/47 emp F2-.wav" 0 0 0
+f1379 0 0 1 "./samples/Bosendor/47 emp G2-.wav" 0 0 0
+f1380 0 0 1 "./samples/Bosendor/47 emp A2-.wav" 0 0 0
+f1381 0 0 1 "./samples/Bosendor/47 emp B2-.wav" 0 0 0
+f1382 0 0 1 "./samples/Bosendor/47 emp C3-.wav" 0 0 0
+f1383 0 0 1 "./samples/Bosendor/47 emp D3-.wav" 0 0 0
+f1384 0 0 1 "./samples/Bosendor/47 emp E3-.wav" 0 0 0
+f1385 0 0 1 "./samples/Bosendor/47 emp F3-.wav" 0 0 0
+f1386 0 0 1 "./samples/Bosendor/47 emp G3-.wav" 0 0 0
+f1387 0 0 1 "./samples/Bosendor/47 emp A3-.wav" 0 0 0
+f1388 0 0 1 "./samples/Bosendor/47 emp B3-.wav" 0 0 0
+f1389 0 0 1 "./samples/Bosendor/47 emp C4-.wav" 0 0 0
+f1390 0 0 1 "./samples/Bosendor/47 emp D4-.wav" 0 0 0
+f1391 0 0 1 "./samples/Bosendor/47 emp E4-.wav" 0 0 0
+f1392 0 0 1 "./samples/Bosendor/47 emp F4-.wav" 0 0 0
+f1393 0 0 1 "./samples/Bosendor/47 emp G4-.wav" 0 0 0
+f1394 0 0 1 "./samples/Bosendor/47 emp A4-.wav" 0 0 0
+f1395 0 0 1 "./samples/Bosendor/47 emp B4-.wav" 0 0 0
+f1396 0 0 1 "./samples/Bosendor/47 emp C5-.wav" 0 0 0
+f1397 0 0 1 "./samples/Bosendor/47 emp D5-.wav" 0 0 0
+f1398 0 0 1 "./samples/Bosendor/47 emp E5-.wav" 0 0 0
+f1399 0 0 1 "./samples/Bosendor/47 emp F5-.wav" 0 0 0
+f1400 0 0 1 "./samples/Bosendor/47 emp G5-.wav" 0 0 0
+f1401 0 0 1 "./samples/Bosendor/47 emp A5-.wav" 0 0 0
+f1402 0 0 1 "./samples/Bosendor/47 emp B5-.wav" 0 0 0
+f1403 0 0 1 "./samples/Bosendor/47 emp C6-.wav" 0 0 0
+f1404 0 0 1 "./samples/Bosendor/47 emp D6-.wav" 0 0 0
+f1405 0 0 1 "./samples/Bosendor/47 emp E6-.wav" 0 0 0
+f1406 0 0 1 "./samples/Bosendor/47 emp F6-.wav" 0 0 0
+f1407 0 0 1 "./samples/Bosendor/47 emp G6-.wav" 0 0 0
+f1408 0 0 1 "./samples/Bosendor/47 emp A6-.wav" 0 0 0
+f1409 0 0 1 "./samples/Bosendor/47 emp B6-.wav" 0 0 0
+f1410 0 0 1 "./samples/Bosendor/47 emp C7-.wav" 0 0 0
+f1411 0 0 1 "./samples/Bosendor/47 emp D7-.wav" 0 0 0
+f1412 0 0 1 "./samples/Bosendor/47 emp E7-.wav" 0 0 0
+f1413 0 0 1 "./samples/Bosendor/47 emp F7-.wav" 0 0 0
+f1414 0 0 1 "./samples/Bosendor/47 emp G7-.wav" 0 0 0
+f1415 0 0 1 "./samples/Bosendor/47 emp A7-.wav" 0 0 0
+f1416 0 0 1 "./samples/Bosendor/47 emp B7-.wav" 0 0 0
+f1417 0 0 1 "./samples/Bosendor/47 emp C8-.wav" 0 0 0
+f1422 0 0 1 "./samples/Bosendor/63 emp A0.wav" 0 0 0
+f1423 0 0 1 "./samples/Bosendor/63 emp B0-.wav" 0 0 0
+f1424 0 0 1 "./samples/Bosendor/63 emp C1-.wav" 0 0 0
+f1425 0 0 1 "./samples/Bosendor/63 emp D1-.wav" 0 0 0
+f1426 0 0 1 "./samples/Bosendor/63 emp E1-.wav" 0 0 0
+f1427 0 0 1 "./samples/Bosendor/63 emp F1-.wav" 0 0 0
+f1428 0 0 1 "./samples/Bosendor/63 emp G1-.wav" 0 0 0
+f1429 0 0 1 "./samples/Bosendor/63 emp A1.wav" 0 0 0
+f1430 0 0 1 "./samples/Bosendor/63 emp B1-.wav" 0 0 0
+f1431 0 0 1 "./samples/Bosendor/63 emp C2-.wav" 0 0 0
+f1432 0 0 1 "./samples/Bosendor/63 emp D2-.wav" 0 0 0
+f1433 0 0 1 "./samples/Bosendor/63 emp E2-.wav" 0 0 0
+f1434 0 0 1 "./samples/Bosendor/63 emp F2-.wav" 0 0 0
+f1435 0 0 1 "./samples/Bosendor/63 emp G2-.wav" 0 0 0
+f1436 0 0 1 "./samples/Bosendor/63 emp A2-.wav" 0 0 0
+f1437 0 0 1 "./samples/Bosendor/63 emp B2-.wav" 0 0 0
+f1438 0 0 1 "./samples/Bosendor/63 emp C3-.wav" 0 0 0
+f1439 0 0 1 "./samples/Bosendor/63 emp D3-.wav" 0 0 0
+f1440 0 0 1 "./samples/Bosendor/63 emp E3-.wav" 0 0 0
+f1441 0 0 1 "./samples/Bosendor/63 emp F3-.wav" 0 0 0
+f1442 0 0 1 "./samples/Bosendor/63 emp G3-.wav" 0 0 0
+f1443 0 0 1 "./samples/Bosendor/63 emp A3-.wav" 0 0 0
+f1444 0 0 1 "./samples/Bosendor/63 emp B3-.wav" 0 0 0
+f1445 0 0 1 "./samples/Bosendor/63 emp C4-.wav" 0 0 0
+f1446 0 0 1 "./samples/Bosendor/63 emp D4-.wav" 0 0 0
+f1447 0 0 1 "./samples/Bosendor/63 emp E4-.wav" 0 0 0
+f1448 0 0 1 "./samples/Bosendor/63 emp F4-.wav" 0 0 0
+f1449 0 0 1 "./samples/Bosendor/63 emp G4-.wav" 0 0 0
+f1450 0 0 1 "./samples/Bosendor/63 emp A4-.wav" 0 0 0
+f1451 0 0 1 "./samples/Bosendor/63 emp B4-.wav" 0 0 0
+f1452 0 0 1 "./samples/Bosendor/63 emp C5-.wav" 0 0 0
+f1453 0 0 1 "./samples/Bosendor/63 emp D5-.wav" 0 0 0
+f1454 0 0 1 "./samples/Bosendor/63 emp E5-.wav" 0 0 0
+f1455 0 0 1 "./samples/Bosendor/63 emp F5-.wav" 0 0 0
+f1456 0 0 1 "./samples/Bosendor/63 emp G5-.wav" 0 0 0
+f1457 0 0 1 "./samples/Bosendor/63 emp A5-.wav" 0 0 0
+f1458 0 0 1 "./samples/Bosendor/63 emp B5-.wav" 0 0 0
+f1459 0 0 1 "./samples/Bosendor/63 emp C6-.wav" 0 0 0
+f1460 0 0 1 "./samples/Bosendor/63 emp D6-.wav" 0 0 0
+f1461 0 0 1 "./samples/Bosendor/63 emp E6-.wav" 0 0 0
+f1462 0 0 1 "./samples/Bosendor/63 emp F6-.wav" 0 0 0
+f1463 0 0 1 "./samples/Bosendor/63 emp G6-.wav" 0 0 0
+f1464 0 0 1 "./samples/Bosendor/63 emp A6-.wav" 0 0 0
+f1465 0 0 1 "./samples/Bosendor/63 emp B6-.wav" 0 0 0
+f1466 0 0 1 "./samples/Bosendor/63 emp C7-.wav" 0 0 0
+f1467 0 0 1 "./samples/Bosendor/63 emp D7-.wav" 0 0 0
+f1468 0 0 1 "./samples/Bosendor/63 emp E7-.wav" 0 0 0
+f1469 0 0 1 "./samples/Bosendor/63 emp F7-.wav" 0 0 0
+f1470 0 0 1 "./samples/Bosendor/63 emp G7-.wav" 0 0 0
+f1471 0 0 1 "./samples/Bosendor/63 emp A7-.wav" 0 0 0
+f1472 0 0 1 "./samples/Bosendor/63 emp B7-.wav" 0 0 0
+f1473 0 0 1 "./samples/Bosendor/63 emp C8-.wav" 0 0 0
+f1478 0 0 1 "./samples/Bosendor/78 emp B0-.wav" 0 0 0
+f1479 0 0 1 "./samples/Bosendor/78 emp C1-.wav" 0 0 0
+f1480 0 0 1 "./samples/Bosendor/78 emp D1-.wav" 0 0 0
+f1481 0 0 1 "./samples/Bosendor/78 emp E1-.wav" 0 0 0
+f1482 0 0 1 "./samples/Bosendor/78 emp F1-.wav" 0 0 0
+f1483 0 0 1 "./samples/Bosendor/78 emp G1-.wav" 0 0 0
+f1484 0 0 1 "./samples/Bosendor/78 emp A1.wav" 0 0 0
+f1485 0 0 1 "./samples/Bosendor/78 emp B1-.wav" 0 0 0
+f1486 0 0 1 "./samples/Bosendor/78 emp C2-.wav" 0 0 0
+f1487 0 0 1 "./samples/Bosendor/78 emp D2-.wav" 0 0 0
+f1488 0 0 1 "./samples/Bosendor/78 emp E2-.wav" 0 0 0
+f1489 0 0 1 "./samples/Bosendor/78 emp F2-.wav" 0 0 0
+f1490 0 0 1 "./samples/Bosendor/78 emp G2-.wav" 0 0 0
+f1491 0 0 1 "./samples/Bosendor/78 emp A2-.wav" 0 0 0
+f1492 0 0 1 "./samples/Bosendor/78 emp B2-.wav" 0 0 0
+f1493 0 0 1 "./samples/Bosendor/78 emp C3-.wav" 0 0 0
+f1494 0 0 1 "./samples/Bosendor/78 emp D3-.wav" 0 0 0
+f1495 0 0 1 "./samples/Bosendor/78 emp E3-.wav" 0 0 0
+f1496 0 0 1 "./samples/Bosendor/78 emp F3-.wav" 0 0 0
+f1497 0 0 1 "./samples/Bosendor/78 emp G3-.wav" 0 0 0
+f1498 0 0 1 "./samples/Bosendor/78 emp A3-.wav" 0 0 0
+f1499 0 0 1 "./samples/Bosendor/78 emp B3-.wav" 0 0 0
+f1500 0 0 1 "./samples/Bosendor/78 emp C4-.wav" 0 0 0
+f1501 0 0 1 "./samples/Bosendor/78 emp D4-.wav" 0 0 0
+f1502 0 0 1 "./samples/Bosendor/78 emp E4-.wav" 0 0 0
+f1503 0 0 1 "./samples/Bosendor/78 emp F4-.wav" 0 0 0
+f1504 0 0 1 "./samples/Bosendor/78 emp G4-.wav" 0 0 0
+f1505 0 0 1 "./samples/Bosendor/78 emp A4-.wav" 0 0 0
+f1506 0 0 1 "./samples/Bosendor/78 emp B4-.wav" 0 0 0
+f1507 0 0 1 "./samples/Bosendor/78 emp C5-.wav" 0 0 0
+f1508 0 0 1 "./samples/Bosendor/78 emp D5-.wav" 0 0 0
+f1509 0 0 1 "./samples/Bosendor/78 emp E5-.wav" 0 0 0
+f1510 0 0 1 "./samples/Bosendor/78 emp F5-.wav" 0 0 0
+f1511 0 0 1 "./samples/Bosendor/78 emp G5-.wav" 0 0 0
+f1512 0 0 1 "./samples/Bosendor/78 emp A5-.wav" 0 0 0
+f1513 0 0 1 "./samples/Bosendor/78 emp B5-.wav" 0 0 0
+f1514 0 0 1 "./samples/Bosendor/78 emp C6-.wav" 0 0 0
+f1515 0 0 1 "./samples/Bosendor/78 emp D6-.wav" 0 0 0
+f1516 0 0 1 "./samples/Bosendor/78 emp E6-.wav" 0 0 0
+f1517 0 0 1 "./samples/Bosendor/78 emp F6-.wav" 0 0 0
+f1518 0 0 1 "./samples/Bosendor/78 emp G6-.wav" 0 0 0
+f1519 0 0 1 "./samples/Bosendor/78 emp A6-.wav" 0 0 0
+f1520 0 0 1 "./samples/Bosendor/78 emp B6-.wav" 0 0 0
+f1521 0 0 1 "./samples/Bosendor/78 emp C7-.wav" 0 0 0
+f1522 0 0 1 "./samples/Bosendor/78 emp D7-.wav" 0 0 0
+f1523 0 0 1 "./samples/Bosendor/78 emp E7-.wav" 0 0 0
+f1524 0 0 1 "./samples/Bosendor/78 emp F7-.wav" 0 0 0
+f1525 0 0 1 "./samples/Bosendor/78 emp G7-.wav" 0 0 0
+f1526 0 0 1 "./samples/Bosendor/78 emp A7-.wav" 0 0 0
+f1527 0 0 1 "./samples/Bosendor/78 emp B7-.wav" 0 0 0
+f1528 0 0 1 "./samples/Bosendor/78 emp C8-.wav" 0 0 0
+f1533 0 0 1 "./samples/Bosendor/85 emp A0.wav" 0 0 0
+f1534 0 0 1 "./samples/Bosendor/85 emp B0-.wav" 0 0 0
+f1535 0 0 1 "./samples/Bosendor/85 emp C1-.wav" 0 0 0
+f1536 0 0 1 "./samples/Bosendor/85 emp D1-.wav" 0 0 0
+f1537 0 0 1 "./samples/Bosendor/85 emp E1-.wav" 0 0 0
+f1538 0 0 1 "./samples/Bosendor/85 emp F1-.wav" 0 0 0
+f1539 0 0 1 "./samples/Bosendor/85 emp G1-.wav" 0 0 0
+f1540 0 0 1 "./samples/Bosendor/85 emp A1.wav" 0 0 0
+f1541 0 0 1 "./samples/Bosendor/85 emp B1-.wav" 0 0 0
+f1542 0 0 1 "./samples/Bosendor/85 emp C2-.wav" 0 0 0
+f1543 0 0 1 "./samples/Bosendor/85 emp D2-.wav" 0 0 0
+f1544 0 0 1 "./samples/Bosendor/85 emp E2-.wav" 0 0 0
+f1545 0 0 1 "./samples/Bosendor/85 emp F2-.wav" 0 0 0
+f1546 0 0 1 "./samples/Bosendor/85 emp G2-.wav" 0 0 0
+f1547 0 0 1 "./samples/Bosendor/85 emp A2-.wav" 0 0 0
+f1548 0 0 1 "./samples/Bosendor/85 emp B2-.wav" 0 0 0
+f1549 0 0 1 "./samples/Bosendor/85 emp C3-.wav" 0 0 0
+f1550 0 0 1 "./samples/Bosendor/85 emp D3-.wav" 0 0 0
+f1551 0 0 1 "./samples/Bosendor/85 emp E3-.wav" 0 0 0
+f1552 0 0 1 "./samples/Bosendor/85 emp F3-.wav" 0 0 0
+f1553 0 0 1 "./samples/Bosendor/85 emp G3-.wav" 0 0 0
+f1554 0 0 1 "./samples/Bosendor/85 emp A3-.wav" 0 0 0
+f1555 0 0 1 "./samples/Bosendor/85 emp B3-.wav" 0 0 0
+f1556 0 0 1 "./samples/Bosendor/85 emp C4-.wav" 0 0 0
+f1557 0 0 1 "./samples/Bosendor/85 emp D4-.wav" 0 0 0
+f1558 0 0 1 "./samples/Bosendor/85 emp E4-.wav" 0 0 0
+f1559 0 0 1 "./samples/Bosendor/85 emp F4-.wav" 0 0 0
+f1560 0 0 1 "./samples/Bosendor/85 emp G4-.wav" 0 0 0
+f1561 0 0 1 "./samples/Bosendor/85 emp A4-.wav" 0 0 0
+f1562 0 0 1 "./samples/Bosendor/85 emp B4-.wav" 0 0 0
+f1563 0 0 1 "./samples/Bosendor/85 emp C5-.wav" 0 0 0
+f1564 0 0 1 "./samples/Bosendor/85 emp D5-.wav" 0 0 0
+f1565 0 0 1 "./samples/Bosendor/85 emp E5-.wav" 0 0 0
+f1566 0 0 1 "./samples/Bosendor/85 emp F5-.wav" 0 0 0
+f1567 0 0 1 "./samples/Bosendor/85 emp G5-.wav" 0 0 0
+f1568 0 0 1 "./samples/Bosendor/85 emp A5-.wav" 0 0 0
+f1569 0 0 1 "./samples/Bosendor/85 emp B5-.wav" 0 0 0
+f1570 0 0 1 "./samples/Bosendor/85 emp C6-.wav" 0 0 0
+f1571 0 0 1 "./samples/Bosendor/85 emp D6-.wav" 0 0 0
+f1572 0 0 1 "./samples/Bosendor/85 emp E6-.wav" 0 0 0
+f1573 0 0 1 "./samples/Bosendor/85 emp F6-.wav" 0 0 0
+f1574 0 0 1 "./samples/Bosendor/85 emp G6-.wav" 0 0 0
+f1575 0 0 1 "./samples/Bosendor/85 emp A6-.wav" 0 0 0
+f1576 0 0 1 "./samples/Bosendor/85 emp B6-.wav" 0 0 0
+f1577 0 0 1 "./samples/Bosendor/85 emp C7-.wav" 0 0 0
+f1578 0 0 1 "./samples/Bosendor/85 emp D7-.wav" 0 0 0
+f1579 0 0 1 "./samples/Bosendor/85 emp E7-.wav" 0 0 0
+f1580 0 0 1 "./samples/Bosendor/85 emp F7-.wav" 0 0 0
+f1581 0 0 1 "./samples/Bosendor/85 emp G7-.wav" 0 0 0
+f1582 0 0 1 "./samples/Bosendor/85 emp A7-.wav" 0 0 0
+f1583 0 0 1 "./samples/Bosendor/85 emp B7-.wav" 0 0 0
+f1584 0 0 1 "./samples/Bosendor/85 emp C8-.wav" 0 0 0
+f1589 0 0 1 "./samples/Bosendor/99 emp A0.wav" 0 0 0
+f1590 0 0 1 "./samples/Bosendor/99 emp B0-.wav" 0 0 0
+f1591 0 0 1 "./samples/Bosendor/99 emp C1-.wav" 0 0 0
+f1592 0 0 1 "./samples/Bosendor/99 emp D1-.wav" 0 0 0
+f1593 0 0 1 "./samples/Bosendor/99 emp E1-.wav" 0 0 0
+f1594 0 0 1 "./samples/Bosendor/99 emp F1-.wav" 0 0 0
+f1595 0 0 1 "./samples/Bosendor/99 emp G1-.wav" 0 0 0
+f1596 0 0 1 "./samples/Bosendor/99 emp A1.wav" 0 0 0
+f1597 0 0 1 "./samples/Bosendor/99 emp B1-.wav" 0 0 0
+f1598 0 0 1 "./samples/Bosendor/99 emp C2-.wav" 0 0 0
+f1599 0 0 1 "./samples/Bosendor/99 emp D2-.wav" 0 0 0
+f1600 0 0 1 "./samples/Bosendor/99 emp E2-.wav" 0 0 0
+f1601 0 0 1 "./samples/Bosendor/99 emp F2-.wav" 0 0 0
+f1602 0 0 1 "./samples/Bosendor/99 emp G2-.wav" 0 0 0
+f1603 0 0 1 "./samples/Bosendor/99 emp A2-.wav" 0 0 0
+f1604 0 0 1 "./samples/Bosendor/99 emp B2-.wav" 0 0 0
+f1605 0 0 1 "./samples/Bosendor/99 emp C3-.wav" 0 0 0
+f1606 0 0 1 "./samples/Bosendor/99 emp D3-.wav" 0 0 0
+f1607 0 0 1 "./samples/Bosendor/99 emp E3-.wav" 0 0 0
+f1608 0 0 1 "./samples/Bosendor/99 emp F3-.wav" 0 0 0
+f1609 0 0 1 "./samples/Bosendor/99 emp G3-.wav" 0 0 0
+f1610 0 0 1 "./samples/Bosendor/99 emp A3-.wav" 0 0 0
+f1611 0 0 1 "./samples/Bosendor/99 emp B3-.wav" 0 0 0
+f1612 0 0 1 "./samples/Bosendor/99 emp C4-.wav" 0 0 0
+f1613 0 0 1 "./samples/Bosendor/99 emp D4-.wav" 0 0 0
+f1614 0 0 1 "./samples/Bosendor/99 emp E4-.wav" 0 0 0
+f1615 0 0 1 "./samples/Bosendor/99 emp F4-.wav" 0 0 0
+f1616 0 0 1 "./samples/Bosendor/99 emp G4-.wav" 0 0 0
+f1617 0 0 1 "./samples/Bosendor/99 emp A4-.wav" 0 0 0
+f1618 0 0 1 "./samples/Bosendor/99 emp B4-.wav" 0 0 0
+f1619 0 0 1 "./samples/Bosendor/99 emp C5-.wav" 0 0 0
+f1620 0 0 1 "./samples/Bosendor/99 emp D5-.wav" 0 0 0
+f1621 0 0 1 "./samples/Bosendor/99 emp E5-.wav" 0 0 0
+f1622 0 0 1 "./samples/Bosendor/99 emp F5-.wav" 0 0 0
+f1623 0 0 1 "./samples/Bosendor/99 emp G5-.wav" 0 0 0
+f1624 0 0 1 "./samples/Bosendor/99 emp A5-.wav" 0 0 0
+f1625 0 0 1 "./samples/Bosendor/99 emp B5-.wav" 0 0 0
+f1626 0 0 1 "./samples/Bosendor/99 emp C6-.wav" 0 0 0
+f1627 0 0 1 "./samples/Bosendor/99 emp D6-.wav" 0 0 0
+f1628 0 0 1 "./samples/Bosendor/99 emp E6-.wav" 0 0 0
+f1629 0 0 1 "./samples/Bosendor/99 emp F6-.wav" 0 0 0
+f1630 0 0 1 "./samples/Bosendor/99 emp G6-.wav" 0 0 0
+f1631 0 0 1 "./samples/Bosendor/99 emp A6-.wav" 0 0 0
+f1632 0 0 1 "./samples/Bosendor/99 emp B6-.wav" 0 0 0
+f1633 0 0 1 "./samples/Bosendor/99 emp C7-.wav" 0 0 0
+f1634 0 0 1 "./samples/Bosendor/99 emp D7-.wav" 0 0 0
+f1635 0 0 1 "./samples/Bosendor/99 emp E7-.wav" 0 0 0
+f1636 0 0 1 "./samples/Bosendor/99 emp F7-.wav" 0 0 0
+f1637 0 0 1 "./samples/Bosendor/99 emp G7-.wav" 0 0 0
+f1638 0 0 1 "./samples/Bosendor/99 emp A7-.wav" 0 0 0
+f1639 0 0 1 "./samples/Bosendor/99 emp B7-.wav" 0 0 0
+f1640 0 0 1 "./samples/Bosendor/99 emp C8-.wav" 0 0 0
+f1645 0 0 1 "./samples/Bosendor/113 emp A0.wav" 0 0 0
+f1646 0 0 1 "./samples/Bosendor/113 emp B0-.wav" 0 0 0
+f1647 0 0 1 "./samples/Bosendor/113 emp C1-.wav" 0 0 0
+f1648 0 0 1 "./samples/Bosendor/113 emp D1-.wav" 0 0 0
+f1649 0 0 1 "./samples/Bosendor/113 emp E1-.wav" 0 0 0
+f1650 0 0 1 "./samples/Bosendor/113 emp F1-.wav" 0 0 0
+f1651 0 0 1 "./samples/Bosendor/113 emp G1-.wav" 0 0 0
+f1652 0 0 1 "./samples/Bosendor/113 emp A1.wav" 0 0 0
+f1653 0 0 1 "./samples/Bosendor/113 emp B1-.wav" 0 0 0
+f1654 0 0 1 "./samples/Bosendor/113 emp C2-.wav" 0 0 0
+f1655 0 0 1 "./samples/Bosendor/113 emp D2-.wav" 0 0 0
+f1656 0 0 1 "./samples/Bosendor/113 emp E2-.wav" 0 0 0
+f1657 0 0 1 "./samples/Bosendor/113 emp F2-.wav" 0 0 0
+f1658 0 0 1 "./samples/Bosendor/113 emp A2-.wav" 0 0 0
+f1659 0 0 1 "./samples/Bosendor/113 emp B2-.wav" 0 0 0
+f1660 0 0 1 "./samples/Bosendor/113 emp C3-.wav" 0 0 0
+f1661 0 0 1 "./samples/Bosendor/113 emp D3-.wav" 0 0 0
+f1662 0 0 1 "./samples/Bosendor/113 emp E3-.wav" 0 0 0
+f1663 0 0 1 "./samples/Bosendor/113 emp F3-.wav" 0 0 0
+f1664 0 0 1 "./samples/Bosendor/113 emp G3-.wav" 0 0 0
+f1665 0 0 1 "./samples/Bosendor/113 emp A3-.wav" 0 0 0
+f1666 0 0 1 "./samples/Bosendor/113 emp B3-.wav" 0 0 0
+f1667 0 0 1 "./samples/Bosendor/113 emp C4-.wav" 0 0 0
+f1668 0 0 1 "./samples/Bosendor/113 emp D4-.wav" 0 0 0
+f1669 0 0 1 "./samples/Bosendor/113 emp E4-.wav" 0 0 0
+f1670 0 0 1 "./samples/Bosendor/113 emp F4-.wav" 0 0 0
+f1671 0 0 1 "./samples/Bosendor/113 emp G4-.wav" 0 0 0
+f1672 0 0 1 "./samples/Bosendor/113 emp A4-.wav" 0 0 0
+f1673 0 0 1 "./samples/Bosendor/113 emp B4-.wav" 0 0 0
+f1674 0 0 1 "./samples/Bosendor/113 emp C5-.wav" 0 0 0
+f1675 0 0 1 "./samples/Bosendor/113 emp D5-.wav" 0 0 0
+f1676 0 0 1 "./samples/Bosendor/113 emp E5-.wav" 0 0 0
+f1677 0 0 1 "./samples/Bosendor/113 emp F5-.wav" 0 0 0
+f1678 0 0 1 "./samples/Bosendor/113 emp G5-.wav" 0 0 0
+f1679 0 0 1 "./samples/Bosendor/113 emp A5-.wav" 0 0 0
+f1680 0 0 1 "./samples/Bosendor/113 emp B5-.wav" 0 0 0
+f1681 0 0 1 "./samples/Bosendor/113 emp C6-.wav" 0 0 0
+f1682 0 0 1 "./samples/Bosendor/113 emp D6-.wav" 0 0 0
+f1683 0 0 1 "./samples/Bosendor/113 emp E6-.wav" 0 0 0
+f1684 0 0 1 "./samples/Bosendor/113 emp F6-.wav" 0 0 0
+f1685 0 0 1 "./samples/Bosendor/113 emp G6-.wav" 0 0 0
+f1686 0 0 1 "./samples/Bosendor/113 emp A6-.wav" 0 0 0
+f1687 0 0 1 "./samples/Bosendor/113 emp B6-.wav" 0 0 0
+f1688 0 0 1 "./samples/Bosendor/113 emp C7-.wav" 0 0 0
+f1689 0 0 1 "./samples/Bosendor/113 emp D7-.wav" 0 0 0
+f1690 0 0 1 "./samples/Bosendor/113 emp E7-.wav" 0 0 0
+f1691 0 0 1 "./samples/Bosendor/113 emp F7-.wav" 0 0 0
+f1692 0 0 1 "./samples/Bosendor/113 emp G7-.wav" 0 0 0
+f1693 0 0 1 "./samples/Bosendor/113 emp A7-.wav" 0 0 0
+f1694 0 0 1 "./samples/Bosendor/113 emp B7-.wav" 0 0 0
+f1695 0 0 1 "./samples/Bosendor/113 emp C8-.wav" 0 0 0
+f1700 0 0 1 "./samples/Bosendor/127 emp A0.wav" 0 0 0
+f1701 0 0 1 "./samples/Bosendor/127 emp B0-.wav" 0 0 0
+f1702 0 0 1 "./samples/Bosendor/127 emp C1-.wav" 0 0 0
+f1703 0 0 1 "./samples/Bosendor/127 emp D1-.wav" 0 0 0
+f1704 0 0 1 "./samples/Bosendor/127 emp E1-.wav" 0 0 0
+f1705 0 0 1 "./samples/Bosendor/127 emp F1-.wav" 0 0 0
+f1706 0 0 1 "./samples/Bosendor/127 emp G1-.wav" 0 0 0
+f1707 0 0 1 "./samples/Bosendor/127 emp A1.wav" 0 0 0
+f1708 0 0 1 "./samples/Bosendor/127 emp B1-.wav" 0 0 0
+f1709 0 0 1 "./samples/Bosendor/127 emp C2-.wav" 0 0 0
+f1710 0 0 1 "./samples/Bosendor/127 emp D2-.wav" 0 0 0
+f1711 0 0 1 "./samples/Bosendor/127 emp E2-.wav" 0 0 0
+f1712 0 0 1 "./samples/Bosendor/127 emp F2-.wav" 0 0 0
+f1713 0 0 1 "./samples/Bosendor/127 emp G2-.wav" 0 0 0
+f1714 0 0 1 "./samples/Bosendor/127 emp A2-.wav" 0 0 0
+f1715 0 0 1 "./samples/Bosendor/127 emp B2-.wav" 0 0 0
+f1716 0 0 1 "./samples/Bosendor/127 emp D3-.wav" 0 0 0
+f1717 0 0 1 "./samples/Bosendor/127 emp E3-.wav" 0 0 0
+f1718 0 0 1 "./samples/Bosendor/127 emp F3-.wav" 0 0 0
+f1719 0 0 1 "./samples/Bosendor/127 emp G3-.wav" 0 0 0
+f1720 0 0 1 "./samples/Bosendor/127 emp A3-.wav" 0 0 0
+f1721 0 0 1 "./samples/Bosendor/127 emp B3-.wav" 0 0 0
+f1722 0 0 1 "./samples/Bosendor/127 emp C4-.wav" 0 0 0
+f1723 0 0 1 "./samples/Bosendor/127 emp D4-.wav" 0 0 0
+f1724 0 0 1 "./samples/Bosendor/127 emp E4-.wav" 0 0 0
+f1725 0 0 1 "./samples/Bosendor/127 emp F4-.wav" 0 0 0
+f1726 0 0 1 "./samples/Bosendor/127 emp G4-.wav" 0 0 0
+f1727 0 0 1 "./samples/Bosendor/127 emp A4-.wav" 0 0 0
+f1728 0 0 1 "./samples/Bosendor/127 emp B4-.wav" 0 0 0
+f1729 0 0 1 "./samples/Bosendor/127 emp C5-.wav" 0 0 0
+f1730 0 0 1 "./samples/Bosendor/127 emp D5-.wav" 0 0 0
+f1731 0 0 1 "./samples/Bosendor/127 emp E5-.wav" 0 0 0
+f1732 0 0 1 "./samples/Bosendor/127 emp F5-.wav" 0 0 0
+f1733 0 0 1 "./samples/Bosendor/127 emp G5-.wav" 0 0 0
+f1734 0 0 1 "./samples/Bosendor/127 emp A5-.wav" 0 0 0
+f1735 0 0 1 "./samples/Bosendor/127 emp B5-.wav" 0 0 0
+f1736 0 0 1 "./samples/Bosendor/127 emp C6-.wav" 0 0 0
+f1737 0 0 1 "./samples/Bosendor/127 emp D6-.wav" 0 0 0
+f1738 0 0 1 "./samples/Bosendor/127 emp E6-.wav" 0 0 0
+f1739 0 0 1 "./samples/Bosendor/127 emp F6-.wav" 0 0 0
+f1740 0 0 1 "./samples/Bosendor/127 emp G6-.wav" 0 0 0
+f1741 0 0 1 "./samples/Bosendor/127 emp A6-.wav" 0 0 0
+f1742 0 0 1 "./samples/Bosendor/127 emp B6-.wav" 0 0 0
+f1743 0 0 1 "./samples/Bosendor/127 emp C7-.wav" 0 0 0
+f1744 0 0 1 "./samples/Bosendor/127 emp D7-.wav" 0 0 0
+f1745 0 0 1 "./samples/Bosendor/127 emp E7-.wav" 0 0 0
+f1746 0 0 1 "./samples/Bosendor/127 emp F7-.wav" 0 0 0
+f1747 0 0 1 "./samples/Bosendor/127 emp G7-.wav" 0 0 0
+f1748 0 0 1 "./samples/Bosendor/127 emp A7-.wav" 0 0 0
+f1749 0 0 1 "./samples/Bosendor/127 emp B7-.wav" 0 0 0
+f1750 0 0 1 "./samples/Bosendor/127 emp C8-.wav" 0 0 0
+;              1   2   3   4   5   6   7   8   9  10  11  12  13  14  15  16  17  18  19  20   21   22   23   24   25   26   27   28   29   30   31   32   33   34   35   36   37   38 
+f1 0 64 -2 0 601 630 652 667 683 705 726 742 766 787 807 830 850 872 890 909 930 953 975 999 1030 1070 1104 1130 1156 1177 1192 1212 1217 1262 1317 1363 1418 1474 1529 1585 1641 1696 
+f2 0 64 -2 0 1 2 2 2 2 2 2 1 2 2 2 2 2 2 2 2 2 2 2 1 1 1 1 1 2 2 2 1 5 5 5 5 5 5 5 5 5 5
+;Inst Start        Dur  Vel    Ton   Oct   Voice Stere Envlp Gliss Upsamp R-Env 2nd-gl 3rd Mult Line # ; Channel
+;p1   p2           p3   p4     p5    p6    p7    p8    p9    p10   p11    p12   p13   p14  p15; Channel
 </CsScore>
 </CsoundSynthesizer>
