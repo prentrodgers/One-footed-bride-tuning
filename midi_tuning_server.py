@@ -159,7 +159,7 @@ class AppState:
         self.sa_cancel = threading.Event()
         self.current_tuned_cents: np.ndarray | None = None
         self.glide_ftable_cache: dict = {}   # ratio (rounded) -> ftable_number
-        self.next_glide_ftable: int = 1500
+        self.next_glide_ftable: int = 5000
         self.missing_ftables_log: list = []  # ftable definition strings
 
 

@@ -783,7 +783,7 @@ def build_glides_array(chorale_in_cents_slides, keys, max_cents_slide=45):
         - t_num: int, next available function table number
     """                       
     logging.debug(f'In build_glides_array. {chorale_in_cents_slides.shape = }, {chorale_in_cents_slides.shape[0:2] = }') # , {chorale_in_cents[:,:].shape = }
-    t_num = 1500 # this is the number of the first ftable dedicated to slides
+    t_num = 5000 # first ftable dedicated to slides; keep above sample-table range
     glides = np.zeros(chorale_in_cents_slides.shape[0:2], dtype = int)
     logging.debug(f'{glides.shape = }')
     stored_fn = np.zeros(9, dtype = float)
@@ -2162,8 +2162,9 @@ def clip_note_features(notes_features_15, voice_time):
         if notes_features_15[inx,14] > 0: notes_features_15[inx,14] += voice_time[short_name]["volume_factor"]
         logging.debug(f'after adjusting the volume {round(notes_features_15[inx,14],1) = }, before adjusting octave: {notes_features_15[inx,5] = }]')
         
-        notes_features_15[inx,5] = np.max((voice_time[short_name]["min_oct"], notes_features_15[inx,5]))
-        notes_features_15[inx,5] = np.min((voice_time[short_name]["max_oct"], notes_features_15[inx,5]))
+        if notes_features_15[inx,5] > 0: # 0 means silence — don't promote it to min_oct
+            notes_features_15[inx,5] = np.max((voice_time[short_name]["min_oct"], notes_features_15[inx,5]))
+            notes_features_15[inx,5] = np.min((voice_time[short_name]["max_oct"], notes_features_15[inx,5]))
         logging.debug(f'after adjusting octave: {notes_features_15[inx,5] = }, cent value of note: {notes_features_15[inx,4] = }]')
         if notes_features_15[inx,5] == voice_time[short_name]["max_oct"] and note_cents > 350:
                 notes_features_15[inx,5] -= 1 # take it down an octave it's at the max and has a high cent value

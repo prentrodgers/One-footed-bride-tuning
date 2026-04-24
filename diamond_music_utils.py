@@ -63,7 +63,8 @@ def build_ratio_strings(all_ratios: List[float]) -> np.ndarray:
 
 
 # stored_gliss = np.empty((0,70), dtype = float)
-current_gliss_table = 1500 # raised on 4/28/23 to make more room for samples. Previously, samples occupied 601 - 798 increased it  to 1500
+# Keep glide ftables in a high, reserved range so they cannot collide with sample ftables.
+current_gliss_table = 5000
 all_ratios = build_all_ratios()
 ratio_strings = build_ratio_strings(all_ratios)
 all_ratio_strings = ratio_strings.reshape(256,)
@@ -591,7 +592,7 @@ def retrieve_gliss_tables() -> Tuple[np.ndarray, int]:
     global stored_gliss, current_gliss_table
     return stored_gliss, current_gliss_table
 
-def init_stored_gliss(starting_location: int = 1500, values_in_ftable: int = 70) -> np.ndarray:
+def init_stored_gliss(starting_location: int = 5000, values_in_ftable: int = 70) -> np.ndarray:
     """Reset stored glissando tables and next table number; return empty stored_gliss."""
     global stored_gliss, current_gliss_table
     stored_gliss = np.empty((0, values_in_ftable), dtype = float) # each slide is made of up to 70 values for a really long slide

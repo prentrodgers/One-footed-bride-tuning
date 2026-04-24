@@ -60,8 +60,15 @@
 ; The next section added on 5/4/22 to ensure that a sample file out of range is not selected. 
  iLength ftlen iSampWaveTable ; length of the table (128). How many steps it could hold. 
  indx = 0 
- iLowValue table indx, iSampWaveTable 
- iHighValue table iLength, iSampWaveTable 
+ iLowValue table indx, iSampWaveTable
+ iHighValue table iLength-1, iSampWaveTable ; use last valid index, not guard point (guard may be 0)
+ ; If MIDI note is outside sample range (iFtableTemp==0 from GEN17 initial value), clamp to highest valid sample
+ if iFtableTemp == 0 then
+     iFtableTemp = iHighValue
+     iFtable = iHighValue
+ endif
+ ; GEN17 initial 0 means no sample assigned; use iFtableTemp as floor to avoid ftable 0 (mono)
+ iLowValue = (iLowValue == 0 ? iFtableTemp : iLowValue)
  loop: 
  iCurValue table indx, iSampWaveTable 
  if iFtable == iCurValue goto iFound ; found the required sample file in the list of sample files, not out of range
@@ -118,10 +125,13 @@
  kcps2 = kcps1 
  endif 
 
- ; print p5, ioct, iMIDInumber, iFtable, iSampleType, iloop 
- if iSampleType = 4 goto akaimono 
- if iSampleType = 1 goto noloopm 
- if iloop = 0 goto noloops 
+ ; print p5, ioct, iMIDInumber, iFtable, iSampleType, iloop
+ if iSampWaveTable == 1474 then
+     printf_i "BOSEN: MIDI=%i iFtableTemp=%i iFtable=%i iHigh=%i iLow=%i iloop=%i\n", 1, iMIDInumber, iFtableTemp, iFtable, iHighValue, iLowValue, iloop
+ endif
+ if iSampleType = 4 goto akaimono
+ if iSampleType = 1 goto noloopm
+ if iloop = 0 goto noloops
  ; Stereo with loop 
  a3,a4 loscil 1, kcps2, iFtable, ibascps; stereo sample with looping 
  goto skipstereo 
