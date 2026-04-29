@@ -11,7 +11,7 @@ echo 'here are the values used in trim.sh'
 echo $@
 csound -U sndinfo $SFDIR/"$1".wav
 csound "$3"/"$1"c.csd 
-sox $SFDIR/"$1"a-c.wav -p reverse | sox -p -p silence 1 .01 .01 | sox -p -p reverse | sox -p -p silence 1 0.01 0.01 | sox -p $SFDIR/"$1"-t"$2".wav 
+sox $SFDIR/"$1"a-c.wav -p reverse | sox -p -p silence 1 .01 .01 | sox -p -p reverse | sox -p -p silence 1 0.01 0.01 | sox -p --norm=-1 $SFDIR/"$1"-t"$2".wav 
 csound -U sndinfo $SFDIR/"$1"-t"$2".wav
 ls -lth $SFDIR/"$1"-t"$2".wav | head
 if [ -z "$4" ]; then

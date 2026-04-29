@@ -55,6 +55,27 @@ TRIM_SCRIPT = os.path.join(local_dir, 'trim.sh')
 CS_SOURCE_DIR = local_dir
 numpy_dir = os.path.join(local_dir, 'Archive', 'opt')
 
+# Density levels 0 (densest) to 5 (sparsest).
+# Columns: bass_hold_scale, bass_hold_swing, fp_hold_scale, fp_density_map_index, num_primes
+# num_primes controls how many entries from [1,3,5,11,17,31,47,71] are used for chord repeats.
+# Dense → moderate length (6-7); moderate → longest (7-8); sparse → shortest (5).
+DENSITY_LEVELS = [
+    (0.65, 0.80, 0.65, 0, 6),
+    (0.80, 0.72, 0.80, 1, 7),
+    (0.95, 0.55, 0.95, 2, 8),
+    (1.10, 0.45, 1.10, 3, 7),
+    (1.45, 0.22, 1.45, 4, 5),
+    (1.75, 0.12, 1.75, 5, 4),
+]
+FP_DENSITY_MAPS = [
+    {'finger_pianos': 'dense',    'pizz_strings': 'dense',    'perc_guitar': 'dense'},
+    {'finger_pianos': 'dense',    'pizz_strings': 'dense',    'perc_guitar': 'moderate'},
+    {'finger_pianos': 'dense',    'pizz_strings': 'moderate', 'perc_guitar': 'sparse'},
+    {'finger_pianos': 'moderate', 'pizz_strings': 'moderate', 'perc_guitar': 'sparse'},
+    {'finger_pianos': 'moderate', 'pizz_strings': 'sparse',   'perc_guitar': 'sparse'},
+    {'finger_pianos': 'sparse',   'pizz_strings': 'sparse',   'perc_guitar': 'sparse'},
+]
+
 # keep track of all the voice features, and where they are in time
 voice_time = atu.init_voice_time()
 # pp.pprint(voice_time, sort_dicts=False)
@@ -585,7 +606,8 @@ def bass_part(chorale, glides, repeats, voice_names, voice_time, tpq, volume_fun
     print(f'probs of getting a one: {sum(probs) = }, values: {[round(i[1],4) for i in probs]}') 
     voices = voice_names.shape[0] # if you want it to last twice as long, make twice as many voices: voice_names.shape[0] * 2, or increase the value of repeats
     bass_chorale_in_cents_octaves = chorale.copy()
-    bass_chorale_in_cents_octaves[:2, :, :] = chorale[2:, :, :] # copy the tenor and bass parts down to the alto and soprano parts
+    copy_mask = rng.random(chorale.shape[1]) < 0.8  # each chord independently: 80% chance soprano/alto replaced by tenor/bass
+    bass_chorale_in_cents_octaves[:2, copy_mask, :] = chorale[2:, copy_mask, :]
     chorale = bass_chorale_in_cents_octaves.copy()
     chorale = np.repeat(chorale, voices // 4, axis = 0) # double the number of voices
     glides = np.repeat(glides, voices // 4, axis = 0) # double the number of voices
@@ -657,7 +679,7 @@ def bass_part(chorale, glides, repeats, voice_names, voice_time, tpq, volume_fun
     held_chords = 0
 
     # Evolving mixed click durations (1..6), with one-slot morphing.
-    rhythm_mix = np.array([2, 3, 2, 4, 2, 3], dtype=int)
+    rhythm_mix = rng.integers(1, 7, size=6).astype(int)
     rhythm_hold_chords = max(1, int(round(rng.integers(1, 11) / min(3, hold_cycles))))
     rhythm_chords_used = 0
     rhythm_event_num = 0
@@ -697,13 +719,13 @@ def bass_part(chorale, glides, repeats, voice_names, voice_time, tpq, volume_fun
 
             # Stream A
             pvoice_a = int(pattern[(phase + rhythm_event_num) % pattern.shape[0]])
-            # Stream B (interleaved) -> raises density approximately 2x
-            pvoice_b = int(pattern[(phase + rhythm_event_num + 2) % pattern.shape[0]])
-
             density_function[pvoice_a, lo:hi] = 1
-            density_function[pvoice_b, lo:hi] = 1
             density_function[(pvoice_a + twin_offset) % 4 + 4, lo:hi] = 1
-            density_function[(pvoice_b + twin_offset) % 4 + 4, lo:hi] = 1
+            # Stream B (interleaved) -> raises density approximately 2x; skipped in sparse mode
+            if density_mode != 'sparse':
+                pvoice_b = int(pattern[(phase + rhythm_event_num + 2) % pattern.shape[0]])
+                density_function[pvoice_b, lo:hi] = 1
+                density_function[(pvoice_b + twin_offset) % 4 + 4, lo:hi] = 1
 
             pos += dur
             rhythm_event_num += 1
@@ -717,7 +739,7 @@ def bass_part(chorale, glides, repeats, voice_names, voice_time, tpq, volume_fun
     # changed on 5/21/23 - make sure it doesn't mess up the octaves as zeros
     octave_stretch = 4 # if 3, you might get -1, 0, 1 or just 2 numbers
     stay = 16 # maximum time you might stay with the same octave * repeats (increased from 7 for longer bass note durations)
-    octave_reduce = 3  # was 5: with stretch=4, range is now -3,-2,-1,0 keeping bass notes above zero
+    octave_reduce = 4  # stretch=4, reduce=4: range is now -4,-3,-2,-1; 4 only reachable from base-5 notes (rare, ~63% of those)
     octave_alteration_mask = atu.build_octave_alteration_mask(repeats, voices, chorale, octave_reduce=octave_reduce,\
         octave_stretch=octave_stretch, stay=stay) # set the probability of each octave being used. Some very low, some very high, but most in the middle 3 choices
     logging.info('bass_part. octave_alteration_mask buckets: values, counts')
@@ -732,7 +754,7 @@ def bass_part(chorale, glides, repeats, voice_names, voice_time, tpq, volume_fun
     octave_array = octave_array * density_function[:, :octave_array.shape[1]] # make the octave go to zero for some percent of the notes
     logging.info(f'after masking. {np.sum(octave_array) = }')
     logging.info(f'octave_array after spread: {np.unique(octave_array, return_counts=True)}')
-    octave_array = np.clip(octave_array, 0, 5) # clip the octaves to be between 0 and 5
+    octave_array = np.clip(octave_array, 0, 4) # clip octaves: 0=silence, max 4 (5 removed)
     logging.info(f'after clipping negatives to 0: {np.unique(octave_array, return_counts=True)}')
     logging.info(f'{notes_features_6.shape = }') #                             0      1        2      3         4         5
     notes_features_6[1] = octave_array #  add_features returns this :np.stack((notes, octaves, gliss, upsample, envelope, velocity), axis = 0)
@@ -834,7 +856,7 @@ def bwv846_mask_patterned(
 
 # define the functions for the arpeggiated parts, finger piano, pizzicato strings, guitars, harp, etc.
 def finger_piano_part(chorale, glides, repeats, voice_names, voice_time, tpq, volume_function, probs = None, fp_volume = 0,
-                      density_start: str = 'moderate', density_profile: np.ndarray | None = None):
+                      density_start: str = 'moderate', density_profile: np.ndarray | None = None, fp_hold_scale: float = 1.0):
     # set the default value for probs if it is not passed as a keyword argument.
     if probs is None:
         probs = [[0.99, 0.01], [0.95627622, 0.04372378]]
@@ -910,12 +932,7 @@ def finger_piano_part(chorale, glides, repeats, voice_names, voice_time, tpq, vo
     # - stay on one mixed-duration pattern for 1..10 chords
     # - morph to the next mix by changing only one duration slot
     # - keep all durations in a musical 1..6 click range
-    base_mix_by_mode = {
-        'dense': np.array([1, 2, 1, 3, 2, 1], dtype=int),
-        'moderate': np.array([1, 3, 2, 5, 2, 1], dtype=int),
-        'sparse': np.array([2, 4, 2, 6, 3, 2], dtype=int),
-    }
-    rhythm_mix = base_mix_by_mode.get(density_mode, base_mix_by_mode['moderate']).copy()
+    rhythm_mix = rng.integers(1, 7, size=6).astype(int)
     rhythm_hold_chords = int(rng.integers(1, 11))
     rhythm_chords_used = 0
     rhythm_event_num = 0
@@ -951,12 +968,13 @@ def finger_piano_part(chorale, glides, repeats, voice_names, voice_time, tpq, vo
         # Fill this harmonic segment with variable-duration arpeggio events.
         pos = 0
         while pos < seg_len:
-            dur = min(int(rhythm_mix[rhythm_event_num % rhythm_mix.shape[0]]), seg_len - pos)
+            dur = min(int(np.clip(round(rhythm_mix[rhythm_event_num % rhythm_mix.shape[0]] * fp_hold_scale), 1, 6)), seg_len - pos)
             pvoice = int(pattern[(phase + rhythm_event_num) % pattern.shape[0]])
             lo = start + pos
             hi = lo + dur
             density_function[pvoice, lo:hi] = 1
-            density_function[(pvoice + twin_offset) % 4 + 4, lo:hi] = 1
+            if density_mode != 'sparse':
+                density_function[(pvoice + twin_offset) % 4 + 4, lo:hi] = 1
 
             # Occasional accent doubling in dense mode.
             if density_mode == 'dense' and ((rhythm_event_num + chord_idx) % 5 == 0):
@@ -1068,9 +1086,18 @@ def woodwinds_part(chorale_in_cents_slides, glides, repeats, voice_names, voice_
         logging.debug(f'after spread: {np.sum(octave_array) = }')
         logging.info(f'octave_array after spread (values, counts): {np.unique(octave_array, return_counts=True)}')
         # octave_silence_mask = atu.build_long_mask(repeats, voices, chorale_in_cents_slides) 
-        logging.info(f'before build_long_mask_v2. {repeats = }, {voices = }, {chorale_in_cents_slides.shape = }, {prob_silence = } ')
-        octave_silence_mask = atu.build_long_mask_v2(repeats, voices, chorale_in_cents_slides, p1 = prob_silence) # build long chains of zeros, followed by long chains of ones so the notes sound for a long time, then go silent. 
-        octave_silence_mask = apply_density_multiplier(octave_silence_mask, density_profile, min_active_base=1)
+        # Scale prob_silence by density profile mean so denser regions have more activity
+        # without fragmenting the long-block structure (arpeggio dilator is wrong here).
+        if density_profile is not None and density_profile.shape[0] > 0:
+            density_mean = float(np.mean(density_profile))
+            # density_mean in [1,3]: map to silence reduction factor [1.0, 0.55]
+            silence_scale = 1.0 - 0.225 * (density_mean - 1.0)
+            scaled_silence = [float(np.clip(p * silence_scale, 0.05, 0.99)) for p in prob_silence]
+        else:
+            scaled_silence = list(prob_silence)
+        logging.info(f'woodwinds: density-scaled prob_silence: {prob_silence} -> {scaled_silence}')
+        logging.info(f'before build_long_mask_v2. {repeats = }, {voices = }, {chorale_in_cents_slides.shape = }, {scaled_silence = } ')
+        octave_silence_mask = atu.build_long_mask_v2(repeats, voices, chorale_in_cents_slides, p1 = scaled_silence) # build long chains of zeros, followed by long chains of ones so the notes sound for a long time, then go silent.
         logging.info(f'before masking octave_array. {np.average(octave_array) = }')  
         logging.info(f'octave_array (values, counts): {np.unique(octave_array, return_counts=True)}')
         logging.info(f'octave_silence_mask (values, counts): {np.unique(octave_silence_mask, return_counts=True)}, {np.average(octave_silence_mask) = }')
@@ -1159,19 +1186,20 @@ def melody_part(chorale_in_cents_slides, glides, repeats, voice_names, voice_tim
                 for note in np.arange(octave_array.shape[1]):
                     if octave_array[voice, note] > 0: octave_array[voice, note] += octave_alteration_mask[voice, note]
         logging.info(f'octave_array after spread (values, counts): {np.unique(octave_array, return_counts=True)}')
-        logging.info(f'before build_long_mask_v2. {repeats = }, {voices = }, {chorale_in_cents_slides.shape = }, {prob_silence = } ')
-        octave_silence_mask = atu.build_long_mask_v2(repeats, voices, chorale_in_cents_slides, p1 = prob_silence) # build long chains of zeros, followed by long chains of ones so the notes sound for a long time, then go silent. 
-        octave_silence_mask = apply_density_multiplier(octave_silence_mask, density_profile, min_active_base=1)
+        # Scale prob_silence by density profile mean — preserves long-block structure for melody.
+        if density_profile is not None and density_profile.shape[0] > 0:
+            density_mean = float(np.mean(density_profile))
+            silence_scale = 1.0 - 0.225 * (density_mean - 1.0)
+            scaled_silence = [float(np.clip(p * silence_scale, 0.05, 0.99)) for p in prob_silence]
+        else:
+            scaled_silence = list(prob_silence)
+        logging.info(f'melody: density-scaled prob_silence: {prob_silence} -> {scaled_silence}')
+        logging.info(f'before build_long_mask_v2. {repeats = }, {voices = }, {chorale_in_cents_slides.shape = }, {scaled_silence = } ')
+        octave_silence_mask = atu.build_long_mask_v2(repeats, voices, chorale_in_cents_slides, p1 = scaled_silence) # build long chains of zeros, followed by long chains of ones so the notes sound for a long time, then go silent.
         logging.info(f'before masking octave_array. {np.average(octave_array) = }')  
         logging.info(f'octave_array (values, counts): {np.unique(octave_array, return_counts=True)}')
         logging.info(f'octave_silence_mask (values, counts): {np.unique(octave_silence_mask, return_counts=True)}, {np.average(octave_silence_mask) = }')
-        octave_array = octave_array * octave_silence_mask     
-        logging.info(f'after masking octave_array. {np.average(octave_array) = }')  
-        logging.info(f'octave_array (values, counts): {np.unique(octave_array,  return_counts=True)}')
-        # # octave_silence_mask = atu.build_long_mask(repeats, voices, chorale_in_cents_slides) 
-        # octave_silence_mask = atu.build_long_mask(repeats, voices, chorale_in_cents_slides, p1 = prob_silence) # chance of silence is around 99%
-        # octave_array = octave_array * octave_silence_mask     
-        # logging.debug(f'octave_array after masking (values, counts): {np.unique(octave_array, return_counts=True)}') 
+        octave_array = octave_array * octave_silence_mask 
     else: 
         notes_features_6[1] -= 1 # take down the octave by one
         # print(f'before incrementing: {volume_array.shape = }, {volume_array[:10] = }')
@@ -1270,7 +1298,7 @@ def set_probabilities(mask):        # (repeats, quantization): # we no longer us
 # end set_probabilities
 
 
-def generate_random_volumes_v2(time_slots = 8, max_value=25, sections = 8, max_section_sum = 70, max_voice_value = 10, min_time_slot_sum = 10):
+def generate_random_volumes_v2(time_slots = 8, max_value=25, sections = 8, max_section_sum = 70, max_voice_value = 10, min_time_slot_sum = 10, sparse_mode = False):
       # time_slots: The piece has several equal length time slots. The more slots, the smaller each is
       # max_value: 12. one more than the max random value assigned at the initialization. Final result is clipped to this 
       # max_voice_value: 6. If the sum of wood and bras sections exceed this, set bows to zero. If less than this, let the bowed value stay as set at the initialization. 
@@ -1385,6 +1413,22 @@ def generate_random_volumes_v2(time_slots = 8, max_value=25, sections = 8, max_s
                   if deficit > 0:
                         logging.debug(f'Could not fully satisfy flexible_min for ts {ts}; remaining deficit {deficit}')
 
+      if sparse_mode:
+            # Allow only a limited number of sections to sound simultaneously per time slot.
+            # sparse_mode is a (lo, hi) tuple controlling the range of active sections.
+            # Zero all others so sections take turns rather than layering constantly.
+            lo, hi = sparse_mode if isinstance(sparse_mode, tuple) else (2, 3)
+            for ts in range(time_slots - 1):  # leave the final slot (cohesive ending) alone
+                  n_active = int(rng.integers(lo, hi + 1))
+                  active_secs = rng.choice(sections, size=n_active, replace=False)
+                  keep = np.zeros(sections, dtype=bool)
+                  keep[active_secs] = True
+                  volume_function[~keep, ts] = 0
+                  for sec in active_secs:
+                        if volume_function[sec, ts] == 0:
+                              volume_function[sec, ts] = int(rng.integers(3, max_voice_value))
+            logging.info(f'sparse_mode post-pass {lo}-{hi}: active sections per slot = {[int(np.sum(volume_function[:, ts] > 0)) for ts in range(time_slots)]}')
+
       logging.info(f'Sum before final clip: {np.sum(volume_function) = }')
       final_answer = np.clip(volume_function, 0, max_value)
       logging.info(f'Sum after final clip: {np.sum(final_answer) = }')
@@ -1396,7 +1440,7 @@ def expand_chorale(repeats, chorale_in_cents_slides, glides, stored_gliss, voice
     include_sections, mod, ratio_factor, mask=True, tpq=0, octave_reduce=0, woodwinds_volume=8,\
     include_instruments=[], print_only=10, limit=0, melody_sustain=15, bass_sustain=15,
     bass_hold_scale=1.0, bass_hold_swing=0.75, bass_hold_cycles=4, just_fp=False, tolerance=1,\
-    stability_factor=0.0, max_delta=33, spread=7):
+    stability_factor=0.0, max_delta=33, spread=7, fp_density_starts=None, fp_hold_scale=1.0, density_level=None):
     # As of 1/10/26 the chorale_in_cents_slides has already been repeated according to the repeats array. (no longer an integer)
     # send the arrays to the file new_output.csd which csound will convert to a wave file to make music
     # duration, volume_function = expand_chorale(repeats, chorale_in_cents, chorale_in_cents_slides, glides, stored_gliss, voice_time, \
@@ -1435,7 +1479,8 @@ def expand_chorale(repeats, chorale_in_cents_slides, glides, stored_gliss, voice
         time_slots = np.max([start_time_slot, repeats_average]) * 2
         max_value = 11 # how loud can each instrument go
         logging.info(f'{time_slots = }, {start_time_slot = }, {repeats.shape = }, {repeats_average = }')
-        volume_function = generate_random_volumes_v2(time_slots=time_slots)
+        _sparse_range = {3: (4, 5), 4: (3, 4), 5: (2, 3)}.get(density_level, False)
+        volume_function = generate_random_volumes_v2(time_slots=time_slots, sparse_mode=_sparse_range)
         logging.info(f'{volume_function.shape = }')
         logging.info(f'sums of each time_slot: ')
         total_sums = 0
@@ -1464,7 +1509,9 @@ def expand_chorale(repeats, chorale_in_cents_slides, glides, stored_gliss, voice
     )
 
     notes_features_15 = np.empty((0,15), dtype = int) # start with an empty array you can concatenate onto.
-    fp_density_starts = {'finger_pianos': 'dense', 'pizz_strings': 'moderate', 'perc_guitar': 'sparse'}
+    if fp_density_starts is None:
+        fp_density_starts = {'finger_pianos': 'dense', 'pizz_strings': 'moderate', 'perc_guitar': 'sparse'}
+    fp_volumes = {'finger_pianos': 2, 'pizz_strings': 2, 'perc_guitar': 2}
     for sec_num, section in zip(count(0,1), include_sections): 
         if include_sections[section][0]: # if the dictionary value for this instrument section is set to True
             print(f'{sec_num}: {section}, includes instruments: {include_sections[section][1]}')
@@ -1472,7 +1519,7 @@ def expand_chorale(repeats, chorale_in_cents_slides, glides, stored_gliss, voice
             if section in ['pizz_strings', 'perc_guitar', 'finger_pianos']:
                 print(f'playing {section}')
                 notes_features_15 = np.concatenate((notes_features_15, finger_piano_part(chorale_in_cents_slides, glides, repeats_average, include_sections[section][1], voice_time, tpq, volume_function[sec_num], probs = probs,
-                    density_start=fp_density_starts.get(section, 'moderate'), density_profile=density_profile)), axis = 0)
+                    fp_volume=fp_volumes.get(section, 2), density_start=fp_density_starts.get(section, 'moderate'), density_profile=density_profile, fp_hold_scale=fp_hold_scale)), axis = 0)
                 logging.info(f'octaves before change: {np.unique(notes_features_15[:, 5].astype(int),return_counts=True)}')
                 # if section == 'pizz_strings':
                     # notes_features_15[:, 5] += 1 # raise the octaves by one to prevent mud
@@ -1528,7 +1575,8 @@ def expand_chorale(repeats, chorale_in_cents_slides, glides, stored_gliss, voice
     # avg_probs = 1.0 # why was this set to 1.0?
     # I want to switch the mod string to include the ratio_factor instead of avg_probs
     # and I want to switch the round(1 - max_silence, 2) to tolerance.
-    mod = f'{mod}_r{ratio_factor:.2f}_sf{stability_factor:.2f}_md{int(max_delta):02d}_sp{int(spread):02d}_t{tolerance}_d{dur_short}_t{tempo:03}'
+    density_tag = f'_df{density_level}' if density_level is not None else f'_md{int(max_delta):02d}'
+    mod = f'{mod}_r{ratio_factor:.2f}_sf{stability_factor:.2f}{density_tag}_sp{int(spread):02d}_t{tolerance}_d{dur_short}_t{tempo:03}'
     mod = atu.windows_compliant_filename(mod) # get rid of the windows invalid characters in the file name
     print(f'{mod = }')
     return duration, volume_function, mod
@@ -1612,7 +1660,7 @@ def chorale_to_wave_v4(version, album, include_sections, ratio_factor, limit_max
       cent_file_partial='-cents.npy', show_volumes=False, woodwinds_volume=15,\
     melody_sustain=15, bass_sustain=15, bass_hold_scale=1.0, bass_hold_swing=0.75, bass_hold_cycles=4,
     use_werck_top_notes=False, mp3=True, tolerance=1,\
-      stability_factor=0.0, max_delta=33, spread=7):
+      stability_factor=0.0, max_delta=33, spread=7, fp_density_starts=None, fp_hold_scale=1.0, prime_count=8, density_level=None):
 
     print(f'In chorale_to_wave_v4. {version = }, {limit_max = }, {short_repeats = }, {ratio_factor = }')
     if short_repeats: # if you just want a straight woodwind/brass chorale, set short_repeats = True
@@ -1676,9 +1724,10 @@ def chorale_to_wave_v4(version, album, include_sections, ratio_factor, limit_max
         logging.info(f'{chorale_in_cents_octaves.shape = }, {choral_octaves_repeated.shape = }')
     else: 
         # here is where we need to set the repeats. We want the repeats to be different numbers, not an integer. 
-        primes = np.array([1, 3, 5, 11, 17, 31, 47, 71])
+        all_primes = np.array([1, 3, 5, 11, 17, 31, 47, 71])
+        primes = all_primes[:int(np.clip(prime_count, 1, all_primes.shape[0]))]
         choral_octaves_repeated, repeats = create_repeat_array_pattern(chorale_in_cents_octaves, pattern=primes)
-        logging.info(f'created repeats pattern using primes. {primes = }, {repeats[:primes.shape[0]] = }')
+        logging.info(f'created repeats pattern using primes. {primes = }, {prime_count = }, {repeats[:primes.shape[0]] = }')
 
     logging.info(f'{repeats.shape = }, after merging octaves and cents {chorale_in_cents_octaves.shape = }, after repeats applied: {choral_octaves_repeated.shape = }')
 
@@ -1711,7 +1760,8 @@ def chorale_to_wave_v4(version, album, include_sections, ratio_factor, limit_max
         limit=limit, melody_sustain=melody_sustain, bass_sustain=bass_sustain,
         bass_hold_scale=bass_hold_scale, bass_hold_swing=bass_hold_swing, bass_hold_cycles=bass_hold_cycles,
         just_fp=just_fp, tolerance=tolerance,\
-        stability_factor=stability_factor, max_delta=max_delta, spread=spread)
+        stability_factor=stability_factor, max_delta=max_delta, spread=spread,
+        fp_density_starts=fp_density_starts, fp_hold_scale=fp_hold_scale, density_level=density_level)
 
     if csound: # send the results to csound
         result_of_call = play_csound(csound = True, play = False)
@@ -1741,7 +1791,7 @@ def mainline(chorale_override=None, short_repeats=False, include_list=None, csou
              mp3=True, max_cents_slide=35, melody_sustain=3, bass_sustain=15,
              bass_hold_scale=1.0, bass_hold_swing=0.75, bass_hold_cycles=4, cent_file_partial='-trans-sa-opt.npy', \
              show_volumes=True, mod_letter='a', album=3, use_werck_top_notes=False, tolerance=1, ratio_factor=0.75, \
-             numpy_dir_arg=None, stability_factor=0.0, max_delta=33, spread=7, limit_max=23):
+             numpy_dir_arg=None, stability_factor=0.0, max_delta=33, spread=7, limit_max=23, auto_density=False, prime_count=8, density_level=None, shuffle_density=False):
       if include_list is None:
             include_list = []
 
@@ -1817,7 +1867,7 @@ def mainline(chorale_override=None, short_repeats=False, include_list=None, csou
             include_sections = {
                   # section --      play or not --    instruments in the section
                 #   'finger_pianos': [True, np.array(['fing1', 'fing2', 'fing3', 'fing4', 'fing5', 'fing6', 'bfin1', 'bfin2'])],
-                'finger_pianos': [True, np.array(['fing1', 'fing2', 'fing3', 'fing4', 'bosen05', 'bosen06', 'bosen07', 'bosen08'])],
+                  'finger_pianos': [True, np.array(['fing1', 'fing2', 'fing3', 'fing4', 'fing5', 'fing6', 'fing7', 'fing8'])],
                   'wood_winds':    [True, np.array(['flut1', 'clar1', 'oboe1', 'oboe2', 'frnh1', 'frnh2', 'basn1', 'basn2'])],
                   'pizz_strings':  [True, np.array(['vlip1', 'vlip2', 'vlap1', 'celp1', 'vlim1', 'vlim2', 'vlap2', 'celm1',])],
                   'bowed_strings': [True, np.array(['vliv1', 'vliv2', 'vliv3', 'vliv4', 'vlav1', 'vlav2', 'celv1', 'celv2'])],
@@ -1859,17 +1909,40 @@ def mainline(chorale_override=None, short_repeats=False, include_list=None, csou
       else:
             chorale_list.reverse()
     #   chorale_list=['bwv253']
+
+      if auto_density and density_level is None:
+            n = len(chorale_list)
+            repeats_needed = (n + len(DENSITY_LEVELS) - 1) // len(DENSITY_LEVELS)
+            level_sequence = (list(range(len(DENSITY_LEVELS))) * repeats_needed)[:n]
+            if shuffle_density:
+                  rng.shuffle(level_sequence)
+      else:
+            level_sequence = None
+
       for inx, version in enumerate(chorale_list):
+            if density_level is not None:
+                  _active_level = int(np.clip(density_level, 0, len(DENSITY_LEVELS) - 1))
+                  _bhs, _bhsw, _fhs, _fdi, _np = DENSITY_LEVELS[_active_level]
+                  _fp_starts = FP_DENSITY_MAPS[_fdi]
+                  print(f'{version}: fixed density level {_active_level} — bass_hold_scale={_bhs}, bass_hold_swing={_bhsw}, fp_hold_scale={_fhs}, num_primes={_np}, fp_density={_fp_starts}')
+            elif auto_density:
+                  _active_level = level_sequence[inx]
+                  _bhs, _bhsw, _fhs, _fdi, _np = DENSITY_LEVELS[_active_level]
+                  _fp_starts = FP_DENSITY_MAPS[_fdi]
+                  print(f'{version}: auto density level {_active_level} — bass_hold_scale={_bhs}, bass_hold_swing={_bhsw}, fp_hold_scale={_fhs}, num_primes={_np}, fp_density={_fp_starts}')
+            else:
+                  _active_level = None
+                  _bhs, _bhsw, _fhs, _fp_starts, _np = bass_hold_scale, bass_hold_swing, 1.0, None, prime_count
             print(f'Running {version}')
             chorale = chorale_to_wave_v4(version, album, include_sections, ratio_factor, limit_max=limit_max,\
                   print_only=print_only, short_repeats=short_repeats, include_list=include_list,\
                   csound=csound, convolve=convolve, mod_letter=mod_letter, \
                   just_fp=just_fp, max_cents_slide=max_cents_slide, show_volumes=show_volumes, \
                   woodwinds_volume=woodwinds_volume, melody_sustain=melody_sustain, bass_sustain=bass_sustain, \
-                bass_hold_scale=bass_hold_scale, bass_hold_swing=bass_hold_swing, bass_hold_cycles=bass_hold_cycles,
+                bass_hold_scale=_bhs, bass_hold_swing=_bhsw, bass_hold_cycles=bass_hold_cycles,
                   cent_file_partial=cent_file_partial, use_werck_top_notes=use_werck_top_notes, mp3=mp3,\
                   tolerance=tolerance, stability_factor=stability_factor, max_delta=max_delta,\
-                  spread=spread)
+                  spread=spread, fp_density_starts=_fp_starts, fp_hold_scale=_fhs, prime_count=_np, density_level=_active_level)
 
       # Generate a playlist of all the pieces in this album. This never worked correctly in the pod.
       print(f' {UPLOADS_DIR = }')
@@ -1915,8 +1988,8 @@ if __name__ == "__main__":
                           help="Bass sustain duration — lower values reduce simultaneous bass voices (default: 15)")
       parser.add_argument("--bass_hold_scale", dest="bass_hold_scale", type=float, default=1.0,
                         help="Average bass hold-time multiplier for active/silent run lengths (default: 1.0)")
-      parser.add_argument("--bass_hold_swing", dest="bass_hold_swing", type=float, default=0.75,
-                        help="How strongly bass hold lengths oscillate faster/slower over time, 0.0-0.95 (default: 0.75)")
+      parser.add_argument("--bass_hold_swing", dest="bass_hold_swing", type=float, default=0.5,
+                        help="How strongly bass hold lengths oscillate faster/slower over time, 0.0-0.95 (default: 0.5)")
       parser.add_argument("--bass_hold_cycles", dest="bass_hold_cycles", type=int, default=4,
                         help="How many faster/slower bass hold sweeps occur over the piece (default: 4)")
       parser.add_argument("--cent_file_partial", dest="cent_file_partial", type=str, 
@@ -1934,18 +2007,26 @@ if __name__ == "__main__":
                           help="Use Werckmeister top notes (default: False)")
       parser.add_argument("--tolerance", dest="tolerance", type=int, default=1,
                           help="Tolerance level for matching intervals (1, 2, 3, or 4) (default: 1)")
-      parser.add_argument("--ratio_factor", dest="ratio_factor", type=float, default=0.75,
-                          help="ratio_factor used to create the array of cents (default: 0.75)")
-      parser.add_argument("--numpy_dir", dest="numpy_dir", type=str, default=None,
-                          help="Directory containing the numpy cent arrays (default: Archive/opt)")
+      parser.add_argument("--ratio_factor", dest="ratio_factor", type=float, default=1.5,
+                          help="ratio_factor used to create the array of cents (default: 1.5)")
+      parser.add_argument("--numpy_dir", dest="numpy_dir", type=str, default='Archive/straw-man/best-tunings',
+                          help="Directory containing the numpy cent arrays (default: Archive/straw-man/best-tunings)")
       parser.add_argument("--stability_factor", dest="stability_factor", type=float, default=0.0,
                           help="stability_factor used when tuning (label only; included in filename as _sfX.XX) (default: 0.0)")
       parser.add_argument("--max_delta", dest="max_delta", type=int, default=33,
                           help="max_delta used when tuning (label only; included in filename as _mdXX) (default: 33)")
       parser.add_argument("--spread", dest="spread", type=int, default=7,
                           help="spread used when tuning (label only; included in filename as _spXX) (default: 7)")
-      parser.add_argument("--limit_max", dest="limit_max", type=int, default=23,
-                          help="Tonal diamond limit_max for scoring (default: 23)")
+      parser.add_argument("--limit_max", dest="limit_max", type=int, default=17,
+                          help="Tonal diamond limit_max for scoring (default: 17)")
+      parser.add_argument("--auto_density", dest="auto_density", action="store_true", default=False,
+                          help="Automatically cycle through 6 density levels across chorales (default: False)")
+      parser.add_argument("--shuffle_density", dest="shuffle_density", action="store_true", default=False,
+                          help="Randomly shuffle density level assignments each run (use with --auto_density; default: False)")
+      parser.add_argument("--density_level", dest="density_level", type=int, default=None,
+                          help="Pin all chorales to one density level 0-5 (0=densest, 5=sparsest). Overrides --auto_density. (default: None)")
+      parser.add_argument("--prime_count", dest="prime_count", type=int, default=8,
+                          help="How many primes from [1,3,5,11,17,31,47,71] to use for chord repeats (1-8, default: 8); overridden per-chorale when --auto_density is set")
       args = parser.parse_args()
       mainline(chorale_override=args.chorale_name, short_repeats=args.short_repeats,
                include_list=args.include_list, csound=args.csound, convolve=args.convolve,
@@ -1955,6 +2036,6 @@ if __name__ == "__main__":
                mod_letter=args.mod_letter, album=args.album, use_werck_top_notes=args.use_werck_top_notes,
                tolerance=args.tolerance, ratio_factor=args.ratio_factor, numpy_dir_arg=args.numpy_dir,
                stability_factor=args.stability_factor, max_delta=args.max_delta,
-               spread=args.spread, limit_max=args.limit_max)
+               spread=args.spread, limit_max=args.limit_max, auto_density=args.auto_density, prime_count=args.prime_count, density_level=args.density_level, shuffle_density=args.shuffle_density)
 
 

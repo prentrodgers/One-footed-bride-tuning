@@ -2417,7 +2417,7 @@ def build_long_mask(repeats, voices, chorale, p1 = [.5, .5], stay = 7, p2 =  [.1
     octave_alteration_mask = np.array([np.roll(octave_alteration_mask, iteration * repeats, axis = 0) for iteration in np.arange(voices)])
     return octave_alteration_mask
 
-def build_long_mask_v2(repeats, voices, chorale, p1 = [.5, .5], stay = 7, p2 =  [.1, .1, .2, .2, .2, .1, .1], variability=.5):
+def build_long_mask_v2(repeats, voices, chorale, p1 = [.5, .5], stay = 12, p2 =  np.arange(12), variability=.5):
     """
     Build a binary mask with variable probabilities over time.
     
@@ -2446,6 +2446,7 @@ def build_long_mask_v2(repeats, voices, chorale, p1 = [.5, .5], stay = 7, p2 =  
     np.ndarray
         Shape (voices, chorale_length), binary mask (0 or 1).
     """
+    p2 = p2 / np.sum(p2) # make sure p2 is normalized to sum to 1
     octave_alteration_mask = np.empty(0, dtype = int)
     done = False
     sigma = p1[1] # p1 is close to [0.9, 0.1]. This adds variety to the probabilities for each section
