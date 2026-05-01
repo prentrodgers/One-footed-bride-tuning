@@ -31,6 +31,7 @@ import diamond_music_utils as dmu
 user = '~'
 base_dir = os.path.join(user, 'One-footed-bride-tuning') 
 WAVE_DIR = os.path.join(user, 'Music', 'sflib')
+os.makedirs(os.path.expanduser(WAVE_DIR), exist_ok=True)
 from datetime import datetime
 import numpy as np
 import adaptive_tuning_util as atu
@@ -55,17 +56,17 @@ TRIM_SCRIPT = os.path.join(local_dir, 'trim.sh')
 CS_SOURCE_DIR = local_dir
 numpy_dir = os.path.join(local_dir, 'Archive', 'opt')
 
-# Density levels 0 (densest) to 5 (sparsest).
+# Density levels 0 (sparsest) to 5 (densest).
 # Columns: bass_hold_scale, bass_hold_swing, fp_hold_scale, fp_density_map_index, num_primes
 # num_primes controls how many entries from [1,3,5,11,17,31,47,71] are used for chord repeats.
-# Dense → moderate length (6-7); moderate → longest (7-8); sparse → shortest (5).
+# Sparse → shortest (4-5 primes); moderate → longer (6-7); dense → moderate length (6-7).
 DENSITY_LEVELS = [
-    (0.65, 0.80, 0.65, 0, 6),
-    (0.80, 0.72, 0.80, 1, 7),
-    (0.95, 0.55, 0.95, 2, 8),
-    (1.10, 0.45, 1.10, 3, 7),
-    (1.45, 0.22, 1.45, 4, 5),
-    (1.75, 0.12, 1.75, 5, 4),
+    (1.75, 0.12, 1.75, 5, 4),  # 0: sparsest
+    (1.45, 0.22, 1.45, 4, 5),  # 1: sparse
+    (1.10, 0.45, 1.10, 3, 7),  # 2: moderate-sparse
+    (0.95, 0.55, 0.95, 2, 8),  # 3: moderate-dense
+    (0.80, 0.72, 0.80, 1, 7),  # 4: dense
+    (0.65, 0.80, 0.65, 0, 6),  # 5: densest
 ]
 FP_DENSITY_MAPS = [
     {'finger_pianos': 'dense',    'pizz_strings': 'dense',    'perc_guitar': 'dense'},
@@ -1479,7 +1480,7 @@ def expand_chorale(repeats, chorale_in_cents_slides, glides, stored_gliss, voice
         time_slots = np.max([start_time_slot, repeats_average]) * 2
         max_value = 11 # how loud can each instrument go
         logging.info(f'{time_slots = }, {start_time_slot = }, {repeats.shape = }, {repeats_average = }')
-        _sparse_range = {3: (4, 5), 4: (3, 4), 5: (2, 3)}.get(density_level, False)
+        _sparse_range = {0: (2, 3), 1: (3, 4), 2: (4, 5)}.get(density_level, False)
         volume_function = generate_random_volumes_v2(time_slots=time_slots, sparse_mode=_sparse_range)
         logging.info(f'{volume_function.shape = }')
         logging.info(f'sums of each time_slot: ')
@@ -2024,7 +2025,7 @@ if __name__ == "__main__":
       parser.add_argument("--shuffle_density", dest="shuffle_density", action="store_true", default=False,
                           help="Randomly shuffle density level assignments each run (use with --auto_density; default: False)")
       parser.add_argument("--density_level", dest="density_level", type=int, default=None,
-                          help="Pin all chorales to one density level 0-5 (0=densest, 5=sparsest). Overrides --auto_density. (default: None)")
+                          help="Pin all chorales to one density level 0-5 (0=sparsest, 5=densest). Overrides --auto_density. (default: None)")
       parser.add_argument("--prime_count", dest="prime_count", type=int, default=8,
                           help="How many primes from [1,3,5,11,17,31,47,71] to use for chord repeats (1-8, default: 8); overridden per-chorale when --auto_density is set")
       args = parser.parse_args()
