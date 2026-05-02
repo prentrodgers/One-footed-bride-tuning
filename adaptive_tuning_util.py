@@ -85,7 +85,6 @@ def init_voice_time():
             "fing1": {"full_name": "finger piano 1", "start": 0, "csound_voice": 1,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 2, "max_oct": 7},
             "fing2": {"full_name": "finger piano 2", "start": 0, "csound_voice": 1,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 2, "max_oct": 7},
             "fing3": {"full_name": "finger piano 3", "start": 0, "csound_voice": 1,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 2, "max_oct": 7},
-            "bfin1": {"full_name": "bass finger piano 1", "start": 0, "csound_voice": 24,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 1, "max_oct": 5},
             "fing4": {"full_name": "finger piano 4", "start": 0, "csound_voice": 1,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 2, "max_oct": 7},
             "fing5": {"full_name": "finger piano 5", "start": 0, "csound_voice": 1,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 2, "max_oct": 7},
             "fing6": {"full_name": "finger piano 6", "start": 0, "csound_voice": 1,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 2, "max_oct": 7},
@@ -99,8 +98,22 @@ def init_voice_time():
             "fing14": {"full_name": "finger piano 14", "start": 0, "csound_voice": 1,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 2, "max_oct": 7},
             "fing15": {"full_name": "finger piano 15", "start": 0, "csound_voice": 1,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 2, "max_oct": 7},
             "fing16": {"full_name": "finger piano 16", "start": 0, "csound_voice": 1,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 2, "max_oct": 7},
+            "fing17": {"full_name": "finger piano 17", "start": 0, "csound_voice": 1,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 2, "max_oct": 7},
+            "fing18": {"full_name": "finger piano 18", "start": 0, "csound_voice": 1,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 2, "max_oct": 7},
             
+            "bfin1": {"full_name": "bass finger piano 1", "start": 0, "csound_voice": 24,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 1, "max_oct": 5},
             "bfin2": {"full_name": "bass finger piano 2", "start": 0, "csound_voice": 24,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 1, "max_oct": 5},
+            "bfin3": {"full_name": "bass finger piano 3", "start": 0, "csound_voice": 24,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 1, "max_oct": 5},
+            "bfin4": {"full_name": "bass finger piano 4", "start": 0, "csound_voice": 24,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 1, "max_oct": 5},
+            "bfin5": {"full_name": "bass finger piano 5", "start": 0, "csound_voice": 24,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 1, "max_oct": 5},
+            "bfin6": {"full_name": "bass finger piano 6", "start": 0, "csound_voice": 24,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 1, "max_oct": 5},
+            "bfin7": {"full_name": "bass finger piano 7", "start": 0, "csound_voice": 24,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 1, "max_oct": 5},
+            "bfin8": {"full_name": "bass finger piano 8", "start": 0, "csound_voice": 24,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 1, "max_oct": 5},
+            "bfin9": {"full_name": "bass finger piano 9", "start": 0, "csound_voice": 24,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 1, "max_oct": 5},
+            "bfin10": {"full_name": "bass finger piano 10", "start": 0, "csound_voice": 24,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 1, "max_oct": 5},
+            "bfin11": {"full_name": "bass finger piano 11", "start": 0, "csound_voice": 24,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 1, "max_oct": 5},"bfin12": {"full_name": "bass finger piano 12", "start": 0, "csound_voice": 24,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 1, "max_oct": 5},
+            "bfin13": {"full_name": "bass finger piano 13", "start": 0, "csound_voice": 24,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 1, "max_oct": 5},
+            "bfin14": {"full_name": "bass finger piano 14", "start": 0, "csound_voice": 24,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 1, "max_oct": 5},
 
             "vlip1": {"full_name": "violin pizzicato1", "start": 0, "csound_voice": 2,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 3, "max_oct": 7},
             "vlip2": {"full_name": "violin pizzicato2", "start": 0, "csound_voice": 2,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 3, "max_oct": 7},
@@ -124,7 +137,7 @@ def init_voice_time():
             "vibp1": {"full_name": "vibraphone1", "start": 0, "csound_voice": 7,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 4, "max_oct": 7},
             "harp1": {"full_name": "harp1", "start": 0, "csound_voice": 8,"time_tracker_number": 0,  "volume_factor": 2, "min_oct": 3, "max_oct": 7},
 
-            "bgui1": {"full_name": "baritone guitar1", "start": 0, "csound_voice": 20,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 1, "max_oct": 7},
+            
             "ebss1": {"full_name": "Ernie Ball Super Slinky1", "start": 0, "csound_voice": 21,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 1, "max_oct": 7},
             "ebss2": {"full_name": "Ernie Ball Super Slinky2", "start": 0, "csound_voice": 21,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 1, "max_oct": 7},
             "ebss3": {"full_name": "Ernie Ball Super Slinky3", "start": 0, "csound_voice": 21,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 1, "max_oct": 7},
@@ -187,14 +200,7 @@ def init_voice_time():
             "trmb2": {"full_name": "trombone2", "start": 0, "csound_voice": 26,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 1, "max_oct": 5},
             "tuba1": {"full_name": "tuba1", "start": 0, "csound_voice": 27,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 1, "max_oct": 4},
             "tuba2": {"full_name": "tuba2", "start": 0, "csound_voice": 27,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 1, "max_oct": 4},
-                 
-            "bfin3": {"full_name": "bass finger piano 3", "start": 0, "csound_voice": 24,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 1, "max_oct": 5},
-            "bfin4": {"full_name": "bass finger piano 4", "start": 0, "csound_voice": 24,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 1, "max_oct": 5},
-            "bfin5": {"full_name": "bass finger piano 5", "start": 0, "csound_voice": 24,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 1, "max_oct": 5},
-            "bfin6": {"full_name": "bass finger piano 6", "start": 0, "csound_voice": 24,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 1, "max_oct": 5},
-            "bfin7": {"full_name": "bass finger piano 7", "start": 0, "csound_voice": 24,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 1, "max_oct": 5},
-            "bfin8": {"full_name": "bass finger piano 8", "start": 0, "csound_voice": 24,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 1, "max_oct": 5},
-            
+
             "celp3": {"full_name": "cello pizzicato3", "start": 0, "csound_voice": 4,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 1, "max_oct": 5},
             "celp4": {"full_name": "cello pizzicato4", "start": 0, "csound_voice": 4,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 1, "max_oct": 4},
             
@@ -202,13 +208,15 @@ def init_voice_time():
             "celp6": {"full_name": "cello pizzicato6", "start": 0, "csound_voice": 4,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 2, "max_oct": 4},
             "celp7": {"full_name": "cello pizzicato7", "start": 0, "csound_voice": 4,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 2, "max_oct": 4},
             "celp8": {"full_name": "cello pizzicato8", "start": 0, "csound_voice": 4,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 2, "max_oct": 4},
-            "bgui2": {"full_name": "baritone guitar2", "start": 0, "csound_voice": 20,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 1, "max_oct": 6},
-            "bgui3": {"full_name": "baritone guitar3", "start": 0, "csound_voice": 20,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 1, "max_oct": 6},
-            "bgui4": {"full_name": "baritone guitar4", "start": 0, "csound_voice": 20,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 1, "max_oct": 6},
-            "bgui5": {"full_name": "baritone guitar5", "start": 0, "csound_voice": 20,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 1, "max_oct": 6},
-            "bgui6": {"full_name": "baritone guitar6", "start": 0, "csound_voice": 20,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 1, "max_oct": 6},
-            "bgui7": {"full_name": "baritone guitar7", "start": 0, "csound_voice": 20,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 1, "max_oct": 6},
-            "bgui8": {"full_name": "baritone guitar8", "start": 0, "csound_voice": 20,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 1, "max_oct": 6},
+            
+            "bgui1": {"full_name": "baritone guitar1", "start": 0, "csound_voice": 20,"time_tracker_number": 0,  "volume_factor": -3, "min_oct": 1, "max_oct": 7},
+            "bgui2": {"full_name": "baritone guitar2", "start": 0, "csound_voice": 20,"time_tracker_number": 0,  "volume_factor": -3, "min_oct": 1, "max_oct": 6},
+            "bgui3": {"full_name": "baritone guitar3", "start": 0, "csound_voice": 20,"time_tracker_number": 0,  "volume_factor": -3, "min_oct": 1, "max_oct": 6},
+            "bgui4": {"full_name": "baritone guitar4", "start": 0, "csound_voice": 20,"time_tracker_number": 0,  "volume_factor": -3, "min_oct": 1, "max_oct": 6},
+            "bgui5": {"full_name": "baritone guitar5", "start": 0, "csound_voice": 20,"time_tracker_number": 0,  "volume_factor": -3, "min_oct": 1, "max_oct": 6},
+            "bgui6": {"full_name": "baritone guitar6", "start": 0, "csound_voice": 20,"time_tracker_number": 0,  "volume_factor": -3, "min_oct": 1, "max_oct": 6},
+            "bgui7": {"full_name": "baritone guitar7", "start": 0, "csound_voice": 20,"time_tracker_number": 0,  "volume_factor": -3, "min_oct": 1, "max_oct": 6},
+            "bgui8": {"full_name": "baritone guitar8", "start": 0, "csound_voice": 20,"time_tracker_number": 0,  "volume_factor": -3, "min_oct": 1, "max_oct": 6},
             
             "flut3": {"full_name": "flute3", "start": 0, "csound_voice": 14,"time_tracker_number": 0,  "volume_factor": 2, "min_oct": 3, "max_oct": 6},
             "oboe3": {"full_name": "oboe3", "start": 0, "csound_voice": 15,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 3, "max_oct": 6},

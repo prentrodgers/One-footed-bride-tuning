@@ -8,18 +8,7 @@ __pycache__/
 # Generated audio / Csound output
 Music/sflib/*.wav
 Music/sflib/*.eps
-new_output.csd
 *.log
-
-# Runtime npy outputs (root level only)
-/bass_part_bass_section.npy
-/melody_part_melody_section.npy
-/perc_part_finger_pianos.npy
-/perc_part_perc_guitar.npy
-/perc_part_pizz_strings.npy
-/winds_part_bowed_strings.npy
-/winds_part_brass_section.npy
-/winds_part_wood_winds.npy
 
 # Generated analysis outputs
 /sa_animation.gif
@@ -29,9 +18,19 @@ new_output.csd
 /compare_chord_files.log
 /grid_search_output.log
 
-# Uploads (mp3s)
-Uploads/*.mp3
-Uploads/a1-*/
+# Uploads audio policy
+/Uploads/**/*.wav
+/Uploads/**/*.wave
+/Uploads/**/*.mp3
+/Uploads/**/*.flac
+/Uploads/**/*.ogg
+/Uploads/**/*.m4a
+/Uploads/**/*.aif
+/Uploads/**/*.aiff
+!/Uploads/compositions/
+!/Uploads/compositions/**
+!/Uploads/original_Bach/
+!/Uploads/original_Bach/**
 Uploads/Playlist.m3u
 Uploads/sort-tol-rf.py
 

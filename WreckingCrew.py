@@ -641,7 +641,7 @@ def bass_part(chorale, glides, repeats, voice_names, voice_time, tpq, volume_fun
     env = np.array([[1, 0], [2, 8], [16, 17], [2, 8]])
     env_p = np.array([[.5, .5], [.8, .2], [.5, .5], [.5, .5] ])
     vel = np.array([[71, 74], [74, 77], [76, 79], [73, 76]])
-    vel -= 2 # lower the volume on the finger piano parts to avoid clipping
+    vel -= 3 # lower the volume on the bass parts to avoid clipping
     vel_p = np.array([[.5, .5], [.5, .5], [.5, .5], [.5, .5]])
     guev_array = np.stack((gls, gls_p, ups, ups_p, env, env_p, vel, vel_p), axis = 0)
     rng.shuffle(guev_array, axis=1)
@@ -1052,7 +1052,7 @@ def woodwinds_part(chorale_in_cents_slides, glides, repeats, voice_names, voice_
     ups_p = np.array([[.5, .5], [.5, .5], [.5, .5], [.5, .5]])
     env = np.array([[1, 16], [6, 9], [0, 5], [9, 6]])
     env_p = np.array([[.5, .5], [.5, .5], [.5, .5], [.5, .5]])
-    vel = np.array([[64, 66], [64, 69], [63, 70], [64, 69]]) # how loud the note will be at different points in the piece across all voices.
+    vel = np.array([[64, 66], [64, 69], [63, 70], [64, 69]]) # how loud the note will be.
     vel -= 3 # lower the volume on the woodwinds parts to avoid clipping
     vel_p = np.array([[.5, .5], [.5, .5], [.5, .5], [.5, .5]])
 
@@ -1157,8 +1157,8 @@ def melody_part(chorale_in_cents_slides, glides, repeats, voice_names, voice_tim
     ups_p = np.array([[.5, .5], [.5, .5], [.5, .5], [.5, .5]])
     env = np.array([[1, 16], [6, 9], [0, 5], [9, 6]])
     env_p = np.array([[.5, .5], [.5, .5], [.5, .5], [.5, .5]])
-    vel = np.array([[64, 66], [64, 69], [63, 70], [64, 69]]) # how loud the note will be at different points in the piece across all voices.
-    vel -= 3 # lower the volume on the woodwinds parts to avoid clipping
+    vel = np.array([[64, 66], [64, 69], [63, 70], [64, 69]]) # how loud the note will be.
+    vel -= 3 # lower the volume on the melody parts to avoid clipping
     vel_p = np.array([[.5, .5], [.5, .5], [.5, .5], [.5, .5]])
 
     if mask:
@@ -1867,14 +1867,13 @@ def mainline(chorale_override=None, short_repeats=False, include_list=None, csou
       elif just_piano_samples:
             include_sections = {
                   # section --      play or not --    instruments in the section
-                #   'finger_pianos': [True, np.array(['fing1', 'fing2', 'fing3', 'fing4', 'fing5', 'fing6', 'bfin1', 'bfin2'])],
-                  'finger_pianos': [True, np.array(['fing1', 'fing2', 'fing3', 'fing4', 'fing5', 'fing6', 'fing7', 'fing8'])],
+                  'finger_pianos': [True, np.array(['fing1', 'fing2', 'fing3', 'bfin1', 'fing4', 'fing5', 'fing6', 'bfin2'])],
                   'wood_winds':    [True, np.array(['flut1', 'clar1', 'oboe1', 'oboe2', 'frnh1', 'frnh2', 'basn1', 'basn2'])],
-                  'pizz_strings':  [True, np.array(['vlip1', 'vlip2', 'vlap1', 'celp1', 'vlim1', 'vlim2', 'vlap2', 'celm1',])],
+                  'pizz_strings':  [True, np.array(['vlip1', 'vlip2', 'vlap1', 'celp1', 'vlip3', 'vlip4', 'vlap2', 'celp2',])],
                   'bowed_strings': [True, np.array(['vliv1', 'vliv2', 'vliv3', 'vliv4', 'vlav1', 'vlav2', 'celv1', 'celv2'])],
                   'brass_section': [True, np.array(['trmp1', 'trmp2', 'trmp3', 'trmp4', 'trmb1', 'trmb2', 'tuba1', 'tuba2'])], 
                   'perc_guitar':   [True, np.array(['mari1', 'mari2', 'mari3', 'mari4', 'mari5', 'mari6', 'mari7', 'mari8'])],
-                  'bass_section':  [True, np.array(['bfin1', 'bfin2', 'bosen01', 'long1', 'celp5', 'celp6', 'bosen04', 'bgui1'])],
+                  'bass_section':  [True, np.array(['bgui1', 'bgui2', 'bgui3', 'bfin3', 'bgui5', 'bgui6', 'bgui7', 'bfin4'])],
                   'melody_section':[True, np.array(['flut2', 'flut3', 'clar2', 'vibp1', 'oboe3', 'basn4', 'trmp5', 'vibp2'])]}
       else:
             include_sections = {

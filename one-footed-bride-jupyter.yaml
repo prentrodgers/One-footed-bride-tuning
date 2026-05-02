@@ -6,6 +6,11 @@
 #   kubectl delete -f one-footed-bride-jupyter.yaml
 #
 # Access: http://<node-ip>:30004
+# Remote-SSH (optional):
+#   1) kubectl create secret generic one-footed-bride-ssh-authorized-keys \
+#        --from-file=authorized_keys=$HOME/.ssh/id_ed25519.pub
+#   2) kubectl apply -f one-footed-bride-jupyter.yaml
+#   3) Connect from VS Code Remote-SSH to <node-ip>:30222 (user: prent)
 apiVersion: v1
 kind: Service
 metadata:
@@ -21,6 +26,52 @@ spec:
     nodePort: 30004
   selector:
     app: one-footed-bride
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: one-footed-bride-ssh
+  labels:
+    app: one-footed-bride
+spec:
+  type: NodePort
+  ports:
+  - port: 22
+    name: ssh
+    targetPort: 2222
+    nodePort: 30222
+  selector:
+    app: one-footed-bride
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: one-footed-bride-sshd-config
+  labels:
+    app: one-footed-bride
+data:
+  sshd_config: |
+    Port 2222
+    ListenAddress 0.0.0.0
+    Protocol 2
+    PermitRootLogin no
+    PasswordAuthentication no
+    KbdInteractiveAuthentication no
+    ChallengeResponseAuthentication no
+    PubkeyAuthentication yes
+    UsePAM no
+    PermitEmptyPasswords no
+    AuthorizedKeysFile .ssh/authorized_keys
+    AllowUsers prent
+    X11Forwarding no
+    AllowTcpForwarding yes
+    PermitTunnel no
+    GatewayPorts no
+    MaxAuthTries 3
+    MaxSessions 5
+    ClientAliveInterval 60
+    ClientAliveCountMax 2
+    Subsystem sftp internal-sftp
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -61,6 +112,9 @@ spec:
               git clone "$REPO_URL" "$REPO_DIR"
               cd "$REPO_DIR" && git lfs pull
             fi
+            chgrp -R 1000 "$REPO_DIR"
+            chmod -R g+rwX "$REPO_DIR"
+            find "$REPO_DIR" -type d -exec chmod g+s {} +
             echo "Repo ready at $REPO_DIR"
         volumeMounts:
         - mountPath: /home/prent
@@ -105,10 +159,68 @@ spec:
           limits:
             cpu: "30"
             memory: "16Gi"
+      - name: pod-ssh
+        image: quay.io/prentrodgers/python-music:0.7
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          capabilities:
+            add:
+            - SYS_CHROOT
+        command: ["/bin/bash", "-c"]
+        args:
+          - |
+            set -euo pipefail
+            apt-get update
+            DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends openssh-server
+            rm -rf /var/lib/apt/lists/*
+            if ! id -u prent >/dev/null 2>&1; then
+              useradd -m -d /home/prent -s /bin/bash -u 1000 prent
+            fi
+            passwd -d prent >/dev/null 2>&1 || true
+            mkdir -p /home/prent/.ssh /run/sshd
+            cp /etc/ssh-secrets/authorized_keys /home/prent/.ssh/authorized_keys
+            chown -R prent:prent /home/prent/.ssh
+            chmod 700 /home/prent/.ssh
+            chmod 600 /home/prent/.ssh/authorized_keys
+            ssh-keygen -A
+            exec /usr/sbin/sshd -D -e -f /etc/ssh/sshd_config
+        ports:
+        - containerPort: 2222
+          name: ssh
+        volumeMounts:
+        - mountPath: /home/prent
+          name: ceph-files
+        - name: ssh-authorized-keys
+          mountPath: /etc/ssh-secrets
+          readOnly: true
+        - name: sshd-config
+          mountPath: /etc/ssh/sshd_config
+          subPath: sshd_config
+          readOnly: true
+        env:
+        - name: HOME
+          value: "/home/prent"
+        - name: TZ
+          value: "America/Los_Angeles"
+        resources:
+          requests:
+            cpu: "0.1"
+            memory: "256Mi"
+          limits:
+            cpu: "2"
+            memory: "2Gi"
       volumes:
       - name: ceph-files
         persistentVolumeClaim:
           claimName: dropbox-pvc
           readOnly: false
+      - name: ssh-authorized-keys
+        secret:
+          secretName: one-footed-bride-ssh-authorized-keys
+          defaultMode: 0400
+      - name: sshd-config
+        configMap:
+          name: one-footed-bride-sshd-config
+          defaultMode: 0444
       imagePullSecrets:
         - name: regcred
