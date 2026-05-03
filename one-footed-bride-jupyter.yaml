@@ -53,6 +53,7 @@ data:
   sshd_config: |
     Port 2222
     ListenAddress 0.0.0.0
+    HostKey /etc/ssh/ssh_host_ed25519_key
     Protocol 2
     PermitRootLogin no
     PasswordAuthentication no
@@ -170,19 +171,25 @@ spec:
         args:
           - |
             set -euo pipefail
-            apt-get update
-            DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends openssh-server
-            rm -rf /var/lib/apt/lists/*
+            if ! command -v sshd >/dev/null 2>&1; then
+              apt-get update
+              DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends openssh-server
+              rm -rf /var/lib/apt/lists/*
+            fi
             if ! id -u prent >/dev/null 2>&1; then
               useradd -m -d /home/prent -s /bin/bash -u 1000 prent
             fi
             passwd -d prent >/dev/null 2>&1 || true
-            mkdir -p /home/prent/.ssh /run/sshd
+            mkdir -p /home/prent/.ssh /home/prent/.ssh-hostkeys /run/sshd
             cp /etc/ssh-secrets/authorized_keys /home/prent/.ssh/authorized_keys
             chown -R prent:prent /home/prent/.ssh
             chmod 700 /home/prent/.ssh
             chmod 600 /home/prent/.ssh/authorized_keys
-            ssh-keygen -A
+            if [ ! -s /home/prent/.ssh-hostkeys/ssh_host_ed25519_key ]; then
+              ssh-keygen -t ed25519 -N '' -f /home/prent/.ssh-hostkeys/ssh_host_ed25519_key
+            fi
+            install -m 600 /home/prent/.ssh-hostkeys/ssh_host_ed25519_key /etc/ssh/ssh_host_ed25519_key
+            install -m 644 /home/prent/.ssh-hostkeys/ssh_host_ed25519_key.pub /etc/ssh/ssh_host_ed25519_key.pub
             exec /usr/sbin/sshd -D -e -f /etc/ssh/sshd_config
         ports:
         - containerPort: 2222
@@ -204,11 +211,11 @@ spec:
           value: "America/Los_Angeles"
         resources:
           requests:
-            cpu: "0.1"
-            memory: "256Mi"
+            cpu: "0.5"
+            memory: "8Gi"
           limits:
-            cpu: "2"
-            memory: "2Gi"
+            cpu: "30"
+            memory: "16Gi"
       volumes:
       - name: ceph-files
         persistentVolumeClaim:

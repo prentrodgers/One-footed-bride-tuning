@@ -69,12 +69,12 @@ DENSITY_LEVELS = [
     (0.65, 0.80, 0.65, 0, 6),  # 5: densest
 ]
 FP_DENSITY_MAPS = [
-    {'finger_pianos': 'dense',    'pizz_strings': 'dense',    'perc_guitar': 'dense'},
-    {'finger_pianos': 'dense',    'pizz_strings': 'dense',    'perc_guitar': 'moderate'},
-    {'finger_pianos': 'dense',    'pizz_strings': 'moderate', 'perc_guitar': 'sparse'},
-    {'finger_pianos': 'moderate', 'pizz_strings': 'moderate', 'perc_guitar': 'sparse'},
-    {'finger_pianos': 'moderate', 'pizz_strings': 'sparse',   'perc_guitar': 'sparse'},
-    {'finger_pianos': 'sparse',   'pizz_strings': 'sparse',   'perc_guitar': 'sparse'},
+    {'finger_pianos': 'dense',    'pizz_strings': 'dense',    'marimbas': 'dense'},
+    {'finger_pianos': 'dense',    'pizz_strings': 'dense',    'marimbas': 'dense'},
+    {'finger_pianos': 'moderate', 'pizz_strings': 'moderate', 'marimbas': 'moderate'},
+    {'finger_pianos': 'moderate', 'pizz_strings': 'moderate', 'marimbas': 'moderate'},
+    {'finger_pianos': 'sparse',   'pizz_strings': 'sparse',   'marimbas': 'sparse'},
+    {'finger_pianos': 'sparse',   'pizz_strings': 'sparse',   'marimbas': 'sparse'},
 ]
 
 # keep track of all the voice features, and where they are in time
@@ -1509,15 +1509,34 @@ def expand_chorale(repeats, chorale_in_cents_slides, glides, stored_gliss, voice
         f'mean={np.mean(density_profile):.2f}'
     )
 
-    notes_features_15 = np.empty((0,15), dtype = int) # start with an empty array you can concatenate onto.
+    def _save_section_npy(section_name: str, rows: np.ndarray) -> None:
+        if section_name in ['pizz_strings', 'marimbas', 'finger_pianos']:
+            np.save(f'perc_part_{section_name}.npy', rows)
+        elif section_name in ['wood_winds', 'brass_section', 'bowed_strings']:
+            np.save(f'winds_part_{section_name}.npy', rows)
+        elif section_name == 'melody_section':
+            np.save(f'melody_part_{section_name}.npy', rows)
+        elif section_name == 'bass_section':
+            np.save(f'bass_part_{section_name}.npy', rows)
+
+    def _section_density_sum(rows: np.ndarray) -> float:
+        if rows.size == 0:
+            return 0.0
+        hold = rows[:, 2].astype(float)
+        vel = np.clip(rows[:, 3].astype(float), 50.0, 90.0)
+        vol = rows[:, 14].astype(float)
+        return float(np.sum(hold * ((10 ** (vel / 20.0)) * vol / 5.0)))
+
+    notes_features_15 = np.empty((0,15), dtype = float) # start with an empty array you can concatenate onto.
+    section_slices: dict[str, tuple[int, int]] = {}
     if fp_density_starts is None:
-        fp_density_starts = {'finger_pianos': 'dense', 'pizz_strings': 'moderate', 'perc_guitar': 'sparse'}
-    fp_volumes = {'finger_pianos': 2, 'pizz_strings': 2, 'perc_guitar': 2}
+        fp_density_starts = {'finger_pianos': 'moderate', 'pizz_strings': 'moderate', 'marimbas': 'moderate'}
+    fp_volumes = {'finger_pianos': 2, 'pizz_strings': 2, 'marimbas': 2}
     for sec_num, section in zip(count(0,1), include_sections): 
         if include_sections[section][0]: # if the dictionary value for this instrument section is set to True
             print(f'{sec_num}: {section}, includes instruments: {include_sections[section][1]}')
             _rows_before = notes_features_15.shape[0]
-            if section in ['pizz_strings', 'perc_guitar', 'finger_pianos']:
+            if section in ['pizz_strings', 'marimbas', 'finger_pianos']:
                 print(f'playing {section}')
                 notes_features_15 = np.concatenate((notes_features_15, finger_piano_part(chorale_in_cents_slides, glides, repeats_average, include_sections[section][1], voice_time, tpq, volume_function[sec_num], probs = probs,
                     fp_volume=fp_volumes.get(section, 2), density_start=fp_density_starts.get(section, 'moderate'), density_profile=density_profile, fp_hold_scale=fp_hold_scale)), axis = 0)
@@ -1526,23 +1545,52 @@ def expand_chorale(repeats, chorale_in_cents_slides, glides, stored_gliss, voice
                     # notes_features_15[:, 5] += 1 # raise the octaves by one to prevent mud
                     # notes_features_15[:, 5] = np.clip(notes_features_15[:, 5], 1, 7) # clip at 7 max to prevent chirps
                 logging.info(f'octaves after change: {np.unique(notes_features_15[:, 5].astype(int),return_counts=True)}')
-                np.save(f'perc_part_{section}.npy', notes_features_15[_rows_before:])
+                _save_section_npy(section, notes_features_15[_rows_before:])
             elif section in ['melody_section']:
                 print(f'playing {section}')
                 notes_features_15 = np.concatenate((notes_features_15, melody_part(chorale_in_cents_slides, glides, repeats_average, include_sections[section][1], voice_time, tpq, volume_function[sec_num], mask=mask, prob_silence=prob_silence, octave_reduce=octave_reduce, woodwinds_volume=woodwinds_volume, sustain=melody_sustain, density_profile=density_profile)), axis = 0)
-                np.save(f'melody_part_{section}.npy', notes_features_15[_rows_before:])
+                _save_section_npy(section, notes_features_15[_rows_before:])
             elif section in ['wood_winds', 'brass_section', 'bowed_strings']:
                 print(f'playing {section}')
                 notes_features_15 = np.concatenate((notes_features_15, woodwinds_part(chorale_in_cents_slides, glides, repeats_average, include_sections[section][1], voice_time, tpq, volume_function[sec_num], mask=mask, prob_silence=prob_silence, octave_reduce=0, woodwinds_volume=woodwinds_volume, density_profile=density_profile)), axis = 0)
-                np.save(f'winds_part_{section}.npy', notes_features_15[_rows_before:])
+                _save_section_npy(section, notes_features_15[_rows_before:])
             elif section in ['bass_section']:
                 print(f'playing {section}')
                 notes_features_15 = np.concatenate((notes_features_15, bass_part(chorale_in_cents_slides, glides, repeats_average, include_sections[section][1], voice_time, tpq, volume_function[sec_num], probs = probs, bass_sustain=bass_sustain, fp_volume=3,
                     bass_hold_scale=bass_hold_scale, bass_hold_swing=bass_hold_swing, bass_hold_cycles=bass_hold_cycles, density_profile=density_profile)), axis = 0)
-                np.save(f'bass_part_{section}.npy', notes_features_15[_rows_before:])
+                _save_section_npy(section, notes_features_15[_rows_before:])
+            section_slices[section] = (_rows_before, notes_features_15.shape[0])
             print(f'{section}: {[(inst, voice_time[inst]["start"]) for inst in include_sections[section][1]]}')
             logging.debug(f'{notes_features_15.shape = }')
             print(f'after concatenating {section = }, {notes_features_15.shape = }')
+
+    # Auto-normalize sustained sections to comparable density per render.
+    sustained_sections = ['wood_winds', 'bowed_strings', 'brass_section', 'melody_section']
+    available_sustained = [s for s in sustained_sections if s in section_slices]
+    for _ in range(2):
+        sustained_sums = {}
+        for section in available_sustained:
+            start, end = section_slices[section]
+            sustained_sums[section] = _section_density_sum(notes_features_15[start:end])
+        nonzero = [v for v in sustained_sums.values() if v > 0]
+        if len(nonzero) < 2:
+            break
+        target_sum = float(np.median(nonzero))
+        logging.info(f'sustained auto-balance: {sustained_sums = }, {target_sum = }')
+        for section, current_sum in sustained_sums.items():
+            if current_sum <= 0:
+                continue
+            scale = float(np.clip(target_sum / current_sum, 0.25, 4.00))
+            start, end = section_slices[section]
+            notes_features_15[start:end, 14] = np.clip(
+                notes_features_15[start:end, 14].astype(float) * scale,
+                0,
+                14,
+            )
+
+    for section in available_sustained:
+        start, end = section_slices[section]
+        _save_section_npy(section, notes_features_15[start:end])
 
     # now that you have the voices, assign note start times from durations of notes in a voice
     notes_features_final, voice_time = dmu.fix_start_times(notes_features_15, voice_time)
@@ -1837,7 +1885,7 @@ def mainline(chorale_override=None, short_repeats=False, include_list=None, csou
                   'pizz_strings':  [False, np.array(['vlip1', 'vlip2', 'vlip3', 'vlip4', 'vlap1', 'vlap2', 'celp1', 'celp2'])],
                   'bowed_strings': [False, np.array(['vliv1', 'vliv2', 'vliv3', 'vliv4', 'vlav1', 'vlav2', 'celv1', 'celv2'])],
                   'brass_section': [True, np.array(['trmp1', 'trmp2', 'trmp3', 'trmp4', 'trmb1', 'trmb2', 'tuba1', 'tuba2'])],
-                  'perc_guitar':   [False, np.array(['xylp1', 'mari1', 'vibp1', 'harp1', 'ebss1', 'stri1', 'bgui1', 'long1'])],
+                  'marimbas':   [False, np.array(['xylp1', 'mari1', 'vibp1', 'harp1', 'ebss1', 'stri1', 'bgui1', 'long1'])],
                   'bass_section':  [False, np.array(['bfin3', 'bfin4', 'celp3', 'celp4', 'bgui3', 'bgui2', 'long2', 'long3'])],
                   'melody_section':[False, np.array(['flut2', 'flut3', 'clar2', 'mari2', 'oboe3', 'basn4', 'trmp5', 'frnh3'])]}
                 #  'wood_winds':  [True, np.array(['bosen01', 'bosen02', 'bosen03', 'bosen04', 'bosen05', 'bosen06', 'bosen07', 'bosen08'])],
@@ -1850,7 +1898,7 @@ def mainline(chorale_override=None, short_repeats=False, include_list=None, csou
                   'pizz_strings':  [False, np.array(['vlip1', 'vlip2', 'vlip3', 'vlip4', 'vlap1', 'vlap2', 'celp1', 'celp2'])],
                   'bowed_strings': [True, np.array(['vliv1', 'vliv2', 'vliv3', 'vliv4', 'vlav1', 'vlav2', 'celv1', 'celv2'])],
                   'brass_section': [True, np.array(['trmp1', 'trmp2', 'trmp3', 'trmp4', 'trmb1', 'trmb2', 'tuba1', 'tuba2'])], 
-                  'perc_guitar':   [False, np.array(['xylp1', 'mari1', 'vibp1', 'harp1', 'ebss1', 'stri1', 'bgui1', 'long1'])],
+                  'marimbas':   [False, np.array(['xylp1', 'mari1', 'vibp1', 'harp1', 'ebss1', 'stri1', 'bgui1', 'long1'])],
                   'bass_section':  [False, np.array(['bfin3', 'bfin4', 'celp3', 'celp4', 'bgui3', 'bgui2', 'long2', 'long3'])],
                   'melody_section':[True, np.array(['flut2', 'flut3', 'clar2', 'vibp1', 'oboe3', 'basn4', 'trmp5', 'frnh3'])]}
       elif just_fp:
@@ -1861,7 +1909,7 @@ def mainline(chorale_override=None, short_repeats=False, include_list=None, csou
                   'pizz_strings':  [False, np.array(['ebss1', 'ebss2', 'ebss3', 'ebss4', 'ebss5', 'ebss6', 'ebss7', 'ebss8'])],
                   'bowed_strings': [False, np.array([])],
                   'brass_section': [False, np.array([])], 
-                  'perc_guitar':   [True, np.array(['bgui1', 'bgui2', 'bgui3', 'bgui4', 'bgui5', 'bgui6', 'bgui7', 'bgui8'])],
+                  'marimbas':   [True, np.array(['bgui1', 'bgui2', 'bgui3', 'bgui4', 'bgui5', 'bgui6', 'bgui7', 'bgui8'])],
                   'bass_section':  [True, np.array(['bfin1', 'bfin2', 'bfin3', 'bfin4', 'bfin5', 'bfin6', 'bfin7', 'bfin8'])], 
                   'melody_section':[False, np.array([])]}
       elif just_piano_samples:
@@ -1869,11 +1917,11 @@ def mainline(chorale_override=None, short_repeats=False, include_list=None, csou
                   # section --      play or not --    instruments in the section
                   'finger_pianos': [True, np.array(['fing1', 'fing2', 'fing3', 'bfin1', 'fing4', 'fing5', 'fing6', 'bfin2'])],
                   'wood_winds':    [True, np.array(['flut1', 'clar1', 'oboe1', 'oboe2', 'frnh1', 'frnh2', 'basn1', 'basn2'])],
-                  'pizz_strings':  [True, np.array(['vlip1', 'vlip2', 'vlap1', 'celp1', 'vlip3', 'vlip4', 'vlap2', 'celp2',])],
+                  'pizz_strings':  [True, np.array(['vlip1', 'vlip2', 'vlap1', 'celp1', 'vlim1', 'vlim2', 'vlap2', 'celp2',])],
                   'bowed_strings': [True, np.array(['vliv1', 'vliv2', 'vliv3', 'vliv4', 'vlav1', 'vlav2', 'celv1', 'celv2'])],
                   'brass_section': [True, np.array(['trmp1', 'trmp2', 'trmp3', 'trmp4', 'trmb1', 'trmb2', 'tuba1', 'tuba2'])], 
-                  'perc_guitar':   [True, np.array(['mari1', 'mari2', 'mari3', 'mari4', 'mari5', 'mari6', 'mari7', 'mari8'])],
-                  'bass_section':  [True, np.array(['bgui1', 'bgui2', 'bgui3', 'bfin3', 'bgui5', 'bgui6', 'bgui7', 'bfin4'])],
+                  'marimbas':   [True, np.array(['mari1', 'mari2', 'mari3', 'mari4', 'mari5', 'mari6', 'mari7', 'mari8'])],
+                  'bass_section':  [True, np.array(['bgui1', 'bgui2', 'bgui3', 'bfin3', 'bfin4', 'bgui4', 'bfin5', 'bgui5'])],
                   'melody_section':[True, np.array(['flut2', 'flut3', 'clar2', 'vibp1', 'oboe3', 'basn4', 'trmp5', 'vibp2'])]}
       else:
             include_sections = {
@@ -1883,7 +1931,7 @@ def mainline(chorale_override=None, short_repeats=False, include_list=None, csou
                   'pizz_strings':  [True, np.array(['bosen01', 'vlip2', 'vlip3', 'vlip4', 'vlap1', 'vlap2', 'celp1', 'celp2'])],
                   'bowed_strings': [True, np.array(['vliv1', 'vliv2', 'vliv3', 'vliv4', 'vlav1', 'vlav2', 'celv1', 'celv2'])],
                   'brass_section': [True, np.array(['trmp1', 'trmp2', 'trmp3', 'trmp4', 'trmb1', 'trmb2', 'tuba1', 'tuba2'])], 
-                  'perc_guitar':   [True, np.array(['mari1', 'mari2', 'mari3', 'mari4', 'mari5', 'mari6', 'mari7', 'mari8'])],
+                  'marimbas':   [True, np.array(['mari1', 'mari2', 'mari3', 'mari4', 'mari5', 'mari6', 'mari7', 'mari8'])],
                   'bass_section':  [True, np.array(['bfin5', 'bfin6', 'bfin7', 'bfin8', 'celp5', 'celp6', 'celp7', 'bgui1'])],
                   'melody_section':[True, np.array(['flut2', 'flut3', 'clar2', 'vibp1', 'oboe3', 'basn4', 'trmp5', 'frnh3'])]}
       limit = 0 # how many seconds to produce. 0 means no limit.
