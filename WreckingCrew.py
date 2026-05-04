@@ -1773,8 +1773,12 @@ def chorale_to_wave_v4(version, album, include_sections, ratio_factor, limit_max
         logging.info(f'{chorale_in_cents_octaves.shape = }, {choral_octaves_repeated.shape = }')
     else: 
         # here is where we need to set the repeats. We want the repeats to be different numbers, not an integer. 
-        all_primes = np.array([1, 3, 5, 11, 17, 31, 47, 71])
+        # all_primes = np.array([1, 3, 5, 11, 17, 31, 47, 71])
+        # all_primes = np.array([1, 2, 4, 8, 16, 32, 48, 72])
+        all_primes = rng.choice([np.array([1, 2, 4, 8, 16, 32, 48, 72]), np.array([1, 3, 5, 11, 17, 31, 47, 71])])
+        
         primes = all_primes[:int(np.clip(prime_count, 1, all_primes.shape[0]))]
+        # the previous line is just a super-safe way to slice the all_primes array to the first prime_count elements of the prime_count array. 
         choral_octaves_repeated, repeats = create_repeat_array_pattern(chorale_in_cents_octaves, pattern=primes)
         logging.info(f'created repeats pattern using primes. {primes = }, {prime_count = }, {repeats[:primes.shape[0]] = }')
 
