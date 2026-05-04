@@ -1454,7 +1454,7 @@ def expand_chorale(repeats, chorale_in_cents_slides, glides, stored_gliss, voice
     # set the default value for octave_reduce
     if octave_reduce == 0:
         octave_reduce = 2
-    quantization = 3 # this is only used to influence the tempo, it's not actually quantizing anything. 8 went too far (fast)
+    quantization = 7 # this is only used to influence the tempo, it's not actually quantizing anything. 8 went too far (fast)
     # choose the tempo based on how many times the notes are repeated
     repeats_average = int(round(np.average(repeats)))
     logging.info(f'{repeats.shape = }, {repeats_average = }, {quantization = }')
@@ -1840,7 +1840,7 @@ def mainline(chorale_override=None, short_repeats=False, include_list=None, csou
              mp3=True, max_cents_slide=35, melody_sustain=3, bass_sustain=15,
              bass_hold_scale=1.0, bass_hold_swing=0.75, bass_hold_cycles=4, cent_file_partial='-trans-sa-opt.npy', \
              show_volumes=True, mod_letter='a', album=3, use_werck_top_notes=False, tolerance=1, ratio_factor=0.75, \
-             numpy_dir_arg=None, stability_factor=0.0, max_delta=33, spread=7, limit_max=23, auto_density=False, prime_count=8, density_level=None, shuffle_density=False):
+             numpy_dir_arg=None, stability_factor=0.0, max_delta=33, spread=7, limit_max=23, auto_density=False, prime_count=8, density_level=None, shuffle_density=False, auto_density_weights=None):
       if include_list is None:
             include_list = []
 
@@ -1956,14 +1956,20 @@ def mainline(chorale_override=None, short_repeats=False, include_list=None, csou
                         chorale_list = [s]
       else:
             chorale_list.reverse()
-    #   chorale_list=['bwv253']
 
+      #   chorale_list=['bwv253']
       if auto_density and density_level is None:
             n = len(chorale_list)
-            repeats_needed = (n + len(DENSITY_LEVELS) - 1) // len(DENSITY_LEVELS)
-            level_sequence = (list(range(len(DENSITY_LEVELS))) * repeats_needed)[:n]
+            if auto_density_weights is None:
+                weighted_levels = list(range(len(DENSITY_LEVELS)))
+            else:
+                weighted_levels = []
+                for level, weight in enumerate(auto_density_weights):
+                    weighted_levels.extend([level] * int(weight))
+            repeats_needed = (n + len(weighted_levels) - 1) // len(weighted_levels)
+            level_sequence = (weighted_levels * repeats_needed)[:n]
             if shuffle_density:
-                  rng.shuffle(level_sequence)
+                rng.shuffle(level_sequence)
       else:
             level_sequence = None
 
@@ -2071,11 +2077,27 @@ if __name__ == "__main__":
                           help="Automatically cycle through 6 density levels across chorales (default: False)")
       parser.add_argument("--shuffle_density", dest="shuffle_density", action="store_true", default=False,
                           help="Randomly shuffle density level assignments each run (use with --auto_density; default: False)")
+      parser.add_argument("--auto_density_weights", dest="auto_density_weights", type=str, default=None,
+                          help="Comma-separated weights for density levels 0..5 when using --auto_density (default: equal weights). Example: 1,1,1,2,3,4")
       parser.add_argument("--density_level", dest="density_level", type=int, default=None,
                           help="Pin all chorales to one density level 0-5 (0=sparsest, 5=densest). Overrides --auto_density. (default: None)")
       parser.add_argument("--prime_count", dest="prime_count", type=int, default=8,
                           help="How many primes from [1,3,5,11,17,31,47,71] to use for chord repeats (1-8, default: 8); overridden per-chorale when --auto_density is set")
       args = parser.parse_args()
+
+      parsed_auto_density_weights = None
+      if args.auto_density_weights is not None:
+            try:
+                  parsed_auto_density_weights = [int(part.strip()) for part in args.auto_density_weights.split(',')]
+            except ValueError as exc:
+                  raise SystemExit(f'Invalid --auto_density_weights value: {args.auto_density_weights}') from exc
+            if len(parsed_auto_density_weights) != len(DENSITY_LEVELS):
+                  raise SystemExit(f'--auto_density_weights must provide exactly {len(DENSITY_LEVELS)} integers for levels 0..{len(DENSITY_LEVELS)-1}')
+            if any(weight < 0 for weight in parsed_auto_density_weights):
+                  raise SystemExit('--auto_density_weights cannot include negative values')
+            if sum(parsed_auto_density_weights) == 0:
+                  raise SystemExit('--auto_density_weights cannot all be zero')
+
       mainline(chorale_override=args.chorale_name, short_repeats=args.short_repeats,
                include_list=args.include_list, csound=args.csound, convolve=args.convolve,
                mp3=args.mp3, max_cents_slide=args.max_cents_slide, melody_sustain=args.melody_sustain, bass_sustain=args.bass_sustain,
@@ -2084,6 +2106,7 @@ if __name__ == "__main__":
                mod_letter=args.mod_letter, album=args.album, use_werck_top_notes=args.use_werck_top_notes,
                tolerance=args.tolerance, ratio_factor=args.ratio_factor, numpy_dir_arg=args.numpy_dir,
                stability_factor=args.stability_factor, max_delta=args.max_delta,
-               spread=args.spread, limit_max=args.limit_max, auto_density=args.auto_density, prime_count=args.prime_count, density_level=args.density_level, shuffle_density=args.shuffle_density)
+               spread=args.spread, limit_max=args.limit_max, auto_density=args.auto_density, prime_count=args.prime_count, density_level=args.density_level, shuffle_density=args.shuffle_density,
+               auto_density_weights=parsed_auto_density_weights)
 
 
