@@ -596,6 +596,56 @@ def plot_sparsity_waveform(
 
 
 
+def thin_staccato_chains(
+    notes_features: np.ndarray,
+    min_chain_len: int = 6,
+    thin_ratio: float = 0.5,
+    preserve_head: int = 2,
+    preserve_tail: int = 1,
+) -> np.ndarray:
+    """Silence notes inside long runs of 0.25-duration events by setting octave (col 5) to 0.
+
+    Notes are never removed — their time-slot position is preserved so downstream
+    start-time sequencing stays intact.  Only the octave field is zeroed, which
+    subsequent processes treat as silence.
+
+    Args:
+        notes_features: Shape (N, 15) array from piano_roll_to_notes_features.
+        min_chain_len:  Minimum consecutive 0.25-duration notes before thinning starts.
+        thin_ratio:     Fraction of interior notes to silence (0.0=off, 1.0=all).
+        preserve_head:  Notes at the start of each chain that are always kept (attack).
+        preserve_tail:  Notes at the end of each chain that are always kept (release).
+
+    Returns:
+        Modified copy of notes_features with some octaves zeroed.
+    """
+    if thin_ratio <= 0.0 or notes_features.shape[0] == 0:
+        return notes_features
+    out = notes_features.copy()
+    durations = np.round(out[:, 1], 2)
+    n = durations.shape[0]
+    i = 0
+    while i < n:
+        if durations[i] == 0.25:
+            j = i
+            while j < n and durations[j] == 0.25:
+                j += 1
+            chain_len = j - i
+            if chain_len >= min_chain_len:
+                interior_start = i + preserve_head
+                interior_end = j - preserve_tail
+                if interior_end > interior_start:
+                    interior = np.arange(interior_start, interior_end)
+                    n_thin = int(round(len(interior) * thin_ratio))
+                    if n_thin > 0:
+                        chosen = rng.choice(interior, size=n_thin, replace=False)
+                        out[chosen, 5] = 0  # zero octave = silence
+            i = j
+        else:
+            i += 1
+    return out
+
+
 # define the functions for the bass instruments, much like the finger_piano_part, except it only includes tenor and bass voices
 # chorale is already had repeats applied to it when it arrives here.
 def bass_part(chorale, glides, repeats, voice_names, voice_time, tpq, volume_function, probs = None, fp_volume = 1, bass_sustain=15,
@@ -1441,7 +1491,8 @@ def expand_chorale(repeats, chorale_in_cents_slides, glides, stored_gliss, voice
     include_sections, mod, ratio_factor, mask=True, tpq=0, octave_reduce=0, woodwinds_volume=8,\
     include_instruments=[], print_only=10, limit=0, melody_sustain=15, bass_sustain=15,
     bass_hold_scale=1.0, bass_hold_swing=0.75, bass_hold_cycles=4, just_fp=False, tolerance=1,\
-    stability_factor=0.0, max_delta=33, spread=7, fp_density_starts=None, fp_hold_scale=1.0, density_level=None):
+    stability_factor=0.0, max_delta=33, spread=7, fp_density_starts=None, fp_hold_scale=1.0, density_level=None,
+    fatigue_thin_ratio=0.0, fatigue_min_chain=6, version=''):
     # As of 1/10/26 the chorale_in_cents_slides has already been repeated according to the repeats array. (no longer an integer)
     # send the arrays to the file new_output.csd which csound will convert to a wave file to make music
     # duration, volume_function = expand_chorale(repeats, chorale_in_cents, chorale_in_cents_slides, glides, stored_gliss, voice_time, \
@@ -1510,14 +1561,7 @@ def expand_chorale(repeats, chorale_in_cents_slides, glides, stored_gliss, voice
     )
 
     def _save_section_npy(section_name: str, rows: np.ndarray) -> None:
-        if section_name in ['pizz_strings', 'marimbas', 'finger_pianos']:
-            np.save(f'perc_part_{section_name}.npy', rows)
-        elif section_name in ['wood_winds', 'brass_section', 'bowed_strings']:
-            np.save(f'winds_part_{section_name}.npy', rows)
-        elif section_name == 'melody_section':
-            np.save(f'melody_part_{section_name}.npy', rows)
-        elif section_name == 'bass_section':
-            np.save(f'bass_part_{section_name}.npy', rows)
+        pass
 
     def _section_density_sum(rows: np.ndarray) -> float:
         if rows.size == 0:
@@ -1545,6 +1589,10 @@ def expand_chorale(repeats, chorale_in_cents_slides, glides, stored_gliss, voice
                     # notes_features_15[:, 5] += 1 # raise the octaves by one to prevent mud
                     # notes_features_15[:, 5] = np.clip(notes_features_15[:, 5], 1, 7) # clip at 7 max to prevent chirps
                 logging.info(f'octaves after change: {np.unique(notes_features_15[:, 5].astype(int),return_counts=True)}')
+                if fatigue_thin_ratio > 0:
+                    notes_features_15[_rows_before:] = thin_staccato_chains(
+                        notes_features_15[_rows_before:], min_chain_len=fatigue_min_chain, thin_ratio=fatigue_thin_ratio)
+                    logging.info(f'after fatigue thinning {section}: {np.unique(notes_features_15[_rows_before:, 5].astype(int), return_counts=True)}')
                 _save_section_npy(section, notes_features_15[_rows_before:])
             elif section in ['melody_section']:
                 print(f'playing {section}')
@@ -1558,6 +1606,10 @@ def expand_chorale(repeats, chorale_in_cents_slides, glides, stored_gliss, voice
                 print(f'playing {section}')
                 notes_features_15 = np.concatenate((notes_features_15, bass_part(chorale_in_cents_slides, glides, repeats_average, include_sections[section][1], voice_time, tpq, volume_function[sec_num], probs = probs, bass_sustain=bass_sustain, fp_volume=3,
                     bass_hold_scale=bass_hold_scale, bass_hold_swing=bass_hold_swing, bass_hold_cycles=bass_hold_cycles, density_profile=density_profile)), axis = 0)
+                if fatigue_thin_ratio > 0:
+                    notes_features_15[_rows_before:] = thin_staccato_chains(
+                        notes_features_15[_rows_before:], min_chain_len=fatigue_min_chain, thin_ratio=fatigue_thin_ratio)
+                    logging.info(f'after fatigue thinning bass_section: {np.unique(notes_features_15[_rows_before:, 5].astype(int), return_counts=True)}')
                 _save_section_npy(section, notes_features_15[_rows_before:])
             section_slices[section] = (_rows_before, notes_features_15.shape[0])
             print(f'{section}: {[(inst, voice_time[inst]["start"]) for inst in include_sections[section][1]]}')
@@ -1595,12 +1647,24 @@ def expand_chorale(repeats, chorale_in_cents_slides, glides, stored_gliss, voice
     # now that you have the voices, assign note start times from durations of notes in a voice
     notes_features_final, voice_time = dmu.fix_start_times(notes_features_15, voice_time)
     print(f'{notes_features_final.shape = }') # notes_features_final.shape = (16495, 15)
+
+    # Filter inaudible notes: ampdb(velocity) * volume / 5 >= 1 matches Csound iamp = ampdb(iVel) * p15 / 5
+    _velocity = notes_features_final[:, 3]
+    _volume   = notes_features_final[:, 14]
+    _audible  = (10 ** (_velocity / 20)) * _volume / 5 >= 1.0
+    notes_features_audible = notes_features_final[_audible]
+    _discarded = notes_features_final.shape[0] - notes_features_audible.shape[0]
+    print(f'Audibility filter: {notes_features_final.shape[0]} -> {notes_features_audible.shape[0]} rows ({_discarded} inaudible discarded)')
+    if version:
+        np.save(f'{version}_features_array.npy', notes_features_audible)
+        print(f'Saved {version}_features_array.npy ({notes_features_audible.shape[0]} rows)')
+
     # send the arrays to the file new_output.csd which csound will convert to a wave file to make sounds
     logging.debug(f'about to update_gliss_table with {stored_gliss.shape = }')
     tables = dmu.update_gliss_table(stored_gliss, stored_gliss.shape[0])
     logging.debug(f'back from update_gliss_table with {stored_gliss = }, {tables = }')
-    print(f"Final list of notes with all features: {notes_features_final.shape = }, and {include_instruments = }. {CSD_FILE = }")
-    result = dmu.send_to_csound_file(notes_features_final, voice_time, CSD_FILE, tempos = 't0 ' + str(tempo),\
+    print(f"Final list of notes with all features: {notes_features_audible.shape = }, and {include_instruments = }. {CSD_FILE = }")
+    result = dmu.send_to_csound_file(notes_features_audible, voice_time, CSD_FILE, tempos = 't0 ' + str(tempo),\
         limit = limit, tempo = tempo, print_only = print_only, include_instruments = include_instruments)
     print(f'Back from send_to_csound_file. {result.shape = }')
     # report how long each instrument cluster plays 
@@ -1709,7 +1773,8 @@ def chorale_to_wave_v4(version, album, include_sections, ratio_factor, limit_max
       cent_file_partial='-cents.npy', show_volumes=False, woodwinds_volume=15,\
     melody_sustain=15, bass_sustain=15, bass_hold_scale=1.0, bass_hold_swing=0.75, bass_hold_cycles=4,
     use_werck_top_notes=False, mp3=True, tolerance=1,\
-      stability_factor=0.0, max_delta=33, spread=7, fp_density_starts=None, fp_hold_scale=1.0, prime_count=8, density_level=None):
+      stability_factor=0.0, max_delta=33, spread=7, fp_density_starts=None, fp_hold_scale=1.0, prime_count=8, density_level=5,
+    fatigue_thin_ratio=0.0, fatigue_min_chain=6):
 
     print(f'In chorale_to_wave_v4. {version = }, {limit_max = }, {short_repeats = }, {ratio_factor = }')
     if short_repeats: # if you just want a straight woodwind/brass chorale, set short_repeats = True
@@ -1814,7 +1879,8 @@ def chorale_to_wave_v4(version, album, include_sections, ratio_factor, limit_max
         bass_hold_scale=bass_hold_scale, bass_hold_swing=bass_hold_swing, bass_hold_cycles=bass_hold_cycles,
         just_fp=just_fp, tolerance=tolerance,\
         stability_factor=stability_factor, max_delta=max_delta, spread=spread,
-        fp_density_starts=fp_density_starts, fp_hold_scale=fp_hold_scale, density_level=density_level)
+        fp_density_starts=fp_density_starts, fp_hold_scale=fp_hold_scale, density_level=density_level,
+        fatigue_thin_ratio=fatigue_thin_ratio, fatigue_min_chain=fatigue_min_chain, version=version)
 
     if csound: # send the results to csound
         result_of_call = play_csound(csound = True, play = False)
@@ -1844,9 +1910,15 @@ def mainline(chorale_override=None, short_repeats=False, include_list=None, csou
              mp3=True, max_cents_slide=35, melody_sustain=3, bass_sustain=15,
              bass_hold_scale=1.0, bass_hold_swing=0.75, bass_hold_cycles=4, cent_file_partial='-trans-sa-opt.npy', \
              show_volumes=True, mod_letter='a', album=3, use_werck_top_notes=False, tolerance=1, ratio_factor=0.75, \
-             numpy_dir_arg=None, stability_factor=0.0, max_delta=33, spread=7, limit_max=23, auto_density=False, prime_count=8, density_level=None, shuffle_density=False, auto_density_weights=None):
+             numpy_dir_arg=None, stability_factor=0.0, max_delta=33, spread=7, limit_max=23, auto_density=False, prime_count=8, density_level=None, shuffle_density=False, auto_density_weights=None,
+             fatigue_thin_ratio=0.0, fatigue_min_chain=6):
       if include_list is None:
             include_list = []
+
+      # Keep level 5 as the effective default, but allow --auto_density to operate
+      # when density_level is not explicitly provided.
+      if density_level is None and not auto_density:
+            density_level = 5
 
       # Override numpy_dir: use explicit argument if provided, otherwise use tolerance-specific directory
       global numpy_dir
@@ -2000,7 +2072,8 @@ def mainline(chorale_override=None, short_repeats=False, include_list=None, csou
                 bass_hold_scale=_bhs, bass_hold_swing=_bhsw, bass_hold_cycles=bass_hold_cycles,
                   cent_file_partial=cent_file_partial, use_werck_top_notes=use_werck_top_notes, mp3=mp3,\
                   tolerance=tolerance, stability_factor=stability_factor, max_delta=max_delta,\
-                  spread=spread, fp_density_starts=_fp_starts, fp_hold_scale=_fhs, prime_count=_np, density_level=_active_level)
+                  spread=spread, fp_density_starts=_fp_starts, fp_hold_scale=_fhs, prime_count=_np, density_level=_active_level,
+                  fatigue_thin_ratio=fatigue_thin_ratio, fatigue_min_chain=fatigue_min_chain)
 
       # Generate a playlist of all the pieces in this album. This never worked correctly in the pod.
       print(f' {UPLOADS_DIR = }')
@@ -2084,9 +2157,13 @@ if __name__ == "__main__":
       parser.add_argument("--auto_density_weights", dest="auto_density_weights", type=str, default=None,
                           help="Comma-separated weights for density levels 0..5 when using --auto_density (default: equal weights). Example: 1,1,1,2,3,4")
       parser.add_argument("--density_level", dest="density_level", type=int, default=None,
-                          help="Pin all chorales to one density level 0-5 (0=sparsest, 5=densest). Overrides --auto_density. (default: None)")
+                          help="Pin all chorales to one density level 0-5 (0=sparsest, 5=densest). Overrides --auto_density. If omitted, defaults to 5 unless --auto_density is set.")
       parser.add_argument("--prime_count", dest="prime_count", type=int, default=8,
                           help="How many primes from [1,3,5,11,17,31,47,71] to use for chord repeats (1-8, default: 8); overridden per-chorale when --auto_density is set")
+      parser.add_argument("--fatigue_thin_ratio", dest="fatigue_thin_ratio", type=float, default=0.0,
+                          help="Fraction of interior notes in 0.25-duration chains to silence (0=off, 0.33=light, 0.5=moderate, 1.0=all). Default: 0.0")
+      parser.add_argument("--fatigue_min_chain", dest="fatigue_min_chain", type=int, default=6,
+                          help="Minimum consecutive 0.25-duration notes before thinning is applied (default: 6)")
       args = parser.parse_args()
 
       parsed_auto_density_weights = None
@@ -2111,6 +2188,7 @@ if __name__ == "__main__":
                tolerance=args.tolerance, ratio_factor=args.ratio_factor, numpy_dir_arg=args.numpy_dir,
                stability_factor=args.stability_factor, max_delta=args.max_delta,
                spread=args.spread, limit_max=args.limit_max, auto_density=args.auto_density, prime_count=args.prime_count, density_level=args.density_level, shuffle_density=args.shuffle_density,
-               auto_density_weights=parsed_auto_density_weights)
+               auto_density_weights=parsed_auto_density_weights,
+               fatigue_thin_ratio=args.fatigue_thin_ratio, fatigue_min_chain=args.fatigue_min_chain)
 
 
