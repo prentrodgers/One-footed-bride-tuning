@@ -21,6 +21,7 @@ base_dir = os.path.dirname(os.path.abspath(__file__))
 numpy_dir = os.path.join(base_dir, 'Archive', 'straw-man')
 import diamond_music_utils as dmu
 import adaptive_tuning_util as atu
+import viterbi_optimization as viterbi
 from itertools import count, combinations, permutations
 rng = np.random.default_rng()
 
@@ -580,6 +581,24 @@ def parse_args():
                         help='Number of SA retune attempts for chords that exceed max_gap (default: 3)')
     parser.add_argument('--snap_tolerance', type=float, default=0.0,
                         help='Snap pitch-class cent values within this distance (¢) of the modal cent to the mode; 0 disables (default: 0)')
+    
+    # Viterbi optimization arguments
+    parser.add_argument('--use_viterbi', action='store_true',
+                        help='Enable Viterbi-like dynamic programming optimization for global path selection')
+    parser.add_argument('--k_candidates', type=int, default=10,
+                        help='Number of candidate tunings to generate per chord for Viterbi optimization (default: 10)')
+    parser.add_argument('--viterbi_vertical_weight', type=float, default=1.0,
+                        help='Weight for vertical (chord quality) scores in Viterbi path selection (default: 1.0)')
+    parser.add_argument('--viterbi_horizontal_weight', type=float, default=0.5,
+                        help='Weight for horizontal (pitch-class consistency) costs in Viterbi path selection (default: 0.5)')
+    parser.add_argument('--viterbi_penalty_type', type=str, default='pitch_class_jump',
+                        choices=['pitch_class_jump', 'voice_leading', 'combined'],
+                        help='Type of horizontal penalty: pitch_class_jump (default), voice_leading, or combined')
+    parser.add_argument('--detect_phrases', action='store_true',
+                        help='Auto-detect phrase boundaries for hierarchical Viterbi optimization')
+    parser.add_argument('--phrase_horizontal_weight', type=float, default=1.0,
+                        help='Horizontal weight for phrase-level Viterbi optimization (default: 1.0)')
+    
     return parser.parse_args()
 
 def main():
@@ -742,6 +761,45 @@ def main():
                 output_file, final_cent_value_chorale, final_score, chord_scorer, tolerance,
                 chorale=chorale, spread_weight=args.spread_weight)
 
+        # Viterbi optimization: generate K candidates per chord and select optimal path
+        if args.use_viterbi:
+            print(f"\nRunning Viterbi optimization (K={args.k_candidates}, "
+                  f"v_weight={args.viterbi_vertical_weight}, "
+                  f"h_weight={args.viterbi_horizontal_weight})...")
+            
+            # Detect phrase boundaries if requested
+            phrase_boundaries = None
+            if args.detect_phrases:
+                phrase_boundaries = viterbi.detect_phrase_boundaries(chorale, fermata_threshold=2)
+                print(f"  Detected {len(phrase_boundaries)} phrase(s)")
+            
+            # Run hierarchical Viterbi optimization
+            viterbi_tuning, phrase_paths, piece_path = viterbi.hierarchical_viterbi_optimization(
+                chorale, cent_value_chorale,
+                chord_scorer, low_number_ratios, tonal_diamond,
+                tolerance=tolerance, K=args.k_candidates,
+                rolls=rolls, sa_iterations=sa_iterations,
+                initial_temperature=initial_temperature, cooling_rate=cooling_rate,
+                ratio_factor=args.ratio_factor, stability_factor=args.stability_factor,
+                spread=args.spread, rng=rng,
+                phrase_boundaries=phrase_boundaries,
+                vertical_weight_phrase=args.viterbi_vertical_weight,
+                horizontal_weight_phrase=args.phrase_horizontal_weight,
+                vertical_weight_piece=args.viterbi_vertical_weight,
+                horizontal_weight_piece=args.viterbi_horizontal_weight,
+                build_chord_sa_func=build_straw_man_chord_sa)
+            
+            # Update final results with Viterbi-optimized tuning
+            final_cent_value_chorale = viterbi_tuning
+            final_score = np.array([chord_scorer.score_chord(final_cent_value_chorale[i], tolerance)
+                                   for i in range(final_cent_value_chorale.shape[0])])
+            
+            # Compute and report spread improvement
+            spread_before = compute_spread_score(final_cent_value_chorale.T, chorale)
+            print(f"  Viterbi complete: mean_score={np.mean(final_score):.1f}, "
+                  f"spread={spread_before:.1f}¢, "
+                  f"path_diversity={len(set(piece_path))}/{args.k_candidates}")
+
         # Post-hoc continuity enforcement: re-tune chords with large adjacent jumps
         if args.max_gap > 0:
             print(f"Running continuity enforcement (max_gap={args.max_gap}¢, retune_on_gaps={args.retune_on_gaps})...")
@@ -796,6 +854,14 @@ def main():
             f.write(f"snap_tolerance: {args.snap_tolerance}\n")
             f.write(f"max_gap: {args.max_gap}\n")
             f.write(f"retune_on_gaps: {args.retune_on_gaps}\n")
+            f.write(f"use_viterbi: {args.use_viterbi}\n")
+            if args.use_viterbi:
+                f.write(f"k_candidates: {args.k_candidates}\n")
+                f.write(f"viterbi_vertical_weight: {args.viterbi_vertical_weight}\n")
+                f.write(f"viterbi_horizontal_weight: {args.viterbi_horizontal_weight}\n")
+                f.write(f"viterbi_penalty_type: {args.viterbi_penalty_type}\n")
+                f.write(f"detect_phrases: {args.detect_phrases}\n")
+                f.write(f"phrase_horizontal_weight: {args.phrase_horizontal_weight}\n")
 
 if __name__ == '__main__':
     main()
