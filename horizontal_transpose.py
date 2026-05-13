@@ -208,7 +208,11 @@ def parse_args(argv: Sequence[str]) -> HorizontalTransposeConfig:
     args = parser.parse_args(argv)
     base_name = os.path.splitext(os.path.basename(args.source))[0]
     prefix = base_name[:6] if base_name else "source"
-    log_file = os.path.expanduser(f"~/{prefix}-trans.log")
+    # Write logs to repo directory instead of home directory
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    logs_dir = os.path.join(script_dir, 'logs')
+    os.makedirs(logs_dir, exist_ok=True)
+    log_file = os.path.join(logs_dir, f"{prefix}-trans.log")
     logger = logging.getLogger()
     logger.setLevel(getattr(logging, args.log_level))
     for handler in list(logger.handlers):

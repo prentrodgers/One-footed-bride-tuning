@@ -9,6 +9,7 @@ __pycache__/
 Music/sflib/*.wav
 Music/sflib/*.eps
 *.log
+logs/
 
 # Generated analysis outputs
 /sa_animation.gif
