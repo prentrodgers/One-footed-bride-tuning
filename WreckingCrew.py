@@ -23,7 +23,7 @@ from typing import Optional
 import music21 as m21
 import pprint as pp
 import numpy as np
-import logging, argparse, platform, random, time
+import logging, argparse, math, platform, random, time
        
 import adaptive_tuning_util as atu
 import diamond_music_utils as dmu 
@@ -602,6 +602,7 @@ def thin_staccato_chains(
     thin_ratio: float = 0.5,
     preserve_head: int = 2,
     preserve_tail: int = 1,
+    density_threshold: int = 2,
 ) -> np.ndarray:
     """Silence notes inside long runs of 0.25-duration events by setting octave (col 5) to 0.
 
@@ -609,12 +610,24 @@ def thin_staccato_chains(
     start-time sequencing stays intact.  Only the octave field is zeroed, which
     subsequent processes treat as silence.
 
+    Phase 1 — per-voice: finds chains of consecutive 0.25-duration notes within each
+    voice (col 6) independently, preventing false chains at voice boundaries.
+
+    Phase 2 — cross-voice temporal: computes per-voice start times by accumulating
+    durations, bins notes onto a 0.25 grid, then finds runs of consecutive time bins
+    where >= density_threshold voices are all playing staccato simultaneously.  The
+    interior bins of qualifying runs are thinned the same way as Phase 1 chains.
+
     Args:
-        notes_features: Shape (N, 15) array from piano_roll_to_notes_features.
-        min_chain_len:  Minimum consecutive 0.25-duration notes before thinning starts.
-        thin_ratio:     Fraction of interior notes to silence (0.0=off, 1.0=all).
-        preserve_head:  Notes at the start of each chain that are always kept (attack).
-        preserve_tail:  Notes at the end of each chain that are always kept (release).
+        notes_features:    Shape (N, 15) array from piano_roll_to_notes_features.
+        min_chain_len:     Minimum consecutive qualifying events before thinning starts.
+                           Phase 1: consecutive 0.25-duration notes per voice.
+                           Phase 2: consecutive dense time bins.
+        thin_ratio:        Fraction of interior audible notes to silence (0.0=off, 1.0=all).
+        preserve_head:     Events at the start of each chain/run that are always kept.
+        preserve_tail:     Events at the end of each chain/run that are always kept.
+        density_threshold: (Phase 2 only) Minimum simultaneous staccato voices per time
+                           bin for that bin to be considered dense (default 2).
 
     Returns:
         Modified copy of notes_features with some octaves zeroed.
@@ -622,27 +635,112 @@ def thin_staccato_chains(
     if thin_ratio <= 0.0 or notes_features.shape[0] == 0:
         return notes_features
     out = notes_features.copy()
-    durations = np.round(out[:, 1], 2)
-    n = durations.shape[0]
-    i = 0
-    while i < n:
-        if durations[i] == 0.25:
-            j = i
-            while j < n and durations[j] == 0.25:
-                j += 1
-            chain_len = j - i
-            if chain_len >= min_chain_len:
-                interior_start = i + preserve_head
-                interior_end = j - preserve_tail
-                if interior_end > interior_start:
-                    interior = np.arange(interior_start, interior_end)
-                    n_thin = int(round(len(interior) * thin_ratio))
+    zeros_before = int(np.sum(out[:, 5] == 0))
+    p1_silenced = 0
+
+    # --- Phase 1: per-voice chain detection ---
+    for voice_num in np.unique(out[:, 6].astype(int)):
+        indices = np.where(out[:, 6].astype(int) == voice_num)[0]
+        durations = np.round(out[indices, 1], 2)
+        n = len(durations)
+        i = 0
+        while i < n:
+            if durations[i] == 0.25:
+                j = i
+                while j < n and durations[j] == 0.25:
+                    j += 1
+                chain_len = j - i
+                if chain_len >= min_chain_len:
+                    interior_start = i + preserve_head
+                    interior_end = j - preserve_tail
+                    if interior_end > interior_start:
+                        interior = np.arange(interior_start, interior_end)
+                        audible = interior[out[indices[interior], 5] != 0]
+                        n_thin = math.ceil(len(audible) * thin_ratio)
+                        if n_thin > 0:
+                            chosen = rng.choice(audible, size=n_thin, replace=False)
+                            out[indices[chosen], 5] = 0
+                            p1_silenced += n_thin
+                i = j
+            else:
+                i += 1
+    logging.info(f'thin_staccato_chains phase1: silenced {p1_silenced} notes')
+
+    # --- Phase 2: cross-voice temporal density ---
+    tick = 0.25
+    p2_silenced = 0
+    # Compute per-voice start times by accumulating durations
+    start_times = np.zeros(len(out))
+    for voice_num in np.unique(out[:, 6].astype(int)):
+        v_idx = np.where(out[:, 6].astype(int) == voice_num)[0]
+        durs = out[v_idx, 1]
+        start_times[v_idx] = np.concatenate([[0.0], np.cumsum(durs[:-1])])
+
+    # Collect audible staccato rows (after Phase 1 may have zeroed some)
+    staccato_mask = (np.round(out[:, 1], 2) == tick) & (out[:, 5] != 0)
+    staccato_idx = np.where(staccato_mask)[0]
+    logging.info(
+        f'thin_staccato_chains phase2: {len(staccato_idx)} audible staccato notes '
+        f'(density_threshold={density_threshold}, min_chain_len={min_chain_len})'
+    )
+
+    p2_qualifying_runs = 0
+    p2_interior_bins = 0
+    if len(staccato_idx) > 0:
+        # Bin to integer tick grid to avoid float comparison issues
+        int_ticks = np.round(start_times[staccato_idx] / tick).astype(int)
+        # Build map: tick_bin -> list of row indices
+        bin_map: dict[int, list[int]] = {}
+        for row_idx, t in zip(staccato_idx, int_ticks):
+            bin_map.setdefault(int(t), []).append(int(row_idx))
+        # Dense bins have >= density_threshold simultaneous staccato voices
+        dense_bins = sorted(t for t, rows in bin_map.items() if len(rows) >= density_threshold)
+        logging.info(
+            f'thin_staccato_chains phase2: {len(bin_map)} total bins, '
+            f'{len(dense_bins)} dense bins (>={density_threshold} voices)'
+        )
+        # Find runs of consecutive dense bins (gap of exactly 1 tick)
+        if len(dense_bins) >= min_chain_len:
+            runs: list[list[int]] = []
+            run: list[int] = [dense_bins[0]]
+            for t in dense_bins[1:]:
+                if t - run[-1] == 1:
+                    run.append(t)
+                else:
+                    runs.append(run)
+                    run = [t]
+            runs.append(run)
+            qualifying_runs = [r for r in runs if len(r) >= min_chain_len]
+            p2_qualifying_runs = len(qualifying_runs)
+            logging.info(
+                f'thin_staccato_chains phase2: {len(runs)} runs found, '
+                f'{p2_qualifying_runs} qualify (>={min_chain_len} bins)'
+            )
+            for run in qualifying_runs:
+                interior = run[preserve_head: len(run) - preserve_tail]
+                p2_interior_bins += len(interior)
+                for t in interior:
+                    candidates = np.array(bin_map[t])
+                    n_thin = math.ceil(len(candidates) * thin_ratio)
                     if n_thin > 0:
-                        chosen = rng.choice(interior, size=n_thin, replace=False)
-                        out[chosen, 5] = 0  # zero octave = silence
-            i = j
+                        chosen = rng.choice(candidates, size=n_thin, replace=False)
+                        out[chosen, 5] = 0
+                        p2_silenced += n_thin
         else:
-            i += 1
+            logging.info(
+                f'thin_staccato_chains phase2: {len(dense_bins)} dense bins — '
+                f'need {min_chain_len} consecutive to qualify, no runs triggered'
+            )
+    logging.info(
+        f'thin_staccato_chains phase2: silenced {p2_silenced} notes '
+        f'across {p2_qualifying_runs} runs ({p2_interior_bins} interior bins)'
+    )
+
+    zeros_after = int(np.sum(out[:, 5] == 0))
+    logging.info(
+        f'thin_staccato_chains total: silenced {p1_silenced + p2_silenced} notes '
+        f'(zero-octave rows: {zeros_before} -> {zeros_after} of {len(out)})'
+    )
     return out
 
 
@@ -1492,7 +1590,7 @@ def expand_chorale(repeats, chorale_in_cents_slides, glides, stored_gliss, voice
     include_instruments=[], print_only=10, limit=0, melody_sustain=15, bass_sustain=15,
     bass_hold_scale=1.0, bass_hold_swing=0.75, bass_hold_cycles=4, just_fp=False, tolerance=1,\
     stability_factor=0.0, max_delta=33, spread=7, fp_density_starts=None, fp_hold_scale=1.0, density_level=None,
-    fatigue_thin_ratio=0.0, fatigue_min_chain=6, version=''):
+    fatigue_thin_ratio=0.0, fatigue_min_chain=6, fatigue_density_threshold=2, version=''):
     # As of 1/10/26 the chorale_in_cents_slides has already been repeated according to the repeats array. (no longer an integer)
     # send the arrays to the file new_output.csd which csound will convert to a wave file to make music
     # duration, volume_function = expand_chorale(repeats, chorale_in_cents, chorale_in_cents_slides, glides, stored_gliss, voice_time, \
@@ -1590,9 +1688,10 @@ def expand_chorale(repeats, chorale_in_cents_slides, glides, stored_gliss, voice
                     # notes_features_15[:, 5] = np.clip(notes_features_15[:, 5], 1, 7) # clip at 7 max to prevent chirps
                 logging.info(f'octaves after change: {np.unique(notes_features_15[:, 5].astype(int),return_counts=True)}')
                 if fatigue_thin_ratio > 0:
+                    logging.info(f'before fatigue thinning {section}: zero-octave rows = {int(np.sum(notes_features_15[_rows_before:, 5] == 0))} of {notes_features_15.shape[0] - _rows_before}')
                     notes_features_15[_rows_before:] = thin_staccato_chains(
-                        notes_features_15[_rows_before:], min_chain_len=fatigue_min_chain, thin_ratio=fatigue_thin_ratio)
-                    logging.info(f'after fatigue thinning {section}: {np.unique(notes_features_15[_rows_before:, 5].astype(int), return_counts=True)}')
+                        notes_features_15[_rows_before:], min_chain_len=fatigue_min_chain, thin_ratio=fatigue_thin_ratio, density_threshold=fatigue_density_threshold)
+                    logging.info(f'after fatigue thinning {section}: zero-octave rows = {int(np.sum(notes_features_15[_rows_before:, 5] == 0))} of {notes_features_15.shape[0] - _rows_before}')
                 _save_section_npy(section, notes_features_15[_rows_before:])
             elif section in ['melody_section']:
                 print(f'playing {section}')
@@ -1607,9 +1706,10 @@ def expand_chorale(repeats, chorale_in_cents_slides, glides, stored_gliss, voice
                 notes_features_15 = np.concatenate((notes_features_15, bass_part(chorale_in_cents_slides, glides, repeats_average, include_sections[section][1], voice_time, tpq, volume_function[sec_num], probs = probs, bass_sustain=bass_sustain, fp_volume=3,
                     bass_hold_scale=bass_hold_scale, bass_hold_swing=bass_hold_swing, bass_hold_cycles=bass_hold_cycles, density_profile=density_profile)), axis = 0)
                 if fatigue_thin_ratio > 0:
+                    logging.info(f'before fatigue thinning bass_section: zero-octave rows = {int(np.sum(notes_features_15[_rows_before:, 5] == 0))} of {notes_features_15.shape[0] - _rows_before}')
                     notes_features_15[_rows_before:] = thin_staccato_chains(
-                        notes_features_15[_rows_before:], min_chain_len=fatigue_min_chain, thin_ratio=fatigue_thin_ratio)
-                    logging.info(f'after fatigue thinning bass_section: {np.unique(notes_features_15[_rows_before:, 5].astype(int), return_counts=True)}')
+                        notes_features_15[_rows_before:], min_chain_len=fatigue_min_chain, thin_ratio=fatigue_thin_ratio, density_threshold=fatigue_density_threshold)
+                    logging.info(f'after fatigue thinning bass_section: zero-octave rows = {int(np.sum(notes_features_15[_rows_before:, 5] == 0))} of {notes_features_15.shape[0] - _rows_before}')
                 _save_section_npy(section, notes_features_15[_rows_before:])
             section_slices[section] = (_rows_before, notes_features_15.shape[0])
             print(f'{section}: {[(inst, voice_time[inst]["start"]) for inst in include_sections[section][1]]}')
@@ -1774,7 +1874,7 @@ def chorale_to_wave_v4(version, album, include_sections, ratio_factor, limit_max
     melody_sustain=15, bass_sustain=15, bass_hold_scale=1.0, bass_hold_swing=0.75, bass_hold_cycles=4,
     use_werck_top_notes=False, mp3=True, tolerance=1,\
       stability_factor=0.0, max_delta=33, spread=7, fp_density_starts=None, fp_hold_scale=1.0, prime_count=8, density_level=5,
-    fatigue_thin_ratio=0.0, fatigue_min_chain=6):
+    fatigue_thin_ratio=0.0, fatigue_min_chain=6, fatigue_density_threshold=2):
 
     print(f'In chorale_to_wave_v4. {version = }, {limit_max = }, {short_repeats = }, {ratio_factor = }')
     if short_repeats: # if you just want a straight woodwind/brass chorale, set short_repeats = True
@@ -1880,7 +1980,7 @@ def chorale_to_wave_v4(version, album, include_sections, ratio_factor, limit_max
         just_fp=just_fp, tolerance=tolerance,\
         stability_factor=stability_factor, max_delta=max_delta, spread=spread,
         fp_density_starts=fp_density_starts, fp_hold_scale=fp_hold_scale, density_level=density_level,
-        fatigue_thin_ratio=fatigue_thin_ratio, fatigue_min_chain=fatigue_min_chain, version=version)
+        fatigue_thin_ratio=fatigue_thin_ratio, fatigue_min_chain=fatigue_min_chain, fatigue_density_threshold=fatigue_density_threshold, version=version)
 
     if csound: # send the results to csound
         result_of_call = play_csound(csound = True, play = False)
@@ -1911,7 +2011,7 @@ def mainline(chorale_override=None, short_repeats=False, include_list=None, csou
              bass_hold_scale=1.0, bass_hold_swing=0.75, bass_hold_cycles=4, cent_file_partial='-trans-sa-opt.npy', \
              show_volumes=True, mod_letter='a', album=3, use_werck_top_notes=False, tolerance=1, ratio_factor=0.75, \
              numpy_dir_arg=None, stability_factor=0.0, max_delta=33, spread=7, limit_max=23, auto_density=False, prime_count=8, density_level=None, shuffle_density=False, auto_density_weights=None,
-             fatigue_thin_ratio=0.0, fatigue_min_chain=6):
+             fatigue_thin_ratio=0.0, fatigue_min_chain=6, fatigue_density_threshold=2):
       if include_list is None:
             include_list = []
 
@@ -2073,7 +2173,7 @@ def mainline(chorale_override=None, short_repeats=False, include_list=None, csou
                   cent_file_partial=cent_file_partial, use_werck_top_notes=use_werck_top_notes, mp3=mp3,\
                   tolerance=tolerance, stability_factor=stability_factor, max_delta=max_delta,\
                   spread=spread, fp_density_starts=_fp_starts, fp_hold_scale=_fhs, prime_count=_np, density_level=_active_level,
-                  fatigue_thin_ratio=fatigue_thin_ratio, fatigue_min_chain=fatigue_min_chain)
+                  fatigue_thin_ratio=fatigue_thin_ratio, fatigue_min_chain=fatigue_min_chain, fatigue_density_threshold=fatigue_density_threshold)
 
       # Generate a playlist of all the pieces in this album. This never worked correctly in the pod.
       print(f' {UPLOADS_DIR = }')
@@ -2084,9 +2184,7 @@ def mainline(chorale_override=None, short_repeats=False, include_list=None, csou
                   # create a playlist of this set of pieces in the uploads directory sorted by duration, shortest first.
                   target_dir = os.path.join(UPLOADS_DIR, f'{mod_letter}{n}-{now.strftime("%m-%d-%y")}' )
                   # try to create it and if it already exists, continue
-                  if not os.path.exists(target_dir):
-                        os.makedirs(target_dir)
-                  else: print(f'{target_dir} exists, no need to create it')
+                  print(f'Album target directory: {target_dir}')
 
 
 if __name__ == "__main__":
@@ -2164,6 +2262,8 @@ if __name__ == "__main__":
                           help="Fraction of interior notes in 0.25-duration chains to silence (0=off, 0.33=light, 0.5=moderate, 1.0=all). Default: 0.0")
       parser.add_argument("--fatigue_min_chain", dest="fatigue_min_chain", type=int, default=6,
                           help="Minimum consecutive 0.25-duration notes before thinning is applied (default: 6)")
+      parser.add_argument("--fatigue_density_threshold", dest="fatigue_density_threshold", type=int, default=2,
+                          help="Phase 2 thinning: minimum simultaneous staccato voices per time bin to be considered dense (default: 2)")
       args = parser.parse_args()
 
       parsed_auto_density_weights = None
@@ -2189,6 +2289,6 @@ if __name__ == "__main__":
                stability_factor=args.stability_factor, max_delta=args.max_delta,
                spread=args.spread, limit_max=args.limit_max, auto_density=args.auto_density, prime_count=args.prime_count, density_level=args.density_level, shuffle_density=args.shuffle_density,
                auto_density_weights=parsed_auto_density_weights,
-               fatigue_thin_ratio=args.fatigue_thin_ratio, fatigue_min_chain=args.fatigue_min_chain)
+               fatigue_thin_ratio=args.fatigue_thin_ratio, fatigue_min_chain=args.fatigue_min_chain, fatigue_density_threshold=args.fatigue_density_threshold)
 
 
