@@ -68,6 +68,8 @@ DENSITY_LEVELS = [
     (0.80, 0.72, 0.80, 1, 7),  # 4: dense
     (0.65, 0.80, 0.65, 0, 6),  # 5: densest
 ]
+# Staccato thinning ratio per density level: sparse → thin more, dense → thin less
+FATIGUE_THIN_RATIOS = [0.9, 0.76, 0.62, 0.48, 0.34, 0.2]
 FP_DENSITY_MAPS = [
     {'finger_pianos': 'dense',    'pizz_strings': 'dense',    'marimbas': 'dense'},
     {'finger_pianos': 'dense',    'pizz_strings': 'dense',    'marimbas': 'dense'},
@@ -1590,7 +1592,7 @@ def expand_chorale(repeats, chorale_in_cents_slides, glides, stored_gliss, voice
     include_instruments=[], print_only=10, limit=0, melody_sustain=15, bass_sustain=15,
     bass_hold_scale=1.0, bass_hold_swing=0.75, bass_hold_cycles=4, just_fp=False, tolerance=1,\
     stability_factor=0.0, max_delta=33, spread=7, fp_density_starts=None, fp_hold_scale=1.0, density_level=None,
-    fatigue_thin_ratio=0.0, fatigue_min_chain=6, fatigue_density_threshold=2, version=''):
+    fatigue_thin_ratio=0.0, fatigue_min_chain=2, fatigue_density_threshold=1, version=''):
     # As of 1/10/26 the chorale_in_cents_slides has already been repeated according to the repeats array. (no longer an integer)
     # send the arrays to the file new_output.csd which csound will convert to a wave file to make music
     # duration, volume_function = expand_chorale(repeats, chorale_in_cents, chorale_in_cents_slides, glides, stored_gliss, voice_time, \
@@ -1874,7 +1876,7 @@ def chorale_to_wave_v4(version, album, include_sections, ratio_factor, limit_max
     melody_sustain=15, bass_sustain=15, bass_hold_scale=1.0, bass_hold_swing=0.75, bass_hold_cycles=4,
     use_werck_top_notes=False, mp3=True, tolerance=1,\
       stability_factor=0.0, max_delta=33, spread=7, fp_density_starts=None, fp_hold_scale=1.0, prime_count=8, density_level=5,
-    fatigue_thin_ratio=0.0, fatigue_min_chain=6, fatigue_density_threshold=2):
+    fatigue_min_chain=2, fatigue_density_threshold=1):
 
     print(f'In chorale_to_wave_v4. {version = }, {limit_max = }, {short_repeats = }, {ratio_factor = }')
     if short_repeats: # if you just want a straight woodwind/brass chorale, set short_repeats = True
@@ -1971,6 +1973,11 @@ def chorale_to_wave_v4(version, album, include_sections, ratio_factor, limit_max
     #     atu.build_glides_report(chorale_in_cents_slides, glides, stored_gliss) 
     logging.info(f'about to call expand_chorale with {choral_octaves_repeated.shape = }\n{chorale_in_cents_slides.shape = }')
 
+    # Staccato thinning ratio is derived from density_level: sparse levels thin more, dense levels thin less
+    _level = density_level if density_level is not None else len(FATIGUE_THIN_RATIOS) - 1
+    fatigue_thin_ratio = FATIGUE_THIN_RATIOS[int(np.clip(_level, 0, len(FATIGUE_THIN_RATIOS) - 1))]
+    logging.info(f'fatigue_thin_ratio={fatigue_thin_ratio} derived from density_level={density_level}')
+
     # apply the repeats to increase the density and length of the piece, select which instruments will play, and other tasks
     duration, volume_function, mod = expand_chorale(repeats, chorale_in_cents_slides,\
         glides, stored_gliss, voice_time, include_sections, mod, ratio_factor, mask=mask,\
@@ -2011,7 +2018,7 @@ def mainline(chorale_override=None, short_repeats=False, include_list=None, csou
              bass_hold_scale=1.0, bass_hold_swing=0.75, bass_hold_cycles=4, cent_file_partial='-trans-sa-opt.npy', \
              show_volumes=True, mod_letter='a', album=3, use_werck_top_notes=False, tolerance=1, ratio_factor=0.75, \
              numpy_dir_arg=None, stability_factor=0.0, max_delta=33, spread=7, limit_max=23, auto_density=False, prime_count=8, density_level=None, shuffle_density=False, auto_density_weights=None,
-             fatigue_thin_ratio=0.0, fatigue_min_chain=6, fatigue_density_threshold=2):
+             fatigue_min_chain=2, fatigue_density_threshold=1):
       if include_list is None:
             include_list = []
 
@@ -2173,7 +2180,7 @@ def mainline(chorale_override=None, short_repeats=False, include_list=None, csou
                   cent_file_partial=cent_file_partial, use_werck_top_notes=use_werck_top_notes, mp3=mp3,\
                   tolerance=tolerance, stability_factor=stability_factor, max_delta=max_delta,\
                   spread=spread, fp_density_starts=_fp_starts, fp_hold_scale=_fhs, prime_count=_np, density_level=_active_level,
-                  fatigue_thin_ratio=fatigue_thin_ratio, fatigue_min_chain=fatigue_min_chain, fatigue_density_threshold=fatigue_density_threshold)
+                  fatigue_min_chain=fatigue_min_chain, fatigue_density_threshold=fatigue_density_threshold)
 
       # Generate a playlist of all the pieces in this album. This never worked correctly in the pod.
       print(f' {UPLOADS_DIR = }')
@@ -2258,12 +2265,10 @@ if __name__ == "__main__":
                           help="Pin all chorales to one density level 0-5 (0=sparsest, 5=densest). Overrides --auto_density. If omitted, defaults to 5 unless --auto_density is set.")
       parser.add_argument("--prime_count", dest="prime_count", type=int, default=8,
                           help="How many primes from [1,3,5,11,17,31,47,71] to use for chord repeats (1-8, default: 8); overridden per-chorale when --auto_density is set")
-      parser.add_argument("--fatigue_thin_ratio", dest="fatigue_thin_ratio", type=float, default=0.0,
-                          help="Fraction of interior notes in 0.25-duration chains to silence (0=off, 0.33=light, 0.5=moderate, 1.0=all). Default: 0.0")
-      parser.add_argument("--fatigue_min_chain", dest="fatigue_min_chain", type=int, default=6,
-                          help="Minimum consecutive 0.25-duration notes before thinning is applied (default: 6)")
-      parser.add_argument("--fatigue_density_threshold", dest="fatigue_density_threshold", type=int, default=2,
-                          help="Phase 2 thinning: minimum simultaneous staccato voices per time bin to be considered dense (default: 2)")
+      parser.add_argument("--fatigue_min_chain", dest="fatigue_min_chain", type=int, default=2,
+                          help="Minimum consecutive 0.25-duration notes/bins before staccato thinning is applied (default: 2)")
+      parser.add_argument("--fatigue_density_threshold", dest="fatigue_density_threshold", type=int, default=1,
+                          help="Phase 2 thinning: minimum simultaneous staccato voices per time bin to be considered dense (default: 1)")
       args = parser.parse_args()
 
       parsed_auto_density_weights = None
@@ -2289,6 +2294,6 @@ if __name__ == "__main__":
                stability_factor=args.stability_factor, max_delta=args.max_delta,
                spread=args.spread, limit_max=args.limit_max, auto_density=args.auto_density, prime_count=args.prime_count, density_level=args.density_level, shuffle_density=args.shuffle_density,
                auto_density_weights=parsed_auto_density_weights,
-               fatigue_thin_ratio=args.fatigue_thin_ratio, fatigue_min_chain=args.fatigue_min_chain, fatigue_density_threshold=args.fatigue_density_threshold)
+               fatigue_min_chain=args.fatigue_min_chain, fatigue_density_threshold=args.fatigue_density_threshold)
 
 
