@@ -217,10 +217,9 @@ def viterbi_select_path(all_candidates, chorale_midi, vertical_weight=1.0,
     if n_chords == 0:
         return np.array([]), [], 0.0
     
-    K = len(all_candidates[0])
-    
     # DP table: dp[chord_idx][candidate_idx] = (min_cost, prev_candidate_idx)
-    dp = [[None for _ in range(K)] for _ in range(n_chords)]
+    # Each chord may have a different number of candidates, so initialize dynamically
+    dp = [[None for _ in range(len(all_candidates[i]))] for i in range(n_chords)]
     
     # Initialize first chord (no transition cost)
     for k in range(len(all_candidates[0])):
@@ -276,8 +275,9 @@ def viterbi_select_path(all_candidates, chorale_midi, vertical_weight=1.0,
     
     total_cost = dp[n_chords-1][best_final_k][0]
     
+    max_candidates = max(len(all_candidates[i]) for i in range(n_chords))
     logging.info(f'Viterbi path selection complete: total_cost={total_cost:.1f}, '
-                f'path diversity={len(set(path))}/{K} candidates used')
+                f'path diversity={len(set(path))}/{max_candidates} candidates used')
     
     return selected_tunings, path, total_cost
 
