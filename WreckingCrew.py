@@ -38,6 +38,24 @@ import adaptive_tuning_util as atu
 import diamond_music_utils as dmu 
 rng = np.random.default_rng()
 
+def parse_params_from_filename(filename):
+    """Extract tolerance, ratio_factor, and limit_max from filename.
+    
+    Expected format: bwv###_t#_r#.###_lm##-trans-sa-opt.npy
+    Returns dict with 'tolerance', 'ratio_factor', 'limit_max' or None if not found.
+    """
+    import re
+    basename = os.path.basename(filename)
+    # Match pattern: _t(\d+)_r([\d.]+)_lm(\d+)
+    match = re.search(r'_t(\d+)_r([\d.]+)_lm(\d+)', basename)
+    if match:
+        return {
+            'tolerance': int(match.group(1)),
+            'ratio_factor': float(match.group(2)),
+            'limit_max': int(match.group(3))
+        }
+    return None
+
 stringify = lambda x: '1/1' if x == 1 else str(Fraction(x).limit_denominator(65))
 np.set_printoptions(legacy='1.21', precision=3) # don't print the datatypes (np.str_, np.float64() etc, and only 3 decimal places)
 # np.set_printoptions(legacy=False) # don't print the datatypes (np.str_, np.float64() etc, and only 3 decimal places)
@@ -1891,6 +1909,28 @@ def chorale_to_wave_v4(version, album, include_sections, ratio_factor, limit_max
     # Load the chorale and some metadata - Since we already have the chorale in cents in a numpy file.
 
     cent_file_name = os.path.join(numpy_dir, f'{version}{cent_file_partial}') # fills out to the actual cent file name
+    
+    # If the file doesn't exist, try to find a file with encoded parameters
+    if not os.path.exists(cent_file_name):
+        import glob
+        # Look for files matching pattern: version_t*_r*_lm*{cent_file_partial}
+        pattern = os.path.join(numpy_dir, f'{version}_t*_r*_lm*{cent_file_partial}')
+        matches = glob.glob(pattern)
+        if matches:
+            # Use the first match (there should only be one per chorale)
+            cent_file_name = matches[0]
+            print(f'File not found with basic name, using encoded filename: {os.path.basename(cent_file_name)}')
+            # Extract parameters from the found filename
+            file_params = parse_params_from_filename(cent_file_name)
+            if file_params:
+                # Update the parameters that will be used
+                tolerance = file_params['tolerance']
+                ratio_factor = file_params['ratio_factor']
+                limit_max = file_params['limit_max']
+                print(f'Extracted from filename: tolerance={tolerance}, ratio_factor={ratio_factor}, limit_max={limit_max}')
+        else:
+            print(f'Warning: Could not find {cent_file_name} or any encoded variant')
+    
     print(f'About to load {cent_file_name = }')
     cent_value_chorale = np.load(cent_file_name)
     # print(f'{chorale_in_cents.shape = }, {chorale_in_cents[:,10:12] = }')
@@ -2270,6 +2310,23 @@ if __name__ == "__main__":
       parser.add_argument("--fatigue_density_threshold", dest="fatigue_density_threshold", type=int, default=1,
                           help="Phase 2 thinning: minimum simultaneous staccato voices per time bin to be considered dense (default: 1)")
       args = parser.parse_args()
+
+      # Try to extract parameters from cent_file_partial filename if it contains them
+      # This allows parameters to be encoded in the filename instead of passed as arguments
+      file_params = None
+      if args.cent_file_partial:
+            file_params = parse_params_from_filename(args.cent_file_partial)
+            if file_params:
+                  # Use file parameters as defaults if command-line args are still at their defaults
+                  if args.tolerance == 1:  # default value
+                        args.tolerance = file_params['tolerance']
+                        logging.info(f'Using tolerance={args.tolerance} from filename')
+                  if args.ratio_factor == 1.5:  # default value
+                        args.ratio_factor = file_params['ratio_factor']
+                        logging.info(f'Using ratio_factor={args.ratio_factor} from filename')
+                  if args.limit_max == 17:  # default value
+                        args.limit_max = file_params['limit_max']
+                        logging.info(f'Using limit_max={args.limit_max} from filename')
 
       parsed_auto_density_weights = None
       if args.auto_density_weights is not None:

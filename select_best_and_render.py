@@ -301,8 +301,15 @@ def main():
             if not os.path.exists(src):
                 print(f'  {version}: not found — {src}')
             else:
-                shutil.copy2(src, dest)
-                print(f'  {version}  →  {os.path.basename(src)}  (from {os.path.basename(best_dir)})')
+                # Encode parameters in the destination filename
+                t = params['tolerance']
+                r = params['ratio_factor']
+                lm = params['limit_max']
+                # Extract the suffix part (e.g., '-trans-sa-opt.npy')
+                dest_filename = f'{version}_t{t}_r{r:.3f}_lm{lm}{args.suffix}'
+                dest_path = os.path.join(dest, dest_filename)
+                shutil.copy2(src, dest_path)
+                print(f'  {version}  →  {dest_filename}  (from {os.path.basename(best_dir)})')
         print('\nDone copying.')
 
 
