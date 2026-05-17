@@ -1,0 +1,135 @@
+# Kubernetes Job to aggregate results from all grid search jobs
+# Run this AFTER all 20 grid search jobs have completed successfully
+# This runs select_best_and_render.py to rank all parameter combinations
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: grid-search-aggregation
+  labels:
+    app: grid-search
+    job-type: aggregation
+spec:
+  backoffLimit: 2
+  ttlSecondsAfterFinished: 86400  # Clean up after 24 hours
+  template:
+    metadata:
+      labels:
+        app: grid-search
+        job-type: aggregation
+    spec:
+      securityContext:
+        fsGroup: 1000
+      restartPolicy: Never
+      initContainers:
+      - name: git-sync
+        image: quay.io/prentrodgers/python-music:0.7
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          runAsUser: 0
+        command: ["/bin/bash", "-c"]
+        args:
+          - |
+            set -euo pipefail
+            REPO_DIR=/home/prent/Repos/One-footed-bride-tuning
+            REPO_URL=https://github.com/prentrodgers/One-footed-bride-tuning.git
+            git lfs install
+            if [ -d "$REPO_DIR/.git" ]; then
+              echo "Repo exists — pulling latest..."
+              cd "$REPO_DIR" && git pull && git lfs pull
+            else
+              echo "Cloning repo..."
+              mkdir -p /home/prent/Repos
+              git clone "$REPO_URL" "$REPO_DIR"
+              cd "$REPO_DIR" && git lfs pull
+            fi
+            chgrp -R 1000 "$REPO_DIR"
+            chmod -R g+rwX "$REPO_DIR"
+            find "$REPO_DIR" -type d -exec chmod g+s {} +
+            echo "Repo ready at $REPO_DIR"
+        volumeMounts:
+        - mountPath: /home/prent
+          name: ceph-files
+        env:
+        - name: HOME
+          value: "/home/prent"
+      containers:
+      - name: aggregation
+        image: quay.io/prentrodgers/python-music:0.7
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          runAsUser: 1000
+          runAsGroup: 1000
+        workingDir: /home/prent/Repos/One-footed-bride-tuning
+        command: ["/bin/bash", "-c"]
+        args:
+          - |
+            set -euo pipefail
+            
+            CHORALES="bwv253 bwv254 bwv255 bwv256 bwv257 bwv258 bwv259 bwv260 bwv261 bwv262 bwv263 bwv264"
+            
+            echo "========================================"
+            echo "Grid Search Aggregation Job"
+            echo "========================================"
+            echo ""
+            echo "Checking for completed results..."
+            
+            # Count how many parameter combinations have results
+            result_count=$(find Archive/straw-man -name "*-trans-sa-opt.npy" -type f | wc -l)
+            expected_count=$((20 * 12))  # 20 combinations × 12 chorales
+            
+            echo "Found $result_count result files (expected: $expected_count)"
+            
+            if [ "$result_count" -lt "$expected_count" ]; then
+                echo "WARNING: Not all results are present. Some jobs may have failed."
+                echo "Proceeding with available results..."
+            fi
+            
+            echo ""
+            echo "Running select_best_and_render.py to rank all parameter combinations..."
+            echo ""
+            
+            # Run the aggregation script
+            python select_best_and_render.py \
+                --numpy_dir_root Archive/straw-man \
+                --chorale_list $CHORALES \
+                --spread_weight 0.5
+            
+            echo ""
+            echo "========================================"
+            echo "Aggregation complete!"
+            echo "========================================"
+            echo ""
+            echo "Results summary:"
+            ls -lh Archive/straw-man/*/
+            echo ""
+            echo "Check the output above for the best parameter combinations."
+        volumeMounts:
+        - mountPath: /home/prent
+          name: ceph-files
+        env:
+        - name: SFDIR
+          value: "/home/prent/Music/sflib"
+        - name: SSDIR
+          value: "/home/prent/Music/sflib"
+        - name: TZ
+          value: "America/Los_Angeles"
+        - name: HOME
+          value: "/home/prent"
+        - name: LOGNAME
+          value: "prent"
+        resources:
+          requests:
+            cpu: "1"
+            memory: "4Gi"
+          limits:
+            cpu: "2"
+            memory: "8Gi"
+      volumes:
+      - name: ceph-files
+        persistentVolumeClaim:
+          claimName: dropbox-pvc
+          readOnly: false
+      imagePullSecrets:
+        - name: regcred
+
+# Made with Bob
