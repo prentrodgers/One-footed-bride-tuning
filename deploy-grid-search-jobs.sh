@@ -52,10 +52,10 @@ for job_file in "$JOBS_DIR"/grid-search-job-*.yaml; do
     
     if kubectl apply -f "$job_file" > /dev/null 2>&1; then
         echo "✓"
-        ((deployed++))
+        deployed=$((deployed + 1))
     else
         echo "✗ FAILED"
-        ((failed++))
+        failed=$((failed + 1))
     fi
 done
 
