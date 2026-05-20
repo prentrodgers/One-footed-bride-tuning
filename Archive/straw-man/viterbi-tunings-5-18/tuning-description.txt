@@ -1,0 +1,20 @@
+This tuning is the best so far as of 5-18-26. It has the best spread values of any so far achieved. The scores are not the best, but the overall sound is the best I've been able to produce. These should be saved in the github. Better than the ones in best-tunings.
+
+The majority were created on 5-14 and 5-15-26 from the 12 hour run the k8s-grid-search jobs described in README-k8s-grid-search.md. Track it with this kubectl command:
+        k get jobs -l app=grid-search | sort -k 4 -n 
+The bwv253 chorale was created by this from 5-18-26:
+        python select_best_and_render.py --numpy_dir_root Archive/straw-man --spread_weight 0.90 --chorale_list bwv253 --suffix=-trans-sa-opt.npy --copy_npy_to Archive/straw-man/viterbi-tunings-5-18 --render --short_repeats
+    A list of all the tunings shows the time line. 
+        ls -lth Archive/straw-man/viterbi-tunings-5-18
+            -rw-rw-r-- 1 prent prent 5.7K May 18 00:51 bwv254_t1_r1.500_lm17-trans-sa-opt.npy
+            -rw-rw-r-- 1 prent prent 6.2K May 15 08:20 bwv259_t2_r1.250_lm19-trans-sa-opt.npy
+            -rw-rw-r-- 1 prent prent 5.2K May 15 08:01 bwv257_t1_r1.375_lm17-trans-sa-opt.npy
+            -rw-rw-r-- 1 prent prent 5.2K May 15 07:58 bwv256_t1_r1.625_lm19-trans-sa-opt.npy
+            -rw-rw-r-- 1 prent prent 4.2K May 15 07:56 bwv255_t2_r1.375_lm19-trans-sa-opt.npy
+            -rw-rw-r-- 1 prent prent 6.2K May 15 07:56 bwv263_t1_r1.250_lm19-trans-sa-opt.npy
+            -rw-rw-r-- 1 prent prent 5.2K May 15 07:11 bwv260_t2_r1.500_lm17-trans-sa-opt.npy
+            -rw-rw-r-- 1 prent prent 5.2K May 15 01:51 bwv258_t1_r1.125_lm19-trans-sa-opt.npy
+            -rw-rw-r-- 1 prent prent 4.8K May 15 00:58 bwv264_t1_r1.625_lm17-trans-sa-opt.npy
+            -rw-rw-r-- 1 prent prent 8.9K May 14 22:16 bwv261_t1_r1.125_lm17-trans-sa-opt.npy
+            -rw-rw-r-- 1 prent prent 5.2K May 14 22:16 bwv253_t1_r1.125_lm17-trans-sa-opt.npy
+            -rw-rw-r-- 1 prent prent 6.2K May 14 15:07 bwv262_t1_r1.750_lm19-trans-sa-opt.npy
