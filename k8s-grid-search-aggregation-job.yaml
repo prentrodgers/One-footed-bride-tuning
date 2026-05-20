@@ -1,5 +1,5 @@
 # Kubernetes Job to aggregate results from all grid search jobs
-# Run this AFTER all 20 grid search jobs have completed successfully
+# Run this AFTER all 10 grid search jobs have completed successfully
 # This runs select_best_and_render.py to rank all parameter combinations
 apiVersion: batch/v1
 kind: Job
@@ -75,7 +75,7 @@ spec:
             
             # Count how many parameter combinations have results
             result_count=$(find Archive/straw-man -name "*-trans-sa-opt.npy" -type f | wc -l)
-            expected_count=$((20 * 12))  # 20 combinations × 12 chorales
+            expected_count=$((10 * 12))  # 10 combinations × 12 chorales
             
             echo "Found $result_count result files (expected: $expected_count)"
             
@@ -92,7 +92,7 @@ spec:
             python select_best_and_render.py \
                 --numpy_dir_root Archive/straw-man \
                 --chorale_list $CHORALES \
-                --spread_weight 0.5
+                --spread_weight 0.90
             
             echo ""
             echo "========================================"
