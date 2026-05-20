@@ -39,20 +39,38 @@ import adaptive_tuning_util as atu
 
 
 def parse_dir_params(dirname):
-    """Parse t{t}_r{r}_s{s}_md{md}_sn{sn}[_lm{lm}] directory name into a dict.
-    Returns None if the name does not match."""
-    m = re.match(r't(\d+)_r([\d.]+)_s([\d.]+)_md(\d+)_sn(\d+)(?:_lm(\d+))?',
-                 os.path.basename(dirname))
-    if not m:
-        return None
-    return {
-        'tolerance': int(m.group(1)),
-        'ratio_factor': float(m.group(2)),
-        'stability_factor': float(m.group(3)),
-        'max_delta': int(m.group(4)),
-        'snap_tolerance': int(m.group(5)),
-        'limit_max': int(m.group(6)) if m.group(6) else 23,
-    }
+    """Parse a tuning directory name into a params dict.
+
+    Supports two naming conventions:
+      Old: t{t}_r{r}_s{s}_md{md}_sn{sn}[_lm{lm}]
+      New: t{t}_r{r}_lm{lm}_tmp{temp}   (stability=0, max_delta=33, snap=0 implied)
+
+    Returns None if the name matches neither pattern.
+    """
+    name = os.path.basename(dirname)
+    # New convention: t1_r1.375_lm17_tmp3.0
+    m = re.match(r't(\d+)_r([\d.]+)_lm(\d+)_tmp([\d.]+)$', name)
+    if m:
+        return {
+            'tolerance': int(m.group(1)),
+            'ratio_factor': float(m.group(2)),
+            'limit_max': int(m.group(3)),
+            'stability_factor': 0.0,
+            'max_delta': 33,
+            'snap_tolerance': 0,
+        }
+    # Old convention: t1_r1.125_s0_md33_sn0_lm17
+    m = re.match(r't(\d+)_r([\d.]+)_s([\d.]+)_md(\d+)_sn(\d+)(?:_lm(\d+))?', name)
+    if m:
+        return {
+            'tolerance': int(m.group(1)),
+            'ratio_factor': float(m.group(2)),
+            'stability_factor': float(m.group(3)),
+            'max_delta': int(m.group(4)),
+            'snap_tolerance': int(m.group(5)),
+            'limit_max': int(m.group(6)) if m.group(6) else 23,
+        }
+    return None
 
 
 def compute_spread_score(cent_value_chorale_4n, chorale):

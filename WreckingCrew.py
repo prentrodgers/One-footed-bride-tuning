@@ -930,8 +930,17 @@ def bass_part(chorale, glides, repeats, voice_names, voice_time, tpq, volume_fun
     volume_array += fp_volume
     notes_features_15 = dmu.piano_roll_to_notes_features(notes_features_6, volume_array, voice_names, tpq, voice_time)
     notes_features_15 = atu.clip_note_features(notes_features_15, voice_time) # make sure the octaves are in range and the volume adjusted per the voice_time dictionary
-    # notes_features_15 contains one row for every note: note, oct, glis, ups, env, vel, vol, voice, 
+    # notes_features_15 contains one row for every note: note, oct, glis, ups, env, vel, vol, voice,
     logging.debug(f'{notes_features_15.shape = }')
+    # Bass finger piano (csound_voice 24) notes at octave 0 would be silenced by the row[5]>0 filter.
+    # Instead: bump to octave 1, apply a constant 0.5 glissando (f307) to drop back one octave,
+    # and set upsample=252 (4 slots lower) to compensate sample selection toward the actual pitch.
+    bfin_oct0 = (notes_features_15[:, 6] == 24) & (notes_features_15[:, 5] == 0)
+    if np.any(bfin_oct0):
+        notes_features_15[bfin_oct0, 5]  = 1    # octave 1 — passes the silence filter
+        notes_features_15[bfin_oct0, 10] = 252  # upsample: 4 slots lower (256-4)
+        notes_features_15[bfin_oct0, 12] = 307  # 2nd glissando: f307 constant 0.5 (one octave down)
+        logging.info(f'bass_part: octave-0 rescue applied to {np.sum(bfin_oct0)} bfin notes')
     # np.save('bass_part_notes_features.npy', notes_features_15)
     return notes_features_15
 # end of bass_part

@@ -42,7 +42,7 @@ for limit_max in "${LIMIT_MAXES[@]}"; do
                     # Step 1: tune with SA
                     time python Straw_man_tuning_v2.py \
                         --no-print_values --no-print_finals --no-print_initial \
-                        --rolls 8 --workers 12 --runs 6 \
+                        --rolls 8 --workers 1 --runs 1 \
                         --limit_max "$limit_max" \
                         --chorale_list $CHORALES \
                         --ratio_factor "$ratio" \
@@ -54,7 +54,13 @@ for limit_max in "${LIMIT_MAXES[@]}"; do
                         --sa_iterations 1000 \
                         --cooling_rate 0.999 \
                         --initial_temp 3.0 \
-                        --spread "$spread"
+                        --spread "$spread" \
+                        --use_viterbi \
+                        --k_candidates 15 \
+                        --viterbi_vertical_weight 1.0 \
+                        --viterbi_horizontal_weight 0.5 \
+                        --detect_phrases \
+                        --phrase_horizontal_weight 1.0
 
                     # Step 2: horizontal consistency pass
                     for c in $CHORALES; do

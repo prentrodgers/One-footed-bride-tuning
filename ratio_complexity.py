@@ -10,6 +10,7 @@ Usage:
 """
 import argparse
 import sys
+from collections import defaultdict
 from fractions import Fraction
 from itertools import combinations
 from pathlib import Path
@@ -17,8 +18,28 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 
+import adaptive_tuning_util as atu
+
 
 CHORALE_ORDER = [f'bwv{n}' for n in range(253, 265)]
+
+
+def pitch_class_spread(cent_array: np.ndarray) -> float:
+    """Worst-case circular MAD of tuning values per pitch class.
+
+    Matches the spread metric in select_best_and_render.py: for every pitch
+    class present in the piece, compute how consistently it is tuned (circular
+    MAD in cents), then return the maximum — the single most inconsistently
+    tuned note name drives the score.
+    """
+    pc_cents = defaultdict(list)
+    for chord in cent_array.T:
+        pcs = atu.pitch_class_from_cents(chord)
+        for pc, cv in zip(pcs, chord):
+            pc_cents[int(pc)].append(float(cv))
+    if not pc_cents:
+        return 0.0
+    return max(atu.circular_mad(cvs) for cvs in pc_cents.values() if len(cvs) >= 2)
 
 
 def high_ratio_count(cent_array: np.ndarray, threshold: int, limit_denominator: int):
@@ -58,15 +79,17 @@ def main():
 
     rows = []
     for chorale in CHORALE_ORDER:
-        path = tuning_dir / f'{chorale}-trans-sa-opt.npy'
-        if not path.exists():
-            print(f'  missing: {path}')
+        matches = sorted(tuning_dir.glob(f'{chorale}*-trans-sa-opt.npy'))
+        if not matches:
+            print(f'  missing: {tuning_dir}/{chorale}*-trans-sa-opt.npy')
             continue
+        path = matches[0]
         arr = np.load(path)
         n_high, n_total, n_chords = high_ratio_count(arr, args.threshold, args.limit_denominator)
         pct = 100.0 * n_high / n_total if n_total else 0.0
-        rows.append((chorale, n_high, n_total, n_chords, pct))
-        print(f'{chorale}: {n_high}/{n_total} high-ratio intervals ({pct:.1f}%)  —  {n_chords} chords')
+        spread = pitch_class_spread(arr)
+        rows.append((chorale, n_high, n_total, n_chords, pct, spread))
+        print(f'{chorale}: {n_high}/{n_total} high-ratio intervals ({pct:.1f}%)  —  {n_chords} chords  —  spread {spread:.1f} cents')
 
     if not rows:
         sys.exit('No data found.')
@@ -76,10 +99,13 @@ def main():
     n_high   = [r[1] for r in rows]
     n_chords = [r[3] for r in rows]
     pcts     = [r[4] for r in rows]
+    spreads  = [r[5] for r in rows]
     x        = np.arange(len(labels))
     width    = 0.55
 
-    fig, ax1 = plt.subplots(figsize=(13, 5))
+    fig, ax1 = plt.subplots(figsize=(13, 7.8))
+    fig.subplots_adjust(right=0.82)
+
     bars = ax1.bar(x, n_high, width, color='steelblue', alpha=0.8, label='High-ratio intervals')
     ax1.set_ylabel(f'Intervals with num or denom > {args.threshold}', color='steelblue')
     ax1.tick_params(axis='y', labelcolor='steelblue')
@@ -102,6 +128,13 @@ def main():
     ax2.tick_params(axis='y', labelcolor='tomato')
     ax2.set_ylim(0, max(pcts) * 1.4 if pcts else 100)
 
+    ax3 = ax1.twinx()
+    ax3.spines['right'].set_position(('outward', 65))
+    ax3.plot(x, spreads, 's-.', color='seagreen', linewidth=1.5, markersize=6, label='pitch-class spread (cents)')
+    ax3.set_ylabel('Pitch-class spread (cents)', color='seagreen')
+    ax3.tick_params(axis='y', labelcolor='seagreen')
+    ax3.set_ylim(0, max(spreads) * 1.4 if spreads else 50)
+
     fig.suptitle(
         f'Ratio complexity in {tuning_dir.name}  '
         f'(threshold: num or denom > {args.threshold}, limit_denominator={args.limit_denominator})',
@@ -109,9 +142,9 @@ def main():
     )
     lines1, labels1 = ax1.get_legend_handles_labels()
     lines2, labels2 = ax2.get_legend_handles_labels()
-    ax1.legend(lines1 + lines2, labels1 + labels2, loc='upper left', fontsize=9)
+    lines3, labels3 = ax3.get_legend_handles_labels()
+    ax1.legend(lines1 + lines2 + lines3, labels1 + labels2 + labels3, loc='upper left', fontsize=9)
 
-    fig.tight_layout()
     out_path = tuning_dir / 'ratio_complexity.png'
     fig.savefig(out_path, dpi=150)
     print(f'\nChart saved to {out_path}')

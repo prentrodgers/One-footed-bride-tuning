@@ -93,6 +93,16 @@ spec:
       nodeSelector:
         # kubernetes.io/hostname: fs6
         # intel.feature.node.kubernetes.io/gpu: "true"
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - one-footed-bride
+            topologyKey: kubernetes.io/hostname
       initContainers:
       - name: git-sync
         image: quay.io/prentrodgers/python-music:0.7

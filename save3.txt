@@ -1,0 +1,269 @@
+prent@one-footed-bride-8567f85456-jv8bg:~/Repos/One-footed-bride-tuning$ time ./grid_search.sh
+========================================
+limit_max=17  tolerance=1  ratio_factor=1.5  stability_factor=0  max_delta=33  spread=7  sa_iterations=1000
+dir=Archive/straw-man/t1_r1.5_s0_md33_sn0_lm17
+========================================
+/usr/local/lib/python3.12/site-packages/requests/__init__.py:113: RequestsDependencyWarning: urllib3 (2.6.3) or chardet (7.0.0)/charset_normalizer (3.4.4) doesn't match a supported version!
+  warnings.warn(
+--limit_max 17 --max_delta 33 --tolerance 1 --rolls 8 --sa_iterations 1000 --initial_temperature 3.0 --cooling_rate 0.999 --ratio_factor 1.5 --stability_factor 0.0 --spread 7 --spread_weight 0.5 --include_list None --chorale_list ['bwv253', 'bwv254', 'bwv255', 'bwv256', 'bwv257', 'bwv258', 'bwv259', 'bwv260', 'bwv261', 'bwv262', 'bwv263', 'bwv264'] --print_values False --print_finals False --print_initial False --workers 12 --runs 6 --numpy_dir Archive/straw-man/t1_r1.5_s0_md33_sn0_lm17 --max_gap 33.0 --retune_on_gaps 5 --snap_tolerance 0.0 --use_viterbi False --k_candidates 10 --viterbi_vertical_weight 1.0 --viterbi_horizontal_weight 0.5 --viterbi_penalty_type pitch_class_jump --detect_phrases False --phrase_horizontal_weight 1.0
+numpy_dir = '/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/t1_r1.5_s0_md33_sn0_lm17'
+limit_max = 17, tonal_diamond.shape = (65, 3)
+Running 72 total tuning passes (12 workers x 6 batch(es)) for bwv253
+  Batch 1/6: 12 workers in 13.8s — merged mean: 49.1, max: 93
+  Early stops (5568 total): 1-100: 3629, 101-200: 1902, 201-300: 36, 301-400: 1
+  Batch 2/6: 12 workers in 13.8s — merged mean: 49.3, max: 93
+  Early stops (5568 total): 1-100: 3629, 101-200: 1914, 201-300: 25
+  Batch 3/6: 12 workers in 13.3s — merged mean: 49.3, max: 93
+  Early stops (5568 total): 1-100: 3626, 101-200: 1900, 201-300: 41, 301-400: 1
+  Batch 4/6: 12 workers in 13.7s — merged mean: 49.3, max: 93
+  Early stops (5568 total): 1-100: 3635, 101-200: 1898, 201-300: 35
+  Batch 5/6: 12 workers in 13.3s — merged mean: 49.3, max: 93
+  Early stops (5568 total): 1-100: 3635, 101-200: 1895, 201-300: 36, 301-400: 2
+  Batch 6/6: 12 workers in 13.8s — merged mean: 49.3, max: 93
+  Early stops (5568 total): 1-100: 3624, 101-200: 1916, 201-300: 27, 301-400: 1
+  Previous result is better — keeping previous (combined 55.42 vs 61.25; score 49.1 vs 49.1; spread 12.5 vs 24.2¢)
+Running continuity enforcement (max_gap=33.0¢, retune_on_gaps=5)...
+version = 'bwv253', chords: 160, tolerance = 1, rolls = 8, limit_max = 17, sa_iterations = 1000, initial_temperature = 3.0, cooling_rate = 0.999, args.ratio_factor = 1.5, args.stability_factor = 0.0
+mean: 49.2,  median: 43.0,  min: 28.0,  max: 93.0,  argmax: 126,  deciles: [28. 43. 43. 43. 43. 43. 45. 47. 55. 67.]
+Running 72 total tuning passes (12 workers x 6 batch(es)) for bwv254
+  Batch 1/6: 12 workers in 19.7s — merged mean: 55.1, max: 145
+  Early stops (7296 total): 1-100: 4873, 101-200: 2351, 201-300: 70, 301-400: 2
+  Batch 2/6: 12 workers in 20.3s — merged mean: 56.0, max: 140
+  Early stops (7296 total): 1-100: 4869, 101-200: 2351, 201-300: 74, 301-400: 2
+  Batch 3/6: 12 workers in 19.1s — merged mean: 55.5, max: 163
+  Early stops (7296 total): 1-100: 4876, 101-200: 2346, 201-300: 73, 301-400: 1
+  Batch 4/6: 12 workers in 20.5s — merged mean: 55.9, max: 163
+  Early stops (7296 total): 1-100: 4873, 101-200: 2345, 201-300: 76, 301-400: 2
+  Batch 5/6: 12 workers in 19.7s — merged mean: 55.6, max: 140
+  Early stops (7296 total): 1-100: 4877, 101-200: 2346, 201-300: 72, 301-400: 1
+  Batch 6/6: 12 workers in 20.3s — merged mean: 55.1, max: 145
+  Early stops (7296 total): 1-100: 4879, 101-200: 2349, 201-300: 66, 301-400: 2
+  Previous result is better — keeping previous (combined 61.80 vs 63.81; score 54.8 vs 55.1; spread 13.9 vs 17.4¢)
+Running continuity enforcement (max_gap=33.0¢, retune_on_gaps=5)...
+version = 'bwv254', chords: 176, tolerance = 1, rolls = 8, limit_max = 17, sa_iterations = 1000, initial_temperature = 3.0, cooling_rate = 0.999, args.ratio_factor = 1.5, args.stability_factor = 0.0
+mean: 54.8,  median: 45.0,  min: 28.0,  max: 145.0,  argmax: 158,  deciles: [28. 43. 43. 45. 45. 45. 60. 64. 67. 70.]
+Running 72 total tuning passes (12 workers x 6 batch(es)) for bwv255
+  Batch 1/6: 12 workers in 10.5s — merged mean: 50.9, max: 82
+  Early stops (4128 total): 1-100: 2714, 101-200: 1372, 201-300: 38, 301-400: 4
+  Batch 2/6: 12 workers in 10.4s — merged mean: 50.8, max: 82
+  Early stops (4128 total): 1-100: 2714, 101-200: 1379, 201-300: 33, 301-400: 2
+  Batch 3/6: 12 workers in 10.5s — merged mean: 50.8, max: 82
+  Early stops (4128 total): 1-100: 2714, 101-200: 1377, 201-300: 36, 301-400: 1
+  Batch 4/6: 12 workers in 10.6s — merged mean: 50.9, max: 82
+  Early stops (4128 total): 1-100: 2717, 101-200: 1373, 201-300: 38
+  Batch 5/6: 12 workers in 10.5s — merged mean: 50.9, max: 82
+  Early stops (4128 total): 1-100: 2716, 101-200: 1377, 201-300: 35
+  Batch 6/6: 12 workers in 10.7s — merged mean: 50.8, max: 82
+  Early stops (4128 total): 1-100: 2714, 101-200: 1377, 201-300: 37
+  Previous result is better — keeping previous (combined 57.28 vs 57.73; score 50.8 vs 50.8; spread 13.0 vs 13.9¢)
+Running continuity enforcement (max_gap=33.0¢, retune_on_gaps=5)...
+version = 'bwv255', chords: 128, tolerance = 1, rolls = 8, limit_max = 17, sa_iterations = 1000, initial_temperature = 3.0, cooling_rate = 0.999, args.ratio_factor = 1.5, args.stability_factor = 0.0
+mean: 50.8,  median: 43.0,  min: 43.0,  max: 82.0,  argmax: 42,  deciles: [43.  43.  43.  43.  43.  43.  45.  60.  62.8 67. ]
+Running 72 total tuning passes (12 workers x 6 batch(es)) for bwv256
+  Batch 1/6: 12 workers in 17.7s — merged mean: 54.1, max: 140
+  Early stops (6816 total): 1-100: 4508, 101-200: 2236, 201-300: 70, 301-400: 2
+  Batch 2/6: 12 workers in 17.7s — merged mean: 54.1, max: 140
+  Early stops (6816 total): 1-100: 4512, 101-200: 2244, 201-300: 57, 301-400: 3
+  Batch 3/6: 12 workers in 17.8s — merged mean: 54.1, max: 140
+  Early stops (6816 total): 1-100: 4509, 101-200: 2237, 201-300: 69, 301-400: 1
+  Batch 4/6: 12 workers in 17.8s — merged mean: 53.9, max: 140
+  Early stops (6816 total): 1-100: 4514, 101-200: 2239, 201-300: 62, 301-400: 1
+  Batch 5/6: 12 workers in 18.4s — merged mean: 54.1, max: 140
+  Early stops (6816 total): 1-100: 4513, 101-200: 2250, 201-300: 51, 301-400: 2
+  Batch 6/6: 12 workers in 17.7s — merged mean: 54.1, max: 140
+  Early stops (6816 total): 1-100: 4504, 101-200: 2249, 201-300: 62, 301-400: 1
+  Previous result is better — keeping previous (combined 60.92 vs 61.74; score 53.9 vs 53.9; spread 14.1 vs 15.7¢)
+Running continuity enforcement (max_gap=33.0¢, retune_on_gaps=5)...
+version = 'bwv256', chords: 160, tolerance = 1, rolls = 8, limit_max = 17, sa_iterations = 1000, initial_temperature = 3.0, cooling_rate = 0.999, args.ratio_factor = 1.5, args.stability_factor = 0.0
+mean: 53.9,  median: 47.0,  min: 36.0,  max: 140.0,  argmax: 138,  deciles: [36. 43. 43. 43. 45. 47. 47. 60. 67. 74.]
+Running 72 total tuning passes (12 workers x 6 batch(es)) for bwv257
+  Batch 1/6: 12 workers in 17.8s — merged mean: 57.7, max: 140
+  Early stops (6432 total): 1-100: 4258, 101-200: 2109, 201-300: 64, 301-400: 1
+  Batch 2/6: 12 workers in 18.0s — merged mean: 57.7, max: 140
+  Early stops (6432 total): 1-100: 4256, 101-200: 2124, 201-300: 50, 301-400: 2
+  Batch 3/6: 12 workers in 17.9s — merged mean: 57.9, max: 140
+  Early stops (6432 total): 1-100: 4259, 101-200: 2116, 201-300: 56, 301-400: 1
+  Batch 4/6: 12 workers in 18.1s — merged mean: 57.8, max: 140
+  Early stops (6432 total): 1-100: 4260, 101-200: 2097, 201-300: 73, 301-400: 2
+  Batch 5/6: 12 workers in 17.4s — merged mean: 58.2, max: 140
+  Early stops (6432 total): 1-100: 4258, 101-200: 2109, 201-300: 63, 301-400: 2
+  Batch 6/6: 12 workers in 17.4s — merged mean: 58.2, max: 140
+  Early stops (6432 total): 1-100: 4259, 101-200: 2107, 201-300: 66
+  Previous result is better — keeping previous (combined 66.17 vs 67.12; score 57.2 vs 57.7; spread 18.0 vs 18.8¢)
+Running continuity enforcement (max_gap=33.0¢, retune_on_gaps=5)...
+version = 'bwv257', chords: 160, tolerance = 1, rolls = 8, limit_max = 17, sa_iterations = 1000, initial_temperature = 3.0, cooling_rate = 0.999, args.ratio_factor = 1.5, args.stability_factor = 0.0
+mean: 57.2,  median: 47.0,  min: 27.0,  max: 140.0,  argmax: 128,  deciles: [27.  43.  43.  43.  45.  47.  59.  64.9 67.  87.1]
+Running 72 total tuning passes (12 workers x 6 batch(es)) for bwv258
+  Batch 1/6: 12 workers in 16.4s — merged mean: 58.1, max: 140
+  Early stops (5952 total): 1-100: 3932, 101-200: 1961, 201-300: 59
+  Batch 2/6: 12 workers in 15.8s — merged mean: 57.8, max: 140
+  Early stops (5952 total): 1-100: 3934, 101-200: 1973, 201-300: 44, 301-400: 1
+  Batch 3/6: 12 workers in 15.8s — merged mean: 58.3, max: 140
+  Early stops (5952 total): 1-100: 3926, 101-200: 1969, 201-300: 55, 301-400: 2
+  Batch 4/6: 12 workers in 15.8s — merged mean: 57.8, max: 140
+  Early stops (5952 total): 1-100: 3928, 101-200: 1975, 201-300: 46, 301-400: 3
+  Batch 5/6: 12 workers in 15.7s — merged mean: 57.7, max: 140
+  Early stops (5952 total): 1-100: 3928, 101-200: 1982, 201-300: 42
+  Batch 6/6: 12 workers in 16.1s — merged mean: 58.3, max: 140
+  Early stops (5952 total): 1-100: 3930, 101-200: 1975, 201-300: 46, 301-400: 1
+  Previous result is better — keeping previous (combined 65.44 vs 71.09; score 57.5 vs 57.7; spread 15.8 vs 26.7¢)
+Running continuity enforcement (max_gap=33.0¢, retune_on_gaps=5)...
+version = 'bwv258', chords: 160, tolerance = 1, rolls = 8, limit_max = 17, sa_iterations = 1000, initial_temperature = 3.0, cooling_rate = 0.999, args.ratio_factor = 1.5, args.stability_factor = 0.0
+mean: 57.5,  median: 47.0,  min: 43.0,  max: 140.0,  argmax: 80,  deciles: [43.  43.  43.  43.  45.  47.  55.8 64.  67.  74.1]
+Running 72 total tuning passes (12 workers x 6 batch(es)) for bwv259
+  Batch 1/6: 12 workers in 21.1s — merged mean: 53.2, max: 104
+  Early stops (7968 total): 1-100: 5323, 101-200: 2567, 201-300: 72, 301-400: 6
+  Batch 2/6: 12 workers in 21.3s — merged mean: 53.3, max: 104
+  Early stops (7968 total): 1-100: 5322, 101-200: 2579, 201-300: 63, 301-400: 4
+  Batch 3/6: 12 workers in 21.9s — merged mean: 53.3, max: 104
+  Early stops (7968 total): 1-100: 5321, 101-200: 2565, 201-300: 79, 301-400: 3
+  Batch 4/6: 12 workers in 21.8s — merged mean: 53.3, max: 104
+  Early stops (7968 total): 1-100: 5324, 101-200: 2558, 201-300: 80, 301-400: 6
+  Batch 5/6: 12 workers in 22.1s — merged mean: 53.3, max: 104
+  Early stops (7968 total): 1-100: 5322, 101-200: 2573, 201-300: 69, 301-400: 4
+  Batch 6/6: 12 workers in 21.8s — merged mean: 53.5, max: 104
+  Early stops (7968 total): 1-100: 5319, 101-200: 2579, 201-300: 69, 301-400: 1
+  Previous result is better — keeping previous (combined 58.92 vs 60.24; score 53.2 vs 53.2; spread 11.4 vs 14.0¢)
+Running continuity enforcement (max_gap=33.0¢, retune_on_gaps=5)...
+version = 'bwv259', chords: 192, tolerance = 1, rolls = 8, limit_max = 17, sa_iterations = 1000, initial_temperature = 3.0, cooling_rate = 0.999, args.ratio_factor = 1.5, args.stability_factor = 0.0
+mean: 53.2,  median: 45.0,  min: 43.0,  max: 104.0,  argmax: 74,  deciles: [43. 43. 43. 45. 45. 45. 47. 63. 67. 70.]
+Running 72 total tuning passes (12 workers x 6 batch(es)) for bwv260
+  Batch 1/6: 12 workers in 19.5s — merged mean: 52.4, max: 105
+  Early stops (7392 total): 1-100: 4877, 101-200: 2450, 201-300: 62, 301-400: 3
+  Batch 2/6: 12 workers in 19.1s — merged mean: 52.4, max: 105
+  Early stops (7392 total): 1-100: 4879, 101-200: 2450, 201-300: 62, 301-400: 1
+  Batch 3/6: 12 workers in 18.8s — merged mean: 52.4, max: 105
+  Early stops (7392 total): 1-100: 4878, 101-200: 2461, 201-300: 51, 301-400: 2
+  Batch 4/6: 12 workers in 19.1s — merged mean: 52.5, max: 111
+  Early stops (7392 total): 1-100: 4881, 101-200: 2443, 201-300: 66, 301-400: 2
+  Batch 5/6: 12 workers in 18.8s — merged mean: 52.4, max: 105
+  Early stops (7392 total): 1-100: 4877, 101-200: 2463, 201-300: 50, 301-400: 2
+  Batch 6/6: 12 workers in 18.8s — merged mean: 52.4, max: 105
+  Early stops (7392 total): 1-100: 4875, 101-200: 2464, 201-300: 53
+  Previous result is better — keeping previous (combined 59.28 vs 60.01; score 52.2 vs 52.4; spread 14.1 vs 15.1¢)
+Running continuity enforcement (max_gap=33.0¢, retune_on_gaps=5)...
+version = 'bwv260', chords: 160, tolerance = 1, rolls = 8, limit_max = 17, sa_iterations = 1000, initial_temperature = 3.0, cooling_rate = 0.999, args.ratio_factor = 1.5, args.stability_factor = 0.0
+mean: 52.2,  median: 45.0,  min: 43.0,  max: 105.0,  argmax: 72,  deciles: [43.  43.  43.  44.4 45.  45.  47.  47.  64.  74. ]
+Running 72 total tuning passes (12 workers x 6 batch(es)) for bwv261
+  Batch 1/6: 12 workers in 26.8s — merged mean: 57.0, max: 140
+  Early stops (9312 total): 1-100: 6220, 101-200: 2968, 201-300: 118, 301-400: 6
+  Batch 2/6: 12 workers in 26.9s — merged mean: 56.9, max: 140
+  Early stops (9312 total): 1-100: 6218, 101-200: 2981, 201-300: 107, 301-400: 6
+  Batch 3/6: 12 workers in 25.9s — merged mean: 56.6, max: 140
+  Early stops (9312 total): 1-100: 6221, 101-200: 2989, 201-300: 101, 301-400: 1
+  Batch 4/6: 12 workers in 26.2s — merged mean: 56.6, max: 140
+  Early stops (9312 total): 1-100: 6221, 101-200: 2961, 201-300: 124, 301-400: 5, 401-500: 1
+  Batch 5/6: 12 workers in 26.8s — merged mean: 56.8, max: 140
+  Early stops (9312 total): 1-100: 6222, 101-200: 2963, 201-300: 127
+  Batch 6/6: 12 workers in 26.0s — merged mean: 56.9, max: 140
+  Early stops (9312 total): 1-100: 6216, 101-200: 2963, 201-300: 129, 301-400: 4
+  Previous result is better — keeping previous (combined 66.37 vs 67.99; score 56.5 vs 56.6; spread 19.8 vs 22.7¢)
+Running continuity enforcement (max_gap=33.0¢, retune_on_gaps=5)...
+version = 'bwv261', chords: 280, tolerance = 1, rolls = 8, limit_max = 17, sa_iterations = 1000, initial_temperature = 3.0, cooling_rate = 0.999, args.ratio_factor = 1.5, args.stability_factor = 0.0
+mean: 56.5,  median: 47.0,  min: 27.0,  max: 140.0,  argmax: 72,  deciles: [27. 43. 43. 45. 45. 47. 60. 67. 67. 75.]
+Running 72 total tuning passes (12 workers x 6 batch(es)) for bwv262
+  Batch 1/6: 12 workers in 15.8s — merged mean: 47.6, max: 105
+  Early stops (6144 total): 1-100: 4009, 101-200: 2083, 201-300: 52
+  Batch 2/6: 12 workers in 15.6s — merged mean: 47.7, max: 113
+  Early stops (6144 total): 1-100: 4006, 101-200: 2089, 201-300: 48, 301-400: 1
+  Batch 3/6: 12 workers in 15.2s — merged mean: 47.7, max: 105
+  Early stops (6144 total): 1-100: 3997, 101-200: 2092, 201-300: 54, 301-400: 1
+  Batch 4/6: 12 workers in 15.2s — merged mean: 47.6, max: 113
+  Early stops (6144 total): 1-100: 4000, 101-200: 2089, 201-300: 53, 301-400: 2
+  Batch 5/6: 12 workers in 15.8s — merged mean: 47.7, max: 113
+  Early stops (6144 total): 1-100: 4004, 101-200: 2072, 201-300: 67, 301-400: 1
+  Batch 6/6: 12 workers in 15.2s — merged mean: 47.6, max: 113
+  Early stops (6144 total): 1-100: 4002, 101-200: 2090, 201-300: 51, 301-400: 1
+  Previous result is better — keeping previous (combined 52.53 vs 52.72; score 47.6 vs 47.6; spread 9.9 vs 10.3¢)
+Running continuity enforcement (max_gap=33.0¢, retune_on_gaps=5)...
+version = 'bwv262', chords: 192, tolerance = 1, rolls = 8, limit_max = 17, sa_iterations = 1000, initial_temperature = 3.0, cooling_rate = 0.999, args.ratio_factor = 1.5, args.stability_factor = 0.0
+mean: 47.6,  median: 43.0,  min: 27.0,  max: 93.0,  argmax: 55,  deciles: [27. 27. 36. 43. 43. 43. 45. 47. 63. 67.]
+Running 72 total tuning passes (12 workers x 6 batch(es)) for bwv263
+  Batch 1/6: 12 workers in 18.7s — merged mean: 50.0, max: 140
+  Early stops (7776 total): 1-100: 5065, 101-200: 2667, 201-300: 44
+  Batch 2/6: 12 workers in 16.7s — merged mean: 49.9, max: 140
+  Early stops (7776 total): 1-100: 5046, 101-200: 2676, 201-300: 53, 301-400: 1
+  Batch 3/6: 12 workers in 18.8s — merged mean: 49.9, max: 140
+  Early stops (7776 total): 1-100: 5058, 101-200: 2682, 201-300: 35, 301-400: 1
+  Batch 4/6: 12 workers in 18.1s — merged mean: 50.1, max: 140
+  Early stops (7776 total): 1-100: 5046, 101-200: 2679, 201-300: 49, 301-400: 2
+  Batch 5/6: 12 workers in 18.0s — merged mean: 49.9, max: 140
+  Early stops (7776 total): 1-100: 5050, 101-200: 2692, 201-300: 33, 301-400: 1
+  Batch 6/6: 12 workers in 19.0s — merged mean: 49.8, max: 140
+  Early stops (7776 total): 1-100: 5058, 101-200: 2664, 201-300: 52, 301-400: 2
+  Previous result is better — keeping previous (combined 55.60 vs 64.30; score 49.6 vs 49.8; spread 11.9 vs 29.0¢)
+Running continuity enforcement (max_gap=33.0¢, retune_on_gaps=5)...
+version = 'bwv263', chords: 192, tolerance = 1, rolls = 8, limit_max = 17, sa_iterations = 1000, initial_temperature = 3.0, cooling_rate = 0.999, args.ratio_factor = 1.5, args.stability_factor = 0.0
+mean: 49.6,  median: 43.0,  min: 21.0,  max: 140.0,  argmax: 104,  deciles: [21.  43.  43.  43.  43.  43.  43.  45.  60.8 70. ]
+Running 72 total tuning passes (12 workers x 6 batch(es)) for bwv264
+  Batch 1/6: 12 workers in 12.7s — merged mean: 48.2, max: 111
+  Early stops (5184 total): 1-100: 3375, 101-200: 1784, 201-300: 25
+  Batch 2/6: 12 workers in 12.7s — merged mean: 48.0, max: 111
+  Early stops (5184 total): 1-100: 3378, 101-200: 1778, 201-300: 25, 301-400: 3
+  Batch 3/6: 12 workers in 12.8s — merged mean: 48.4, max: 111
+  Early stops (5184 total): 1-100: 3378, 101-200: 1773, 201-300: 30, 301-400: 3
+  Batch 4/6: 12 workers in 12.7s — merged mean: 48.2, max: 140
+  Early stops (5184 total): 1-100: 3379, 101-200: 1774, 201-300: 29, 301-400: 2
+  Batch 5/6: 12 workers in 12.1s — merged mean: 48.5, max: 140
+  Early stops (5184 total): 1-100: 3377, 101-200: 1780, 201-300: 27
+  Batch 6/6: 12 workers in 12.4s — merged mean: 48.1, max: 111
+  Early stops (5184 total): 1-100: 3377, 101-200: 1773, 201-300: 31, 301-400: 3
+  Previous result is better — keeping previous (combined 52.84 vs 53.75; score 48.0 vs 48.0; spread 9.6 vs 11.4¢)
+Running continuity enforcement (max_gap=33.0¢, retune_on_gaps=5)...
+version = 'bwv264', chords: 148, tolerance = 1, rolls = 8, limit_max = 17, sa_iterations = 1000, initial_temperature = 3.0, cooling_rate = 0.999, args.ratio_factor = 1.5, args.stability_factor = 0.0
+mean: 48.0,  median: 43.0,  min: 43.0,  max: 111.0,  argmax: 110,  deciles: [43. 43. 43. 43. 43. 43. 45. 45. 47. 67.]
+
+real    20m55.838s
+user    211m47.172s
+sys     0m20.397s
+/usr/local/lib/python3.12/site-packages/requests/__init__.py:113: RequestsDependencyWarning: urllib3 (2.6.3) or chardet (7.0.0)/charset_normalizer (3.4.4) doesn't match a supported version!
+  warnings.warn(
+Traceback (most recent call last):
+  File "/home/prent/Repos/One-footed-bride-tuning/horizontal_transpose.py", line 272, in <module>
+    main(sys.argv[1:])
+  File "/home/prent/Repos/One-footed-bride-tuning/horizontal_transpose.py", line 231, in main
+    config = parse_args(argv or [])
+             ^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/prent/Repos/One-footed-bride-tuning/horizontal_transpose.py", line 216, in parse_args
+    file_handler = logging.FileHandler(log_file, mode="w")
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/logging/__init__.py", line 1231, in __init__
+    StreamHandler.__init__(self, self._open())
+                                 ^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/logging/__init__.py", line 1263, in _open
+    return open_func(self.baseFilename, self.mode,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+PermissionError: [Errno 13] Permission denied: '/home/prent/bwv253-trans.log'
+
+real    20m56.456s
+user    211m50.365s
+sys     0m20.438s
+
+rm -r Archive/straw-man/t1_r1.50_s1.25_md33_sn0_lm23
+rm -r Archive/straw-man/t1_r1.25_s0_md33_sn0
+rm -r Archive/straw-man/t2_r1.75_s0_md33_sn0_lm17
+rm -r Archive/straw-man/t1_r1.75_s0_md33_sn0_lm19
+rm -r Archive/straw-man/t1_r1.25_s0_md33_sn0_lm19
+rm -r Archive/straw-man/t1_r1.25_s0_md33_sn0_lm17
+rm -r Archive/straw-man/t1_r1.375_s0_md33_sn0_lm19
+rm -r Archive/straw-man/t2_r1.75_s0_md33_sn0_lm23
+rm -r Archive/straw-man/t2_r1.75_s0_md33_sn0_lm19
+rm -r Archive/straw-man/t2_r1.625_s0_md33_sn0_lm19
+rm -r Archive/straw-man/t2_r1.5_s0_md33_sn0_lm19
+rm -r Archive/straw-man/t2_r1.375_s0_md33_sn0_lm19
+rm -r Archive/straw-man/t2_r1.25_s0_md33_sn0_lm19
+rm -r Archive/straw-man/t2_r1.125_s0_md33_sn0_lm19
+rm -r Archive/straw-man/t1_r1.625_s0_md33_sn0_lm19
+rm -r Archive/straw-man/t1_r1.5_s0_md33_sn0_lm19
+rm -r Archive/straw-man/t1_r1.125_s0_md33_sn0_lm19
+rm -r Archive/straw-man/t2_r1.625_s0_md33_sn0_lm17
+rm -r Archive/straw-man/t2_r1.5_s0_md33_sn0_lm17
+rm -r Archive/straw-man/t2_r1.375_s0_md33_sn0_lm17
+rm -r Archive/straw-man/t2_r1.25_s0_md33_sn0_lm17
+rm -r Archive/straw-man/t2_r1.125_s0_md33_sn0_lm17
+rm -r Archive/straw-man/t1_r1.75_s0_md33_sn0_lm17
+rm -r Archive/straw-man/t1_r1.625_s0_md33_sn0_lm17
+rm -r Archive/straw-man/t1_r1.5_s0_md33_sn0_lm17
+rm -r Archive/straw-man/t1_r1.375_s0_md33_sn0_lm17
+rm -r Archive/straw-man/t1_r1.125_s0_md33_sn0_lm17
+rm -r Archive/straw-man/t1_r1.25_s0_md33_sn0_lm23

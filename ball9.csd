@@ -97,8 +97,10 @@
  ; End of modification 5/4/22 
  i9 = 298-p9 ; valid envelope table number are 298, 297, 296, 295 etc. - left channel 
  i12 = 298-p12 ; valid envelope table number are 298, 297, 296, 295 etc. - right channel 
+ i12 = 298-p12 ; valid envelope table number are 298, 297, 296, 295 etc. - right channel 
  i10 = p10 ; glissando #1 
- i13 = p13 ; valid glissando table number are 1500 since 4/28/23 and are listed with those numbers 
+ i13 = p13 ; glissando #2
+ i14 = p14 ; glissando #3
  ; print p10, i10 
  kamp_l oscil iamp, 1/p3, i9 ; create an envelope from a function table for left channel 
  kamp_r oscil iamp, 1/p3, i12 ; create an envelope from a function table for right channel 
@@ -124,11 +126,8 @@
  else 
  kcps2 = kcps1 
  endif 
-
+ ; Still have yet to implement the 3rd glissando. 
  ; print p5, ioct, iMIDInumber, iFtable, iSampleType, iloop
- if iSampWaveTable == 1474 then
-     printf_i "BOSEN: MIDI=%i iFtableTemp=%i iFtable=%i iHigh=%i iLow=%i iloop=%i\n", 1, iMIDInumber, iFtableTemp, iFtable, iHighValue, iLowValue, iloop
- endif
  if iSampleType = 4 goto akaimono
  if iSampleType = 1 goto noloopm
  if iloop = 0 goto noloops
@@ -167,7 +166,8 @@
 ; f# time size 7 a n1 b n2 c ... 
 ; f3 0 12 -7 0 12 0.1200 
 f3 0 1200 -7 0 1200 0.1200 
-f4 0 1025 9 .25 1 0 ;The first quadrant of a sine for panning 
+f4 0 1025 9 .25 1 0 ;The first quadrant of a sine for panning
+f307 0 256 -7 .5 256 .5 ; constant 0.5 multiplier — drops playback frequency one octave (used by bass_part octave-0 rescue)
 ; end of function tables included in the .mac file. The rest are system generated to support sampling. 
 ; first table is a list of the function tables for the samples based on the midi number 
 ; +1 second is a list of midi numbers representing the base note of the sample files 

@@ -43,3 +43,10 @@ waveform_demos/
 # Test file
 test.py
 test.log
+
+# Archive/straw-man tuning directories — only viterbi-tunings-5-18 is tracked
+Archive/straw-man/t*_r*/
+Archive/straw-man/best-tunings/
+Archive/straw-man/viterbi-tunings-0.90-old/
+Archive/straw-man/viterbi-tunings-5-19/
+Archive/straw-man/bwv*top-notes.npy

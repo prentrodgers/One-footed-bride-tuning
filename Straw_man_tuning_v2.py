@@ -78,7 +78,8 @@ def build_straw_man_chord_sa(cent_value_chord, cent_value_chord_prev, chord_num,
                               chord_scorer, low_number_ratios, tonal_diamond,
                               tolerance=1, print_values=False, rolls=4,
                               sa_iterations=100, initial_temperature=2.0, cooling_rate=0.995,
-                              rng=None, ratio_factor=1.0, stability_factor=0.0, spread=7):
+                              rng=None, ratio_factor=1.0, stability_factor=0.0, spread=7,
+                              max_no_improve=None):
     if rng is None:
         rng = np.random.default_rng()
     logging.info(f'chord#: {chord_num} In build_straw_man_chord_sa. {tolerance = }, {sa_iterations = }, {initial_temperature = }, {cooling_rate = }')
@@ -90,7 +91,8 @@ def build_straw_man_chord_sa(cent_value_chord, cent_value_chord_prev, chord_num,
     unchanged_cent_value_count = 0
     early_stop_count = 0
     early_stop_iters = []
-    max_no_improve = max(10, sa_iterations // 10)
+    if max_no_improve is None:
+        max_no_improve = max(10, sa_iterations // 10)
 
     for roll_amount in range(rolls):
         rolled_chord = np.roll(cent_value_chord, roll_amount)
@@ -598,6 +600,23 @@ def parse_args():
                         help='Auto-detect phrase boundaries for hierarchical Viterbi optimization')
     parser.add_argument('--phrase_horizontal_weight', type=float, default=1.0,
                         help='Horizontal weight for phrase-level Viterbi optimization (default: 1.0)')
+    parser.add_argument('--viterbi_workers', type=int, default=1,
+                        help='Number of parallel workers for Viterbi candidate generation (default: 1). '
+                             'Set to the number of CPU cores available to parallelise across chords '
+                             'within each phrase.')
+    parser.add_argument('--viterbi_candidate_no_improve', type=int, default=None,
+                        help='Max SA iterations without improvement when generating Viterbi candidates. '
+                             'None uses the SA default (sa_iterations / 10). Set higher (e.g. 500 for '
+                             '1000 sa_iterations) to keep each candidate run exploring longer, '
+                             'improving diversity at the cost of speed.')
+    parser.add_argument('--viterbi_verbose', action='store_true',
+                        help='Print per-chord candidate report after Viterbi path selection')
+    parser.add_argument('--viterbi_verbose_threshold', type=float, default=None,
+                        help='With --viterbi_verbose, only show chords with chosen score above this value')
+    parser.add_argument('--viterbi_mad_weight', type=float, default=0.0,
+                        help='Weight for global pitch-class MAD consistency in Viterbi path selection (default: 0.0). '
+                             'Penalises candidates that deviate from the running circular mean for their pitch class. '
+                             'Try 0.1-0.3 to steer toward globally consistent tunings without sacrificing chord quality.')
     
     return parser.parse_args()
 
@@ -765,7 +784,8 @@ def main():
         if args.use_viterbi:
             print(f"\nRunning Viterbi optimization (K={args.k_candidates}, "
                   f"v_weight={args.viterbi_vertical_weight}, "
-                  f"h_weight={args.viterbi_horizontal_weight})...")
+                  f"h_weight={args.viterbi_horizontal_weight}, "
+                  f"mad_weight={args.viterbi_mad_weight})...")
             
             # Detect phrase boundaries if requested
             phrase_boundaries = None
@@ -787,6 +807,11 @@ def main():
                 horizontal_weight_phrase=args.phrase_horizontal_weight,
                 vertical_weight_piece=args.viterbi_vertical_weight,
                 horizontal_weight_piece=args.viterbi_horizontal_weight,
+                mad_weight=args.viterbi_mad_weight,
+                verbose=args.viterbi_verbose,
+                verbose_threshold=args.viterbi_verbose_threshold,
+                candidate_max_no_improve=args.viterbi_candidate_no_improve,
+                n_workers=args.viterbi_workers,
                 build_chord_sa_func=build_straw_man_chord_sa)
             
             # Update final results with Viterbi-optimized tuning
@@ -862,6 +887,7 @@ def main():
                 f.write(f"viterbi_penalty_type: {args.viterbi_penalty_type}\n")
                 f.write(f"detect_phrases: {args.detect_phrases}\n")
                 f.write(f"phrase_horizontal_weight: {args.phrase_horizontal_weight}\n")
+                f.write(f"viterbi_mad_weight: {args.viterbi_mad_weight}\n")
 
 if __name__ == '__main__':
     main()
