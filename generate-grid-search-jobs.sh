@@ -9,7 +9,7 @@ OUTPUT_DIR="k8s-jobs"
 
 # Parameter arrays (matching grid_search.sh)
 LIMIT_MAXES=(17 19)
-TOLERANCES=(1 2)
+TOLERANCES=(3)
 RATIOS=(1.125 1.25 1.375 1.5 1.625)
 
 echo "Generating Kubernetes Job manifests..."
@@ -41,7 +41,7 @@ for limit_max in "${LIMIT_MAXES[@]}"; do
                 -e "s/RATIO_VALUE/${ratio}/g" \
                 "$TEMPLATE" > "$output_file"
             
-            echo "[$job_num/20] Generated: $output_file"
+            echo "[$job_num/10] Generated: $output_file"
             echo "         Parameters: limit_max=$limit_max, tolerance=$tolerance, ratio=$ratio"
             
             ((job_counter++))
@@ -50,7 +50,7 @@ for limit_max in "${LIMIT_MAXES[@]}"; do
 done
 
 echo ""
-echo "✓ Generated $((job_counter - 1)) Job manifests in $OUTPUT_DIR/"
+echo "✓ Generated $((job_counter - 1))/10 Job manifests in $OUTPUT_DIR/"
 echo ""
 echo "Next steps:"
 echo "  1. Review the generated manifests in $OUTPUT_DIR/"

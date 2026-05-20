@@ -19,6 +19,19 @@ spec:
       securityContext:
         fsGroup: 1000
       restartPolicy: Never
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: In
+                values:
+                - fs1
+                - fs4
+                - fs5
+                - fs7
+                - fs8
       initContainers:
       - name: git-sync
         image: quay.io/prentrodgers/python-music:0.7

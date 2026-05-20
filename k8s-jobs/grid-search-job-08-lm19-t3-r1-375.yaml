@@ -3,10 +3,10 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: grid-search-17-lm19-t2-r1-25
+  name: grid-search-08-lm19-t3-r1-375
   labels:
     app: grid-search
-    job-id: "17-lm19-t2-r1-25"
+    job-id: "08-lm19-t3-r1-375"
 spec:
   backoffLimit: 2
   ttlSecondsAfterFinished: 86400  # Clean up after 24 hours
@@ -14,11 +14,24 @@ spec:
     metadata:
       labels:
         app: grid-search
-        job-id: "17-lm19-t2-r1-25"
+        job-id: "08-lm19-t3-r1-375"
     spec:
       securityContext:
         fsGroup: 1000
       restartPolicy: Never
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: In
+                values:
+                - fs1
+                - fs4
+                - fs5
+                - fs7
+                - fs8
       initContainers:
       - name: git-sync
         image: quay.io/prentrodgers/python-music:0.7
@@ -66,8 +79,8 @@ spec:
             
             # Parameters for this job
             LIMIT_MAX=19
-            TOLERANCE=2
-            RATIO=1.25
+            TOLERANCE=3
+            RATIO=1.375
             STABILITY_FACTOR=0
             MAX_DELTA=33
             SPREAD=7
@@ -77,7 +90,7 @@ spec:
             DIR="Archive/straw-man/t${TOLERANCE}_r${RATIO}_lm${LIMIT_MAX}_tmp${INITIAL_TEMP}"
 
             echo "========================================"
-            echo "Job 17-lm19-t2-r1-25 starting"
+            echo "Job 08-lm19-t3-r1-375 starting"
             echo "limit_max=${LIMIT_MAX}  tolerance=${TOLERANCE}  ratio_factor=${RATIO}"
             echo "initial_temp=${INITIAL_TEMP}  stability_factor=${STABILITY_FACTOR}  spread=${SPREAD}"
             echo "dir=${DIR}"
@@ -131,7 +144,7 @@ spec:
                 --suffix="-trans-sa-opt.npy"
             
             echo "========================================"
-            echo "Job 17-lm19-t2-r1-25 complete!"
+            echo "Job 08-lm19-t3-r1-375 complete!"
             echo "Results saved to: $DIR"
             echo "========================================"
         volumeMounts:
