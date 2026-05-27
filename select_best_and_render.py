@@ -191,7 +191,8 @@ def main():
             lm = params['limit_max']
             if lm not in tonal_diamond_cache:
                 tonal_diamond_cache[lm] = atu.build_tonal_diamond(lm)
-            mean_sc, max_sc, max_ch = score_array(cent_4n, tonal_diamond_cache[lm], args.tolerance)
+            tol = params['tolerance']
+            mean_sc, max_sc, max_ch = score_array(cent_4n, tonal_diamond_cache[lm], tol)
             spread = compute_spread_score(cent_4n, chorale)
             combined = mean_sc + args.spread_weight * spread
             results.append((combined, mean_sc, max_sc, max_ch, spread, d, params))

@@ -3,14 +3,13 @@
 # Each job runs one parameter combination independently
 
 set -euo pipefail
-
 TEMPLATE="k8s-grid-search-job-template.yaml"
 OUTPUT_DIR="k8s-jobs"
 
 # Parameter arrays (matching grid_search.sh)
-LIMIT_MAXES=(17 19)
+LIMIT_MAXES=(19)
 TOLERANCES=(3)
-RATIOS=(1.125 1.25 1.375 1.5 1.625)
+RATIOS=(1.25)
 
 echo "Generating Kubernetes Job manifests..."
 echo "Template: $TEMPLATE"

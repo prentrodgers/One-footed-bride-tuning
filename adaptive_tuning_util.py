@@ -223,14 +223,14 @@ def init_voice_time():
             "basn4": {"full_name": "bassoon4", "start": 0, "csound_voice": 12,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 1, "max_oct": 6},
             "trmp5": {"full_name": "trumpet5", "start": 0, "csound_voice": 25,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 2, "max_oct": 6},
             "frnh3": {"full_name": "french horn3", "start": 0, "csound_voice": 16,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 1, "max_oct": 5},
-            "trian1": {"full_name": "triangle wave1", "start": 0, "csound_voice":29, "time_tracker_number": 0,  "volume_factor": 1, "min_oct": 1, "max_oct": 7},   
-            "trian2": {"full_name": "triangle wave2", "start": 0, "csound_voice":29,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 1, "max_oct": 7},
-            "trian3": {"full_name": "triangle wave3", "start": 0, "csound_voice":29,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 1, "max_oct": 7},
-            "trian4": {"full_name": "triangle wave4", "start": 0, "csound_voice":29,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 1, "max_oct": 7},
-            "trian5": {"full_name": "triangle wave5", "start": 0, "csound_voice":29,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 1, "max_oct": 7},
-            "trian6": {"full_name": "triangle wave6", "start": 0, "csound_voice":29,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 1, "max_oct": 7},
-            "trian7": {"full_name": "triangle wave7", "start": 0, "csound_voice":29,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 1, "max_oct": 7},
-            "trian8": {"full_name": "triangle wave8", "start": 0, "csound_voice":29,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 1, "max_oct": 7},
+            "trian1": {"full_name": "triangle wave1", "start": 0, "csound_voice":28, "time_tracker_number": 0,  "volume_factor": 1, "min_oct": 1, "max_oct": 7},   
+            "trian2": {"full_name": "triangle wave2", "start": 0, "csound_voice":28,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 1, "max_oct": 7},
+            "trian3": {"full_name": "triangle wave3", "start": 0, "csound_voice":28,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 1, "max_oct": 7},
+            "trian4": {"full_name": "triangle wave4", "start": 0, "csound_voice":28,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 1, "max_oct": 7},
+            "trian5": {"full_name": "triangle wave5", "start": 0, "csound_voice":28,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 1, "max_oct": 7},
+            "trian6": {"full_name": "triangle wave6", "start": 0, "csound_voice":28,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 1, "max_oct": 7},
+            "trian7": {"full_name": "triangle wave7", "start": 0, "csound_voice":28,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 1, "max_oct": 7},
+            "trian8": {"full_name": "triangle wave8", "start": 0, "csound_voice":28,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 1, "max_oct": 7},
 
             # ── Additional voices (pad every instrument type to at least 8) ──
 

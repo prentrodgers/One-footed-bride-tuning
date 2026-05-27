@@ -394,13 +394,39 @@ def enforce_continuity(final_cent_value_chorale, chorale, chord_scorer, low_numb
       1. Re-run SA (up to retune_on_gaps times)
       2. Uniform shift of the whole chord toward the previous pitch class values
       3. Force the worst-offending voice to the previous chord's cent value
+    
+    IMPORTANT: All adjustments preserve pitch classes - cent values are constrained
+    to stay within ±50 cents of their pitch class center (pc * 100).
     """
     adjusted = np.array(final_cent_value_chorale, dtype=float, copy=True)
     fixes = 0
     sa_solved = 0       # SA retune closed the gap
     fallback1_used = 0  # uniform shift needed
     fallback2_used = 0  # force voice needed
+    pitch_class_violations = 0  # count of pitch class violations prevented
     prev_midi_chord = np.zeros(4, dtype=int)
+
+    def _validate_pitch_classes(chord_cents, expected_midi):
+        """Validate that cent values match expected MIDI pitch classes.
+        Returns (is_valid, violations_list)"""
+        violations = []
+        for voice_idx, (cents, midi) in enumerate(zip(chord_cents, expected_midi)):
+            expected_pc = int(midi % 12)
+            actual_pc = int(round(cents / 100.0) % 12)
+            if expected_pc != actual_pc:
+                violations.append((voice_idx, expected_pc, actual_pc, cents))
+        return len(violations) == 0, violations
+
+    def _constrain_to_pitch_class(cents, expected_pc):
+        """Constrain a cent value to stay within its pitch class (±50 cents from center)."""
+        pc_center = expected_pc * 100.0
+        # Find the closest octave of this pitch class
+        octaves_away = round((cents - pc_center) / 1200.0)
+        target_center = pc_center + (octaves_away * 1200.0)
+        # Clamp to ±50 cents from center
+        constrained = np.clip(cents, target_center - 50.0, target_center + 50.0)
+        # Wrap to 0-1200 range
+        return constrained % 1200.0
 
     for chord_idx in range(1, adjusted.shape[0]):
         curr_midi = chorale.T[chord_idx]
@@ -437,6 +463,20 @@ def enforce_continuity(final_cent_value_chorale, chorale, chord_scorer, low_numb
                 cooling_rate=cooling_rate, rng=rng, ratio_factor=ratio_factor,
                 stability_factor=stability_factor, spread=spread)
             retuned = retuned_compressed[inv]
+            
+            # Validate and constrain pitch classes after SA
+            is_valid, violations = _validate_pitch_classes(retuned, curr_midi)
+            if not is_valid:
+                pitch_class_violations += len(violations)
+                for voice_idx_v, expected_pc, actual_pc, bad_cents in violations:
+                    corrected = _constrain_to_pitch_class(bad_cents, expected_pc)
+                    retuned[voice_idx_v] = corrected
+                    logging.warning(
+                        f'chord {chord_idx}: SA produced pitch class violation in voice {voice_idx_v}: '
+                        f'expected PC {expected_pc}, got PC {actual_pc} ({bad_cents:.1f}¢) — '
+                        f'constrained to {corrected:.1f}¢'
+                    )
+            
             adjusted[chord_idx] = retuned
             curr_chord = retuned
             gap_value, pc, curr_cent, prev_cent, voice_idx = _max_pitch_class_gap(prev_chord, curr_chord)
@@ -452,17 +492,44 @@ def enforce_continuity(final_cent_value_chorale, chorale, chord_scorer, low_numb
             if abs(shift_value) > 0.1:
                 fallback1_used += 1
                 logging.info(f'chord {chord_idx}: SA exhausted {retries} attempts, uniform shift {shift_value:+.1f}¢')
-                adjusted[chord_idx] = (curr_chord + shift_value + 1200) % 1200
-                curr_chord = adjusted[chord_idx]
+                shifted_chord = (curr_chord + shift_value + 1200) % 1200
+                
+                # Validate and constrain pitch classes after shift
+                is_valid, violations = _validate_pitch_classes(shifted_chord, curr_midi)
+                if not is_valid:
+                    pitch_class_violations += len(violations)
+                    for voice_idx_v, expected_pc, actual_pc, bad_cents in violations:
+                        corrected = _constrain_to_pitch_class(bad_cents, expected_pc)
+                        shifted_chord[voice_idx_v] = corrected
+                        logging.warning(
+                            f'chord {chord_idx}: uniform shift produced pitch class violation in voice {voice_idx_v}: '
+                            f'expected PC {expected_pc}, got PC {actual_pc} ({bad_cents:.1f}¢) — '
+                            f'constrained to {corrected:.1f}¢'
+                        )
+                
+                adjusted[chord_idx] = shifted_chord
+                curr_chord = shifted_chord
                 gap_value, pc, curr_cent, prev_cent, voice_idx = _max_pitch_class_gap(prev_chord, curr_chord)
 
         # Fallback 2: force the offending voice to the previous cent value
         if gap_value > max_gap and voice_idx is not None and prev_cent is not None:
+            # Constrain the forced value to the correct pitch class
+            expected_pc = int(curr_midi[voice_idx] % 12)
+            constrained_prev = _constrain_to_pitch_class(prev_cent, expected_pc)
+            
+            if abs(constrained_prev - prev_cent) > 0.1:
+                pitch_class_violations += 1
+                logging.warning(
+                    f'chord {chord_idx}: forcing voice {voice_idx} (PC {pc}) would use {prev_cent:.1f}¢ '
+                    f'(wrong pitch class) — constrained to {constrained_prev:.1f}¢'
+                )
+            else:
+                logging.warning(
+                    f'chord {chord_idx}: forcing voice {voice_idx} (PC {pc}) to prev cent {prev_cent:.1f}¢'
+                )
+            
             fallback2_used += 1
-            logging.warning(
-                f'chord {chord_idx}: forcing voice {voice_idx} (PC {pc}) to prev cent {prev_cent:.1f}¢'
-            )
-            adjusted[chord_idx, voice_idx] = prev_cent
+            adjusted[chord_idx, voice_idx] = constrained_prev
 
         prev_midi_chord = curr_midi.copy()
 
@@ -473,6 +540,13 @@ def enforce_continuity(final_cent_value_chorale, chorale, chord_scorer, low_numb
             f'{sa_solved} solved by SA ({fixes} total attempts), '
             f'{fallback1_used} uniform shift, {fallback2_used} forced'
         )
+    
+    if pitch_class_violations > 0:
+        logging.warning(
+            f'Continuity enforcement: {pitch_class_violations} pitch class violation(s) '
+            f'detected and corrected'
+        )
+    
     return adjusted
 
 

@@ -767,7 +767,8 @@ def thin_staccato_chains(
 # define the functions for the bass instruments, much like the finger_piano_part, except it only includes tenor and bass voices
 # chorale is already had repeats applied to it when it arrives here.
 def bass_part(chorale, glides, repeats, voice_names, voice_time, tpq, volume_function, probs = None, fp_volume = 1, bass_sustain=15,
-              bass_hold_scale=1.0, bass_hold_swing=0.75, bass_hold_cycles=4, density_profile: np.ndarray | None = None):
+              bass_hold_scale=1.0, bass_hold_swing=0.75, bass_hold_cycles=4, density_profile: np.ndarray | None = None,
+              rescue_probability=0.5, ftable_308_prob=0.25):
     # set the default value for probs if it is not passed as a keyword argument.
     if probs is None:
         probs = [[0.99, 0.01], [0.95627622, 0.04372378]]
@@ -933,14 +934,64 @@ def bass_part(chorale, glides, repeats, voice_names, voice_time, tpq, volume_fun
     # notes_features_15 contains one row for every note: note, oct, glis, ups, env, vel, vol, voice,
     logging.debug(f'{notes_features_15.shape = }')
     # Bass finger piano (csound_voice 24) notes at octave 0 would be silenced by the row[5]>0 filter.
-    # Instead: bump to octave 1, apply a constant 0.5 glissando (f307) to drop back one octave,
-    # and set upsample=252 (4 slots lower) to compensate sample selection toward the actual pitch.
+    # Density-aware rescue: bump to octave 1, apply glissando (f307 or f308) to drop back 1 or 2 octaves.
+    # Rescue probability varies by local density: 75% sparse, 50% medium, 25% dense.
     bfin_oct0 = (notes_features_15[:, 6] == 24) & (notes_features_15[:, 5] == 0)
+    
     if np.any(bfin_oct0):
-        notes_features_15[bfin_oct0, 5]  = 1    # octave 1 — passes the silence filter
-        notes_features_15[bfin_oct0, 10] = 252  # upsample: 4 slots lower (256-4)
-        notes_features_15[bfin_oct0, 12] = 307  # 2nd glissando: f307 constant 0.5 (one octave down)
-        logging.info(f'bass_part: octave-0 rescue applied to {np.sum(bfin_oct0)} bfin notes')
+        oct0_indices = np.where(bfin_oct0)[0]
+        num_oct0_notes = len(oct0_indices)
+        
+        # Calculate density-aware rescue probabilities
+        rescue_probs = np.zeros(num_oct0_notes)
+        density_window = 50  # Look at ±50 notes for local density
+        
+        for i, idx in enumerate(oct0_indices):
+            # Calculate local density (fraction of sounding notes in window)
+            window_start = max(0, idx - density_window)
+            window_end = min(len(notes_features_15), idx + density_window)
+            local_notes = notes_features_15[window_start:window_end]
+            local_density = np.mean(local_notes[:, 5] > 0)
+            
+            # Density-based rescue probability
+            if local_density < 0.3:      # Sparse
+                rescue_probs[i] = 0.75
+            elif local_density > 0.6:    # Dense
+                rescue_probs[i] = 0.25
+            else:                        # Medium
+                rescue_probs[i] = 0.50
+        
+        # Apply rescue based on probabilities
+        rescue_mask = rng.random(num_oct0_notes) < rescue_probs
+        rescue_indices = oct0_indices[rescue_mask]
+        num_rescued = len(rescue_indices)
+        
+        if num_rescued > 0:
+            # Set octave to 1 for all rescued notes
+            notes_features_15[rescue_indices, 5] = 1
+            
+            # Randomly choose between f307 (75%) and f308 (25%) for each rescued note
+            ftable_choices = rng.random(num_rescued) < ftable_308_prob
+            
+            # Apply f307 (1-octave drop) to 75% of rescued notes
+            f307_indices = rescue_indices[~ftable_choices]
+            notes_features_15[f307_indices, 10] = 252  # upsample: 4 slots lower (256-4)
+            notes_features_15[f307_indices, 12] = 307  # glissando: f307 constant 0.5 (one octave down)
+            
+            # Apply f308 (2-octave drop) to 25% of rescued notes
+            f308_indices = rescue_indices[ftable_choices]
+            notes_features_15[f308_indices, 10] = 248  # upsample: 8 slots lower (256-8)
+            notes_features_15[f308_indices, 12] = 308  # glissando: f308 constant 0.25 (two octaves down)
+            
+            # Logging
+            num_f307 = len(f307_indices)
+            num_f308 = len(f308_indices)
+            avg_rescue_prob = rescue_probs[rescue_mask].mean()
+            
+            logging.info(f'bass_part: octave-0 rescue applied to {num_rescued}/{num_oct0_notes} notes ({num_rescued/num_oct0_notes*100:.1f}%)')
+            logging.info(f'  - f307 (1-oct): {num_f307} notes ({num_f307/num_rescued*100:.1f}%)')
+            logging.info(f'  - f308 (2-oct): {num_f308} notes ({num_f308/num_rescued*100:.1f}%)')
+            logging.info(f'  - avg rescue probability: {avg_rescue_prob:.2f}')
     # np.save('bass_part_notes_features.npy', notes_features_15)
     return notes_features_15
 # end of bass_part
@@ -1195,7 +1246,8 @@ def finger_piano_part(chorale, glides, repeats, voice_names, voice_time, tpq, vo
 
 # define the functions for the long held parts, horns, winds, bowed strings, brass, etc.
 def woodwinds_part(chorale_in_cents_slides, glides, repeats, voice_names, voice_time, tpq,\
-    volume_function, mask=True, prob_silence=None, octave_reduce=0, woodwinds_volume=5, density_profile: np.ndarray | None = None):
+    volume_function, mask=True, prob_silence=None, octave_reduce=0, woodwinds_volume=5, density_profile: np.ndarray | None = None,
+    rescue_probability=0.5, ftable_308_prob=0.25):
 
     if prob_silence is None:
         prob_silence = [.5, .5]
@@ -1292,6 +1344,45 @@ def woodwinds_part(chorale_in_cents_slides, glides, repeats, voice_names, voice_
     notes_features_15 = dmu.piano_roll_to_notes_features(notes_features_6, volume_array, voice_names, tpq, voice_time)
     notes_features_15 = atu.clip_note_features(notes_features_15, voice_time) # make sure the octaves are in range and the volume adjusted per the voice_time dictionary
     logging.debug(f'{notes_features_15.shape = }')
+    
+    # Tuba (csound_voice 27) octave-0 rescue with simple 50% probability
+    # Similar to bass_part rescue but without density-awareness
+    tuba_oct0 = (notes_features_15[:, 6] == 27) & (notes_features_15[:, 5] == 0)
+    
+    if np.any(tuba_oct0):
+        oct0_indices = np.where(tuba_oct0)[0]
+        num_oct0_notes = len(oct0_indices)
+        
+        # Apply simple 50% rescue probability (not density-aware)
+        rescue_mask = rng.random(num_oct0_notes) < rescue_probability
+        rescue_indices = oct0_indices[rescue_mask]
+        num_rescued = len(rescue_indices)
+        
+        if num_rescued > 0:
+            # Set octave to 1 for all rescued notes
+            notes_features_15[rescue_indices, 5] = 1
+            
+            # Randomly choose between f307 (75%) and f308 (25%) for each rescued note
+            ftable_choices = rng.random(num_rescued) < ftable_308_prob
+            
+            # Apply f307 (1-octave drop) to 75% of rescued notes
+            f307_indices = rescue_indices[~ftable_choices]
+            notes_features_15[f307_indices, 10] = 252  # upsample: 4 slots lower (256-4)
+            notes_features_15[f307_indices, 12] = 307  # glissando: f307 constant 0.5 (one octave down)
+            
+            # Apply f308 (2-octave drop) to 25% of rescued notes
+            f308_indices = rescue_indices[ftable_choices]
+            notes_features_15[f308_indices, 10] = 248  # upsample: 8 slots lower (256-8)
+            notes_features_15[f308_indices, 12] = 308  # glissando: f308 constant 0.25 (two octaves down)
+            
+            # Logging
+            num_f307 = len(f307_indices)
+            num_f308 = len(f308_indices)
+            
+            logging.info(f'woodwinds_part (tuba): octave-0 rescue applied to {num_rescued}/{num_oct0_notes} notes ({num_rescued/num_oct0_notes*100:.1f}%)')
+            logging.info(f'  - f307 (1-oct): {num_f307} notes ({num_f307/num_rescued*100:.1f}%)')
+            logging.info(f'  - f308 (2-oct): {num_f308} notes ({num_f308/num_rescued*100:.1f}%)')
+    
     # np.save('wood_part_notes_features.npy', notes_features_15)
     return notes_features_15
 # end of woodwinds_part
@@ -1617,7 +1708,7 @@ def generate_random_volumes_v2(time_slots = 8, max_value=25, sections = 8, max_s
 def expand_chorale(repeats, chorale_in_cents_slides, glides, stored_gliss, voice_time,\
     include_sections, mod, ratio_factor, mask=True, tpq=0, octave_reduce=0, woodwinds_volume=8,\
     include_instruments=[], print_only=10, limit=0, melody_sustain=15, bass_sustain=15,
-    bass_hold_scale=1.0, bass_hold_swing=0.75, bass_hold_cycles=4, just_fp=False, tolerance=1,\
+    bass_hold_scale=1.0, bass_hold_swing=0.75, bass_hold_cycles=4, tolerance=1,\
     stability_factor=0.0, max_delta=33, spread=7, fp_density_starts=None, fp_hold_scale=1.0, density_level=None,
     fatigue_thin_ratio=0.0, fatigue_min_chain=2, fatigue_density_threshold=1, version=''):
     # As of 1/10/26 the chorale_in_cents_slides has already been repeated according to the repeats array. (no longer an integer)
@@ -1668,8 +1759,7 @@ def expand_chorale(repeats, chorale_in_cents_slides, glides, stored_gliss, voice
             total_sums += np.sum(volume_function.T[i])
         logging.info(f'Average sums: {total_sums // time_slots}')
     else: volume_function = np.full((8, 14), 2, dtype = int)
-    if just_fp:
-        volume_function = np.full((8, 14), 8, dtype = int)
+    
     # 5/30/25 Expanded from shape 8,9 to shape 8,12, then to 8,14
     # 9/20/23, reduced the upper numbers by 1. 8 became 7, and so forth. Prevent clipping.
     # 3/31/25, changed to 8 instrument sections from original 6. You have to use a multiple of 4 since there are 4 voices in a chorale: S,A,T,B. 
@@ -1898,7 +1988,7 @@ def create_repeat_array_pattern(chorale_array, pattern=None, axis=1):
 def chorale_to_wave_v4(version, album, include_sections, ratio_factor, limit_max=47,\
       short_repeats=True, include_list=np.array([]), csound=True,\
       convolve=True, mod_letter='a', max_cents_slide=48, print_only=0,\
-      limit=0, use_opt_file=True, just_fp=False, \
+      limit=0, use_opt_file=True, \
       cent_file_partial='-cents.npy', show_volumes=False, woodwinds_volume=15,\
     melody_sustain=15, bass_sustain=15, bass_hold_scale=1.0, bass_hold_swing=0.75, bass_hold_cycles=4,
     use_werck_top_notes=False, mp3=True, tolerance=1,\
@@ -2032,8 +2122,7 @@ def chorale_to_wave_v4(version, album, include_sections, ratio_factor, limit_max
         glides, stored_gliss, voice_time, include_sections, mod, ratio_factor, mask=mask,\
         octave_reduce=1, woodwinds_volume=woodwinds_volume, print_only=print_only,\
         limit=limit, melody_sustain=melody_sustain, bass_sustain=bass_sustain,
-        bass_hold_scale=bass_hold_scale, bass_hold_swing=bass_hold_swing, bass_hold_cycles=bass_hold_cycles,
-        just_fp=just_fp, tolerance=tolerance,\
+        bass_hold_scale=bass_hold_scale, bass_hold_swing=bass_hold_swing, bass_hold_cycles=bass_hold_cycles, tolerance=tolerance,\
         stability_factor=stability_factor, max_delta=max_delta, spread=spread,
         fp_density_starts=fp_density_starts, fp_hold_scale=fp_hold_scale, density_level=density_level,
         fatigue_thin_ratio=fatigue_thin_ratio, fatigue_min_chain=fatigue_min_chain, fatigue_density_threshold=fatigue_density_threshold, version=version)
@@ -2062,7 +2151,7 @@ def chorale_to_wave_v4(version, album, include_sections, ratio_factor, limit_max
 #### Take an already tuned chorale and make a full piece of music out of it ####
 ################################################################################
 ################################################################################
-def mainline(chorale_override=None, short_repeats=False, include_list=None, csound=True, convolve=True, \
+def mainline(chorale_override=None, short_repeats=False, just_triangle=False, include_list=None, csound=True, convolve=True, \
              mp3=True, max_cents_slide=35, melody_sustain=3, bass_sustain=15,
              bass_hold_scale=1.0, bass_hold_swing=0.75, bass_hold_cycles=4, cent_file_partial='-trans-sa-opt.npy', \
              show_volumes=True, mod_letter='a', album=3, use_werck_top_notes=False, tolerance=1, ratio_factor=0.75, \
@@ -2099,73 +2188,63 @@ def mainline(chorale_override=None, short_repeats=False, include_list=None, csou
       dmu.start_logger(JUPYTER_LOG, log_level = 'info')
       print(f'{platform.uname() = }')
       woodwinds_volume = 16 # only used if short_repeats = True
-      # set the instrument sections you want to include to True in the following dictionary
-      just_sustained = False # for debugging purposes if you only want the sustained instruments to play
-      just_fp = False # for debugging purposes if you only want the finger pianos to play
-      just_piano_samples = True # this is set so that I have a version that runs without the McGill samples
-      if short_repeats:
+      
+      # Set the instrument sections based on mode combinations
+      # Priority: just_triangle determines instrument choice, short_repeats determines complexity
+      if just_triangle and short_repeats:
+            # Both flags: Triangle samples with straight chorale (no complex patterns)
+            include_sections = {
+                  # section --      play or not --    instruments in the section
+                  'finger_pianos': [False, np.array(['fing1', 'fing2', 'fing3', 'fing4', 'fing5', 'fing6', 'bfin1', 'bfin2'])],
+                  'wood_winds':    [True, np.array(['trian1', 'trian2', 'trian3', 'trian4', 'trian5', 'trian6', 'trian7', 'trian8'])],
+                  'pizz_strings':  [False, np.array(['vlip1', 'vlip2', 'vlip3', 'vlip4', 'vlap1', 'vlap2', 'celp1', 'celp2'])],
+                  'bowed_strings': [False, np.array(['vliv1', 'vliv2', 'vliv3', 'vliv4', 'vlav1', 'vlav2', 'celv1', 'celv2'])],
+                  'brass_section': [False, np.array(['trmp1', 'trmp2', 'trmp3', 'trmp4', 'trmb1', 'trmb2', 'tuba1', 'tuba2'])],
+                  'marimbas':   [False, np.array(['xylp1', 'mari1', 'vibp1', 'harp1', 'ebss1', 'stri1', 'bgui1', 'long1'])],
+                  'bass_section':  [False, np.array(['bfin3', 'bfin4', 'celp3', 'celp4', 'bgui3', 'bgui2', 'long2', 'long3'])],
+                  'melody_section':[False, np.array(['flut2', 'flut3', 'clar2', 'vibp1', 'oboe3', 'basn4', 'trmp5', 'frnh3'])]}
+      elif just_triangle:
+            # Triangle only: Triangle samples with complex arpeggio patterns
+            include_sections = {
+                  # section --      play or not --    instruments in the section
+                  'finger_pianos': [False, np.array(['fing1', 'fing2', 'fing3', 'fing4', 'fing5', 'fing6', 'bfin1', 'bfin2'])],
+                  'wood_winds':    [True, np.array(['trian1', 'trian2', 'trian3', 'trian4', 'trian5', 'trian6', 'trian7', 'trian8'])],
+                  'pizz_strings':  [False, np.array(['vlip1', 'vlip2', 'vlip3', 'vlip4', 'vlap1', 'vlap2', 'celp1', 'celp2'])],
+                  'bowed_strings': [False, np.array(['vliv1', 'vliv2', 'vliv3', 'vliv4', 'vlav1', 'vlav2', 'celv1', 'celv2'])],
+                  'brass_section': [False, np.array(['trmp1', 'trmp2', 'trmp3', 'trmp4', 'trmb1', 'trmb2', 'tuba1', 'tuba2'])],
+                  'marimbas':   [False, np.array(['xylp1', 'mari1', 'vibp1', 'harp1', 'ebss1', 'stri1', 'bgui1', 'long1'])],
+                  'bass_section':  [False, np.array(['bfin3', 'bfin4', 'celp3', 'celp4', 'bgui3', 'bgui2', 'long2', 'long3'])],
+                  'melody_section':[True, np.array(['flut2', 'flut3', 'clar2', 'vibp1', 'oboe3', 'basn4', 'trmp5', 'frnh3'])]}
+      elif short_repeats:
+            # Short repeats only: McGill samples with straight chorale (no complex patterns)
             include_sections = {
                   # define a dictionary where each key
                   # represents a section of a musical ensemble and the corresponding value is a list
                   # containing a boolean indicating whether the section plays instruments or not, and
                   # a NumPy array listing the instruments in that section.
                   # section --      play or not --    instruments in the section
-                  # np.repeat creates: Track 0,1=Soprano, 2,3=Alto, 4,5=Tenor, 6,7=Bass
                   # Use high-range instruments for S/A (tracks 0-3), low-range for T/B (tracks 4-7)
                   'finger_pianos': [False, np.array(['fing1', 'fing2', 'fing3', 'fing4', 'fing5', 'fing6', 'bfin1', 'bfin2'])],
-                  'wood_winds':    [True, np.array(['flut1', 'clar1', 'oboe1', 'oboe2', 'frnh1', 'frnh2', 'basn1', 'basn2'])],
+                  'wood_winds':    [True, np.array(['flut1', 'frnh1', 'clar1', 'trmp1', 'oboe1', 'trmb1', 'basn1', 'tuba1'])],
                   'pizz_strings':  [False, np.array(['vlip1', 'vlip2', 'vlip3', 'vlip4', 'vlap1', 'vlap2', 'celp1', 'celp2'])],
                   'bowed_strings': [False, np.array(['vliv1', 'vliv2', 'vliv3', 'vliv4', 'vlav1', 'vlav2', 'celv1', 'celv2'])],
-                  'brass_section': [True, np.array(['trmp1', 'trmp2', 'trmp3', 'trmp4', 'trmb1', 'trmb2', 'tuba1', 'tuba2'])],
+                  'brass_section': [False, np.array(['trmp1', 'trmp2', 'trmp3', 'trmp4', 'trmb1', 'trmb2', 'tuba1', 'tuba2'])],
                   'marimbas':   [False, np.array(['xylp1', 'mari1', 'vibp1', 'harp1', 'ebss1', 'stri1', 'bgui1', 'long1'])],
                   'bass_section':  [False, np.array(['bfin3', 'bfin4', 'celp3', 'celp4', 'bgui3', 'bgui2', 'long2', 'long3'])],
                   'melody_section':[False, np.array(['flut2', 'flut3', 'clar2', 'mari2', 'oboe3', 'basn4', 'trmp5', 'frnh3'])]}
-                #  'wood_winds':  [True, np.array(['bosen01', 'bosen02', 'bosen03', 'bosen04', 'bosen05', 'bosen06', 'bosen07', 'bosen08'])],
-                #  'brass_section': [True, np.array(['bosen09', 'bosen10', 'bosen11', 'bosen12', 'bosen13', 'bosen14', 'bosen15', 'bosen16'])],}
-      elif just_sustained:
-            include_sections = {
-                  # section --      play or nocelp4t --    instruments in the section
-                  'finger_pianos': [False, np.array(['fing1', 'fing2', 'fing3', 'fing4', 'fing5', 'fing6', 'bfin1', 'bfin2'])],
-                  'wood_winds':    [True, np.array(['flut1', 'clar1', 'oboe1', 'oboe2', 'frnh1', 'frnh2', 'basn1', 'basn2'])],
-                  'pizz_strings':  [False, np.array(['vlip1', 'vlip2', 'vlip3', 'vlip4', 'vlap1', 'vlap2', 'celp1', 'celp2'])],
-                  'bowed_strings': [True, np.array(['vliv1', 'vliv2', 'vliv3', 'vliv4', 'vlav1', 'vlav2', 'celv1', 'celv2'])],
-                  'brass_section': [True, np.array(['trmp1', 'trmp2', 'trmp3', 'trmp4', 'trmb1', 'trmb2', 'tuba1', 'tuba2'])], 
-                  'marimbas':   [False, np.array(['xylp1', 'mari1', 'vibp1', 'harp1', 'ebss1', 'stri1', 'bgui1', 'long1'])],
-                  'bass_section':  [False, np.array(['bfin3', 'bfin4', 'celp3', 'celp4', 'bgui3', 'bgui2', 'long2', 'long3'])],
-                  'melody_section':[True, np.array(['flut2', 'flut3', 'clar2', 'vibp1', 'oboe3', 'basn4', 'trmp5', 'frnh3'])]}
-      elif just_fp:
-            include_sections = {
-                  # section --      play or not --    instruments in the section
-                  'finger_pianos': [False, np.array(['fing1', 'fing2', 'fing3', 'fing4', 'fing5', 'fing6', 'fing7', 'fing8'])],
-                  'wood_winds':    [False, np.array([])],
-                  'pizz_strings':  [False, np.array(['ebss1', 'ebss2', 'ebss3', 'ebss4', 'ebss5', 'ebss6', 'ebss7', 'ebss8'])],
-                  'bowed_strings': [False, np.array([])],
-                  'brass_section': [False, np.array([])], 
-                  'marimbas':   [True, np.array(['bgui1', 'bgui2', 'bgui3', 'bgui4', 'bgui5', 'bgui6', 'bgui7', 'bgui8'])],
-                  'bass_section':  [True, np.array(['bfin1', 'bfin2', 'bfin3', 'bfin4', 'bfin5', 'bfin6', 'bfin7', 'bfin8'])], 
-                  'melody_section':[False, np.array([])]}
-      elif just_piano_samples:
+      else:
+            # Neither flag: Full mode with all McGill instruments and complex arpeggio patterns
             include_sections = {
                   # section --      play or not --    instruments in the section
                   'finger_pianos': [True, np.array(['fing1', 'fing2', 'fing3', 'bfin1', 'fing4', 'fing5', 'fing6', 'bfin2'])],
                   'wood_winds':    [True, np.array(['flut1', 'clar1', 'oboe1', 'oboe2', 'frnh1', 'frnh2', 'basn1', 'basn2'])],
                   'pizz_strings':  [True, np.array(['vlip1', 'vlip2', 'vlap1', 'celp1', 'vlim1', 'vlim2', 'vlap2', 'celp2',])],
                   'bowed_strings': [True, np.array(['vliv1', 'vliv2', 'vliv3', 'vliv4', 'vlav1', 'vlav2', 'celv1', 'celv2'])],
-                  'brass_section': [True, np.array(['trmp1', 'trmp2', 'trmp3', 'trmp4', 'trmb1', 'trmb2', 'tuba1', 'tuba2'])], 
+                  'brass_section': [True, np.array(['trmp1', 'trmp2', 'trmp3', 'trmp4', 'trmb1', 'trmb2', 'tuba1', 'tuba2'])],
                   'marimbas':   [True, np.array(['mari1', 'mari2', 'mari3', 'mari4', 'mari5', 'mari6', 'mari7', 'mari8'])],
                   'bass_section':  [True, np.array(['bgui1', 'bgui2', 'bgui3', 'bfin3', 'bfin4', 'bgui4', 'bfin5', 'bgui5'])],
                   'melody_section':[True, np.array(['flut2', 'flut3', 'clar2', 'vibp1', 'oboe3', 'basn4', 'trmp5', 'vibp2'])]}
-      else:
-            include_sections = {
-                  # section --      play or not --    instruments in the section
-                  'finger_pianos': [True, np.array(['fing1', 'fing2', 'fing3', 'fing4', 'fing5', 'fing6', 'bfin1', 'bfin2'])],
-                  'wood_winds':    [True, np.array(['flut1', 'clar1', 'oboe1', 'oboe2', 'frnh1', 'frnh2', 'basn1', 'basn2'])],
-                  'pizz_strings':  [True, np.array(['bosen01', 'vlip2', 'vlip3', 'vlip4', 'vlap1', 'vlap2', 'celp1', 'celp2'])],
-                  'bowed_strings': [True, np.array(['vliv1', 'vliv2', 'vliv3', 'vliv4', 'vlav1', 'vlav2', 'celv1', 'celv2'])],
-                  'brass_section': [True, np.array(['trmp1', 'trmp2', 'trmp3', 'trmp4', 'trmb1', 'trmb2', 'tuba1', 'tuba2'])], 
-                  'marimbas':   [True, np.array(['mari1', 'mari2', 'mari3', 'mari4', 'mari5', 'mari6', 'mari7', 'mari8'])],
-                  'bass_section':  [True, np.array(['bfin5', 'bfin6', 'bfin7', 'bfin8', 'celp5', 'celp6', 'celp7', 'bgui1'])],
-                  'melody_section':[True, np.array(['flut2', 'flut3', 'clar2', 'vibp1', 'oboe3', 'basn4', 'trmp5', 'frnh3'])]}
+      
       limit = 0 # how many seconds to produce. 0 means no limit.
       penalize_7_11 = False # if true then double the value of all the intervals in the atu.build_tonal_diamond function which calls _find_limit to do the deed
       print_only = 10 # how many lines of csound code should be printed to the log file.
@@ -2223,7 +2302,7 @@ def mainline(chorale_override=None, short_repeats=False, include_list=None, csou
             chorale = chorale_to_wave_v4(version, album, include_sections, ratio_factor, limit_max=limit_max,\
                   print_only=print_only, short_repeats=short_repeats, include_list=include_list,\
                   csound=csound, convolve=convolve, mod_letter=mod_letter, \
-                  just_fp=just_fp, max_cents_slide=max_cents_slide, show_volumes=show_volumes, \
+                  max_cents_slide=max_cents_slide, show_volumes=show_volumes, \
                   woodwinds_volume=woodwinds_volume, melody_sustain=melody_sustain, bass_sustain=bass_sustain, \
                 bass_hold_scale=_bhs, bass_hold_swing=_bhsw, bass_hold_cycles=bass_hold_cycles,
                   cent_file_partial=cent_file_partial, use_werck_top_notes=use_werck_top_notes, mp3=mp3,\
@@ -2250,9 +2329,13 @@ if __name__ == "__main__":
                           help="One or more chorale names, e.g. --chorale_list bwv253 bwv254 (default: all 12)",
                           default=None)
       parser.add_argument("--short_repeats", dest="short_repeats", action="store_true",
-                          help="If True, get a basic chorale. Play it straight. If false, then use the arpeggio patterns")
+                          help="Play a straight woodwind/brass chorale without complex arpeggio patterns")
+      parser.add_argument("--just_triangle", dest="just_triangle", action="store_true",
+                      help="Use triangle samples instead of McGill samples (no finger pianos or complex patterns)")
       parser.add_argument("--include_list", dest="include_list", nargs='+', type=int, default=[],
-                          help="List of chord numbers to include in the piece (default: empty list for all chords)")
+                      help="List of chord numbers to include in the piece (default: empty list for all chords)")
+      parser.add_argument("--include_slice", dest="include_slice", nargs=2, type=int, metavar=('START', 'END'), default=None,
+                      help="Chord slice [START, END) to include in the piece, e.g. --include_slice 80 84")
       parser.add_argument("--csound", dest="csound", action="store_true", default=True,
                           help="Run the generated .csd file through csound to create a .wav file (default: True)")
       parser.add_argument("--no_csound", dest="csound", action="store_false",
@@ -2350,8 +2433,17 @@ if __name__ == "__main__":
             if sum(parsed_auto_density_weights) == 0:
                   raise SystemExit('--auto_density_weights cannot all be zero')
 
+      include_list = list(args.include_list) if args.include_list is not None else []
+      if args.include_slice is not None:
+          start, end = args.include_slice
+          if end <= start:
+              raise SystemExit(f'--include_slice expects END > START, got START={start}, END={end}')
+          include_list.extend(range(start, end))
+      # Keep deterministic ordering and remove duplicates if both args were used.
+      include_list = sorted(set(include_list))
+
       mainline(chorale_override=args.chorale_name, short_repeats=args.short_repeats,
-               include_list=args.include_list, csound=args.csound, convolve=args.convolve,
+               just_triangle=args.just_triangle, include_list=include_list, csound=args.csound, convolve=args.convolve,
                mp3=args.mp3, max_cents_slide=args.max_cents_slide, melody_sustain=args.melody_sustain, bass_sustain=args.bass_sustain,
                bass_hold_scale=args.bass_hold_scale, bass_hold_swing=args.bass_hold_swing, bass_hold_cycles=args.bass_hold_cycles,
                cent_file_partial=args.cent_file_partial, show_volumes=args.show_volumes,

@@ -25,6 +25,7 @@ import os
 import re
 import sys
 from collections import Counter, defaultdict
+from itertools import combinations
 
 import numpy as np
 
@@ -56,15 +57,101 @@ def compute_spread_score(cent_value_chorale_4n, chorale):
     return max_mad
 
 
-def score_array(cent_4n, tonal_diamond, tolerance):
+def score_array(cent_4n, tonal_diamond, tolerance, index_map=None):
     """Return (mean_score, max_score, max_chord_idx) for a (4, N) array."""
     chord_scorer = atu.ChordScorer(tonal_diamond)
     scores = np.array([
         chord_scorer.score_chord(cent_4n[:, i], tolerance=tolerance)
         for i in range(cent_4n.shape[1])
     ])
+    max_local = int(np.argmax(scores))
+    max_idx = int(index_map[max_local]) if index_map is not None else max_local
     p80, p90 = np.percentile(scores, [80, 90]).astype(int)
-    return float(np.mean(scores)), float(np.max(scores)), int(np.argmax(scores)), p80, p90
+    return float(np.mean(scores)), float(np.max(scores)), max_idx, p80, p90
+
+
+def print_chords_analysis(
+    version,
+    cent_4n,
+    chorale,
+    keys,
+    tonal_diamond,
+    tolerance,
+    include_set=None,
+    print_individual_chords=False,
+    ratios=False,
+):
+    """Print notebook-style per-chord diagnostics from tuned cent arrays.
+
+    Mirrors the core behavior of Chorale-info.ipynb print_chords for chord and
+    ratio interval reporting. Top-note and cache-hit outputs are intentionally
+    excluded.
+    """
+    if not (print_individual_chords or ratios):
+        return
+
+    chord_scorer = atu.ChordScorer(tonal_diamond)
+    if print_individual_chords:
+        print('\n#          cents       note names   chord score')
+
+    prev_chord = np.zeros(4, dtype=int)
+    header = ' # Fr/To Cents Ratio\t # Fr/To Cents Ratio\t # Fr/To Cents Ratio'
+    cents_int = np.rint(cent_4n).astype(int)
+
+    for chord_idx, (chord_in_cents, chord_12) in enumerate(zip(cents_int.T, chorale.T)):
+        if include_set is not None and chord_idx not in include_set:
+            continue
+        if np.array_equal(prev_chord, chord_in_cents):
+            continue
+
+        tuned_pcs = np.array(atu.pitch_class_from_cents(chord_in_cents), dtype=int) % 12
+
+        if print_individual_chords:
+            pitches = ' '.join(map(str, keys[tuned_pcs]))
+            score = chord_scorer.score_chord(chord_in_cents, tolerance=tolerance)
+            print(f'{chord_idx}: {atu.format_chord(chord_in_cents, 4)}\t{pitches}\t{score}')
+
+        if ratios:
+            print(header)
+            intervals = []
+            for inx1, inx2 in combinations(np.arange(4), 2):
+                cent_value_interval_pair = np.array([chord_in_cents[inx1], chord_in_cents[inx2]])
+                cent_value_delta, _, _ = atu.cent_value_interval(cent_value_interval_pair)
+                best_idx = chord_scorer.find_best_interval(cent_value_delta, tolerance)[0]
+                ratio = str(atu.limit_format(tonal_diamond[best_idx])[0]).strip()
+                n1 = keys[tuned_pcs[inx1]]
+                n2 = keys[tuned_pcs[inx2]]
+                intervals.append((n1, n2, cent_value_delta, ratio))
+
+            def fmt(iv, idx):
+                n1, n2, cents, ratio = iv
+                return f'{idx:>2} {n1:>2} {n2:>2} {cents:>5} {ratio:^6}'
+
+            print('   '.join(fmt(iv, i + 1) for i, iv in enumerate(intervals[:3])))
+            print('   '.join(fmt(iv, i + 4) for i, iv in enumerate(intervals[3:])))
+
+        prev_chord = chord_in_cents.copy()
+
+
+def select_chord_subset(cent_4n, chorale, include_list):
+    """Return arrays restricted to the requested chord indices.
+
+    Raises ValueError if indices are out of range or no valid indices are left.
+    """
+    n_chords = cent_4n.shape[1]
+    if include_list is None:
+        return cent_4n, chorale, np.arange(n_chords, dtype=int)
+
+    include_idx = np.array(include_list, dtype=int)
+    if include_idx.size == 0:
+        return cent_4n, chorale, np.arange(n_chords, dtype=int)
+    bad = include_idx[(include_idx < 0) | (include_idx >= n_chords)]
+    if bad.size > 0:
+        raise ValueError(
+            f'--include_list has out-of-range chord index/indices {bad.tolist()} for n_chords={n_chords}'
+        )
+    include_idx = np.unique(include_idx)
+    return cent_4n[:, include_idx], chorale[:, include_idx], include_idx
 
 
 def check_pitch_classes(cent_4n, chorale):
@@ -97,16 +184,40 @@ def discover_chorales(directories, suffix):
             continue
         for f in os.listdir(d):
             if f.endswith(suffix):
-                name = f[:-len(suffix)]
-                chorales.add(name)
+                m = re.match(r'^(bwv\d+)', f)
+                if m:
+                    chorales.add(m.group(1))
     return sorted(chorales)
+
+
+def resolve_input_file(directory, version, suffix):
+    """Resolve a chorale file in directory using exact or wildcard suffix match.
+
+    Priority:
+    1. exact: {version}{suffix}
+    2. wildcard: {version}*{suffix} (lexicographically first)
+    """
+    exact = os.path.join(directory, f'{version}{suffix}')
+    if os.path.exists(exact):
+        return exact, 1
+
+    matches = sorted(
+        os.path.join(directory, f)
+        for f in os.listdir(directory)
+        if f.startswith(version) and f.endswith(suffix)
+    )
+    if not matches:
+        return None, 0
+    return matches[0], len(matches)
 
 
 def main():
     parser = argparse.ArgumentParser(
         description='Analyze tuned numpy arrays for ratio score and spread')
-    parser.add_argument('directories', nargs='*',
-                        help='Directories containing tuned .npy files')
+    parser.add_argument('input_directory_positional', nargs='*',
+                        help='Directory/directories containing tuned .npy files')
+    parser.add_argument('--input_directory', nargs='+', default=None,
+                        help='Directory/directories containing tuned .npy files')
     parser.add_argument('--files', nargs='+', default=None,
                         help='Analyze specific .npy files directly (alternative to directories)')
     parser.add_argument('--chorale_list', nargs='+', default=None,
@@ -119,12 +230,30 @@ def main():
                         help='Cent tolerance for ChordScorer (default: 1)')
     parser.add_argument('--limit_max', type=int, default=23,
                         help='Tonal diamond limit_max (default: 23)')
+    parser.add_argument('--include_list', nargs='+', type=int, default=None,
+                        help='Chord indices to include for all scores/metrics (e.g., --include_list 80 81 82 83)')
+    parser.add_argument('--include_slice', nargs=2, type=int, metavar=('START', 'END'), default=None,
+                        help='Chord slice [START, END) for all scores/metrics (e.g., --include_slice 80 84)')
+    parser.add_argument('--print_individual_chords', action='store_true',
+                        help='Print notebook-style per-chord tuned cents, note names, and chord score')
+    parser.add_argument('--ratios', action='store_true',
+                        help='Print six interval ratios per printed chord (notebook style)')
     args = parser.parse_args()
 
-    if not args.directories and not args.files:
-        parser.error('Provide either directories or --files')
+    include_list = list(args.include_list) if args.include_list is not None else []
+    if args.include_slice is not None:
+        start, end = args.include_slice
+        if end <= start:
+            parser.error(f'--include_slice expects END > START, got START={start}, END={end}')
+        include_list.extend(range(start, end))
+    include_list = include_list or None
 
-    tonal_diamond = atu.build_tonal_diamond(args.limit_max)[:-1]
+    input_directories = args.input_directory if args.input_directory is not None else args.input_directory_positional
+
+    if not input_directories and not args.files:
+        parser.error('Provide either --input_directory arg(s), input_directory positional arg(s), or --files')
+
+    tonal_diamond = atu.build_tonal_diamond(args.limit_max)
 
     # Mode 1: analyze specific files directly
     if args.files:
@@ -150,18 +279,34 @@ def main():
             d = os.path.dirname(fpath)
             try:
                 cent_4n = np.load(fpath, allow_pickle=True)
-                _, _, chorale, _, _, _ = atu.load_chorale_in_cents(
+                _, _, chorale, root, mode, keys = atu.load_chorale_in_cents(
                     version, d, twelve_tet=True, save_top_notes=False)
+                cent_eval, chorale_eval, include_idx = select_chord_subset(cent_4n, chorale, include_list)
             except Exception as e:
                 print(f'  {fname}: could not load -- {e}')
                 continue
 
-            mean_sc, max_sc, max_ch, p80, p90 = score_array(cent_4n, tonal_diamond, args.tolerance)
-            spread = compute_spread_score(cent_4n, chorale)
+            mean_sc, max_sc, max_ch, p80, p90 = score_array(cent_eval, tonal_diamond, args.tolerance, index_map=include_idx)
+            spread = compute_spread_score(cent_eval, chorale_eval)
             combined = mean_sc + args.spread_weight * spread
-            n_pc_err, _, pc_details = check_pitch_classes(cent_4n, chorale)
+            n_pc_err, _, pc_details = check_pitch_classes(cent_eval, chorale_eval)
             label = os.path.join(os.path.basename(d), fname)
             results.append((combined, mean_sc, max_sc, max_ch, p80, p90, spread, label, n_pc_err, pc_details))
+
+            if args.print_individual_chords or args.ratios:
+                print(f'\nversion: {version}, tolerance={args.tolerance}, limit_max={args.limit_max}, '
+                      f'Average score: {mean_sc:.1f}, max score: {max_sc:.0f} max chord: {max_ch}')
+                print_chords_analysis(
+                    version=version,
+                    cent_4n=cent_4n,
+                    chorale=chorale,
+                    keys=keys,
+                    tonal_diamond=tonal_diamond,
+                    tolerance=args.tolerance,
+                    include_set=set(include_list) if include_list else None,
+                    print_individual_chords=args.print_individual_chords,
+                    ratios=args.ratios,
+                )
 
         results.sort(key=lambda x: x[0])
         for i, (combined, mean_sc, max_sc, max_ch, p80, p90, spread, label, n_pc_err, pc_details) in enumerate(results):
@@ -177,7 +322,7 @@ def main():
 
     # Mode 2: scan directories for chorales
     dirs = []
-    for d in args.directories:
+    for d in input_directories:
         d = d if os.path.isabs(d) else os.path.join(base_dir, d)
         if os.path.isdir(d):
             dirs.append(d)
@@ -207,21 +352,24 @@ def main():
         for version in chorale_list:
             results = []
             for d in dirs:
-                input_file = os.path.join(d, f'{version}{args.suffix}')
-                if not os.path.exists(input_file):
+                input_file, n_matches = resolve_input_file(d, version, args.suffix)
+                if not input_file:
                     continue
+                if n_matches > 1:
+                    print(f'  {version:<10} {os.path.basename(d):<45} multiple matches for suffix {args.suffix}; using {os.path.basename(input_file)}')
                 try:
                     cent_4n = np.load(input_file, allow_pickle=True)
-                    _, _, chorale, _, _, _ = atu.load_chorale_in_cents(
+                    _, _, chorale, root, mode, keys = atu.load_chorale_in_cents(
                         version, d, twelve_tet=True, save_top_notes=False)
+                    cent_eval, chorale_eval, include_idx = select_chord_subset(cent_4n, chorale, include_list)
                 except Exception as e:
                     print(f'  {version:<10} {os.path.basename(d):<45} could not load -- {e}')
                     continue
 
-                mean_sc, max_sc, max_ch, p80, p90 = score_array(cent_4n, tonal_diamond, args.tolerance)
-                spread = compute_spread_score(cent_4n, chorale)
+                mean_sc, max_sc, max_ch, p80, p90 = score_array(cent_eval, tonal_diamond, args.tolerance, index_map=include_idx)
+                spread = compute_spread_score(cent_eval, chorale_eval)
                 combined = mean_sc + args.spread_weight * spread
-                n_pc_err, _, pc_details = check_pitch_classes(cent_4n, chorale)
+                n_pc_err, _, pc_details = check_pitch_classes(cent_eval, chorale_eval)
                 results.append((combined, mean_sc, max_sc, max_ch, p80, p90, spread, d, n_pc_err, pc_details))
 
             if not results:
@@ -238,6 +386,21 @@ def main():
                         print(f'      chord {chord_idx}, voice {voice_idx}: expected PC {exp_pc}, got PC {act_pc}')
                     if n_pc_err > 10:
                         print(f'      ... and {n_pc_err - 10} more')
+
+                if args.print_individual_chords or args.ratios:
+                    print(f'\nversion: {version}, tolerance={args.tolerance}, limit_max={args.limit_max}, '
+                          f'Average score: {mean_sc:.1f}, max score: {max_sc:.0f} max chord: {max_ch}')
+                    print_chords_analysis(
+                        version=version,
+                        cent_4n=cent_4n,
+                        chorale=chorale,
+                        keys=keys,
+                        tonal_diamond=tonal_diamond,
+                        tolerance=args.tolerance,
+                        include_set=set(include_list) if include_list else None,
+                        print_individual_chords=args.print_individual_chords,
+                        ratios=args.ratios,
+                    )
     else:
         # Single directory: one line per chorale
         print(f'  {"Chorale":<10} {"Mean":>6} {"Max":>6} {"MaxCh":>6} {"Top2dec":>10} {"Spread":>8} {"Combined":>10} {"PCerr":>6}')
@@ -245,22 +408,25 @@ def main():
 
         for version in chorale_list:
             d = dirs[0]
-            input_file = os.path.join(d, f'{version}{args.suffix}')
-            if not os.path.exists(input_file):
+            input_file, n_matches = resolve_input_file(d, version, args.suffix)
+            if not input_file:
                 print(f'  {version:<10} not found')
                 continue
+            if n_matches > 1:
+                print(f'  {version:<10} multiple matches for suffix {args.suffix}; using {os.path.basename(input_file)}')
             try:
                 cent_4n = np.load(input_file, allow_pickle=True)
-                _, _, chorale, _, _, _ = atu.load_chorale_in_cents(
+                _, _, chorale, root, mode, keys = atu.load_chorale_in_cents(
                     version, d, twelve_tet=True, save_top_notes=False)
+                cent_eval, chorale_eval, include_idx = select_chord_subset(cent_4n, chorale, include_list)
             except Exception as e:
                 print(f'  {version:<10} could not load -- {e}')
                 continue
 
-            mean_sc, max_sc, max_ch, p80, p90 = score_array(cent_4n, tonal_diamond, args.tolerance)
-            spread = compute_spread_score(cent_4n, chorale)
+            mean_sc, max_sc, max_ch, p80, p90 = score_array(cent_eval, tonal_diamond, args.tolerance, index_map=include_idx)
+            spread = compute_spread_score(cent_eval, chorale_eval)
             combined = mean_sc + args.spread_weight * spread
-            n_pc_err, _, pc_details = check_pitch_classes(cent_4n, chorale)
+            n_pc_err, _, pc_details = check_pitch_classes(cent_eval, chorale_eval)
             pc_str = f'{n_pc_err:>6}' if n_pc_err == 0 else f'{n_pc_err:>5}!'
             print(f'  {version:<10} {mean_sc:>6.1f} {max_sc:>6.0f} {max_ch:>6} {p80:>4} {p90:>4} {spread:>8.1f} {combined:>10.1f} {pc_str}')
             if n_pc_err > 0:
@@ -268,6 +434,21 @@ def main():
                     print(f'      chord {chord_idx}, voice {voice_idx}: expected PC {exp_pc}, got PC {act_pc}')
                 if n_pc_err > 10:
                     print(f'      ... and {n_pc_err - 10} more')
+
+            if args.print_individual_chords or args.ratios:
+                print(f'\nversion: {version}, tolerance={args.tolerance}, limit_max={args.limit_max}, '
+                      f'Average score: {mean_sc:.1f}, max score: {max_sc:.0f} max chord: {max_ch}')
+                print_chords_analysis(
+                    version=version,
+                    cent_4n=cent_4n,
+                    chorale=chorale,
+                    keys=keys,
+                    tonal_diamond=tonal_diamond,
+                    tolerance=args.tolerance,
+                    include_set=set(include_list) if include_list else None,
+                    print_individual_chords=args.print_individual_chords,
+                    ratios=args.ratios,
+                )
 
     print()
 

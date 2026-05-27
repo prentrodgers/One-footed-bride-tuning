@@ -35,6 +35,7 @@ metadata:
     app: one-footed-bride
 spec:
   type: NodePort
+  externalTrafficPolicy: Cluster
   ports:
   - port: 22
     name: ssh

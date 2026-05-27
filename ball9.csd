@@ -45,10 +45,10 @@
  iVoicet = (iSampleType == 5 ? (p7 + max(iVel - 60, 0)/2) : p7) ; 2:1 volume change to sample change
  iVoicet = (iSampleType == 5 ? (min(iVoicet, 38)) : p7) 
  iVoice = int(iVoicet + 0.5) 
- print(p4, iVel, p7, iSampleType, iVoicet, iVoice) 
+; print(p4, iVel, p7, iSampleType, iVoicet, iVoice) 
 ; table f1 has the start location of the sample tables control functions 
  iSampWaveTable table iVoice,1 ; find the location of the sample wave tables base on input p7 
- print(iSampWaveTable) 
+; print(iSampWaveTable) 
  ipitch table p5, 3 ; look up the cent value in ftable 3 a table of 1200 values from 0.001 to 0.120 
  ioct = p6 ; convert from my octave form to midi standard 
 ;  iRatioFromCent = cent(p5) ; convert cents to ratio to be multiplied by a base frequency 
@@ -168,6 +168,7 @@
 f3 0 1200 -7 0 1200 0.1200 
 f4 0 1025 9 .25 1 0 ;The first quadrant of a sine for panning
 f307 0 256 -7 .5 256 .5 ; constant 0.5 multiplier — drops playback frequency one octave (used by bass_part octave-0 rescue)
+f308 0 256 -7 .25 256 .25 ; constant 0.25 multiplier — drops playback frequency two octaves (used by bass_part octave-0 rescue)
 ; end of function tables included in the .mac file. The rest are system generated to support sampling. 
 ; first table is a list of the function tables for the samples based on the midi number 
 ; +1 second is a list of midi numbers representing the base note of the sample files 
