@@ -11,6 +11,7 @@ Usage:
 """
 import argparse
 import fractions
+import re
 import sys
 from collections import defaultdict
 from itertools import combinations
@@ -24,6 +25,28 @@ import adaptive_tuning_util as atu
 
 
 CHORALE_ORDER = [f'bwv{n}' for n in range(253, 265)]
+
+
+def parse_params_from_filename(path: Path):
+    """Extract tolerance/limit_max from filename tokens like _t3_ and _lm19."""
+    name = path.name
+    tol_match = re.search(r'(?:^|_)t(\d+)', name)
+    lm_match = re.search(r'(?:^|_)lm(\d+)', name)
+    tolerance = int(tol_match.group(1)) if tol_match else None
+    limit_max = int(lm_match.group(1)) if lm_match else None
+    return tolerance, limit_max
+
+
+def resolve_analysis_params(path: Path, args, cli_tolerance_explicit: bool, cli_limit_max_explicit: bool):
+    """Resolve per-file params using filename metadata unless CLI explicitly sets them."""
+    tol_from_name, lm_from_name = parse_params_from_filename(path)
+    tolerance = args.tolerance if cli_tolerance_explicit else (
+        tol_from_name if tol_from_name is not None else args.tolerance
+    )
+    limit_max = args.limit_max if cli_limit_max_explicit else (
+        lm_from_name if lm_from_name is not None else args.limit_max
+    )
+    return tolerance, limit_max
 
 
 def pitch_class_spread(cent_array: np.ndarray) -> float:
@@ -103,40 +126,56 @@ def main():
     parser.add_argument('--limit_denominator', type=int, default=50,
                         help='Max denominator when approximating ratios (default: 50)')
     args = parser.parse_args()
+    cli_tolerance_explicit = '--tolerance' in sys.argv
+    cli_limit_max_explicit = '--limit_max' in sys.argv
 
     tuning_dir = Path(args.tuning_dir)
     if not tuning_dir.is_dir():
         sys.exit(f'Directory not found: {tuning_dir}')
 
-    tonal_diamond = atu.build_tonal_diamond(
-        limit_value=args.limit_max,
-        limit_denominator=args.limit_denominator,
-    )
-
     rows = []
+    selected_sources = []
+    used_tolerances = set()
+    used_limits = set()
     for chorale in CHORALE_ORDER:
         matches = sorted(tuning_dir.glob(f'{chorale}*{args.suffix}'))
         if not matches:
             print(f'  missing: {tuning_dir}/{chorale}*{args.suffix}')
             continue
         path = matches[0]
+        selected_sources.append((chorale, path, len(matches)))
+        tolerance_local, limit_max_local = resolve_analysis_params(
+            path, args, cli_tolerance_explicit, cli_limit_max_explicit
+        )
+        tonal_diamond_local = atu.build_tonal_diamond(
+            limit_value=limit_max_local,
+            limit_denominator=args.limit_denominator,
+        )
         arr = np.load(path)
         n_high, n_total, n_chords, n_closest_fallback = high_ratio_count(
             arr,
             args.threshold,
-            args.tolerance,
+            tolerance_local,
             args.limit_denominator,
-            tonal_diamond,
+            tonal_diamond_local,
         )
         pct = 100.0 * n_high / n_total if n_total else 0.0
         fallback_pct = 100.0 * n_closest_fallback / n_total if n_total else 0.0
         spread = pitch_class_spread(arr)
-        rows.append((chorale, n_high, n_total, n_chords, pct, spread, n_closest_fallback, fallback_pct))
-        print(f'{chorale}: {n_high}/{n_total} high-ratio intervals ({pct:.1f}%)  —  {n_chords} chords  —  spread {spread:.1f} cents')
+        rows.append((chorale, n_high, n_total, n_chords, pct, spread, n_closest_fallback, fallback_pct, tolerance_local, limit_max_local))
+        used_tolerances.add(int(tolerance_local))
+        used_limits.add(int(limit_max_local))
+        print(f'{chorale}: {n_high}/{n_total} high-ratio intervals ({pct:.1f}%)  —  {n_chords} chords  —  spread {spread:.1f} cents  —  t={tolerance_local}, lm={limit_max_local}')
         print(f'         closest-below fallback: {n_closest_fallback}/{n_total} ({fallback_pct:.1f}%)')
 
     if not rows:
         sys.exit('No data found.')
+
+    if selected_sources:
+        print('\nSelected source file(s):')
+        for chorale, path, n_matches in selected_sources:
+            flag = ' (from multiple matches)' if n_matches > 1 else ''
+            print(f'  {chorale:<8} {path}{flag}')
 
     # --- chart ---
     labels   = [r[0] for r in rows]
@@ -184,10 +223,12 @@ def main():
     ax3.yaxis.set_major_formatter(ScalarFormatter(useOffset=False))
     ax3.ticklabel_format(axis='y', style='plain')
 
+    tol_used = ','.join(str(v) for v in sorted(used_tolerances))
+    lm_used = ','.join(str(v) for v in sorted(used_limits))
     fig.suptitle(
         f'Ratio complexity in {tuning_dir.name}  '
-        f'(threshold: num or denom > {args.threshold}, tolerance={args.tolerance}, '
-        f'limit_max={args.limit_max}, limit_denominator={args.limit_denominator})',
+        f'(threshold: num or denom > {args.threshold}, tolerance={tol_used}, '
+        f'limit_max={lm_used}, limit_denominator={args.limit_denominator})',
         fontsize=11
     )
     lines1, labels1 = ax1.get_legend_handles_labels()

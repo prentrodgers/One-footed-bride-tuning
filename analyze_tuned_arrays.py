@@ -211,6 +211,35 @@ def resolve_input_file(directory, version, suffix):
     return matches[0], len(matches)
 
 
+def parse_params_from_filename(file_path):
+    """Extract tolerance and limit_max from filename tokens like _t3_ and _lm19."""
+    name = os.path.basename(file_path)
+    tol_match = re.search(r'(?:^|_)t(\d+)', name)
+    lm_match = re.search(r'(?:^|_)lm(\d+)', name)
+    tolerance = int(tol_match.group(1)) if tol_match else None
+    limit_max = int(lm_match.group(1)) if lm_match else None
+    return tolerance, limit_max
+
+
+def resolve_analysis_params(file_path, args, cli_tolerance_explicit, cli_limit_max_explicit):
+    """Resolve per-file analysis params with filename-derived values when available.
+
+    Priority:
+    1) Explicit CLI values for --tolerance/--limit_max.
+    2) Filename tokens _tN / _lmN.
+    3) Arg defaults.
+    """
+    t_from_name, lm_from_name = parse_params_from_filename(file_path)
+
+    tolerance = args.tolerance if cli_tolerance_explicit else (
+        t_from_name if t_from_name is not None else args.tolerance
+    )
+    limit_max = args.limit_max if cli_limit_max_explicit else (
+        lm_from_name if lm_from_name is not None else args.limit_max
+    )
+    return tolerance, limit_max
+
+
 def main():
     parser = argparse.ArgumentParser(
         description='Analyze tuned numpy arrays for ratio score and spread')
@@ -240,6 +269,9 @@ def main():
                         help='Print six interval ratios per printed chord (notebook style)')
     args = parser.parse_args()
 
+    cli_tolerance_explicit = '--tolerance' in sys.argv
+    cli_limit_max_explicit = '--limit_max' in sys.argv
+
     include_list = list(args.include_list) if args.include_list is not None else []
     if args.include_slice is not None:
         start, end = args.include_slice
@@ -253,13 +285,12 @@ def main():
     if not input_directories and not args.files:
         parser.error('Provide either --input_directory arg(s), input_directory positional arg(s), or --files')
 
-    tonal_diamond = atu.build_tonal_diamond(args.limit_max)
-
     # Mode 1: analyze specific files directly
     if args.files:
         print(f'\n{"=" * 90}')
-        print(f'Analyzing {len(args.files)} file(s)  (tolerance={args.tolerance}, '
-              f'limit_max={args.limit_max}, spread_weight={args.spread_weight})')
+        print(f'Analyzing {len(args.files)} file(s)  (default tolerance={args.tolerance}, '
+              f'default limit_max={args.limit_max}, spread_weight={args.spread_weight}; '
+              f'per-file _tN/_lmN filename overrides enabled)')
         print(f'{"=" * 90}')
         print(f'  {"File":<55} {"Mean":>6} {"Max":>6} {"MaxCh":>6} {"Top2dec":>10} {"Spread":>8} {"Combined":>10} {"PCerr":>6}')
         print(f'  {"-" * 55} {"-----":>6} {"-----":>6} {"-----":>6} {"--------":>10} {"-------":>8} {"---------":>10} {"-----":>6}')
@@ -286,7 +317,17 @@ def main():
                 print(f'  {fname}: could not load -- {e}')
                 continue
 
-            mean_sc, max_sc, max_ch, p80, p90 = score_array(cent_eval, tonal_diamond, args.tolerance, index_map=include_idx)
+            tolerance_local, limit_max_local = resolve_analysis_params(
+                fpath, args, cli_tolerance_explicit, cli_limit_max_explicit
+            )
+            tonal_diamond_local = atu.build_tonal_diamond(limit_max_local)
+
+            mean_sc, max_sc, max_ch, p80, p90 = score_array(
+                cent_eval,
+                tonal_diamond_local,
+                tolerance_local,
+                index_map=include_idx,
+            )
             spread = compute_spread_score(cent_eval, chorale_eval)
             combined = mean_sc + args.spread_weight * spread
             n_pc_err, _, pc_details = check_pitch_classes(cent_eval, chorale_eval)
@@ -294,15 +335,15 @@ def main():
             results.append((combined, mean_sc, max_sc, max_ch, p80, p90, spread, label, n_pc_err, pc_details))
 
             if args.print_individual_chords or args.ratios:
-                print(f'\nversion: {version}, tolerance={args.tolerance}, limit_max={args.limit_max}, '
+                print(f'\nversion: {version}, tolerance={tolerance_local}, limit_max={limit_max_local}, '
                       f'Average score: {mean_sc:.1f}, max score: {max_sc:.0f} max chord: {max_ch}')
                 print_chords_analysis(
                     version=version,
                     cent_4n=cent_4n,
                     chorale=chorale,
                     keys=keys,
-                    tonal_diamond=tonal_diamond,
-                    tolerance=args.tolerance,
+                    tonal_diamond=tonal_diamond_local,
+                    tolerance=tolerance_local,
                     include_set=set(include_list) if include_list else None,
                     print_individual_chords=args.print_individual_chords,
                     ratios=args.ratios,
@@ -340,14 +381,15 @@ def main():
 
     print(f'\nFound {len(chorale_list)} chorale(s) across {len(dirs)} directory/directories')
     print(f'\n{"=" * 90}')
-    print(f'Options: tolerance={args.tolerance}, limit_max={args.limit_max}, '
-          f'spread_weight={args.spread_weight}')
+    print(f'Options: default tolerance={args.tolerance}, default limit_max={args.limit_max}, '
+          f'spread_weight={args.spread_weight} (per-file _tN/_lmN filename overrides enabled)')
     print(f'{"=" * 90}')
 
     # When multiple directories, show per-directory breakdown per chorale
     if len(dirs) > 1:
         print(f'  {"Chorale":<10} {"Directory":<45} {"Mean":>6} {"Max":>6} {"MaxCh":>6} {"Top2dec":>10} {"Spread":>8} {"Combined":>10} {"PCerr":>6}')
         print(f'  {"-" * 10} {"-" * 45} {"-----":>6} {"-----":>6} {"-----":>6} {"--------":>10} {"-------":>8} {"---------":>10} {"-----":>6}')
+        selected_sources = []
 
         for version in chorale_list:
             results = []
@@ -355,8 +397,7 @@ def main():
                 input_file, n_matches = resolve_input_file(d, version, args.suffix)
                 if not input_file:
                     continue
-                if n_matches > 1:
-                    print(f'  {version:<10} {os.path.basename(d):<45} multiple matches for suffix {args.suffix}; using {os.path.basename(input_file)}')
+                selected_sources.append((version, os.path.basename(d), input_file, n_matches))
                 try:
                     cent_4n = np.load(input_file, allow_pickle=True)
                     _, _, chorale, root, mode, keys = atu.load_chorale_in_cents(
@@ -366,7 +407,17 @@ def main():
                     print(f'  {version:<10} {os.path.basename(d):<45} could not load -- {e}')
                     continue
 
-                mean_sc, max_sc, max_ch, p80, p90 = score_array(cent_eval, tonal_diamond, args.tolerance, index_map=include_idx)
+                tolerance_local, limit_max_local = resolve_analysis_params(
+                    input_file, args, cli_tolerance_explicit, cli_limit_max_explicit
+                )
+                tonal_diamond_local = atu.build_tonal_diamond(limit_max_local)
+
+                mean_sc, max_sc, max_ch, p80, p90 = score_array(
+                    cent_eval,
+                    tonal_diamond_local,
+                    tolerance_local,
+                    index_map=include_idx,
+                )
                 spread = compute_spread_score(cent_eval, chorale_eval)
                 combined = mean_sc + args.spread_weight * spread
                 n_pc_err, _, pc_details = check_pitch_classes(cent_eval, chorale_eval)
@@ -388,23 +439,30 @@ def main():
                         print(f'      ... and {n_pc_err - 10} more')
 
                 if args.print_individual_chords or args.ratios:
-                    print(f'\nversion: {version}, tolerance={args.tolerance}, limit_max={args.limit_max}, '
+                    print(f'\nversion: {version}, tolerance={tolerance_local}, limit_max={limit_max_local}, '
                           f'Average score: {mean_sc:.1f}, max score: {max_sc:.0f} max chord: {max_ch}')
                     print_chords_analysis(
                         version=version,
                         cent_4n=cent_4n,
                         chorale=chorale,
                         keys=keys,
-                        tonal_diamond=tonal_diamond,
-                        tolerance=args.tolerance,
+                        tonal_diamond=tonal_diamond_local,
+                        tolerance=tolerance_local,
                         include_set=set(include_list) if include_list else None,
                         print_individual_chords=args.print_individual_chords,
                         ratios=args.ratios,
                     )
+
+        if selected_sources:
+            print('\nSelected source file(s):')
+            for version, dname, input_file, n_matches in selected_sources:
+                flag = ' (from multiple matches)' if n_matches > 1 else ''
+                print(f'  {version:<10} {dname:<45} {input_file}{flag}')
     else:
         # Single directory: one line per chorale
         print(f'  {"Chorale":<10} {"Mean":>6} {"Max":>6} {"MaxCh":>6} {"Top2dec":>10} {"Spread":>8} {"Combined":>10} {"PCerr":>6}')
         print(f'  {"-" * 10} {"-----":>6} {"-----":>6} {"-----":>6} {"--------":>10} {"-------":>8} {"---------":>10} {"-----":>6}')
+        selected_sources = []
 
         for version in chorale_list:
             d = dirs[0]
@@ -412,8 +470,7 @@ def main():
             if not input_file:
                 print(f'  {version:<10} not found')
                 continue
-            if n_matches > 1:
-                print(f'  {version:<10} multiple matches for suffix {args.suffix}; using {os.path.basename(input_file)}')
+            selected_sources.append((version, input_file, n_matches))
             try:
                 cent_4n = np.load(input_file, allow_pickle=True)
                 _, _, chorale, root, mode, keys = atu.load_chorale_in_cents(
@@ -423,7 +480,17 @@ def main():
                 print(f'  {version:<10} could not load -- {e}')
                 continue
 
-            mean_sc, max_sc, max_ch, p80, p90 = score_array(cent_eval, tonal_diamond, args.tolerance, index_map=include_idx)
+            tolerance_local, limit_max_local = resolve_analysis_params(
+                input_file, args, cli_tolerance_explicit, cli_limit_max_explicit
+            )
+            tonal_diamond_local = atu.build_tonal_diamond(limit_max_local)
+
+            mean_sc, max_sc, max_ch, p80, p90 = score_array(
+                cent_eval,
+                tonal_diamond_local,
+                tolerance_local,
+                index_map=include_idx,
+            )
             spread = compute_spread_score(cent_eval, chorale_eval)
             combined = mean_sc + args.spread_weight * spread
             n_pc_err, _, pc_details = check_pitch_classes(cent_eval, chorale_eval)
@@ -436,19 +503,25 @@ def main():
                     print(f'      ... and {n_pc_err - 10} more')
 
             if args.print_individual_chords or args.ratios:
-                print(f'\nversion: {version}, tolerance={args.tolerance}, limit_max={args.limit_max}, '
+                print(f'\nversion: {version}, tolerance={tolerance_local}, limit_max={limit_max_local}, '
                       f'Average score: {mean_sc:.1f}, max score: {max_sc:.0f} max chord: {max_ch}')
                 print_chords_analysis(
                     version=version,
                     cent_4n=cent_4n,
                     chorale=chorale,
                     keys=keys,
-                    tonal_diamond=tonal_diamond,
-                    tolerance=args.tolerance,
+                    tonal_diamond=tonal_diamond_local,
+                    tolerance=tolerance_local,
                     include_set=set(include_list) if include_list else None,
                     print_individual_chords=args.print_individual_chords,
                     ratios=args.ratios,
                 )
+
+        if selected_sources:
+            print('\nSelected source file(s):')
+            for version, input_file, n_matches in selected_sources:
+                flag = ' (from multiple matches)' if n_matches > 1 else ''
+                print(f'  {version:<10} {input_file}{flag}')
 
     print()
 
