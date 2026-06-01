@@ -154,6 +154,48 @@ def select_chord_subset(cent_4n, chorale, include_list):
     return cent_4n[:, include_idx], chorale[:, include_idx], include_idx
 
 
+def select_chord_subset_with_slice(cent_4n, chorale, include_list, include_slice):
+    """Return arrays restricted by raw include_list and raw include_slice.
+
+    include_list is interpreted as raw chord indices.
+    include_slice is interpreted as raw [START, END) indices on uncompressed
+    arrays.
+    """
+    n_chords = cent_4n.shape[1]
+    if include_list is None and include_slice is None:
+        return cent_4n, chorale, np.arange(n_chords, dtype=int)
+
+    selected_raw = set()
+
+    if include_list is not None:
+        include_idx = np.array(include_list, dtype=int)
+        if include_idx.size > 0:
+            bad = include_idx[(include_idx < 0) | (include_idx >= n_chords)]
+            if bad.size > 0:
+                raise ValueError(
+                    f'--include_list has out-of-range chord index/indices {bad.tolist()} for n_chords={n_chords}'
+                )
+            selected_raw.update(np.unique(include_idx).tolist())
+
+    if include_slice is not None:
+        start, end = include_slice
+        if start < 0 or end > n_chords:
+            raise ValueError(
+                f'--include_slice expects raw [START, END) in 0..{n_chords}, got START={start}, END={end}'
+            )
+        if end <= start:
+            raise ValueError(
+                f'--include_slice expects END > START, got START={start}, END={end}'
+            )
+        selected_raw.update(range(start, end))
+
+    if not selected_raw:
+        raise ValueError('No chord indices selected after applying --include_list/--include_slice')
+
+    include_idx = np.array(sorted(selected_raw), dtype=int)
+    return cent_4n[:, include_idx], chorale[:, include_idx], include_idx
+
+
 def check_pitch_classes(cent_4n, chorale):
     """Check that tuned cent values match the original MIDI pitch classes.
 
@@ -260,9 +302,9 @@ def main():
     parser.add_argument('--limit_max', type=int, default=23,
                         help='Tonal diamond limit_max (default: 23)')
     parser.add_argument('--include_list', nargs='+', type=int, default=None,
-                        help='Chord indices to include for all scores/metrics (e.g., --include_list 80 81 82 83)')
+                        help='Raw chord indices to include for all scores/metrics (e.g., --include_list 224 225)')
     parser.add_argument('--include_slice', nargs=2, type=int, metavar=('START', 'END'), default=None,
-                        help='Chord slice [START, END) for all scores/metrics (e.g., --include_slice 80 84)')
+                        help='Raw chord slice [START, END) on uncompressed arrays (e.g., --include_slice 228 280)')
     parser.add_argument('--print_individual_chords', action='store_true',
                         help='Print notebook-style per-chord tuned cents, note names, and chord score')
     parser.add_argument('--ratios', action='store_true',
@@ -273,12 +315,12 @@ def main():
     cli_limit_max_explicit = '--limit_max' in sys.argv
 
     include_list = list(args.include_list) if args.include_list is not None else []
-    if args.include_slice is not None:
-        start, end = args.include_slice
+    include_list = include_list or None
+    include_slice = args.include_slice
+    if include_slice is not None:
+        start, end = include_slice
         if end <= start:
             parser.error(f'--include_slice expects END > START, got START={start}, END={end}')
-        include_list.extend(range(start, end))
-    include_list = include_list or None
 
     input_directories = args.input_directory if args.input_directory is not None else args.input_directory_positional
 
@@ -312,7 +354,9 @@ def main():
                 cent_4n = np.load(fpath, allow_pickle=True)
                 _, _, chorale, root, mode, keys = atu.load_chorale_in_cents(
                     version, d, twelve_tet=True, save_top_notes=False)
-                cent_eval, chorale_eval, include_idx = select_chord_subset(cent_4n, chorale, include_list)
+                cent_eval, chorale_eval, include_idx = select_chord_subset_with_slice(
+                    cent_4n, chorale, include_list, include_slice
+                )
             except Exception as e:
                 print(f'  {fname}: could not load -- {e}')
                 continue
@@ -344,7 +388,7 @@ def main():
                     keys=keys,
                     tonal_diamond=tonal_diamond_local,
                     tolerance=tolerance_local,
-                    include_set=set(include_list) if include_list else None,
+                    include_set=set(include_idx.tolist()) if (include_list or include_slice) else None,
                     print_individual_chords=args.print_individual_chords,
                     ratios=args.ratios,
                 )
@@ -402,7 +446,9 @@ def main():
                     cent_4n = np.load(input_file, allow_pickle=True)
                     _, _, chorale, root, mode, keys = atu.load_chorale_in_cents(
                         version, d, twelve_tet=True, save_top_notes=False)
-                    cent_eval, chorale_eval, include_idx = select_chord_subset(cent_4n, chorale, include_list)
+                    cent_eval, chorale_eval, include_idx = select_chord_subset_with_slice(
+                        cent_4n, chorale, include_list, include_slice
+                    )
                 except Exception as e:
                     print(f'  {version:<10} {os.path.basename(d):<45} could not load -- {e}')
                     continue
@@ -448,7 +494,7 @@ def main():
                         keys=keys,
                         tonal_diamond=tonal_diamond_local,
                         tolerance=tolerance_local,
-                        include_set=set(include_list) if include_list else None,
+                        include_set=set(include_idx.tolist()) if (include_list or include_slice) else None,
                         print_individual_chords=args.print_individual_chords,
                         ratios=args.ratios,
                     )
@@ -475,7 +521,9 @@ def main():
                 cent_4n = np.load(input_file, allow_pickle=True)
                 _, _, chorale, root, mode, keys = atu.load_chorale_in_cents(
                     version, d, twelve_tet=True, save_top_notes=False)
-                cent_eval, chorale_eval, include_idx = select_chord_subset(cent_4n, chorale, include_list)
+                cent_eval, chorale_eval, include_idx = select_chord_subset_with_slice(
+                    cent_4n, chorale, include_list, include_slice
+                )
             except Exception as e:
                 print(f'  {version:<10} could not load -- {e}')
                 continue
@@ -512,7 +560,7 @@ def main():
                     keys=keys,
                     tonal_diamond=tonal_diamond_local,
                     tolerance=tolerance_local,
-                    include_set=set(include_list) if include_list else None,
+                    include_set=set(include_idx.tolist()) if (include_list or include_slice) else None,
                     print_individual_chords=args.print_individual_chords,
                     ratios=args.ratios,
                 )

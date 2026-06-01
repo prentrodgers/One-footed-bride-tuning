@@ -1993,7 +1993,7 @@ def chorale_to_wave_v4(version, album, include_sections, ratio_factor, limit_max
     melody_sustain=15, bass_sustain=15, bass_hold_scale=1.0, bass_hold_swing=0.75, bass_hold_cycles=4,
     use_werck_top_notes=False, mp3=True, tolerance=1,\
       stability_factor=0.0, max_delta=33, spread=7, fp_density_starts=None, fp_hold_scale=1.0, prime_count=8, density_level=5,
-    fatigue_min_chain=2, fatigue_density_threshold=1):
+        fatigue_min_chain=2, fatigue_density_threshold=1, include_slice=None):
 
     print(f'In chorale_to_wave_v4. {version = }, {limit_max = }, {short_repeats = }, {ratio_factor = }')
     if short_repeats: # if you just want a straight woodwind/brass chorale, set short_repeats = True
@@ -2050,11 +2050,27 @@ def chorale_to_wave_v4(version, album, include_sections, ratio_factor, limit_max
     print(f'After loading top_notes for {version = } by reading numpy file: {version}top-notes.npy')
     atu.log_top_notes(top_notes)
 
-    if len(include_list) > 0:
-        cent_value_chorale = cent_value_chorale[:,include_list]
-        chorale = chorale[:,include_list]
-    if len(include_list) < chorale.shape[1]: 
-        print(f'{include_list = }')
+    n_chords_raw = cent_value_chorale.shape[1]
+    effective_include = list(include_list) if include_list is not None else []
+    if include_slice is not None:
+        start, end = include_slice
+        if end <= start:
+            raise SystemExit(f'--include_slice expects END > START, got START={start}, END={end}')
+        if start < 0 or end > n_chords_raw:
+            raise SystemExit(
+                f'--include_slice expects [START, END) within 0..{n_chords_raw}, '
+                f'got START={start}, END={end}'
+            )
+        effective_include.extend(range(start, end))
+
+    # Keep deterministic ordering and remove duplicates if both args were used.
+    effective_include = sorted(set(effective_include))
+
+    if len(effective_include) > 0:
+        cent_value_chorale = cent_value_chorale[:, effective_include]
+        chorale = chorale[:, effective_include]
+    if len(effective_include) < chorale.shape[1]:
+        print(f'{effective_include = }')
 
     # print(f'About to score the chorale as loaded. {chorale_in_cents.shape = }')
     new_scores = np.zeros(cent_value_chorale.shape[1],dtype=int)
@@ -2156,7 +2172,7 @@ def mainline(chorale_override=None, short_repeats=False, just_triangle=False, in
              bass_hold_scale=1.0, bass_hold_swing=0.75, bass_hold_cycles=4, cent_file_partial='-trans-sa-opt.npy', \
              show_volumes=True, mod_letter='a', album=3, use_werck_top_notes=False, tolerance=1, ratio_factor=0.75, \
              numpy_dir_arg=None, stability_factor=0.0, max_delta=33, spread=7, limit_max=23, auto_density=False, prime_count=8, density_level=None, shuffle_density=False, auto_density_weights=None,
-             fatigue_min_chain=2, fatigue_density_threshold=1):
+             fatigue_min_chain=2, fatigue_density_threshold=1, include_slice=None):
       if include_list is None:
             include_list = []
 
@@ -2308,7 +2324,8 @@ def mainline(chorale_override=None, short_repeats=False, just_triangle=False, in
                   cent_file_partial=cent_file_partial, use_werck_top_notes=use_werck_top_notes, mp3=mp3,\
                   tolerance=tolerance, stability_factor=stability_factor, max_delta=max_delta,\
                   spread=spread, fp_density_starts=_fp_starts, fp_hold_scale=_fhs, prime_count=_np, density_level=_active_level,
-                  fatigue_min_chain=fatigue_min_chain, fatigue_density_threshold=fatigue_density_threshold)
+                                    fatigue_min_chain=fatigue_min_chain, fatigue_density_threshold=fatigue_density_threshold,
+                                    include_slice=include_slice)
 
       # Generate a playlist of all the pieces in this album. This never worked correctly in the pod.
       print(f' {UPLOADS_DIR = }')
@@ -2335,7 +2352,7 @@ if __name__ == "__main__":
       parser.add_argument("--include_list", dest="include_list", nargs='+', type=int, default=[],
                       help="List of chord numbers to include in the piece (default: empty list for all chords)")
       parser.add_argument("--include_slice", dest="include_slice", nargs=2, type=int, metavar=('START', 'END'), default=None,
-                      help="Chord slice [START, END) to include in the piece, e.g. --include_slice 80 84")
+                      help="Raw chord slice [START, END) on loaded uncompressed arrays, e.g. --include_slice 228 273")
       parser.add_argument("--csound", dest="csound", action="store_true", default=True,
                           help="Run the generated .csd file through csound to create a .wav file (default: True)")
       parser.add_argument("--no_csound", dest="csound", action="store_false",
@@ -2434,13 +2451,6 @@ if __name__ == "__main__":
                   raise SystemExit('--auto_density_weights cannot all be zero')
 
       include_list = list(args.include_list) if args.include_list is not None else []
-      if args.include_slice is not None:
-          start, end = args.include_slice
-          if end <= start:
-              raise SystemExit(f'--include_slice expects END > START, got START={start}, END={end}')
-          include_list.extend(range(start, end))
-      # Keep deterministic ordering and remove duplicates if both args were used.
-      include_list = sorted(set(include_list))
 
       mainline(chorale_override=args.chorale_name, short_repeats=args.short_repeats,
                just_triangle=args.just_triangle, include_list=include_list, csound=args.csound, convolve=args.convolve,
@@ -2452,6 +2462,7 @@ if __name__ == "__main__":
                stability_factor=args.stability_factor, max_delta=args.max_delta,
                spread=args.spread, limit_max=args.limit_max, auto_density=args.auto_density, prime_count=args.prime_count, density_level=args.density_level, shuffle_density=args.shuffle_density,
                auto_density_weights=parsed_auto_density_weights,
-               fatigue_min_chain=args.fatigue_min_chain, fatigue_density_threshold=args.fatigue_density_threshold)
+               fatigue_min_chain=args.fatigue_min_chain, fatigue_density_threshold=args.fatigue_density_threshold,
+               include_slice=args.include_slice)
 
 
