@@ -84,9 +84,8 @@ spec:
             STABILITY_FACTOR=0
             MAX_DELTA=33
             SPREAD=7
-            INITIAL_TEMP=3.5
-            # CHORALES="bwv253 bwv254 bwv255 bwv256 bwv257 bwv258 bwv259 bwv260  bwv262 bwv263 bwv264"
-            CHORALES="bwv261"               
+            INITIAL_TEMP=3.0
+            CHORALES="bwv253 bwv254 bwv255 bwv256 bwv257 bwv258 bwv259 bwv260 bwv261 bwv262 bwv263 bwv264"
 
             DIR="Archive/straw-man/t${TOLERANCE}_r${RATIO}_lm${LIMIT_MAX}_tmp${INITIAL_TEMP}"
 
@@ -164,10 +163,10 @@ spec:
           value: "prent"
         resources:
           requests:
-            cpu: "4"
-            memory: "4Gi"
+            cpu: "1"
+            memory: "1Gi"
           limits:
-            cpu: "6"
+            cpu: "8"
             memory: "8Gi"
       volumes:
       - name: ceph-files

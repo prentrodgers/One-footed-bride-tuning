@@ -768,7 +768,8 @@ def thin_staccato_chains(
 # chorale is already had repeats applied to it when it arrives here.
 def bass_part(chorale, glides, repeats, voice_names, voice_time, tpq, volume_function, probs = None, fp_volume = 1, bass_sustain=15,
               bass_hold_scale=1.0, bass_hold_swing=0.75, bass_hold_cycles=4, density_profile: np.ndarray | None = None,
-              rescue_probability=0.5, ftable_308_prob=0.25):
+              rescue_probability=0.5, ftable_308_prob=0.25,
+              deep_bass_backoff=1.0, back_off_clicks=0.0):
     # set the default value for probs if it is not passed as a keyword argument.
     if probs is None:
         probs = [[0.99, 0.01], [0.95627622, 0.04372378]]
@@ -933,10 +934,20 @@ def bass_part(chorale, glides, repeats, voice_names, voice_time, tpq, volume_fun
     notes_features_15 = atu.clip_note_features(notes_features_15, voice_time) # make sure the octaves are in range and the volume adjusted per the voice_time dictionary
     # notes_features_15 contains one row for every note: note, oct, glis, ups, env, vel, vol, voice,
     logging.debug(f'{notes_features_15.shape = }')
-    # Bass finger piano (csound_voice 24) notes at octave 0 would be silenced by the row[5]>0 filter.
+    # Bass finger piano notes at octave 0 would be silenced by the row[5]>0 filter.
+    # At this stage column 6 contains time_tracker_number (not final csound_voice),
+    # so derive the relevant tracker IDs from the incoming voice names.
     # Density-aware rescue: bump to octave 1, apply glissando (f307 or f308) to drop back 1 or 2 octaves.
     # Rescue probability varies by local density: 75% sparse, 50% medium, 25% dense.
-    bfin_oct0 = (notes_features_15[:, 6] == 24) & (notes_features_15[:, 5] == 0)
+    bfin_trackers = np.array(
+        [
+            voice_time[v]["time_tracker_number"]
+            for v in voice_names
+            if voice_time[v]["csound_voice"] == 24
+        ],
+        dtype=int,
+    )
+    bfin_oct0 = np.isin(notes_features_15[:, 6].astype(int), bfin_trackers) & (notes_features_15[:, 5] == 0)
     
     if np.any(bfin_oct0):
         oct0_indices = np.where(bfin_oct0)[0]
@@ -961,6 +972,12 @@ def bass_part(chorale, glides, repeats, voice_names, voice_time, tpq, volume_fun
             else:                        # Medium
                 rescue_probs[i] = 0.50
         
+        # Apply back_off_clicks: skip rescue entirely for short-duration notes (col 1 = duration).
+        if back_off_clicks > 0:
+            short_dur = notes_features_15[oct0_indices, 1] <= back_off_clicks
+            rescue_probs[short_dur] = 0.0
+        # Apply deep_bass_backoff: scale all rescue probabilities down.
+        rescue_probs *= deep_bass_backoff
         # Apply rescue based on probabilities
         rescue_mask = rng.random(num_oct0_notes) < rescue_probs
         rescue_indices = oct0_indices[rescue_mask]
@@ -1345,9 +1362,18 @@ def woodwinds_part(chorale_in_cents_slides, glides, repeats, voice_names, voice_
     notes_features_15 = atu.clip_note_features(notes_features_15, voice_time) # make sure the octaves are in range and the volume adjusted per the voice_time dictionary
     logging.debug(f'{notes_features_15.shape = }')
     
-    # Tuba (csound_voice 27) octave-0 rescue with simple 50% probability
-    # Similar to bass_part rescue but without density-awareness
-    tuba_oct0 = (notes_features_15[:, 6] == 27) & (notes_features_15[:, 5] == 0)
+    # Tuba octave-0 rescue with simple 50% probability.
+    # Similar to bass_part rescue but without density-awareness.
+    # Column 6 still contains time_tracker_number here; map from voice names.
+    tuba_trackers = np.array(
+        [
+            voice_time[v]["time_tracker_number"]
+            for v in voice_names
+            if voice_time[v]["csound_voice"] == 27
+        ],
+        dtype=int,
+    )
+    tuba_oct0 = np.isin(notes_features_15[:, 6].astype(int), tuba_trackers) & (notes_features_15[:, 5] == 0)
     
     if np.any(tuba_oct0):
         oct0_indices = np.where(tuba_oct0)[0]
@@ -1710,7 +1736,8 @@ def expand_chorale(repeats, chorale_in_cents_slides, glides, stored_gliss, voice
     include_instruments=[], print_only=10, limit=0, melody_sustain=15, bass_sustain=15,
     bass_hold_scale=1.0, bass_hold_swing=0.75, bass_hold_cycles=4, tolerance=1,\
     stability_factor=0.0, max_delta=33, spread=7, fp_density_starts=None, fp_hold_scale=1.0, density_level=None,
-    fatigue_thin_ratio=0.0, fatigue_min_chain=2, fatigue_density_threshold=1, version=''):
+    fatigue_thin_ratio=0.0, fatigue_min_chain=2, fatigue_density_threshold=1, version='',
+    deep_bass_backoff=1.0, back_off_clicks=0.0):
     # As of 1/10/26 the chorale_in_cents_slides has already been repeated according to the repeats array. (no longer an integer)
     # send the arrays to the file new_output.csd which csound will convert to a wave file to make music
     # duration, volume_function = expand_chorale(repeats, chorale_in_cents, chorale_in_cents_slides, glides, stored_gliss, voice_time, \
@@ -1823,7 +1850,8 @@ def expand_chorale(repeats, chorale_in_cents_slides, glides, stored_gliss, voice
             elif section in ['bass_section']:
                 print(f'playing {section}')
                 notes_features_15 = np.concatenate((notes_features_15, bass_part(chorale_in_cents_slides, glides, repeats_average, include_sections[section][1], voice_time, tpq, volume_function[sec_num], probs = probs, bass_sustain=bass_sustain, fp_volume=3,
-                    bass_hold_scale=bass_hold_scale, bass_hold_swing=bass_hold_swing, bass_hold_cycles=bass_hold_cycles, density_profile=density_profile)), axis = 0)
+                    bass_hold_scale=bass_hold_scale, bass_hold_swing=bass_hold_swing, bass_hold_cycles=bass_hold_cycles, density_profile=density_profile,
+                    deep_bass_backoff=deep_bass_backoff, back_off_clicks=back_off_clicks)), axis = 0)
                 if fatigue_thin_ratio > 0:
                     logging.info(f'before fatigue thinning bass_section: zero-octave rows = {int(np.sum(notes_features_15[_rows_before:, 5] == 0))} of {notes_features_15.shape[0] - _rows_before}')
                     notes_features_15[_rows_before:] = thin_staccato_chains(
@@ -1993,7 +2021,8 @@ def chorale_to_wave_v4(version, album, include_sections, ratio_factor, limit_max
     melody_sustain=15, bass_sustain=15, bass_hold_scale=1.0, bass_hold_swing=0.75, bass_hold_cycles=4,
     use_werck_top_notes=False, mp3=True, tolerance=1,\
       stability_factor=0.0, max_delta=33, spread=7, fp_density_starts=None, fp_hold_scale=1.0, prime_count=8, density_level=5,
-        fatigue_min_chain=2, fatigue_density_threshold=1, include_slice=None):
+        fatigue_min_chain=2, fatigue_density_threshold=1, include_slice=None,
+        deep_bass_backoff=1.0, back_off_clicks=0.0):
 
     print(f'In chorale_to_wave_v4. {version = }, {limit_max = }, {short_repeats = }, {ratio_factor = }')
     if short_repeats: # if you just want a straight woodwind/brass chorale, set short_repeats = True
@@ -2142,7 +2171,8 @@ def chorale_to_wave_v4(version, album, include_sections, ratio_factor, limit_max
         bass_hold_scale=bass_hold_scale, bass_hold_swing=bass_hold_swing, bass_hold_cycles=bass_hold_cycles, tolerance=tolerance,\
         stability_factor=stability_factor, max_delta=max_delta, spread=spread,
         fp_density_starts=fp_density_starts, fp_hold_scale=fp_hold_scale, density_level=density_level,
-        fatigue_thin_ratio=fatigue_thin_ratio, fatigue_min_chain=fatigue_min_chain, fatigue_density_threshold=fatigue_density_threshold, version=version)
+        fatigue_thin_ratio=fatigue_thin_ratio, fatigue_min_chain=fatigue_min_chain, fatigue_density_threshold=fatigue_density_threshold, version=version,
+        deep_bass_backoff=deep_bass_backoff, back_off_clicks=back_off_clicks)
 
     if csound: # send the results to csound
         result_of_call = play_csound(csound = True, play = False)
@@ -2173,7 +2203,8 @@ def mainline(chorale_override=None, short_repeats=False, just_triangle=False, in
              bass_hold_scale=1.0, bass_hold_swing=0.75, bass_hold_cycles=4, cent_file_partial='-trans-sa-opt.npy', \
              show_volumes=True, mod_letter='a', album=3, use_werck_top_notes=False, tolerance=1, ratio_factor=0.75, \
              numpy_dir_arg=None, stability_factor=0.0, max_delta=33, spread=7, limit_max=23, auto_density=False, prime_count=8, density_level=None, shuffle_density=False, auto_density_weights=None,
-             fatigue_min_chain=2, fatigue_density_threshold=1, include_slice=None):
+             fatigue_min_chain=2, fatigue_density_threshold=1, include_slice=None,
+             deep_bass_backoff=1.0, back_off_clicks=0.0):
       if include_list is None:
             include_list = []
 
@@ -2326,7 +2357,8 @@ def mainline(chorale_override=None, short_repeats=False, just_triangle=False, in
                   tolerance=tolerance, stability_factor=stability_factor, max_delta=max_delta,\
                   spread=spread, fp_density_starts=_fp_starts, fp_hold_scale=_fhs, prime_count=_np, density_level=_active_level,
                                     fatigue_min_chain=fatigue_min_chain, fatigue_density_threshold=fatigue_density_threshold,
-                                    include_slice=include_slice)
+                                    include_slice=include_slice,
+                                    deep_bass_backoff=deep_bass_backoff, back_off_clicks=back_off_clicks)
 
       # Generate a playlist of all the pieces in this album. This never worked correctly in the pod.
       print(f' {UPLOADS_DIR = }')
@@ -2419,6 +2451,10 @@ if __name__ == "__main__":
                           help="Minimum consecutive 0.25-duration notes/bins before staccato thinning is applied (default: 2)")
       parser.add_argument("--fatigue_density_threshold", dest="fatigue_density_threshold", type=int, default=1,
                           help="Phase 2 thinning: minimum simultaneous staccato voices per time bin to be considered dense (default: 1)")
+      parser.add_argument("--deep_bass_backoff", dest="deep_bass_backoff", type=float, default=1.0,
+                          help="Scale factor (0.0-1.0) applied to all bass finger piano rescue probabilities; 0.5 rescues half as many deep bass notes, 0.0 disables rescue entirely (default: 1.0)")
+      parser.add_argument("--back_off_clicks", dest="back_off_clicks", type=float, default=0.0,
+                          help="Skip bass rescue for notes whose duration (in clicks) is <= this value; 0.25 suppresses rescue of short staccato notes (default: 0.0 = no threshold)")
       args = parser.parse_args()
 
       # Try to extract parameters from cent_file_partial filename if it contains them
@@ -2470,6 +2506,7 @@ if __name__ == "__main__":
                spread=args.spread, limit_max=args.limit_max, auto_density=args.auto_density, prime_count=args.prime_count, density_level=args.density_level, shuffle_density=args.shuffle_density,
                auto_density_weights=parsed_auto_density_weights,
                fatigue_min_chain=args.fatigue_min_chain, fatigue_density_threshold=args.fatigue_density_threshold,
-               include_slice=args.include_slice)
+               include_slice=args.include_slice,
+               deep_bass_backoff=args.deep_bass_backoff, back_off_clicks=args.back_off_clicks)
 
 
