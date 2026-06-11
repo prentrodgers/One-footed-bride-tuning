@@ -133,7 +133,7 @@ def find_cent_value_prev_target(pitch_class_target, pitch_class_chord_prev,
 
 
 def build_straw_man_chord_simulated_annealing(cent_value_chord, cent_value_chord_prev, chord_num,
-                                              tolerance=1, chord_scorer=None,
+                                              tolerance, chord_scorer=None,
                                               low_number_ratios=None, tonal_diamond=None,
                                               initial_temperature=2.5, cooling_rate=0.999,
                                               max_iterations=1000, min_repeats=5,
@@ -294,7 +294,7 @@ def build_straw_man_chord_simulated_annealing(cent_value_chord, cent_value_chord
 
 
 def roll_and_tune(cent_value_chord, cent_value_chord_prev, chord_num,
-                  tolerance=1, chord_scorer=None, low_number_ratios=None,
+                  tolerance, chord_scorer=None, low_number_ratios=None,
                   tonal_diamond=None, initial_temperature=2.5, cooling_rate=0.999,
                   max_iterations=1000, min_repeats=5, elbow_percent=0.5,
                   r_value=0.3, spread=7, rolls=5, time_limit=0, max_no_improve=None,
@@ -447,7 +447,7 @@ def enforce_pitch_class_continuity(sa_cent_value_chorale, chorale, chord_scorer,
     return adjusted
 
 
-def process_chorale(version, numpy_dir, output_dir=None, tolerance=1, limit_max=19,
+def process_chorale(version, numpy_dir, output_dir=None, *, tolerance, limit_max=19,
                     initial_temperature=2.5, cooling_rate=0.999, max_iterations=1000,
                     rolls=5, min_repeats=5, elbow_percent=0.5, r_value=0.3, spread=7,
                     max_gap=40, retune_on_gaps=3, dry_run=False, time_limit=0, max_no_improve=None):
@@ -621,8 +621,8 @@ def main():
     )
     parser.add_argument('--dry-run', action='store_true')
     parser.add_argument('--verbose', action='store_true')
-    parser.add_argument('--tolerance', type=int, default=1, 
-                       help='Tolerance level (1-4) for data directory. Default: 1')
+    parser.add_argument('--tolerance', type=int, default=None,
+                       help='Tolerance level (1-4) for data directory. Required (e.g. --tolerance 3).')
     parser.add_argument('--limit-max', type=int, default=19)
     # Convenience alias: accept underscore form used by some callers
     parser.add_argument('--limit_max', dest='limit_max', type=int, help=argparse.SUPPRESS)
@@ -648,6 +648,9 @@ def main():
     args = parser.parse_args()
 
     # Validate tolerance
+    if args.tolerance is None:
+        print("Error: --tolerance is required (e.g. --tolerance 3)", file=sys.stderr)
+        sys.exit(1)
     if not (1 <= args.tolerance <= 4):
         print(f"Error: tolerance must be 1-4, got {args.tolerance}", file=sys.stderr)
         sys.exit(1)

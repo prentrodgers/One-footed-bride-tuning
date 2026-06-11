@@ -58,7 +58,7 @@ def find_cent_value_prev_target(pitch_class_target, pitch_class_chord_prev, cent
 
 # this is a version of build_straw_man_chord based on all 12 intervals (using permutations) choosing their optimum, last change wins algorithm.
 # It's pretty good. The test harness has to rearrange the chords back to their original order. 
-def build_straw_man_chord(cent_value_chord, cent_value_chord_prev, chord_num, chord_scorer, low_number_ratios, tonal_diamond, tolerance=1, print_values=False, rolls=4):
+def build_straw_man_chord(cent_value_chord, cent_value_chord_prev, chord_num, chord_scorer, low_number_ratios, tonal_diamond, tolerance, print_values=False, rolls=4):
     logging.info(f'chord#: {chord_num} In build_straw_man_chord. {tolerance = }')
     initial_midi_chord = atu.pitch_class_from_cents(cent_value_chord)
     best_cent_value_chord_so_far = cent_value_chord.copy()
@@ -129,7 +129,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Straw Man tuning of Bach chorales using lowest number ratios')
     parser.add_argument('--limit_max', type=int, default=23, help='Maximum limit for tonal diamond (default: 23)')
     parser.add_argument('--max_delta', type=int, default=35, help='Maximum delta (default: 35)')
-    parser.add_argument('--tolerance', type=int, default=1, help='Tolerance for chord scoring (default: 1)')
+    parser.add_argument('--tolerance', type=int, default=None, help='Tolerance for chord scoring. Required (e.g. --tolerance 3).')
     parser.add_argument('--rolls', type=int, default=1, help='Number of rolls for chord permutations (default: 1)')
     parser.add_argument('--include_list', type=str, default=None,
                         help='Slice of chords to include, e.g. "8:17" (default: None, use all chords)')
@@ -141,7 +141,10 @@ def parse_args():
                         help='Print final chord results (default: True)')
     parser.add_argument('--print_initial', action=argparse.BooleanOptionalAction, default=True,
                         help='Print initial chord info (default: True)')
-    return parser.parse_args()
+    args = parser.parse_args()
+    if args.tolerance is None:
+        parser.error('--tolerance is required (e.g. --tolerance 3)')
+    return args
 
 def main():
     args = parse_args()

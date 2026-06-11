@@ -1,0 +1,502 @@
+prent@one-footed-bride-8567f85456-jv8bg:~/Repos/One-footed-bride-tuning$ time ./grid_search.sh
+========================================
+limit_max=17  tolerance=1  ratio_factor=1.5  stability_factor=0  max_delta=33  spread=7  sa_iterations=1000
+dir=Archive/straw-man/t1_r1.5_s0_md33_sn0_lm17
+========================================
+
+--limit_max 17 --max_delta 33 --tolerance 1 --rolls 8 --sa_iterations 1000 --initial_temperature 3.0 --cooling_rate 0.999 --ratio_factor 1.5 --stability_factor 0.0 --spread 7 --spread_weight 0.5 --include_list None --chorale_list ['bwv253', 'bwv254', 'bwv255', 'bwv256', 'bwv257', 'bwv258', 'bwv259', 'bwv260', 'bwv261', 'bwv262', 'bwv263', 'bwv264'] --print_values False --print_finals False --print_initial False --workers 1 --runs 1 --numpy_dir Archive/straw-man/t1_r1.5_s0_md33_sn0_lm17 --max_gap 33.0 --retune_on_gaps 5 --snap_tolerance 0.0 --use_viterbi True --k_candidates 15 --viterbi_vertical_weight 1.0 --viterbi_horizontal_weight 0.5 --viterbi_penalty_type pitch_class_jump --detect_phrases True --phrase_horizontal_weight 1.0
+numpy_dir = '/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/t1_r1.5_s0_md33_sn0_lm17'
+limit_max = 17, tonal_diamond.shape = (65, 3)
+  Early stops (464 total): 1-100: 304, 101-200: 158, 201-300: 2
+
+Running Viterbi optimization (K=15, v_weight=1.0, h_weight=0.5)...
+  Detected 14 phrase(s)
+  Viterbi complete: mean_score=49.1, spread=16.9¢, path_diversity=15/15
+Running continuity enforcement (max_gap=33.0¢, retune_on_gaps=5)...
+version = 'bwv253', chords: 160, tolerance = 1, rolls = 8, limit_max = 17, sa_iterations = 1000, initial_temperature = 3.0, cooling_rate = 0.999, args.ratio_factor = 1.5, args.stability_factor = 0.0
+mean: 48.9,  median: 43.0,  min: 28.0,  max: 90.0,  argmax: 122,  deciles: [28. 43. 43. 43. 43. 43. 45. 47. 55. 67.]
+  Early stops (608 total): 1-100: 405, 101-200: 196, 201-300: 7
+
+Running Viterbi optimization (K=15, v_weight=1.0, h_weight=0.5)...
+  Detected 15 phrase(s)
+  Viterbi complete: mean_score=54.9, spread=13.0¢, path_diversity=15/15
+Running continuity enforcement (max_gap=33.0¢, retune_on_gaps=5)...
+version = 'bwv254', chords: 176, tolerance = 1, rolls = 8, limit_max = 17, sa_iterations = 1000, initial_temperature = 3.0, cooling_rate = 0.999, args.ratio_factor = 1.5, args.stability_factor = 0.0
+mean: 54.6,  median: 45.0,  min: 28.0,  max: 140.0,  argmax: 158,  deciles: [28. 43. 43. 45. 45. 45. 60. 64. 67. 70.]
+  Early stops (344 total): 1-100: 226, 101-200: 115, 201-300: 3
+
+Running Viterbi optimization (K=15, v_weight=1.0, h_weight=0.5)...
+  Detected 19 phrase(s)
+  Viterbi complete: mean_score=50.9, spread=16.0¢, path_diversity=15/15
+Running continuity enforcement (max_gap=33.0¢, retune_on_gaps=5)...
+version = 'bwv255', chords: 128, tolerance = 1, rolls = 8, limit_max = 17, sa_iterations = 1000, initial_temperature = 3.0, cooling_rate = 0.999, args.ratio_factor = 1.5, args.stability_factor = 0.0
+mean: 50.9,  median: 43.0,  min: 43.0,  max: 82.0,  argmax: 42,  deciles: [43.  43.  43.  43.  43.  43.  45.  59.  62.4 67. ]
+  Early stops (568 total): 1-100: 375, 101-200: 182, 201-300: 10, 301-400: 1
+
+Running Viterbi optimization (K=15, v_weight=1.0, h_weight=0.5)...
+  Detected 11 phrase(s)
+  Viterbi complete: mean_score=53.9, spread=17.2¢, path_diversity=15/15
+Running continuity enforcement (max_gap=33.0¢, retune_on_gaps=5)...
+version = 'bwv256', chords: 160, tolerance = 1, rolls = 8, limit_max = 17, sa_iterations = 1000, initial_temperature = 3.0, cooling_rate = 0.999, args.ratio_factor = 1.5, args.stability_factor = 0.0
+mean: 53.9,  median: 47.0,  min: 36.0,  max: 140.0,  argmax: 138,  deciles: [36. 43. 43. 43. 45. 47. 47. 60. 67. 74.]
+  Early stops (536 total): 1-100: 355, 101-200: 176, 201-300: 5
+
+Running Viterbi optimization (K=15, v_weight=1.0, h_weight=0.5)...
+  Detected 13 phrase(s)
+  Viterbi complete: mean_score=57.2, spread=18.7¢, path_diversity=15/15
+Running continuity enforcement (max_gap=33.0¢, retune_on_gaps=5)...
+version = 'bwv257', chords: 160, tolerance = 1, rolls = 8, limit_max = 17, sa_iterations = 1000, initial_temperature = 3.0, cooling_rate = 0.999, args.ratio_factor = 1.5, args.stability_factor = 0.0
+mean: 57.5,  median: 47.0,  min: 27.0,  max: 140.0,  argmax: 128,  deciles: [27.  43.  43.  43.  45.  47.  59.  65.6 70.  82.5]
+  Early stops (496 total): 1-100: 327, 101-200: 168, 201-300: 1
+
+Running Viterbi optimization (K=15, v_weight=1.0, h_weight=0.5)...
+  Detected 18 phrase(s)
+  Viterbi complete: mean_score=57.7, spread=22.8¢, path_diversity=15/15
+Running continuity enforcement (max_gap=33.0¢, retune_on_gaps=5)...
+version = 'bwv258', chords: 160, tolerance = 1, rolls = 8, limit_max = 17, sa_iterations = 1000, initial_temperature = 3.0, cooling_rate = 0.999, args.ratio_factor = 1.5, args.stability_factor = 0.0
+mean: 58.0,  median: 47.0,  min: 43.0,  max: 140.0,  argmax: 80,  deciles: [43.  43.  43.  43.  45.  47.  55.8 64.  67.  78.4]
+  Early stops (664 total): 1-100: 443, 101-200: 218, 201-300: 3
+
+Running Viterbi optimization (K=15, v_weight=1.0, h_weight=0.5)...
+  Detected 9 phrase(s)
+  Viterbi complete: mean_score=53.2, spread=11.3¢, path_diversity=15/15
+Running continuity enforcement (max_gap=33.0¢, retune_on_gaps=5)...
+version = 'bwv259', chords: 192, tolerance = 1, rolls = 8, limit_max = 17, sa_iterations = 1000, initial_temperature = 3.0, cooling_rate = 0.999, args.ratio_factor = 1.5, args.stability_factor = 0.0
+mean: 53.3,  median: 45.0,  min: 43.0,  max: 104.0,  argmax: 74,  deciles: [43. 43. 43. 45. 45. 45. 47. 64. 67. 70.]
+  Early stops (616 total): 1-100: 406, 101-200: 207, 201-300: 3
+
+Running Viterbi optimization (K=15, v_weight=1.0, h_weight=0.5)...
+  Detected 10 phrase(s)
+  Viterbi complete: mean_score=52.3, spread=14.5¢, path_diversity=15/15
+Running continuity enforcement (max_gap=33.0¢, retune_on_gaps=5)...
+version = 'bwv260', chords: 160, tolerance = 1, rolls = 8, limit_max = 17, sa_iterations = 1000, initial_temperature = 3.0, cooling_rate = 0.999, args.ratio_factor = 1.5, args.stability_factor = 0.0
+mean: 52.3,  median: 45.0,  min: 43.0,  max: 105.0,  argmax: 72,  deciles: [43.  43.  43.  44.4 45.  45.  47.  47.  64.  74. ]
+  Early stops (776 total): 1-100: 518, 101-200: 249, 201-300: 9
+
+Running Viterbi optimization (K=15, v_weight=1.0, h_weight=0.5)...
+  Detected 36 phrase(s)
+  Viterbi complete: mean_score=56.3, spread=20.8¢, path_diversity=15/15
+Running continuity enforcement (max_gap=33.0¢, retune_on_gaps=5)...
+version = 'bwv261', chords: 280, tolerance = 1, rolls = 8, limit_max = 17, sa_iterations = 1000, initial_temperature = 3.0, cooling_rate = 0.999, args.ratio_factor = 1.5, args.stability_factor = 0.0
+mean: 56.5,  median: 47.0,  min: 27.0,  max: 140.0,  argmax: 72,  deciles: [27. 43. 43. 45. 45. 47. 62. 67. 67. 78.]
+  Early stops (512 total): 1-100: 332, 101-200: 175, 201-300: 5
+
+Running Viterbi optimization (K=15, v_weight=1.0, h_weight=0.5)...
+  Detected 17 phrase(s)
+  Viterbi complete: mean_score=47.6, spread=9.0¢, path_diversity=15/15
+Running continuity enforcement (max_gap=33.0¢, retune_on_gaps=5)...
+version = 'bwv262', chords: 192, tolerance = 1, rolls = 8, limit_max = 17, sa_iterations = 1000, initial_temperature = 3.0, cooling_rate = 0.999, args.ratio_factor = 1.5, args.stability_factor = 0.0
+mean: 47.7,  median: 43.0,  min: 27.0,  max: 113.0,  argmax: 55,  deciles: [27. 27. 36. 43. 43. 43. 45. 47. 63. 67.]
+  Early stops (648 total): 1-100: 421, 101-200: 223, 201-300: 4
+
+Running Viterbi optimization (K=15, v_weight=1.0, h_weight=0.5)...
+  Detected 14 phrase(s)
+  Viterbi complete: mean_score=49.9, spread=15.0¢, path_diversity=15/15
+Running continuity enforcement (max_gap=33.0¢, retune_on_gaps=5)...
+version = 'bwv263', chords: 192, tolerance = 1, rolls = 8, limit_max = 17, sa_iterations = 1000, initial_temperature = 3.0, cooling_rate = 0.999, args.ratio_factor = 1.5, args.stability_factor = 0.0
+mean: 49.5,  median: 43.0,  min: 21.0,  max: 140.0,  argmax: 104,  deciles: [21.  43.  43.  43.  43.  43.  43.  45.  59.8 70. ]
+  Early stops (432 total): 1-100: 282, 101-200: 148, 201-300: 2
+
+Running Viterbi optimization (K=15, v_weight=1.0, h_weight=0.5)...
+  Detected 15 phrase(s)
+  Viterbi complete: mean_score=48.2, spread=13.6¢, path_diversity=15/15
+Running continuity enforcement (max_gap=33.0¢, retune_on_gaps=5)...
+version = 'bwv264', chords: 148, tolerance = 1, rolls = 8, limit_max = 17, sa_iterations = 1000, initial_temperature = 3.0, cooling_rate = 0.999, args.ratio_factor = 1.5, args.stability_factor = 0.0
+mean: 48.1,  median: 43.0,  min: 43.0,  max: 140.0,  argmax: 110,  deciles: [43.  43.  43.  43.  43.  43.  45.  45.  47.  64.9]
+
+real    156m58.308s
+user    156m29.818s
+sys     0m2.046s
+
+Pitch class check: OK — all pitch classes preserved.
+Saved adjusted chorale to Archive/straw-man/t1_r1.5_s0_md33_sn0_lm17/bwv253-trans-sa-opt.npy
+Applied 39 chord shifts; max delta +22.00
+
+Pitch class check: OK — all pitch classes preserved.
+Saved adjusted chorale to Archive/straw-man/t1_r1.5_s0_md33_sn0_lm17/bwv254-trans-sa-opt.npy
+Applied 57 chord shifts; max delta +33.00
+
+Pitch class check: OK — all pitch classes preserved.
+Saved adjusted chorale to Archive/straw-man/t1_r1.5_s0_md33_sn0_lm17/bwv255-trans-sa-opt.npy
+Applied 18 chord shifts; max delta +25.00
+
+Pitch class check: OK — all pitch classes preserved.
+Saved adjusted chorale to Archive/straw-man/t1_r1.5_s0_md33_sn0_lm17/bwv256-trans-sa-opt.npy
+Applied 31 chord shifts; max delta +24.00
+
+Pitch class check: OK — all pitch classes preserved.
+Saved adjusted chorale to Archive/straw-man/t1_r1.5_s0_md33_sn0_lm17/bwv257-trans-sa-opt.npy
+Applied 22 chord shifts; max delta +26.00
+
+Pitch class check: OK — all pitch classes preserved.
+Saved adjusted chorale to Archive/straw-man/t1_r1.5_s0_md33_sn0_lm17/bwv258-trans-sa-opt.npy
+Applied 37 chord shifts; max delta +25.00
+
+Pitch class check: OK — all pitch classes preserved.
+Saved adjusted chorale to Archive/straw-man/t1_r1.5_s0_md33_sn0_lm17/bwv259-trans-sa-opt.npy
+Applied 60 chord shifts; max delta +29.00
+
+Pitch class check: OK — all pitch classes preserved.
+Saved adjusted chorale to Archive/straw-man/t1_r1.5_s0_md33_sn0_lm17/bwv260-trans-sa-opt.npy
+Applied 38 chord shifts; max delta +15.00
+
+Pitch class check: OK — all pitch classes preserved.
+Saved adjusted chorale to Archive/straw-man/t1_r1.5_s0_md33_sn0_lm17/bwv261-trans-sa-opt.npy
+Applied 52 chord shifts; max delta +31.00
+
+Pitch class check: OK — all pitch classes preserved.
+Saved adjusted chorale to Archive/straw-man/t1_r1.5_s0_md33_sn0_lm17/bwv262-trans-sa-opt.npy
+Applied 43 chord shifts; max delta +14.00
+
+Pitch class check: OK — all pitch classes preserved.
+Saved adjusted chorale to Archive/straw-man/t1_r1.5_s0_md33_sn0_lm17/bwv263-trans-sa-opt.npy
+Applied 58 chord shifts; max delta +28.00
+
+Pitch class check: OK — all pitch classes preserved.
+Saved adjusted chorale to Archive/straw-man/t1_r1.5_s0_md33_sn0_lm17/bwv264-trans-sa-opt.npy
+Applied 36 chord shifts; max delta +25.00
+
+
+/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/t1_r1.5_s0_md33_sn0_lm17/bwv253-trans-sa-opt.npy
+Original chorale key: A♮ major
+Pitch classes sorted by frequency in original chorale:
+A♮: 190 E♮: 136 C♯: 100 B♮: 56  F♯: 50
+Note   Occurs     Min     Max   Range  Unique cent values (rounded)
+------------------------------------------------------------------------------------------
+A♮        190     866     918      52  [866, 881, 893, 900, 902, 903, 904, 910, 916, 918] <-- wide spread
+E♮        136     383     420      37  [383, 395, 399, 402, 404, 405, 406, 412, 418, 420]
+C♯        100      67     104      37  [67, 83, 86, 88, 89, 90, 96, 102, 104]
+B♮         56    1084    1148      64  [1084, 1097, 1100, 1101, 1107, 1113, 1114, 1119, 1120, 1122, 1148] <-- wide spread
+F♯         50     565     602      37  [565, 577, 584, 586, 587, 594, 599, 600, 602]
+D♮         44     173     216      43  [173, 179, 180, 186, 198, 200, 208, 214, 216]
+G♯         44     751     818      67  [751, 781, 785, 791, 798, 804, 806, 818] <-- wide spread
+F♮          8     469     475       6  [469, 475]
+G♮          6     714     714       0  [714]
+D♯          6     283     311      28  [283, 311]
+
+/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/t1_r1.5_s0_md33_sn0_lm17/bwv254-trans-sa-opt.npy
+Original chorale key: D♮ minor
+Pitch classes sorted by frequency in original chorale:
+A♮: 142 D♮: 112 F♮: 106 G♮: 102 C♮: 84
+Note   Occurs     Min     Max   Range  Unique cent values (rounded)
+------------------------------------------------------------------------------------------
+A♮        142     867     934      67  [867, 882, 889, 893, 894, 896, 897, 900, 903, 904, 907, 916, 917, 920, 921, 933, 934] <-- wide spread
+D♮        112     187     214      27  [187, 191, 192, 194, 195, 198, 201, 202, 205, 214]
+F♮        106     481     530      49  [481, 496, 503, 507, 508, 510, 511, 514, 517, 518, 521, 530]
+G♮        102     650     714      64  [650, 651, 685, 689, 690, 691, 692, 693, 694, 698, 699, 700, 702, 703, 711, 712, 714] <-- wide spread
+C♮         84    1183      32      49  [5, 8, 9, 10, 12, 19, 20, 32, 1183, 1198]
+E♮         78     369     445      76  [369, 384, 395, 396, 398, 399, 405, 406, 409, 422, 423, 425, 427, 436, 445] <-- wide spread
+B♭         54     977    1046      69  [977, 978, 981, 1001, 1005, 1006, 1007, 1008, 1009, 1016, 1019, 1028, 1046] <-- wide spread
+D♭         18      50     120      70  [50, 83, 89, 107, 120] <-- wide spread
+G♭          4     584     584       0  [584]
+B♮          4    1085    1085       0  [1085]
+
+/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/t1_r1.5_s0_md33_sn0_lm17/bwv255-trans-sa-opt.npy
+Original chorale key: G♮ major
+Pitch classes sorted by frequency in original chorale:
+G♮: 130 C♮: 104 D♮: 94  B♮: 58  A♮: 40
+Note   Occurs     Min     Max   Range  Unique cent values (rounded)
+------------------------------------------------------------------------------------------
+G♮        130     694     715      21  [694, 697, 698, 699, 701, 702, 705, 706, 708, 709, 715]
+C♮        104    1157      13      56  [0, 3, 4, 6, 7, 13, 1157, 1171, 1192, 1195, 1196, 1199] <-- wide spread
+D♮         94     168     223      55  [168, 170, 188, 189, 196, 199, 201, 202, 203, 204, 206, 207, 211, 223] <-- wide spread
+B♮         58    1083    1104      21  [1083, 1085, 1087, 1088, 1091, 1095, 1101, 1103, 1104]
+A♮         40     887     925      38  [887, 888, 890, 891, 897, 905, 913, 925]
+E♮         40     378     399      21  [378, 381, 382, 385, 386, 389, 390, 392, 393, 399]
+F♯         22     575     631      56  [575, 589, 597, 610, 621, 631] <-- wide spread
+F♮         18     473     504      31  [473, 486, 501, 502, 504]
+G♯          4     785     785       0  [785]
+A♯          2    1021    1021       0  [1021]
+
+/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/t1_r1.5_s0_md33_sn0_lm17/bwv256-trans-sa-opt.npy
+Original chorale key: A♮ minor
+Pitch classes sorted by frequency in original chorale:
+C♮: 110 E♮: 103 A♮: 97  D♮: 84  G♮: 84
+Note   Occurs     Min     Max   Range  Unique cent values (rounded)
+------------------------------------------------------------------------------------------
+C♮        110    1162      19      57  [1, 2, 5, 9, 11, 17, 19, 1162, 1196, 1198] <-- wide spread
+E♮        103     382     422      40  [382, 384, 387, 388, 391, 395, 396, 397, 403, 405, 413, 414, 422]
+A♮         97     880     924      44  [880, 882, 885, 886, 887, 889, 892, 893, 894, 895, 896, 897, 901, 903, 912, 920, 924]
+D♮         84     182     229      47  [182, 183, 186, 187, 190, 191, 193, 194, 195, 198, 205, 206, 209, 210, 215, 218, 221, 222, 223, 229]
+G♮         84     653     721      68  [653, 693, 696, 698, 700, 703, 704, 707, 713, 719, 720, 721] <-- wide spread
+B♮         75    1079    1129      50  [1079, 1082, 1084, 1085, 1090, 1093, 1094, 1096, 1105, 1106, 1107, 1114, 1116, 1124, 1129]
+F♮         43     472     538      66  [472, 495, 499, 503, 507, 509, 511, 533, 538] <-- wide spread
+F♯         22     573     620      47  [573, 576, 580, 596, 615, 618, 620]
+G♯         14     777     849      72  [777, 800, 808, 849] <-- wide spread
+C♯          8      80      87       7  [80, 87]
+
+/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/t1_r1.5_s0_md33_sn0_lm17/bwv257-trans-sa-opt.npy
+Original chorale key: A♮ minor
+Pitch classes sorted by frequency in original chorale:
+A♮: 114 C♮: 98  E♮: 98  D♮: 92  B♮: 76
+Note   Occurs     Min     Max   Range  Unique cent values (rounded)
+------------------------------------------------------------------------------------------
+A♮        114     853     917      64  [853, 878, 882, 884, 887, 892, 893, 895, 899, 901, 903, 908, 913, 915, 917] <-- wide spread
+C♮         98    1194      24      30  [0, 3, 7, 8, 11, 15, 19, 24, 1194, 1195, 1198]
+E♮         98     380     442      62  [380, 381, 384, 386, 389, 394, 397, 398, 403, 408, 410, 416, 419, 442] <-- wide spread
+D♮         92     166     215      49  [166, 167, 176, 185, 190, 191, 194, 197, 199, 205, 206, 207, 211, 213, 215]
+B♮         76    1051    1144      93  [1051, 1069, 1073, 1078, 1083, 1089, 1090, 1091, 1095, 1097, 1098, 1099, 1100, 1109, 1110, 1130, 1131, 1133, 1139, 1144] <-- wide spread
+G♮         72     650     726      76  [650, 683, 692, 696, 698, 700, 704, 705, 709, 710, 711, 713, 726] <-- wide spread
+F♮         40     482     522      40  [482, 492, 506, 507, 509, 513, 515, 522]
+F♯         22     564     621      57  [564, 571, 597, 599, 615, 618, 621] <-- wide spread
+G♯         20     775     835      60  [775, 784, 785, 794, 828, 831, 835] <-- wide spread
+C♯          4      87      87       0  [87]
+D♯          4     316     316       0  [316]
+
+/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/t1_r1.5_s0_md33_sn0_lm17/bwv258-trans-sa-opt.npy
+Original chorale key: B♮ minor
+Pitch classes sorted by frequency in original chorale:
+D♮: 106 B♮: 102 F♯: 94  E♮: 92  A♮: 86
+Note   Occurs     Min     Max   Range  Unique cent values (rounded)
+------------------------------------------------------------------------------------------
+D♮        106     173     233      60  [173, 192, 195, 198, 199, 200, 201, 203, 205, 209, 212, 215, 233] <-- wide spread
+B♮        102    1053    1118      65  [1053, 1076, 1079, 1082, 1083, 1084, 1085, 1086, 1087, 1089, 1096, 1099, 1106, 1107, 1113, 1117, 1118] <-- wide spread
+F♯         94     578     619      41  [578, 581, 584, 586, 587, 589, 591, 595, 598, 601, 609, 617, 619]
+E♮         92     382     416      34  [382, 385, 387, 388, 394, 400, 402, 404, 405, 406, 411, 413, 416]
+A♮         86     876     945      69  [876, 880, 894, 897, 898, 900, 902, 903, 904, 905, 909, 911, 914, 945] <-- wide spread
+C♯         72      66     145      79  [66, 80, 84, 86, 88, 89, 90, 95, 97, 100, 101, 118, 119, 121, 145] <-- wide spread
+G♮         34     671     749      78  [671, 696, 698, 701, 703, 727, 749] <-- wide spread
+G♯         30     764     819      55  [764, 780, 790, 791, 802, 812, 817, 818, 819] <-- wide spread
+A♯         16     984    1038      54  [984, 1003, 1005, 1034, 1038] <-- wide spread
+F♮          4     516     516       0  [516]
+D♯          4     293     293       0  [293]
+
+/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/t1_r1.5_s0_md33_sn0_lm17/bwv259-trans-sa-opt.npy
+Original chorale key: E♮ minor
+Pitch classes sorted by frequency in original chorale:
+B♮: 152 G♮: 143 E♮: 109 D♮: 100 F♯: 97
+Note   Occurs     Min     Max   Range  Unique cent values (rounded)
+------------------------------------------------------------------------------------------
+B♮        152    1073    1127      54  [1073, 1081, 1082, 1083, 1090, 1095, 1096, 1100, 1101, 1106, 1108, 1109, 1116, 1117, 1123, 1126, 1127] <-- wide spread
+G♮        143     687     741      54  [687, 695, 696, 697, 704, 709, 710, 714, 715, 723, 741] <-- wide spread
+E♮        109     371     429      58  [371, 380, 388, 393, 394, 397, 398, 399, 404, 407, 429] <-- wide spread
+D♮        100     189     225      36  [189, 193, 194, 195, 197, 199, 202, 203, 211, 216, 217, 225]
+F♯         97     575     625      50  [575, 579, 581, 584, 589, 598, 602, 603, 611, 619, 625]
+A♮         80     869     927      58  [869, 877, 878, 885, 886, 891, 892, 895, 896, 897, 905, 917, 927] <-- wide spread
+C♮         44    1163      21      58  [2, 7, 11, 13, 21, 1163, 1171, 1184, 1185, 1194] <-- wide spread
+D♯         17     286     318      32  [286, 287, 295, 303, 309, 313, 318]
+C♯         16     104     132      28  [104, 113, 131, 132]
+G♯          8     790     790       0  [790]
+A♯          2     988     988       0  [988]
+
+/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/t1_r1.5_s0_md33_sn0_lm17/bwv260-trans-sa-opt.npy
+Original chorale key: G♮ major
+Pitch classes sorted by frequency in original chorale:
+B♮: 105 G♮: 100 D♮: 98  A♮: 93  E♮: 84
+Note   Occurs     Min     Max   Range  Unique cent values (rounded)
+------------------------------------------------------------------------------------------
+B♮        105    1079    1117      38  [1079, 1082, 1083, 1084, 1086, 1088, 1089, 1091, 1092, 1093, 1095, 1096, 1097, 1098, 1108, 1117]
+G♮        100     696     731      35  [696, 697, 698, 700, 702, 703, 705, 706, 707, 710, 712, 731]
+D♮         98     183     233      50  [183, 184, 186, 187, 190, 195, 198, 199, 200, 204, 206, 207, 208, 209, 210, 211, 212, 213, 214, 233]
+A♮         93     864     916      52  [864, 878, 886, 887, 888, 889, 891, 892, 897, 901, 902, 906, 909, 912, 913, 914, 916] <-- wide spread
+E♮         84     380     415      35  [380, 384, 386, 387, 388, 389, 390, 391, 394, 396, 403, 404, 408, 411, 414, 415]
+C♮         68    1158      49      91  [0, 1, 2, 3, 4, 5, 8, 17, 18, 25, 29, 48, 49, 1158] <-- wide spread
+F♯         62     576     647      71  [576, 581, 585, 586, 590, 593, 594, 596, 597, 598, 600, 610, 622, 647] <-- wide spread
+D♯         12     281     294      13  [281, 282, 284, 294]
+G♯          8     801     831      30  [801, 824, 831]
+F♮          8     500     527      27  [500, 527]
+C♯          2     118     118       0  [118]
+
+/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/t1_r1.5_s0_md33_sn0_lm17/bwv261-trans-sa-opt.npy
+Original chorale key: B♮ minor
+Pitch classes sorted by frequency in original chorale:
+B♮: 202 D♮: 191 F♯: 172 E♮: 134 C♯: 121
+Note   Occurs     Min     Max   Range  Unique cent values (rounded)
+------------------------------------------------------------------------------------------
+B♮        202    1066    1133      67  [1066, 1073, 1075, 1078, 1082, 1083, 1084, 1085, 1086, 1088, 1090, 1092, 1093, 1094, 1095, 1096, 1097, 1099, 1102, 1105, 1133] <-- wide spread
+D♮        191     168     227      59  [168, 182, 190, 191, 194, 198, 199, 200, 201, 202, 204, 206, 207, 208, 209, 212, 215, 216, 227] <-- wide spread
+F♯        172     560     629      69  [560, 568, 575, 576, 577, 584, 585, 586, 587, 588, 590, 593, 595, 596, 597, 598, 601, 602, 605, 606, 607, 612, 613, 623, 629] <-- wide spread
+E♮        134     371     433      62  [371, 373, 376, 380, 386, 391, 392, 394, 395, 397, 400, 402, 403, 407, 420, 423, 430, 431, 433] <-- wide spread
+C♯        121      50     135      85  [50, 55, 70, 77, 78, 79, 84, 85, 88, 90, 100, 103, 105, 106, 107, 108, 110, 113, 114, 115, 118, 125, 127, 128, 130, 131, 135] <-- wide spread
+A♮        118     874     943      69  [874, 876, 884, 891, 892, 893, 900, 901, 902, 904, 906, 908, 914, 917, 918, 929, 943] <-- wide spread
+G♮        100     651     749      98  [651, 655, 659, 680, 687, 689, 692, 696, 697, 700, 702, 704, 707, 708, 710, 711, 712, 713, 749] <-- wide spread
+A♯         36     971    1047      76  [971, 984, 991, 998, 1009, 1015, 1018, 1019, 1039, 1041, 1047] <-- wide spread
+D♯         24     259     331      72  [259, 281, 285, 292, 331] <-- wide spread
+G♯         16     786     817      31  [786, 789, 809, 817]
+F♮          6     514     522       8  [514, 522]
+
+/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/t1_r1.5_s0_md33_sn0_lm17/bwv262-trans-sa-opt.npy
+Original chorale key: D♮ major
+Pitch classes sorted by frequency in original chorale:
+D♮: 202 A♮: 156 F♯: 116 B♮: 88  E♮: 74
+Note   Occurs     Min     Max   Range  Unique cent values (rounded)
+------------------------------------------------------------------------------------------
+D♮        202     175     224      49  [175, 180, 189, 199, 201, 202, 207, 211, 213, 220, 224]
+A♮        156     891     926      35  [891, 896, 901, 902, 904, 909, 913, 915, 921, 922, 926]
+F♯        116     575     610      35  [575, 585, 587, 588, 593, 597, 599, 606, 610]
+B♮         88    1083    1113      30  [1083, 1084, 1085, 1086, 1091, 1095, 1104, 1108, 1113]
+E♮         74     355     423      68  [355, 382, 383, 389, 393, 403, 404, 406, 411, 423] <-- wide spread
+C♯         64      77     123      46  [77, 82, 87, 88, 89, 90, 95, 101, 108, 116, 123]
+G♮         56     672     739      67  [672, 690, 698, 700, 705, 709, 718, 722, 726, 739] <-- wide spread
+G♯          8     784     798      14  [784, 793, 798]
+A♯          4     973     973       0  [973]
+
+/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/t1_r1.5_s0_md33_sn0_lm17/bwv263-trans-sa-opt.npy
+Original chorale key: G♮ major
+Pitch classes sorted by frequency in original chorale:
+D♮: 219 G♮: 152 A♮: 135 B♮: 90  F♯: 79
+Note   Occurs     Min     Max   Range  Unique cent values (rounded)
+------------------------------------------------------------------------------------------
+D♮        219     181     233      52  [181, 182, 200, 201, 202, 205, 208, 233] <-- wide spread
+G♮        152     679     731      52  [679, 680, 698, 699, 700, 702, 703, 704, 706, 710, 718, 731] <-- wide spread
+A♮        135     883     935      52  [883, 884, 886, 892, 902, 903, 904, 907, 910, 935] <-- wide spread
+B♮         90    1065    1117      52  [1065, 1066, 1084, 1085, 1086, 1087, 1089, 1092, 1096, 1110, 1117] <-- wide spread
+F♯         79     567     620      53  [567, 568, 586, 587, 591, 594, 619, 620] <-- wide spread
+E♮         46     364     449      85  [364, 384, 385, 386, 387, 390, 394, 404, 405, 415, 437, 448, 449] <-- wide spread
+C♮         23    1168      43      75  [0, 2, 4, 8, 43, 1168, 1170, 1178] <-- wide spread
+C♯         16      69     121      52  [69, 88, 89, 121] <-- wide spread
+G♯          4     751     780      29  [751, 780]
+F♮          4     518     547      29  [518, 547]
+
+/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/t1_r1.5_s0_md33_sn0_lm17/bwv264-trans-sa-opt.npy
+Original chorale key: G♮ major
+Pitch classes sorted by frequency in original chorale:
+G♮: 168 D♮: 161 B♮: 94  A♮: 54  F♯: 40
+Note   Occurs     Min     Max   Range  Unique cent values (rounded)
+------------------------------------------------------------------------------------------
+G♮        168     667     725      58  [667, 679, 687, 689, 694, 695, 698, 699, 700, 702, 705, 707, 708, 725] <-- wide spread
+D♮        161     180     227      47  [180, 195, 196, 197, 200, 201, 202, 203, 204, 209, 210, 226, 227]
+B♮         94    1065    1113      48  [1065, 1075, 1080, 1081, 1084, 1085, 1086, 1088, 1093, 1094, 1111, 1113]
+A♮         54     882     946      64  [882, 898, 902, 904, 906, 911, 912, 929, 936, 937, 946] <-- wide spread
+F♯         40     582     621      39  [582, 586, 588, 590, 595, 596, 613, 621]
+C♮         35    1164       6      42  [3, 5, 6, 1164, 1172, 1178, 1195, 1196, 1198]
+E♮         34     351     392      41  [351, 363, 364, 373, 378, 382, 384, 391, 392]
+D♯          4     279     279       0  [279]
+C♯          2      84      84       0  [84]
+Done: limit_max=17  tolerance=1  ratio_factor=1.5  stability_factor=0  max_delta=33  spread=7
+========================================
+Grid search complete. Printing ranking summary...
+========================================
+
+
+==============================================================================
+Chorale: bwv253  (suffix: -trans-sa-opt.npy, spread_weight: 0.5)
+==============================================================================
+  Directory                                    lm   Mean    Max  MaxCh   Spread   Combined
+  ------------------------------------------   --  -----  -----  -----  -------  ---------
+  t1_r1.5_s0_md33_sn0_lm17                     17   48.9     90    122     12.4       55.1 <-- BEST
+
+  Winner: t1_r1.5_s0_md33_sn0_lm17
+    mean=48.9, max=90 at chord 122, spread=12.4, combined=55.1
+
+==============================================================================
+Chorale: bwv254  (suffix: -trans-sa-opt.npy, spread_weight: 0.5)
+==============================================================================
+  Directory                                    lm   Mean    Max  MaxCh   Spread   Combined
+  ------------------------------------------   --  -----  -----  -----  -------  ---------
+  t1_r1.5_s0_md33_sn0_lm17                     17   54.6    140    158     17.1       63.2 <-- BEST
+
+  Winner: t1_r1.5_s0_md33_sn0_lm17
+    mean=54.6, max=140 at chord 158, spread=17.1, combined=63.2
+
+==============================================================================
+Chorale: bwv255  (suffix: -trans-sa-opt.npy, spread_weight: 0.5)
+==============================================================================
+  Directory                                    lm   Mean    Max  MaxCh   Spread   Combined
+  ------------------------------------------   --  -----  -----  -----  -------  ---------
+  t1_r1.5_s0_md33_sn0_lm17                     17   50.9     82     42     16.7       59.2 <-- BEST
+
+  Winner: t1_r1.5_s0_md33_sn0_lm17
+    mean=50.9, max=82 at chord 42, spread=16.7, combined=59.2
+
+==============================================================================
+Chorale: bwv256  (suffix: -trans-sa-opt.npy, spread_weight: 0.5)
+==============================================================================
+  Directory                                    lm   Mean    Max  MaxCh   Spread   Combined
+  ------------------------------------------   --  -----  -----  -----  -------  ---------
+  t1_r1.5_s0_md33_sn0_lm17                     17   53.9    140    138     16.8       62.3 <-- BEST
+
+  Winner: t1_r1.5_s0_md33_sn0_lm17
+    mean=53.9, max=140 at chord 138, spread=16.8, combined=62.3
+
+==============================================================================
+Chorale: bwv257  (suffix: -trans-sa-opt.npy, spread_weight: 0.5)
+==============================================================================
+  Directory                                    lm   Mean    Max  MaxCh   Spread   Combined
+  ------------------------------------------   --  -----  -----  -----  -------  ---------
+  t1_r1.5_s0_md33_sn0_lm17                     17   57.5    140    128     21.4       68.2 <-- BEST
+
+  Winner: t1_r1.5_s0_md33_sn0_lm17
+    mean=57.5, max=140 at chord 128, spread=21.4, combined=68.2
+
+==============================================================================
+Chorale: bwv258  (suffix: -trans-sa-opt.npy, spread_weight: 0.5)
+==============================================================================
+  Directory                                    lm   Mean    Max  MaxCh   Spread   Combined
+  ------------------------------------------   --  -----  -----  -----  -------  ---------
+  t1_r1.5_s0_md33_sn0_lm17                     17   58.0    140     80     19.2       67.6 <-- BEST
+
+  Winner: t1_r1.5_s0_md33_sn0_lm17
+    mean=58.0, max=140 at chord 80, spread=19.2, combined=67.6
+
+==============================================================================
+Chorale: bwv259  (suffix: -trans-sa-opt.npy, spread_weight: 0.5)
+==============================================================================
+  Directory                                    lm   Mean    Max  MaxCh   Spread   Combined
+  ------------------------------------------   --  -----  -----  -----  -------  ---------
+  t1_r1.5_s0_md33_sn0_lm17                     17   53.3    104     74     11.5       59.0 <-- BEST
+
+  Winner: t1_r1.5_s0_md33_sn0_lm17
+    mean=53.3, max=104 at chord 74, spread=11.5, combined=59.0
+
+==============================================================================
+Chorale: bwv260  (suffix: -trans-sa-opt.npy, spread_weight: 0.5)
+==============================================================================
+  Directory                                    lm   Mean    Max  MaxCh   Spread   Combined
+  ------------------------------------------   --  -----  -----  -----  -------  ---------
+  t1_r1.5_s0_md33_sn0_lm17                     17   52.3    105     72     11.2       57.8 <-- BEST
+
+  Winner: t1_r1.5_s0_md33_sn0_lm17
+    mean=52.3, max=105 at chord 72, spread=11.2, combined=57.8
+
+==============================================================================
+Chorale: bwv261  (suffix: -trans-sa-opt.npy, spread_weight: 0.5)
+==============================================================================
+  Directory                                    lm   Mean    Max  MaxCh   Spread   Combined
+  ------------------------------------------   --  -----  -----  -----  -------  ---------
+  t1_r1.5_s0_md33_sn0_lm17                     17   56.5    140     72     19.7       66.4 <-- BEST
+
+  Winner: t1_r1.5_s0_md33_sn0_lm17
+    mean=56.5, max=140 at chord 72, spread=19.7, combined=66.4
+
+==============================================================================
+Chorale: bwv262  (suffix: -trans-sa-opt.npy, spread_weight: 0.5)
+==============================================================================
+  Directory                                    lm   Mean    Max  MaxCh   Spread   Combined
+  ------------------------------------------   --  -----  -----  -----  -------  ---------
+  t1_r1.5_s0_md33_sn0_lm17                     17   47.7    113     55      9.6       52.5 <-- BEST
+
+  Winner: t1_r1.5_s0_md33_sn0_lm17
+    mean=47.7, max=113 at chord 55, spread=9.6, combined=52.5
+
+==============================================================================
+Chorale: bwv263  (suffix: -trans-sa-opt.npy, spread_weight: 0.5)
+==============================================================================
+  Directory                                    lm   Mean    Max  MaxCh   Spread   Combined
+  ------------------------------------------   --  -----  -----  -----  -------  ---------
+  t1_r1.5_s0_md33_sn0_lm17                     17   49.5    140    104     15.4       57.2 <-- BEST
+
+  Winner: t1_r1.5_s0_md33_sn0_lm17
+    mean=49.5, max=140 at chord 104, spread=15.4, combined=57.2
+
+==============================================================================
+Chorale: bwv264  (suffix: -trans-sa-opt.npy, spread_weight: 0.5)
+==============================================================================
+  Directory                                    lm   Mean    Max  MaxCh   Spread   Combined
+  ------------------------------------------   --  -----  -----  -----  -------  ---------
+  t1_r1.5_s0_md33_sn0_lm17                     17   48.1    140    110     12.2       54.3 <-- BEST
+
+  Winner: t1_r1.5_s0_md33_sn0_lm17
+    mean=48.1, max=140 at chord 110, spread=12.2, combined=54.3
+
+==============================================================================
+
+Run with --render to produce audio for the winners.
+========================================
+Done.
+========================================
+
+real    157m8.221s
+user    157m14.715s
+sys     0m2.852s
+prent@one-footed-bride-8567f85456-jv8bg:~/Repos/One-footed-bride-tuning$ 

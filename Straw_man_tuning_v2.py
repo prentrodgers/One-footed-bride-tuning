@@ -76,7 +76,7 @@ def find_cent_value_prev_target(pitch_class_target, pitch_class_chord_prev, cent
 # 3. Use SA accept/reject on the completed chord
 def build_straw_man_chord_sa(cent_value_chord, cent_value_chord_prev, chord_num,
                               chord_scorer, low_number_ratios, tonal_diamond,
-                              tolerance=1, print_values=False, rolls=4,
+                              tolerance, print_values=False, rolls=4,
                               sa_iterations=100, initial_temperature=2.0, cooling_rate=0.995,
                               rng=None, ratio_factor=1.0, stability_factor=0.0, spread=7,
                               max_no_improve=None):
@@ -626,7 +626,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Straw Man tuning v2 — SA-based chord tuning using lowest number ratios')
     parser.add_argument('--limit_max', type=int, default=23, help='Maximum limit for tonal diamond (default: 23)')
     parser.add_argument('--max_delta', type=int, default=35, help='Maximum delta (default: 35)')
-    parser.add_argument('--tolerance', type=int, default=1, help='Tolerance for chord scoring (default: 1)')
+    parser.add_argument('--tolerance', type=int, default=None, help='Tolerance for chord scoring. Required (e.g. --tolerance 3).')
     parser.add_argument('--rolls', type=int, default=1, help='Number of rolls for chord permutations (default: 1)')
     parser.add_argument('--sa_iterations', type=int, default=100, help='Number of SA iterations per chord per roll (default: 100)')
     parser.add_argument('--initial_temperature', type=float, default=2.0, help='Starting SA temperature (default: 2.0)')
@@ -692,7 +692,10 @@ def parse_args():
                              'Penalises candidates that deviate from the running circular mean for their pitch class. '
                              'Try 0.1-0.3 to steer toward globally consistent tunings without sacrificing chord quality.')
     
-    return parser.parse_args()
+    args = parser.parse_args()
+    if args.tolerance is None:
+        parser.error('--tolerance is required (e.g. --tolerance 3)')
+    return args
 
 def main():
     args = parse_args()

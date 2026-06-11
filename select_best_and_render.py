@@ -122,8 +122,8 @@ def main():
                         help='File suffix to evaluate (default: -trans-sa-opt.npy)')
     parser.add_argument('--spread_weight', type=float, default=0.5,
                         help='Weight of spread in combined metric: mean_score + spread_weight * spread (default: 0.5)')
-    parser.add_argument('--tolerance', type=int, default=1,
-                        help='Cent tolerance for ChordScorer (default: 1)')
+    parser.add_argument('--tolerance', type=int, default=None,
+                        help='Cent tolerance for ChordScorer. Required (e.g. --tolerance 3).')
     parser.add_argument('--limit_max', type=int, default=23,
                         help='Tonal diamond limit_max (default: 23)')
     parser.add_argument('--render', action='store_true',
@@ -147,6 +147,8 @@ def main():
     parser.add_argument('--trim', action='store_true',
                         help='Delete all non-winning directories from numpy_dir_root after scoring')
     args = parser.parse_args()
+    if args.tolerance is None:
+        parser.error('--tolerance is required (e.g. --tolerance 3)')
 
     root = (args.numpy_dir_root if os.path.isabs(args.numpy_dir_root)
             else os.path.join(base_dir, args.numpy_dir_root))

@@ -69,7 +69,7 @@ def _parallel_candidate_worker(args):
 
 def generate_k_candidates(cent_value_chord, cent_value_chord_prev, chord_num,
                          chord_scorer, low_number_ratios, tonal_diamond,
-                         tolerance=1, K=10, rolls=4, sa_iterations=100,
+                         tolerance, K=10, rolls=4, sa_iterations=100,
                          initial_temperature=2.0, cooling_rate=0.995,
                          ratio_factor=1.0, stability_factor=0.0, spread=7,
                          rng=None, build_chord_sa_func=None,
@@ -477,7 +477,7 @@ def viterbi_select_path(all_candidates, chorale_midi, vertical_weight=1.0,
 
 def hierarchical_viterbi_optimization(chorale, cent_value_chorale,
                                      chord_scorer, low_number_ratios,
-                                     tonal_diamond, tolerance=1,
+                                     tonal_diamond, tolerance,
                                      K=10, rolls=4, sa_iterations=100,
                                      initial_temperature=2.0, cooling_rate=0.995,
                                      ratio_factor=1.0, stability_factor=0.0,

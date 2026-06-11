@@ -298,9 +298,9 @@ def main():
     parser.add_argument('--spread_weight', type=float, default=0.5,
                         help='Weight of spread in combined metric (default: 0.5)')
     parser.add_argument('--tolerance', type=int, default=1,
-                        help='Cent tolerance for ChordScorer (default: 1)')
-    parser.add_argument('--limit_max', type=int, default=23,
-                        help='Tonal diamond limit_max (default: 23)')
+                        help='Cent tolerance for ChordScorer. Required unless encoded in filename as _tN_ (e.g. --tolerance 3).')
+    parser.add_argument('--limit_max', type=int, default=19,
+                        help='Tonal diamond limit_max (default: 19)')
     parser.add_argument('--include_list', nargs='+', type=int, default=None,
                         help='Raw chord indices to include for all scores/metrics (e.g., --include_list 224 225)')
     parser.add_argument('--include_slice', nargs=2, type=int, metavar=('START', 'END'), default=None,

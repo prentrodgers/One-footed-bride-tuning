@@ -172,21 +172,21 @@ def display_volumes(volume_function, include_sections, save_path: str | None = N
             plt.show()
             
 # I think I need to get rid of this function and just concentrate on Chorale-info.ipynb.
-def print_scores(version, chorale, limit_max):
-      cent_file_name = os.path.join(numpy_dir, f'{version}-cents.npy')
-      chorale_in_cents = np.load(cent_file_name)
-      # print(f'after np.load {cent_file_name = }, {chorale_in_cents.shape = }')
+# def print_scores(version, chorale, limit_max):
+#       cent_file_name = os.path.join(numpy_dir, f'{version}-cents.npy')
+#       chorale_in_cents = np.load(cent_file_name)
+#       # print(f'after np.load {cent_file_name = }, {chorale_in_cents.shape = }')
 
-      tonal_diamond = np.array(atu.build_tonal_diamond(limit_max, penalize_7_11=False)) 
-      new_scores = np.zeros(chorale_in_cents.shape[1],dtype=int)
-      for inx, chord in zip(count(0,1), chorale_in_cents.T):
-            new_scores[inx] = atu.score_chord_cents_v2(chord, tonal_diamond)
-                  # print(f'{inx}: {chord = }, {new_scores[inx] = }')
+#       tonal_diamond = np.array(atu.build_tonal_diamond(limit_max, penalize_7_11=False)) 
+#       new_scores = np.zeros(chorale_in_cents.shape[1],dtype=int)
+#       for inx, chord in zip(count(0,1), chorale_in_cents.T):
+#             new_scores[inx] = atu.score_chord_cents_v2(chord, tonal_diamond)
+#                   # print(f'{inx}: {chord = }, {new_scores[inx] = }')
 
 
-      print(f'{chorale.shape = }, {chorale_in_cents.shape = }, {top_notes.shape = }')
-      print(f'{version = }, Average score: {round(np.average(new_scores),1)}, Max score: {np.max(new_scores)}, Max chord: {np.argmax(new_scores)}')
-      return round(np.average(new_scores),1), np.max(new_scores)
+#       print(f'{chorale.shape = }, {chorale_in_cents.shape = }, {top_notes.shape = }')
+#       print(f'{version = }, Average score: {round(np.average(new_scores),1)}, Max score: {np.max(new_scores)}, Max chord: {np.argmax(new_scores)}')
+#       return round(np.average(new_scores),1), np.max(new_scores)
 
 
 # Create oscillating density mask that varies from sparse to dense multiple times
@@ -2072,10 +2072,11 @@ def chorale_to_wave_v4(version, album, include_sections, ratio_factor, limit_max
     if len(effective_include) < chorale.shape[1]:
         print(f'{effective_include = }')
 
+    # we don't need to score the chords at this point.
     # print(f'About to score the chorale as loaded. {chorale_in_cents.shape = }')
-    new_scores = np.zeros(cent_value_chorale.shape[1],dtype=int)
-    for inx, chord in zip(count(0,1), cent_value_chorale.T):
-        new_scores[inx] = atu.score_chord_cents_v2(chord, tonal_diamond)
+    # new_scores = np.zeros(cent_value_chorale.shape[1],dtype=int)
+    # for inx, chord in zip(count(0,1), cent_value_chorale.T):
+    #     new_scores[inx] = atu.score_chord_cents_v2(chord, tonal_diamond)
         # print(f'{inx}: {chord = }, {new_scores[inx] = }')
 
     # tell me about the chorale you are about to use as the basis for the piece of music.
@@ -2390,8 +2391,8 @@ if __name__ == "__main__":
                           help="Album number to distinguish sets (default: 3)")
       parser.add_argument("--use_werck_top_notes", dest="use_werck_top_notes", action="store_true",
                           help="Use Werckmeister top notes (default: False)")
-      parser.add_argument("--tolerance", dest="tolerance", type=int, default=1,
-                          help="Tolerance level for matching intervals (1, 2, 3, or 4) (default: 1)")
+      parser.add_argument("--tolerance", dest="tolerance", type=int, default=None,
+                          help="Tolerance level for matching intervals (1, 2, 3, or 4). Required (e.g. --tolerance 3).")
       parser.add_argument("--ratio_factor", dest="ratio_factor", type=float, default=1.5,
                           help="ratio_factor used to create the array of cents (default: 1.5)")
       parser.add_argument("--numpy_dir", dest="numpy_dir", type=str, default='Archive/straw-man/best-tunings',
@@ -2427,7 +2428,7 @@ if __name__ == "__main__":
             file_params = parse_params_from_filename(args.cent_file_partial)
             if file_params:
                   # Use file parameters as defaults if command-line args are still at their defaults
-                  if args.tolerance == 1:  # default value
+                  if args.tolerance is None:
                         args.tolerance = file_params['tolerance']
                         logging.info(f'Using tolerance={args.tolerance} from filename')
                   if args.ratio_factor == 1.5:  # default value
@@ -2436,6 +2437,12 @@ if __name__ == "__main__":
                   if args.limit_max == 17:  # default value
                         args.limit_max = file_params['limit_max']
                         logging.info(f'Using limit_max={args.limit_max} from filename')
+
+      if args.tolerance is None:
+            raise SystemExit(
+                'Error: --tolerance is required (e.g. --tolerance 3). '
+                'Or encode it in --cent_file_partial (e.g. -trans-sa-opt_t3_.npy).'
+            )
 
       parsed_auto_density_weights = None
       if args.auto_density_weights is not None:
