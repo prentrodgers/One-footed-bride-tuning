@@ -1730,6 +1730,125 @@ def generate_random_volumes_v2(time_slots = 8, max_value=25, sections = 8, max_s
       return final_answer
 
 
+def _chord_idx_from_boundaries(notes_15: np.ndarray, boundaries: np.ndarray, tpq: float) -> np.ndarray:
+    """Append chord_idx as column 15 to notes_15.
+
+    Before fix_start_times, col 1 = duration in tpq units.  Accumulate per-voice
+    durations to reconstruct each note's piano-roll start step, then binary-search
+    into boundaries to find the chord index.
+    """
+    chord_idx_col = np.zeros(notes_15.shape[0], dtype=float)
+    for voice_id in np.unique(notes_15[:, 6].astype(int)):
+        rows = np.where(notes_15[:, 6].astype(int) == voice_id)[0]
+        durations = notes_15[rows, 1]
+        starts_steps = np.concatenate(([0.0], np.cumsum(durations[:-1]))) / tpq
+        cidx = np.searchsorted(boundaries, starts_steps, side='right') - 1
+        chord_idx_col[rows] = np.clip(cidx, 0, len(boundaries) - 2).astype(float)
+    return np.column_stack([notes_15, chord_idx_col])
+
+
+def _split_voice_at_steps(vrows: np.ndarray, cut_steps: list, boundaries: np.ndarray, tpq: float) -> np.ndarray:
+    """Split notes in a single voice wherever their duration would straddle a cut_step.
+
+    cut_steps – list of float step values (in boundaries-space) where cuts are needed
+    Returns a new array with the same columns; notes that straddle a cut are replaced
+    by two shorter notes whose durations sum to the original.
+    """
+    cut_set = set(cut_steps)
+    if not cut_set or len(vrows) == 0:
+        return vrows
+
+    durations = vrows[:, 1]
+    vstarts = np.concatenate(([0.0], np.cumsum(durations[:-1]))) / tpq
+
+    hold_ratio = vrows[:, 2] / np.where(vrows[:, 1] != 0, vrows[:, 1], 1.0)
+
+    new_rows: list = []
+    for i in range(len(vrows)):
+        row = vrows[i]
+        start = vstarts[i]
+        dur = row[1]
+        end = start + dur / tpq
+        splits = sorted(cs for cs in cut_set if start < cs < end)
+        if not splits:
+            new_rows.append(row)
+            continue
+        ratio = hold_ratio[i]
+        cur = start
+        for cs in splits:
+            part = row.copy()
+            part[1] = (cs - cur) * tpq
+            part[2] = part[1] * ratio   # scale hold proportionally so Csound doesn't bleed over
+            part[15] = float(np.searchsorted(boundaries, cur, side='right') - 1)
+            new_rows.append(part)
+            cur = cs
+        tail = row.copy()
+        tail[1] = (end - cur) * tpq
+        tail[2] = tail[1] * ratio
+        tail[15] = float(np.searchsorted(boundaries, cur, side='right') - 1)
+        new_rows.append(tail)
+
+    return np.array(new_rows)
+
+
+def apply_rondo(notes_16: np.ndarray,
+                sections: dict,
+                insertions: list,
+                boundaries: np.ndarray | None = None,
+                tpq: float = 0.25) -> np.ndarray:
+    """Splice named section copies into notes_16 (N×16, col 15 = chord_idx).
+
+    sections   – dict mapping label → (start_chord_idx, end_chord_idx)  [start, end)
+    insertions – list of (after_chord_idx, label) in ascending chord order
+    boundaries – step-index boundaries array (from _boundaries in expand_chorale); used to
+                 split notes that straddle cut points so all voices stay in sync.
+    tpq        – time-per-quarter-note step size (same value used in _chord_idx_from_boundaries)
+
+    Returns a new N×16 array.  Strip col 15 before fix_start_times.
+    """
+    insertions_sorted = sorted(insertions, key=lambda x: x[0])
+
+    # Build the complete set of step values where we must split notes:
+    # insertion cut boundaries and section-copy end boundaries.
+    cut_steps: list = []
+    if boundaries is not None:
+        for after_chord, _ in insertions_sorted:
+            idx = min(after_chord + 1, len(boundaries) - 1)
+            cut_steps.append(float(boundaries[idx]))
+        for s_start, s_end in sections.values():
+            for chord in (s_start, s_end):
+                idx = min(chord, len(boundaries) - 1)
+                cut_steps.append(float(boundaries[idx]))
+
+    # Preserve original voice ordering
+    seen: dict = {}
+    for vid in notes_16[:, 6].astype(int).tolist():
+        seen[vid] = None
+    voice_ids = list(seen.keys())
+
+    result_blocks = []
+    for voice_id in voice_ids:
+        vrows = notes_16[notes_16[:, 6].astype(int) == voice_id].copy()
+        if boundaries is not None and cut_steps:
+            vrows = _split_voice_at_steps(vrows, cut_steps, boundaries, tpq)
+        cidx = vrows[:, 15]
+        chunks = []
+        prev_cut = -1
+        for after_chord, label in insertions_sorted:
+            chunk = vrows[(cidx > prev_cut) & (cidx <= after_chord)]
+            chunks.append(chunk)
+            s_start, s_end = sections[label]
+            sec_copy = vrows[(cidx >= s_start) & (cidx < s_end)].copy()
+            chunks.append(sec_copy)
+            prev_cut = after_chord
+        chunks.append(vrows[cidx > prev_cut])
+        non_empty = [c for c in chunks if c.shape[0] > 0]
+        if non_empty:
+            result_blocks.append(np.vstack(non_empty))
+
+    return np.vstack(result_blocks) if result_blocks else notes_16[:0]
+
+
 # this function takes the original chorale array and expands it dramatically. It is only called once per chorale.
 def expand_chorale(repeats, chorale_in_cents_slides, glides, stored_gliss, voice_time,\
     include_sections, mod, ratio_factor, mask=True, tpq=0, octave_reduce=0, woodwinds_volume=8,\
@@ -1737,7 +1856,8 @@ def expand_chorale(repeats, chorale_in_cents_slides, glides, stored_gliss, voice
     bass_hold_scale=1.0, bass_hold_swing=0.75, bass_hold_cycles=4, tolerance=1,\
     stability_factor=0.0, max_delta=33, spread=7, fp_density_starts=None, fp_hold_scale=1.0, density_level=None,
     fatigue_thin_ratio=0.0, fatigue_min_chain=2, fatigue_density_threshold=1, version='',
-    deep_bass_backoff=1.0, back_off_clicks=0.0):
+    deep_bass_backoff=1.0, back_off_clicks=0.0,
+    rondo_sections=None, rondo_insertions=None):
     # As of 1/10/26 the chorale_in_cents_slides has already been repeated according to the repeats array. (no longer an integer)
     # send the arrays to the file new_output.csd which csound will convert to a wave file to make music
     # duration, volume_function = expand_chorale(repeats, chorale_in_cents, chorale_in_cents_slides, glides, stored_gliss, voice_time, \
@@ -1891,6 +2011,24 @@ def expand_chorale(repeats, chorale_in_cents_slides, glides, stored_gliss, voice
         start, end = section_slices[section]
         _save_section_npy(section, notes_features_15[start:end])
 
+    # Rondo / leitmotif splice — must happen before fix_start_times so timing accumulates correctly
+    if rondo_sections and rondo_insertions:
+        # Build boundaries from repeats rather than diff-detecting from chorale_in_cents_slides.
+        # build_glides_array modifies cents in-place (copies chord-A value into chord-B for glide
+        # pairs), so np.diff misses those steps and the boundary count comes out too small,
+        # shifting every rondo insert point by the number of glides that precede it.
+        if len(repeats) == 1:
+            # short_repeats path: choral_octaves_repeated was NOT expanded; one step per chord.
+            _boundaries = np.arange(chorale_in_cents_slides.shape[1] + 1, dtype=float)
+        else:
+            # standard path: each entry in repeats is how many steps that chord occupies.
+            _boundaries = np.concatenate(([0.0], np.cumsum(repeats, dtype=float)))
+        _tpq = tpq if tpq != 0 else 0.25
+        notes_16 = _chord_idx_from_boundaries(notes_features_15, _boundaries, _tpq)
+        notes_16 = apply_rondo(notes_16, rondo_sections, rondo_insertions, _boundaries, _tpq)
+        notes_features_15 = notes_16[:, :15]
+        logging.info(f'rondo applied: {notes_features_15.shape[0]} rows after splice')
+
     # now that you have the voices, assign note start times from durations of notes in a voice
     notes_features_final, voice_time = dmu.fix_start_times(notes_features_15, voice_time)
     print(f'{notes_features_final.shape = }') # notes_features_final.shape = (16495, 15)
@@ -2022,7 +2160,8 @@ def chorale_to_wave_v4(version, album, include_sections, ratio_factor, limit_max
     use_werck_top_notes=False, mp3=True, tolerance=1,\
       stability_factor=0.0, max_delta=33, spread=7, fp_density_starts=None, fp_hold_scale=1.0, prime_count=8, density_level=5,
         fatigue_min_chain=2, fatigue_density_threshold=1, include_slice=None,
-        deep_bass_backoff=1.0, back_off_clicks=0.0):
+        deep_bass_backoff=1.0, back_off_clicks=0.0,
+        rondo_sections=None, rondo_insertions=None):
 
     print(f'In chorale_to_wave_v4. {version = }, {limit_max = }, {short_repeats = }, {ratio_factor = }')
     if short_repeats: # if you just want a straight woodwind/brass chorale, set short_repeats = True
@@ -2172,7 +2311,8 @@ def chorale_to_wave_v4(version, album, include_sections, ratio_factor, limit_max
         stability_factor=stability_factor, max_delta=max_delta, spread=spread,
         fp_density_starts=fp_density_starts, fp_hold_scale=fp_hold_scale, density_level=density_level,
         fatigue_thin_ratio=fatigue_thin_ratio, fatigue_min_chain=fatigue_min_chain, fatigue_density_threshold=fatigue_density_threshold, version=version,
-        deep_bass_backoff=deep_bass_backoff, back_off_clicks=back_off_clicks)
+        deep_bass_backoff=deep_bass_backoff, back_off_clicks=back_off_clicks,
+        rondo_sections=rondo_sections, rondo_insertions=rondo_insertions)
 
     if csound: # send the results to csound
         result_of_call = play_csound(csound = True, play = False)
@@ -2204,7 +2344,8 @@ def mainline(chorale_override=None, short_repeats=False, just_triangle=False, in
              show_volumes=True, mod_letter='a', album=3, use_werck_top_notes=False, tolerance=1, ratio_factor=0.75, \
              numpy_dir_arg=None, stability_factor=0.0, max_delta=33, spread=7, limit_max=23, auto_density=False, prime_count=8, density_level=None, shuffle_density=False, auto_density_weights=None,
              fatigue_min_chain=2, fatigue_density_threshold=1, include_slice=None,
-             deep_bass_backoff=1.0, back_off_clicks=0.0):
+             deep_bass_backoff=1.0, back_off_clicks=0.0,
+             rondo_sections=None, rondo_insertions=None):
       if include_list is None:
             include_list = []
 
@@ -2358,7 +2499,8 @@ def mainline(chorale_override=None, short_repeats=False, just_triangle=False, in
                   spread=spread, fp_density_starts=_fp_starts, fp_hold_scale=_fhs, prime_count=_np, density_level=_active_level,
                                     fatigue_min_chain=fatigue_min_chain, fatigue_density_threshold=fatigue_density_threshold,
                                     include_slice=include_slice,
-                                    deep_bass_backoff=deep_bass_backoff, back_off_clicks=back_off_clicks)
+                                    deep_bass_backoff=deep_bass_backoff, back_off_clicks=back_off_clicks,
+                                    rondo_sections=rondo_sections, rondo_insertions=rondo_insertions)
 
       # Generate a playlist of all the pieces in this album. This never worked correctly in the pod.
       print(f' {UPLOADS_DIR = }')
@@ -2424,7 +2566,7 @@ if __name__ == "__main__":
       parser.add_argument("--use_werck_top_notes", dest="use_werck_top_notes", action="store_true",
                           help="Use Werckmeister top notes (default: False)")
       parser.add_argument("--tolerance", dest="tolerance", type=int, default=None,
-                          help="Tolerance level for matching intervals (1, 2, 3, or 4). Required (e.g. --tolerance 3).")
+                          help="Tolerance level for matching intervals (1, 2, 3, or 4). Read from filename if encoded there; defaults to 1 otherwise.")
       parser.add_argument("--ratio_factor", dest="ratio_factor", type=float, default=1.5,
                           help="ratio_factor used to create the array of cents (default: 1.5)")
       parser.add_argument("--numpy_dir", dest="numpy_dir", type=str, default='Archive/straw-man/best-tunings',
@@ -2455,6 +2597,18 @@ if __name__ == "__main__":
                           help="Scale factor (0.0-1.0) applied to all bass finger piano rescue probabilities; 0.5 rescues half as many deep bass notes, 0.0 disables rescue entirely (default: 1.0)")
       parser.add_argument("--back_off_clicks", dest="back_off_clicks", type=float, default=0.0,
                           help="Skip bass rescue for notes whose duration (in clicks) is <= this value; 0.25 suppresses rescue of short staccato notes (default: 0.0 = no threshold)")
+      parser.add_argument("--rondo_section_a", dest="rondo_section_a", type=int, nargs=2, default=None,
+                          metavar=('START', 'END'),
+                          help="Section A chord range [START, END) for rondo/leitmotif recall, e.g. --rondo_section_a 0 16")
+      parser.add_argument("--rondo_section_b", dest="rondo_section_b", type=int, nargs=2, default=None,
+                          metavar=('START', 'END'),
+                          help="Section B chord range [START, END) for rondo/leitmotif recall, e.g. --rondo_section_b 48 64")
+      parser.add_argument("--rondo_insert_a_after", dest="rondo_insert_a_after", type=int, nargs='+', default=None,
+                          metavar='CHORD',
+                          help="Insert section A after each listed chord index, e.g. --rondo_insert_a_after 32 80")
+      parser.add_argument("--rondo_insert_b_after", dest="rondo_insert_b_after", type=int, nargs='+', default=None,
+                          metavar='CHORD',
+                          help="Insert section B after each listed chord index, e.g. --rondo_insert_b_after 64")
       args = parser.parse_args()
 
       # Try to extract parameters from cent_file_partial filename if it contains them
@@ -2475,10 +2629,8 @@ if __name__ == "__main__":
                         logging.info(f'Using limit_max={args.limit_max} from filename')
 
       if args.tolerance is None:
-            raise SystemExit(
-                'Error: --tolerance is required (e.g. --tolerance 3). '
-                'Or encode it in --cent_file_partial (e.g. -trans-sa-opt_t3_.npy).'
-            )
+            args.tolerance = 1
+            logging.info('tolerance not specified; defaulting to 1')
 
       parsed_auto_density_weights = None
       if args.auto_density_weights is not None:
@@ -2495,6 +2647,29 @@ if __name__ == "__main__":
 
       include_list = list(args.include_list) if args.include_list is not None else []
 
+      # Build rondo_sections / rondo_insertions from the four --rondo_* args
+      rondo_sections: dict | None = None
+      rondo_insertions: list | None = None
+      _rondo_raw = {
+          'a': (args.rondo_section_a, args.rondo_insert_a_after),
+          'b': (args.rondo_section_b, args.rondo_insert_b_after),
+      }
+      _sec: dict = {}
+      _ins: list = []
+      for label, (sec_range, insert_after) in _rondo_raw.items():
+          if sec_range is not None:
+              if sec_range[1] <= sec_range[0]:
+                  raise SystemExit(f'--rondo_section_{label}: END ({sec_range[1]}) must be > START ({sec_range[0]})')
+              _sec[label] = tuple(sec_range)
+          if insert_after is not None:
+              if sec_range is None:
+                  raise SystemExit(f'--rondo_insert_{label}_after requires --rondo_section_{label} to be defined')
+              for chord in insert_after:
+                  _ins.append((chord, label))
+      if _sec:
+          rondo_sections = _sec
+          rondo_insertions = sorted(_ins, key=lambda x: x[0])
+
       mainline(chorale_override=args.chorale_name, short_repeats=args.short_repeats,
                just_triangle=args.just_triangle, include_list=include_list, csound=args.csound, convolve=args.convolve,
                mp3=args.mp3, max_cents_slide=args.max_cents_slide, melody_sustain=args.melody_sustain, bass_sustain=args.bass_sustain,
@@ -2507,6 +2682,7 @@ if __name__ == "__main__":
                auto_density_weights=parsed_auto_density_weights,
                fatigue_min_chain=args.fatigue_min_chain, fatigue_density_threshold=args.fatigue_density_threshold,
                include_slice=args.include_slice,
-               deep_bass_backoff=args.deep_bass_backoff, back_off_clicks=args.back_off_clicks)
+               deep_bass_backoff=args.deep_bass_backoff, back_off_clicks=args.back_off_clicks,
+               rondo_sections=rondo_sections, rondo_insertions=rondo_insertions)
 
 
