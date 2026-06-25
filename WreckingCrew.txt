@@ -17909,3 +17909,94 @@ python analyze_tuned_arrays.py --input_directory Archive/straw-man/viterbi-tunin
             start_time_slot = 5 # the minimum number of time_slots
             time_slots = np.max([start_time_slot, repeats_average]) * 2
       I think we need to determine how repeats_average, prime_count and time_slots are related and ensure that the time_slots aren't too low for high values of prime_count.
+
+      Time to reboot to fix the intel compute runtime group membership. Also, to go github and remove this token:         git remote set-url origin https://prentrodgers:ghpREDACTED@github.com/prentrodgers/One-footed-bride-tuning.git
+      Stored on fs9 in the repo. Can't keep it in github. 
+
+            CHORALES=${1:-$(echo bwv{253..264})}
+            python WreckingCrew.py --numpy_dir Archive/straw-man/viterbi-tunings-6-12 --chorale_list $CHORALES --cent_file_partial=-trans-sa-opt.npy --auto_density --shuffle_density --deep_bass_backoff 0.25 --back_off_clicks 0.25 --album 6 --mod c --rondo_section_a 0 31 --rondo_insert_a_after 63 127 
+
+            dirname=c7-06-21-26
+            mkdir -p Uploads/$dirname
+            mv Uploads/*.mp3 Uploads/$dirname
+            mv Uploads/$dirname /home/prent/Dropbox/Uploads/
+      It made it to Dropbox/Uploads, but got stuck at fs7. 
+
+——————————————————————————————————————
+6/21/26 What's next: Have more time_slots for the longer prime_count values
+      We need more time_slots for longer pieces, typically those with higher number of all_primes. When I listen to the longer pieces, the orchestration stays constant for about twice as long as it should. This is the key determining code for the number of time_slots:
+            _prime_count = len(np.unique(repeats))  # recovers prime_count: repeats cycles through primes, so unique values = prime_count
+            time_slots = int(np.clip(_prime_count * 4, 6, 40))      
+      And this is affected by this code:
+            all_primes = rng.choice([np.array([1, 2, 4, 8, 16, 32, 48, 72]), np.array([1, 3, 5, 11, 17, 31, 47, 71])])
+
+_______________________________________
+8/22/26 Here's what I did yesterday.
+            CHORALES=${1:-$(echo bwv{253..264})}
+            python WreckingCrew.py --numpy_dir Archive/straw-man/viterbi-tunings-6-12 --chorale_list $CHORALES --cent_file_partial=-trans-sa-opt.npy --auto_density --shuffle_density --deep_bass_backoff 0.25 --back_off_clicks 0.25 --album 7 --mod c --rondo_section_a 0 31 --rondo_insert_a_after 63 127 
+
+dirname=c8-06-25-26
+mkdir -p Uploads/$dirname
+mv Uploads/*.mp3 Uploads/$dirname
+mv Uploads/$dirname /home/prent/Dropbox/Uploads/
+ls -1Sr /home/prent/Dropbox/Uploads/$dirname/*.mp3 > /home/prent/Dropbox/Uploads/$dirname/Playlist.m3u
+                  -rw-r--r--. 1 prent prent  684 Jun 21 11:51 Playlist.m3u
+                  -rw-r--r--. 1 prent prent  23M Jun 21 11:37 ball9-t64c_lm17_r1.25_sf0.00_df4_sp07_t1_d09_53_t122.mp3
+                  ...
+
+---------------
+6/22/26 Copy the wav files to the Asus-A16.
+      Start with a list of files:
+            k exec one-footed-bride-7cb974768c-pmqtf -c one-footed-bride  -- ls -lth /home/prent/Repos/One-footed-bride-tuning/Music/sflib | grep "Jun 21"
+                  0         1         2         3         4
+                  012345678901234567890123456789012345678901
+                  -rw-r--r--. 1 1000 1000 199M Jun 21 11:37 ball9-t64c_lm17_r1.25_sf0.00_df4_sp07_t1_d09_53_t122.wav
+                  -rw-r--r--. 1 1000 1000 150M Jun 21 11:37 ball9a-c.wav
+                  -rw-rw-r--. 1 1000 1000  22M Jun 21 11:37 ball9.eps
+                  -rw-r--r--. 1 1000 1000 149M Jun 21 11:37 ball9.wav
+                  -rw-r--r--. 1 1000 1000 122M Jun 21 11:37 ball9-t63c_lm19_r1.12_sf0.00_df1_sp07_t3_d06_07_t106.wav
+                  ... 
+                  -rw-r--r--. 1 1000 1000 115M Jun 21 11:33 ball9-t53c_lm17_r1.50_sf0.00_df4_sp07_t2_d05_45_t084.wav
+      Then copy this into a text file in vscode, then remove the first 41 characters using cut columns. 
+
+      This works:
+            k cp one-footed-bride-7cb974768c-pmqtf:/home/prent/Repos/One-footed-bride-tuning/Music/sflib/ball9-t64c_lm17_r1.25_sf0.00_df4_sp07_t1_d09_53_t122.wav -c one-footed-bride ball9-t64c_lm17_r1.25_sf0.00_df4_sp07_t1_d09_53_t122.wav
+
+      
+---------------------
+6/24/26 Reduce the number of primes so the pieces are shorter.             
+      I reduced the number of primes and the average duration increased from 6:52 to 7:42, then reduced it one more and now the average is 5:57 and all fits on on CD. See the docs Set_Up_FS9_Linux.txt from 6/24/26 for how to burn a CD on Linux. It works. 
+
+      Previously: 
+            # all_primes = rng.choice([np.array([1, 2, 4, 8, 16, 32, 48, 72]), np.array([1, 3, 5, 11, 17, 31, 47, 71])])
+      Now:
+            all_primes = rng.choice([np.array([1, 2, 4, 8, 16, 32]), np.array([1, 3, 5, 11, 17, 31])])
+      I removed the primes 4x and 7x. I liked those, but others may find them creating repetitiveness needlessly. 
+
+      To find all the files created today or yesterday, that is within 2 days of current date. 
+            find . -maxdepth 1 -type f -mtime -2
+
+---------------------
+6/25/26 Trouble with github in the one-footed-bride-pod. 
+      What used be trivial push command is failing:
+            git push
+                  The authenticity of host 'github.com (140.82.116.4)' can't be established.
+                  ED25519 key fingerprint is SHA256:+DiY3wvvV6TuJJhbpZisF/zLDA0zPMSvHdkr4UvCOqU.
+                  This key is not known by any other names.
+                  Are you sure you want to continue connecting (yes/no/[fingerprint])? yes
+                  Warning: Permanently added 'github.com' (ED25519) to the list of known hosts.
+                  git@github.com: Permission denied (publickey).
+                  fatal: Could not read from remote repository.
+      I asked claude for help, and he suggested I run this before git push. I pulled the credential from 1Password GitHub PAT credential value. Redacted here. 
+            git remote set-url origin https://<PAT-from-1Password>@github.com/prentrodgers/One-footed-bride-tuning.git
+            git push
+      Some initial error messages dealing with vscode permissions, then this:
+                  Enumerating objects: 56, done.
+                  Counting objects: 100% (56/56), done.
+                  Delta compression using up to 20 threads
+                  Compressing objects: 100% (34/34), done.
+                  Writing objects: 100% (34/34), 3.05 MiB | 1.51 MiB/s, done.
+                  Total 34 (delta 18), reused 0 (delta 0), pack-reused 0 (from 0)
+                  remote: Resolving deltas: 100% (18/18), completed with 7 local objects.
+                  To https://github.com/prentrodgers/One-footed-bride-tuning.git
+                  ea46a4b..7c3d9b7  main -> main

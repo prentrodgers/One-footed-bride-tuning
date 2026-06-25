@@ -1892,10 +1892,11 @@ def expand_chorale(repeats, chorale_in_cents_slides, glides, stored_gliss, voice
 
     logging.debug(f'{mask = }')
     if mask: # 
-        start_time_slot = 5 # the minimum number of time_slots
-        time_slots = np.max([start_time_slot, repeats_average]) * 2
+        _prime_count = len(np.unique(repeats))  # recovers prime_count: repeats cycles through primes, so unique values = prime_count
+        _total_expanded = int(np.sum(repeats))   # total expanded chord count; scales with both chorale length and prime magnitudes
+        time_slots = int(np.clip(_total_expanded // 52, 6, 80))
         max_value = 11 # how loud can each instrument go
-        logging.info(f'{time_slots = }, {start_time_slot = }, {repeats.shape = }, {repeats_average = }')
+        logging.info(f'{time_slots = }, {_prime_count = }, {_total_expanded = }, {repeats.shape = }, {repeats_average = }')
         _sparse_range = {0: (2, 3), 1: (3, 4), 2: (4, 5)}.get(density_level, False)
         volume_function = generate_random_volumes_v2(time_slots=time_slots, sparse_mode=_sparse_range)
         logging.info(f'{volume_function.shape = }')
@@ -1939,7 +1940,7 @@ def expand_chorale(repeats, chorale_in_cents_slides, glides, stored_gliss, voice
     section_slices: dict[str, tuple[int, int]] = {}
     if fp_density_starts is None:
         fp_density_starts = {'finger_pianos': 'moderate', 'pizz_strings': 'moderate', 'marimbas': 'moderate'}
-    fp_volumes = {'finger_pianos': 2, 'pizz_strings': 2, 'marimbas': 2}
+    fp_volumes = {'finger_pianos': 2, 'pizz_strings': 3, 'marimbas': 3}
     for sec_num, section in zip(count(0,1), include_sections): 
         if include_sections[section][0]: # if the dictionary value for this instrument section is set to True
             print(f'{sec_num}: {section}, includes instruments: {include_sections[section][1]}')
@@ -2266,7 +2267,8 @@ def chorale_to_wave_v4(version, album, include_sections, ratio_factor, limit_max
         # here is where we need to set the repeats. We want the repeats to be different numbers, not an integer. 
         # all_primes = np.array([1, 3, 5, 11, 17, 31, 47, 71])
         # all_primes = np.array([1, 2, 4, 8, 16, 32, 48, 72])
-        all_primes = rng.choice([np.array([1, 2, 4, 8, 16, 32, 48, 72]), np.array([1, 3, 5, 11, 17, 31, 47, 71])])
+        # all_primes = rng.choice([np.array([1, 2, 4, 8, 16, 32, 48, 72]), np.array([1, 3, 5, 11, 17, 31, 47, 71])])
+        all_primes = rng.choice([np.array([1, 2, 4, 8, 16, 32]), np.array([1, 3, 5, 11, 17, 31])])
         
         primes = all_primes[:int(np.clip(prime_count, 1, all_primes.shape[0]))]
         # the previous line is just a super-safe way to slice the all_primes array to the first prime_count elements of the prime_count array. 
