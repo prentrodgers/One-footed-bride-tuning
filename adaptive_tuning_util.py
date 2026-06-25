@@ -14,41 +14,14 @@ from collections import defaultdict, Counter
 from itertools import count, combinations, permutations
 
 def set_accidentals(flats):
-    """
-    Generate an array of note names with either flats or sharps.
-    
-    Parameters
-    ----------
-    flats : bool
-        If True, uses flats (D♭, E♭, etc.). If False, uses sharps (C♯, D♯, etc.).
-    
-    Returns
-    -------
-    np.ndarray
-        Array of 12 note names (C through B) with accidentals as specified.
-    """
+    """Generate an array of note names with either flats or sharps."""
     if flats: 
         keys = np.array(['C♮', 'D♭', 'D♮', 'E♭', 'E♮', 'F♮', 'G♭', 'G♮', 'A♭', 'A♮', 'B♭', 'B♮'])
     else: keys = np.array(['C♮', 'C♯', 'D♮', 'D♯', 'E♮', 'F♮', 'F♯', 'G♮', 'G♯', 'A♮', 'A♯', 'B♮'])
     return keys
 
 def windows_compliant_filename(filename):
-    """
-    Replace Windows-incompatible characters in a filename.
-    
-    Parameters
-    ----------
-    filename : str
-        Original filename that may contain invalid characters.
-    
-    Returns
-    -------
-    str
-        Filename with Windows-incompatible characters replaced:
-        - ':' -> '_'
-        - '?' -> '' (removed)
-        - '/' -> '-'
-    """
+    """Replace Windows-incompatible characters in a filename."""
     replacements = {
         ":": "_",
         "?": "",
@@ -64,7 +37,7 @@ def windows_compliant_filename(filename):
 def init_voice_time():
     """
     Initialize a dictionary of all instruments/voices with their configuration.
-    
+
     Each instrument entry contains:
     - full_name: Human-readable name
     - start: Starting offset (typically 0)
@@ -73,13 +46,6 @@ def init_voice_time():
     - volume_factor: Volume adjustment offset
     - min_oct: Minimum octave for this instrument
     - max_oct: Maximum octave for this instrument
-    
-    Returns
-    -------
-    dict
-        Dictionary mapping instrument short names (e.g., 'fing1', 'bfin1') to their
-        configuration dictionaries. The time_tracker_number values are reset to consecutive
-        integers starting from 0.
     """
     voice_time = { 
             "fing1": {"full_name": "finger piano 1", "start": 0, "csound_voice": 1,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 2, "max_oct": 7},
@@ -449,23 +415,7 @@ def init_voice_time():
 
 
 def find_root_mode(midi_file_name):
-    """
-    Analyze a MIDI file to determine its root note and mode (major/minor).
-    
-    Parameters
-    ----------
-    midi_file_name : str
-        Path to the MIDI file to analyze.
-    
-    Returns
-    -------
-    tuple or int
-        If successful: (root, mode, music21_stream)
-            - root: int, pitch class (0-11) of the root note
-            - mode: str, 'major' or 'minor'
-            - music21_stream: music21.stream.Stream object
-        If root not found: 9999
-    """
+    """Analyze a MIDI file to determine its root note and mode (major/minor)."""
     keys = set_accidentals(False) # this use of keys is to search through the letters. It requires only the naturals and sharps
     # logging.debug(f'determining root & mode for: {file_name = }')
     s = m21.converter.parse(midi_file_name)
@@ -487,26 +437,7 @@ def find_root_mode(midi_file_name):
     return (root, mode, s)
 
 def load_from_midi_file(file_name, quantization = 4):
-    """
-    Load a MIDI file and convert it to a chorale array with timing information.
-    
-    Parameters
-    ----------
-    file_name : str
-        Path to the MIDI file to load.
-    quantization : int, optional
-        Quantization level (default: 4). Determines the time resolution.
-        Higher values create finer time steps.
-    
-    Returns
-    -------
-    tuple
-        (chorale, root_note, mode, time_sig)
-        - chorale: np.ndarray, shape (voices, time_steps), MIDI note numbers
-        - root_note: int, pitch class (0-11) of the root note
-        - mode: str, 'major' or 'minor'
-        - time_sig: str, time signature (e.g., '4/4')
-    """
+    """Load a MIDI file and convert it to a chorale array with timing information."""
     logging.debug(f'{file_name = }, {quantization = }')
     mid = mido.MidiFile(file_name, clip = True)
     logging.debug(f'{mid.length = }') # total playback time in seconds 24.5
@@ -568,27 +499,7 @@ def load_from_midi_file(file_name, quantization = 4):
     return chorale, root_note, mode, time_sig 
 
 def read_from_midi(midi_file_name, quantizer = 4):
-    """
-    Read a MIDI file and convert it to a chorale array using muspy.
-    
-    Parameters
-    ----------
-    midi_file_name : str
-        Path to the MIDI file to read.
-    quantizer : int, optional
-        Quantization level (default: 4). Controls time resolution.
-    
-    Returns
-    -------
-    tuple
-        (chorale, root, mode, music21_stream, pit_cl_ent, pcu)
-        - chorale: np.ndarray, shape (voices, time_steps), transposed MIDI notes
-        - root: int, pitch class (0-11) of the root note
-        - mode: str, 'major' or 'minor'
-        - music21_stream: music21.stream.Stream object
-        - pit_cl_ent: float, pitch class entropy of the chorale
-        - pcu: int, number of pitch classes used (out of 12)
-    """
+    """Read a MIDI file and convert it to a chorale array using muspy."""
     root, mode, s = find_root_mode(midi_file_name)
     # logging.info(f'{len(s) = }')
     music = muspy.from_music21(s, resolution=24) # convert the music21 object to a muspy object
@@ -597,25 +508,7 @@ def read_from_midi(midi_file_name, quantizer = 4):
     return sample.T, root, mode, s, pit_cl_ent, pcu
 
 def midi_to_music21(midi_file_name, chorale_number):
-    """
-    Load a chorale from a numpy file and get its key information from a MIDI file.
-    
-    Parameters
-    ----------
-    midi_file_name : str
-        Path to MIDI file used to determine root and mode.
-    chorale_number : int
-        Number used to construct the numpy filename ('chorale{chorale_number}.npy').
-    
-    Returns
-    -------
-    tuple
-        (chorale, root, mode, music21_stream)
-        - chorale: np.ndarray, shape (voices, time_steps), MIDI note numbers
-        - root: int, pitch class (0-11) of the root note
-        - mode: str, 'major' or 'minor'
-        - music21_stream: music21.stream.Stream object
-    """
+    """Load a chorale from a numpy file and get its key information from a MIDI file."""
     root, mode, s = find_root_mode(midi_file_name)
     logging.debug(f'just back from find_root_mode. {root = }')
     # mid = MidiFile(os.path.join(midi_file_name))
@@ -627,27 +520,7 @@ def midi_to_music21(midi_file_name, chorale_number):
 
 # this is passed a muspy music object - optimize quantizer
 def muspy_to_sample_root_mode(music, quantizer = 4):
-    """
-    Convert a muspy music object to a sample array with root and mode information.
-    
-    Parameters
-    ----------
-    music : muspy.Music
-        Muspy music object to convert.
-    quantizer : int, optional
-        Quantization level (default: 4). Controls time resolution.
-        Higher values create finer time steps.
-    
-    Returns
-    -------
-    tuple
-        (sample, root, mode, pit_cl_ent, pcu)
-        - sample: np.ndarray, shape (time_steps, 4), MIDI note numbers per time step
-        - root: int, pitch class (0-11) from key signature, or 0 if not found
-        - mode: str, 'major' or 'minor', defaults to 'major' if not found
-        - pit_cl_ent: float, pitch class entropy of the music
-        - pcu: int, number of pitch classes used (out of 12)
-    """
+    """Convert a muspy music object to a sample array with root and mode information."""
     if music.key_signatures != []: # check if the midi file includes a *key signature* - some don't
         root = music.key_signatures[0].root 
         mode = music.key_signatures[0].mode # major or minor
@@ -699,25 +572,7 @@ def muspy_to_sample_root_mode(music, quantizer = 4):
     return (sample, root, mode, pit_cl_ent, pcu)     
 
 def read_from_corpus(work, quantizer = 4):
-    """
-    Read a chorale from the music21 corpus and convert it to a chorale array.
-    
-    Parameters
-    ----------
-    work : str
-        Corpus work identifier (e.g., 'bwv244.3' for Herzliebster).
-    quantizer : int, optional
-        Quantization level (default: 4). Controls time resolution.
-    
-    Returns
-    -------
-    tuple
-        (chorale, root, mode, music21_stream)
-        - chorale: np.ndarray, shape (voices, time_steps), MIDI note numbers
-        - root: int, pitch class (0-11) of the root note
-        - mode: str, 'major' or 'minor'
-        - music21_stream: music21.stream.Stream object
-    """
+    """Read a chorale from the music21 corpus and convert it to a chorale array."""
     s = m21.corpus.parse(work) # use music21 to pull a chorale from the corpus. For example Herzliebster is 'bwv244.3'
     # then immediately convert it to a muspy object. 
     
@@ -731,25 +586,7 @@ def read_from_corpus(work, quantizer = 4):
 
 
 def read_from_numpy(chorale_number):
-    """
-    Load a chorale from a numpy file using a MIDI file for metadata.
-    
-    Parameters
-    ----------
-    chorale_number : int
-        Number used to construct filenames:
-        - MIDI: 'sample{chorale_number}.mid'
-        - NumPy: 'chorale{chorale_number}.npy'
-    
-    Returns
-    -------
-    tuple
-        (chorale, root, mode, music21_stream)
-        - chorale: np.ndarray, shape (voices, time_steps), MIDI note numbers
-        - root: int, pitch class (0-11) of the root note
-        - mode: str, 'major' or 'minor'
-        - music21_stream: music21.stream.Stream object
-    """
+    """Load a chorale from a numpy file using a MIDI file for metadata."""
     file_name = 'sample' + str(chorale_number) + '.mid' # pull from the set of synthetic chorales
     chorale, root, mode, s = midi_to_music21(file_name, chorale_number)
     return chorale, root, mode, s
@@ -764,32 +601,12 @@ def read_from_numpy(chorale_number):
 def build_glides_array(chorale_in_cents_slides, keys, max_cents_slide=45):
     """
     Build an array of glides/slides for notes with same MIDI value but different cent values.
-    
+
     When two consecutive notes in a voice have the same 12-TET value but different cent
     values, this function creates a glide between them rather than treating them as separate
     notes. The chorale_in_cents_slides array is modified in place to set all cent values
     in a glide region to the initial value, and a glide function table number is assigned.
-    
-    Parameters
-    ----------
-    chorale_in_cents_slides : np.ndarray
-        Shape (voices, chords, 2). First dimension is cents, second is octaves.
-        Modified in place.
-    keys : np.ndarray
-        Array of 12 note names for pitch class identification.
-    max_cents_slide : int, optional
-        Maximum cent difference allowed for a slide (default: 45).
-        Slides are only created if 1 < abs(delta_cents) < max_cents_slide.
-    
-    Returns
-    -------
-    tuple
-        (chorale_in_cents_slides, glides, stored_gliss, t_num)
-        - chorale_in_cents_slides: np.ndarray, modified input array
-        - glides: np.ndarray, shape (voices, chords), glide function table numbers (0 if no glide)
-        - stored_gliss: np.ndarray, shape (N, 9), stored glide function table definitions
-        - t_num: int, next available function table number
-    """                       
+    """
     logging.debug(f'In build_glides_array. {chorale_in_cents_slides.shape = }, {chorale_in_cents_slides.shape[0:2] = }') # , {chorale_in_cents[:,:].shape = }
     t_num = 5000 # first ftable dedicated to slides; keep above sample-table range
     glides = np.zeros(chorale_in_cents_slides.shape[0:2], dtype = int)
@@ -885,22 +702,7 @@ def build_glides_array(chorale_in_cents_slides, keys, max_cents_slide=45):
 
 
 def mismatch_check(chorale_in_cents, chorale):
-    """
-    Check if pitch classes derived from cent values match original MIDI pitch classes.
-    
-    Parameters
-    ----------
-    chorale_in_cents : np.ndarray
-        Shape (voices, chords), cent values for each note.
-    chorale : np.ndarray
-        Shape (voices, chords), original MIDI note numbers.
-    
-    Returns
-    -------
-    bool
-        True if any mismatch is found between original MIDI pitch classes and
-        pitch classes derived from cent values, False otherwise.
-    """
+    """Check if pitch classes derived from cent values match original MIDI pitch classes."""
     logging.debug(f'In mismatch_check. {chorale_in_cents.shape = }, {chorale.shape = }')
     mismatch = False
     prev_chord = np.zeros(4, dtype=int)
@@ -922,26 +724,7 @@ def mismatch_check(chorale_in_cents, chorale):
     return mismatch
 
 def _find_limit(ratio_string, penalize_7_11=False, multiply=False):
-    """
-    Calculate a limit value for a ratio string (e.g., "3/2" or "1").
-    
-    Parameters
-    ----------
-    ratio_string : str
-        Ratio as string (e.g., "3/2" or "1" for 1/1).
-    penalize_7_11 : bool, optional
-        If True, multiply result by 3 if ratio contains primes 11, 13, 17, 19, 23, or 29
-        (default: False).
-    multiply : bool, optional
-        If True, return numerator * denominator; if False, return numerator + denominator
-        (default: False).
-    
-    Returns
-    -------
-    int
-        Limit value: num*den if multiply=True, num+den otherwise.
-        If penalize_7_11=True and ratio contains penalized primes, result is multiplied by 3.
-    """
+    """Calculate a limit value for a ratio string (e.g., "3/2" or "1")."""
     if len(ratio_string) == 1: # Fraction returns a '1' for the ratio 1/1. All other Fraction ops return a ratio
         den_str = ratio_string
         num_str = '1'
@@ -966,30 +749,10 @@ def _find_limit(ratio_string, penalize_7_11=False, multiply=False):
 def build_tonal_diamond(limit_value, limit_denominator=50, penalize_7_11=False, multiply=False):
     """
     Build a tonal diamond array with ratios, cent values, and limit scores.
-    
+
     Creates an array of all ratios in the tonality diamond up to the specified limit,
     converts them to cents, and calculates limit scores (sum or product of numerator
     and denominator).
-    
-    Parameters
-    ----------
-    limit_value : int
-        Prime limit for the tonality diamond (e.g., 31 for 31-limit).
-    limit_denominator : int, optional
-        Maximum denominator when converting ratios to fractions (default: 50).
-    penalize_7_11 : bool, optional
-        If True, penalize ratios containing primes > 7 (default: False).
-    multiply : bool, optional
-        If True, limit score is num*den; if False, num+den (default: False).
-    
-    Returns
-    -------
-    np.ndarray
-        Shape (N, 3) where N is the number of unique ratios. Each row contains:
-        [ratio, cents, limit_score]
-        - ratio: float, just intonation ratio
-        - cents: int, cent value (rounded)
-        - limit_score: int, complexity score based on numerator/denominator
     """
     tonal_diamond_ratios = np.array(dmu.build_all_ratios(limit_value = limit_value)) # assemble an array floating point ratios to the 31 limit # limit_value = limit_value
     tonal_diamond_ratios = np.append(tonal_diamond_ratios, [2.0], axis=0) # add 2:1 to the end of the array to make 257.
@@ -1017,22 +780,7 @@ stringify = lambda x: '1/1' if x == 1 else str(Fraction(x).limit_denominator(50)
 # when provided with a 4 note chord in midi_numbers (0-127) this function returns the steps in cents (1200 EDO)
 # I assign values based on the 12TET cent values. 
 def note_to_1200_edo(midi_numbers, original_12 = np.arange(0, 1200, 100)):
-    """
-    Convert MIDI note numbers to 1200-EDO cent values.
-    
-    Parameters
-    ----------
-    midi_numbers : np.ndarray
-        Array of MIDI note numbers (0-127). Zero indicates silence.
-    original_12 : np.ndarray, optional
-        Array of 12 cent values for pitch classes (default: [0, 100, 200, ..., 1100]).
-    
-    Returns
-    -------
-    np.ndarray
-        Array of cent values. Zero MIDI numbers are converted to -1.
-        Returns zeros if all input values are zero.
-    """
+    """Convert MIDI note numbers to 1200-EDO cent values."""
     # Convert a midi_number value of zero to -1. 0 indicates no number in this midi time_step format.
     if np.sum(midi_numbers) == 0: # watch out for a chord of all zeros. That's not right.
         logging.debug(f'{midi_numbers = }')
@@ -1044,22 +792,7 @@ def note_to_1200_edo(midi_numbers, original_12 = np.arange(0, 1200, 100)):
     return step_in_1200_edo
 
 def limit_format(values):
-    """
-    Format tonal diamond values as (ratio_string, cents, limit_score).
-    
-    Parameters
-    ----------
-    values : array-like
-        Array of [ratio, cents, num_dem] from tonal diamond.
-    
-    Returns
-    -------
-    tuple
-        (ratio_string, cents, num_dem)
-        - ratio_string: str, formatted ratio (e.g., "3/2" or "1/1")
-        - cents: int, rounded cent value
-        - num_dem: int, limit score
-    """
+    """Format tonal diamond values as (ratio_string, cents, limit_score)."""
     # this function expects three values, and can't handle fewer. 
     ratio = values[0]
     cents = values[1]
@@ -1068,19 +801,7 @@ def limit_format(values):
 
 # generate a sequence of 0, -1, 1, -2, 2, -3, 3 up to the max_value
 def sequence_generator(max_value):
-    """
-    Generate a sequence of integers: 0, -1, 1, -2, 2, ..., -max_value, max_value.
-    
-    Parameters
-    ----------
-    max_value : int
-        Maximum absolute value in the sequence.
-    
-    Yields
-    ------
-    int
-        Sequence: 0, then alternating negative and positive values up to max_value.
-    """
+    """Generate a sequence of integers: 0, -1, 1, -2, 2, ..., -max_value, max_value."""
     paired_values = max_value 
     yield 0
     for n in range(1, paired_values + 1):
@@ -1099,25 +820,9 @@ def sequence_generator(max_value):
 def best_ratio_index(distance, tolerance, tonal_diamond):
     """
     Find the optimal index into the tonal diamond for a given interval distance.
-    
+
     Searches within tolerance range for ratios matching the distance, preferring
     those with lower limit scores (more consonant intervals).
-    
-    Parameters
-    ----------
-    distance : float
-        Interval distance in cents (absolute value is used).
-    tolerance : int
-        Search range: checks distance ± tolerance.
-    tonal_diamond : np.ndarray
-        Shape (N, 3) tonal diamond array [ratio, cents, limit_score].
-    
-    Returns
-    -------
-    int
-        Index into tonal_diamond of the best matching ratio (lowest limit_score
-        within tolerance). If no exact match found, returns index of closest
-        ratio below the distance.
     """
     logging.debug(f'{distance = }, {tolerance = }, {tonal_diamond.shape = }')
     min_score = 9999
@@ -1140,22 +845,10 @@ def best_ratio_index(distance, tolerance, tonal_diamond):
 def annealing(temperature, range = 7):
     """
     Calculate annealing range based on temperature.
-    
+
     Higher temperature (closer to 1.0) allows exploration of less optimal values.
     Lower temperature favors optimal choices.
-    
-    Parameters
-    ----------
-    temperature : float
-        Temperature value (typically 0.0 to 1.0).
-    range : int, optional
-        Maximum range value (default: 7).
-    
-    Returns
-    -------
-    int
-        Rounded integer: range * temperature
-    """ 
+    """
     return int(np.round(range * temperature,0))
 
 
@@ -1168,20 +861,6 @@ def rearrange_notes(chord_in_cents, midi_notes):
     For each target pitch class from midi_notes, finds the tuned cent value
     in chord_in_cents with the matching pitch class. Uses direct matching
     instead of permutation enumeration, so it scales to any chord size.
-
-    Parameters
-    ----------
-    chord_in_cents : np.ndarray
-        Array of cent values (may be in wrong order).
-    midi_notes : np.ndarray
-        Array of MIDI note numbers or pitch classes (target order).
-
-    Returns
-    -------
-    tuple
-        (final_result, final_12)
-        - final_result: np.ndarray, rearranged cent values matching MIDI order
-        - final_12: np.ndarray, pitch classes (0-11) of final_result
     """
     original_midi_12 = midi_notes % 12
     tuned_12 = np.array([int(round(note / 100, 0) % 12) for note in chord_in_cents])
@@ -1208,26 +887,9 @@ def rearrange_notes(chord_in_cents, midi_notes):
 def find_best_top_note(final_result, final_12, top_notes):
     """
     Find gaps between chord notes and top_notes target values.
-    
+
     Calculates the cent differences needed to align chord notes with prioritized
     top_notes values.
-    
-    Parameters
-    ----------
-    final_result : np.ndarray
-        Array of 4 cent values for the chord.
-    final_12 : np.ndarray
-        Array of 4 pitch classes (0-11) for the chord.
-    top_notes : np.ndarray
-        Shape (2, 12). Row 0: MIDI pitch classes, Row 1: target cent values.
-        Columns ordered by priority.
-    
-    Returns
-    -------
-    tuple
-        (top_note_gap, final_result_gap)
-        - top_note_gap: np.ndarray, shape (12), gaps for each top_note (0 if no match)
-        - final_result_gap: np.ndarray, shape (4), gaps for each chord note (0 if no match)
     """
     # This function is used help transpose the chord based on the chord_in_cents and the top_notes.
     # It returns the gaps between the top_notes and the final result in one array, and the final_result to the top_notes in the second array.
@@ -1253,30 +915,10 @@ def find_best_top_note(final_result, final_12, top_notes):
 def transpose_top_notes(final_result, top_notes, chord_number, midi_notes):
     """
     Transpose a chord to align with top_notes priorities without changing MIDI values.
-    
+
     Attempts to transpose the chord so at least one note matches a top_notes value,
     prioritizing higher-priority top_notes. Checks that transposition doesn't change
     any MIDI pitch classes.
-    
-    Parameters
-    ----------
-    final_result : np.ndarray
-        Array of 4 cent values for the chord.
-    top_notes : np.ndarray
-        Shape (2, 12). Row 0: MIDI pitch classes, Row 1: target cent values.
-        Columns ordered by priority.
-    chord_number : int
-        Chord index (for logging).
-    midi_notes : np.ndarray
-        Array of 4 MIDI note numbers (target order).
-    
-    Returns
-    -------
-    tuple
-        (final_result, gap, gap_too_big)
-        - final_result: np.ndarray, transposed cent values (or original if no valid transposition)
-        - gap: int, cent shift applied (0 if none)
-        - gap_too_big: bool, True if transposition would change MIDI values
     """
     # This function is presented with a tuned chord, and an array of top_notes with (12TET value, cent value)
     # First it rearranges the notes so that are back in the right order based on how they were written.
@@ -1326,18 +968,6 @@ def cent_distance_mod_1200(a, b):
     """
     Minimal absolute distance in cents between two pitches a and b,
     measured on a 1200-cent circle (one octave).
-    
-    Parameters
-    ----------
-    a : float
-        First cent value.
-    b : float
-        Second cent value.
-    
-    Returns
-    -------
-    float
-        Minimal wrapped distance in cents (0-600).
     """
     diff = abs(a - b) % 1200
     return min(diff, 1200 - diff)
@@ -1346,18 +976,6 @@ def signed_delta_mod_1200(current, target):
     """
     Minimal signed shift (in cents) to move `current` to `target` on the 1200-cent circle.
     Range: (-600, 600].
-    
-    Parameters
-    ----------
-    current : float
-        Current cent value.
-    target : float
-        Target cent value.
-    
-    Returns
-    -------
-    float
-        Signed shift in cents, range (-600, 600].
     """
     d = (target - current) % 1200
     if d > 600:
@@ -1365,24 +983,11 @@ def signed_delta_mod_1200(current, target):
     return d
 
 def circular_span(values, octave=1200):
-    """Minimum arc on a circle of circumference `octave` that covers all values.
+    """
+    Minimum arc on a circle of circumference `octave` that covers all values.
 
     Handles the octave-boundary artifact (e.g. C♮ values near 0 and 1200
     that are musically close but numerically distant).
-
-    Parameters
-    ----------
-    values : sequence of float
-        Cent values for one pitch class (already in [0, octave) range).
-    octave : float
-        Circle circumference in cents (default 1200).
-
-    Returns
-    -------
-    (span, lo, hi) : (float, float, float)
-        span  — minimum arc in cents covering all values (0 if len < 2)
-        lo    — lowest value on the arc (start after the largest gap)
-        hi    — highest value on the arc (end of the arc)
     """
     if len(values) < 2:
         v = values[0] if values else 0.0
@@ -1400,7 +1005,8 @@ def circular_span(values, octave=1200):
 
 
 def circular_mad(values, octave=1200):
-    """Mean absolute deviation from the circular mean (lower = more tightly clustered).
+    """
+    Mean absolute deviation from the circular mean (lower = more tightly clustered).
 
     Unlike circular_span (which is a range measure), this rewards having most values
     clustered near the mean even when a few outliers are present.  A single outlier
@@ -1409,18 +1015,6 @@ def circular_mad(values, octave=1200):
 
     Handles the octave-boundary wrap: values near 0 and near `octave` are treated
     as close, matching the behaviour of circular_span.
-
-    Parameters
-    ----------
-    values : sequence of float
-        Cent values for one pitch class (already in [0, octave) range).
-    octave : float
-        Circle circumference in cents (default 1200).
-
-    Returns
-    -------
-    float
-        Mean absolute deviation in cents (0 if len < 2).
     """
     if len(values) < 2:
         return 0.0
@@ -1435,87 +1029,25 @@ def circular_mad(values, octave=1200):
 
 
 def wrap1200(x):
-    """
-    Wrap values to [0, 1200) range.
-    
-    Parameters
-    ----------
-    x : array-like or scalar
-        Values to wrap.
-    
-    Returns
-    -------
-    np.ndarray or scalar
-        Values wrapped modulo 1200.
-    """
+    """Wrap values to [0, 1200) range."""
     return np.mod(x, 1200.0)
 
 def wrap600(x):
-    """
-    Wrap values to [-600, 600) range.
-    
-    Parameters
-    ----------
-    x : array-like or scalar
-        Values to wrap.
-    
-    Returns
-    -------
-    np.ndarray or scalar
-        Values wrapped to [-600, 600) range.
-    """
+    """Wrap values to [-600, 600) range."""
     w = np.mod(x, 1200.0)
     return np.where(w >= 600.0, w - 1200.0, w)
 
 def wrap6(x):
-    """
-    Wrap values to [-6, 6) range (for pitch classes).
-    
-    Parameters
-    ----------
-    x : array-like or scalar
-        Values to wrap.
-    
-    Returns
-    -------
-    np.ndarray or scalar
-        Values wrapped to [-6, 6) range.
-    """
+    """Wrap values to [-6, 6) range (for pitch classes)."""
     w = np.mod(x, 12)
     return w - 12 if w >= 6 else w
 
 def wrap12(x):
-    """
-    Wrap values to [0, 12) range (for pitch classes).
-    
-    Parameters
-    ----------
-    x : array-like or scalar
-        Values to wrap.
-    
-    Returns
-    -------
-    np.ndarray or scalar
-        Values wrapped modulo 12.
-    """
+    """Wrap values to [0, 12) range (for pitch classes)."""
     return np.mod(x, 12)
 
 def pitch_class_from_cents(cents, eps=1e-6):
-    """
-    Convert cent values to pitch classes (0-11) using half-up rounding.
-    
-    Parameters
-    ----------
-    cents : array-like or scalar
-        Cent values to convert.
-    eps : float, optional
-        Small epsilon to handle values near 1200 (default: 1e-6).
-    
-    Returns
-    -------
-    np.ndarray or int
-        Pitch classes (0-11) corresponding to the cent values.
-    """
+    """Convert cent values to pitch classes (0-11) using half-up rounding."""
     cents = np.asarray(cents, dtype=float)
     wrapped = np.mod(cents + eps, 1200.0)
     pcs = np.floor((wrapped + 50.0) / 100.0).astype(int) % 12
@@ -1523,21 +1055,7 @@ def pitch_class_from_cents(cents, eps=1e-6):
 
 
 def force_pitch_class_match(chord_in_cents, midi_notes):
-    """
-    Adjust cent values minimally so their rounded pitch classes match midi_notes % 12.
-    
-    Parameters
-    ----------
-    chord_in_cents : np.ndarray
-        Array of cent values to adjust.
-    midi_notes : np.ndarray
-        Array of MIDI note numbers (target pitch classes).
-    
-    Returns
-    -------
-    np.ndarray
-        Adjusted cent values with pitch classes matching midi_notes % 12.
-    """
+    """Adjust cent values minimally so their rounded pitch classes match midi_notes % 12."""
     adjusted = np.array(chord_in_cents, dtype=float, copy=True)
     targets = np.array(midi_notes % 12, dtype=int)
     current_pcs = pitch_class_from_cents(adjusted)
@@ -1571,24 +1089,7 @@ def force_pitch_class_match(chord_in_cents, midi_notes):
 #       target = (interval[0] + (delta * moves)) % max_value
 #       return delta, moves, target
 def cent_value_interval(interval, max_value=1200):
-    """
-    Calculate interval between two cent values with wrapping.
-    
-    Parameters
-    ----------
-    interval : array-like
-        Array of [cent1, cent2] values.
-    max_value : int, optional
-        Maximum value for wrapping (default: 1200).
-    
-    Returns
-    -------
-    tuple
-        (delta, moves, target)
-        - delta: int, absolute interval size in cents
-        - moves: int, direction (-1 or 1)
-        - target: int, target cent value after applying interval
-    """
+    """Calculate interval between two cent values with wrapping."""
     wrapped = wrap600(interval[0] - interval[1])
     delta = np.asarray(wrapped, dtype=int)  # Convert to int array, not scalar
     moves = np.where(delta < 0, 1, -1)  # Element-wise comparison
@@ -1597,24 +1098,7 @@ def cent_value_interval(interval, max_value=1200):
     return delta, int(moves), target
 
 def pitch_class_interval(interval, max_value=12):
-    """
-    Calculate interval between two pitch classes with wrapping.
-    
-    Parameters
-    ----------
-    interval : array-like
-        Array of [pc1, pc2] pitch classes (0-11).
-    max_value : int, optional
-        Maximum value for wrapping (default: 12).
-    
-    Returns
-    -------
-    tuple
-        (delta, moves, target)
-        - delta: int, absolute interval size in semitones
-        - moves: int, direction (1 or -1)
-        - target: int, target pitch class after applying interval
-    """
+    """Calculate interval between two pitch classes with wrapping."""
     delta = wrap6(interval[1] - interval[0])  # wrap the difference, not the difference between wrapped values
     moves = 1 if delta >= 0 else -1
     delta = abs(delta)
@@ -1622,44 +1106,15 @@ def pitch_class_interval(interval, max_value=12):
     return delta, moves, target
 
 def cent_interval_to_pitch_class(c1, c2):
-    """
-    Calculate pitch class difference between two cent values.
-    
-    Parameters
-    ----------
-    c1 : float
-        First cent value.
-    c2 : float
-        Second cent value.
-    
-    Returns
-    -------
-    int
-        Pitch class difference (0-11).
-    """
+    """Calculate pitch class difference between two cent values."""
     delta, moves, _ = cent_value_interval(np.array([c1, c2]))
     return pitch_class_from_cents(delta * moves)
 
-import numpy as np
 
 def resolve_cent_conflicts_with_pcfunc(cent_values, pitch_class_from_cents):
     """
     Resolve conflicts where multiple cent values map to the same pitch class.
     Keeps the cent value closest to a 100-cent boundary.
-    
-    Parameters
-    ----------
-    cent_values : np.ndarray
-        Array of cent values (0–1200).
-    pitch_class_from_cents : callable
-        Function that maps cent values -> pitch classes.
-    
-    Returns
-    -------
-    np.ndarray
-        Adjusted cent values with conflicts resolved. When multiple values map
-        to the same pitch class, all are set to the value closest to a 100-cent
-        boundary (e.g., 0, 100, 200, etc.).
     """
     adjusted = cent_values.copy()
     pitch_classes = pitch_class_from_cents(adjusted)
@@ -1817,38 +1272,14 @@ def transpose_top_notes_v2(chord, midi_notes, top_notes, prev_chord_cents=None, 
 def negate_high_cents(cent_values):
     """
     Convert cent values > 1150 to negative equivalents (e.g., 1168 -> -32).
-    
+
     Helps with sorting algorithms that assume values near 1200 are far from 0,
     when they actually round to the same pitch class as values near 0.
-    
-    Parameters
-    ----------
-    cent_values : np.ndarray
-        Array of cent values.
-    
-    Returns
-    -------
-    np.ndarray
-        Array with values > 1150 converted to (value - 1200).
     """
     return np.array([note - 1200 if note > 1150 else cent_values[inx] for inx, note in enumerate(cent_values)])
 
 def format_chord(chord_in_cents, num_spaces):
-    """
-    Format chord cent values as a space-separated string.
-    
-    Parameters
-    ----------
-    chord_in_cents : np.ndarray
-        Array of cent values (converted to int if float).
-    num_spaces : int
-        Field width: 4 for 4-character width, 2 for 2-character width.
-    
-    Returns
-    -------
-    str
-        Space-separated string of formatted cent values.
-    """
+    """Format chord cent values as a space-separated string."""
     # Format each value in chord_in_cents to 4-character width
     cents_str = 'none'
     if chord_in_cents.dtype == float:
@@ -1862,25 +1293,10 @@ def format_chord(chord_in_cents, num_spaces):
 def perturb(four_note_chord, spread=7):
     """
     Add random perturbations to a 4-note chord's cent values.
-    
+
     Assumes input is tuned to 12-TET (100 cents per semitone). Perturbations are
     clipped to ±49 cents. Compresses to unique values before perturbing to avoid
     different cent values for the same MIDI value.
-    
-    Parameters
-    ----------
-    four_note_chord : np.ndarray
-        Array of 4 cent values (12-TET tuned).
-    spread : int, optional
-        Standard deviation for normal distribution (default: 7).
-        Most perturbations near zero with spread=6, can reach ±49 with spread=15.
-    
-    Returns
-    -------
-    tuple
-        (temp_result, inverse)
-        - temp_result: np.ndarray, perturbed cent values (mod 1200)
-        - inverse: np.ndarray, mapping to restore original order
     """
     # this function assumes the arrival of a 4-note chord that is tuned to the 12 TET cent values, 100 cents per semi-tone. The adjustment is trimmed to no more than +- 49, 
     # most of the perturbations are near zero with scale=6, but can be close to 49 with scale=15
@@ -1905,21 +1321,7 @@ def perturb(four_note_chord, spread=7):
     return np.array(temp_result % 1200), inverse
 
 def compress_pitch_class(four_note_chord):
-    """
-    Compress a chord to unique pitch classes, preserving order of first occurrence.
-    
-    Parameters
-    ----------
-    four_note_chord : np.ndarray
-        Array of pitch classes (may have duplicates).
-    
-    Returns
-    -------
-    tuple
-        (compressed_chord, inverse)
-        - compressed_chord: np.ndarray, unique pitch classes in order of first appearance
-        - inverse: np.ndarray, mapping to reconstruct original from compressed
-    """
+    """Compress a chord to unique pitch classes, preserving order of first occurrence."""
     compressed_chord, indices, inverse = np.unique(four_note_chord, axis=0, return_index=True, return_inverse=True)
     order = np.argsort(indices)
     compressed_chord = compressed_chord[order]
@@ -1933,23 +1335,9 @@ def compress_pitch_class(four_note_chord):
 def find_optimum_top_notes(gap_cents_top_notes, cent_value_current, pitch_class_current):
     """
     Find valid transpositions from top_notes that preserve pitch classes.
-    
+
     Tests each gap from top_notes to see if applying it would change any pitch class.
     Returns only gaps that preserve all pitch classes.
-    
-    Parameters
-    ----------
-    gap_cents_top_notes : np.ndarray
-        Array of cent gaps from top_notes (priority order).
-    cent_value_current : np.ndarray
-        Current cent values for the chord.
-    pitch_class_current : np.ndarray
-        Current pitch classes (0-11) for the chord.
-    
-    Returns
-    -------
-    np.ndarray
-        Array of valid gaps (999 for invalid gaps). Same shape as gap_cents_top_notes.
     """
     cent_value_valid_gaps = np.full((4,), 999) # potential gaps that can be applied to cent_value_current without changing the pitch class
     for inx, top_note_gap in zip(count(0,1), gap_cents_top_notes): # step through the top_notes in order of priority
@@ -1974,29 +1362,9 @@ def find_best_gap(cent_value_valid_gaps, cent_value_current, pitch_class_current
             chord_num, top_notes, pitch_class_current_in_top_notes):
     """
     Find the best gap to apply from valid gaps, prioritizing top_notes order.
-    
+
     Applies gaps in priority order based on top_notes. The first valid gap
     (that preserves pitch classes) is returned, reinforcing higher-priority notes.
-    
-    Parameters
-    ----------
-    cent_value_valid_gaps : np.ndarray
-        Array of valid gaps (999 for invalid).
-    cent_value_current : np.ndarray
-        Current cent values for the chord.
-    pitch_class_current : np.ndarray
-        Current pitch classes (0-11) for the chord.
-    chord_num : int
-        Chord number (for logging).
-    top_notes : np.ndarray
-        Shape (2, 12), prioritized target cent values.
-    pitch_class_current_in_top_notes : np.ndarray
-        Boolean array indicating which pitch classes are in top_notes.
-    
-    Returns
-    -------
-    int
-        Best gap value to apply (0 if none found).
     """
     # apply the gaps based on top_notes in priority order. Try each to see if it would cause a gap between cent values of the same pitch class to exceed max_gap. If it does, try the next. The earlier you pick, that means you will reinforce the higher priority notes staying in one place. 
     logging.debug(f'{chord_num = }: {cent_value_valid_gaps = }, {cent_value_current = }, {pitch_class_current = }, ')
@@ -2028,23 +1396,7 @@ def find_best_gap(cent_value_valid_gaps, cent_value_current, pitch_class_current
       
 # routine to log the current contents of top_notes
 def log_top_notes(top_notes, function_name=logging.info, heading = 'Current top_notes:'):
-    """
-    Log the contents of top_notes in a formatted table.
-    
-    Parameters
-    ----------
-    top_notes : np.ndarray
-        Shape (2, 12). Row 0: MIDI pitch classes, Row 1: cent values.
-    function_name : callable, optional
-        Logging function to use (default: logging.info).
-    heading : str, optional
-        Heading text for the log output (default: 'Current top_notes:').
-    
-    Returns
-    -------
-    None
-        Logs formatted table with indices, note names, pitch classes, and cent values.
-    """
+    """Log the contents of top_notes in a formatted table."""
     function_name(heading)
     keys = set_accidentals(False) # get the keys with sharps 
     line = ' '.join(f'{inx:>4}' for inx in np.arange(12))
@@ -2057,23 +1409,7 @@ def log_top_notes(top_notes, function_name=logging.info, heading = 'Current top_
     function_name(line)      
       
 def chord_from_top_notes(cent_values, top_notes, pitch_class_from_cents=pitch_class_from_cents):
-    """
-    Map a chord's cent values to canonical cent values from top_notes.
-    
-    Parameters
-    ----------
-    cent_values : array-like
-        The chord in cents (e.g. [200, 902, 400, 902]).
-    top_notes : np.ndarray
-        2 x N array: first row = pitch classes, second row = canonical cent values.
-    pitch_class_from_cents : callable
-        Function that maps cent values -> pitch class (0–11).
-    
-    Returns
-    -------
-    np.ndarray
-        New chord with cent values pulled from top_notes.
-    """
+    """Map a chord's cent values to canonical cent values from top_notes."""
     pcs = [pitch_class_from_cents(c) for c in cent_values]
     chord = []
     for pc in pcs:
@@ -2087,28 +1423,9 @@ def chord_from_top_notes(cent_values, top_notes, pitch_class_from_cents=pitch_cl
 def transpose_chord_by_top_notes(cent_value_current, pitch_class_current, top_notes, chord_num):
     """
     Transpose a chord to align with top_notes priorities.
-    
+
     Sorts chord, finds gaps to top_notes, and applies the best valid transposition
     that preserves pitch classes.
-    
-    Parameters
-    ----------
-    cent_value_current : np.ndarray
-        Current cent values for the chord.
-    pitch_class_current : np.ndarray
-        Current pitch classes (0-11) for the chord.
-    top_notes : np.ndarray
-        Shape (2, 12), prioritized target cent values.
-    chord_num : int
-        Chord number (for logging).
-    
-    Returns
-    -------
-    tuple
-        (proposed_cent_value_chord, gap, success)
-        - proposed_cent_value_chord: np.ndarray, transposed cent values (or original if failed)
-        - gap: int, cent shift applied
-        - success: bool, True if transposition preserved pitch classes
     """
     logging.debug(f'In transpose_chord_by_top_notes. {chord_num = }') # pitch_class_current
     if chord_num // 10 == 0: 
@@ -2143,24 +1460,10 @@ def transpose_chord_by_top_notes(cent_value_current, pitch_class_current, top_no
 def clip_note_features(notes_features_15, voice_time):
     """
     Clip note features (octave, volume) to voice-specific limits.
-    
+
     Adjusts octaves to min/max ranges and applies volume_factor offsets.
     Also handles edge case: if at max octave and cent value > 350, reduce octave by 1.
-    
-    Parameters
-    ----------
-    notes_features_15 : np.ndarray
-        Shape (N, 15) array of note features. Columns:
-        [6]=voice, [4]=note_cents, [5]=octave, [14]=volume
-    voice_time : dict
-        Dictionary mapping voice short names to configuration including
-        min_oct, max_oct, and volume_factor.
-    
-    Returns
-    -------
-    np.ndarray
-        Modified notes_features_15 array with clipped octaves and adjusted volumes.
-    """ 
+    """
     for inx in np.arange(notes_features_15.shape[0]): # once for every note with all its features.
         short_name, _ = dmu.show_voice_time_short_name(notes_features_15[inx,[6]], voice_time) # returns short_name only from the voice_time array 'fing1'
         logging.debug(f'{inx = }, {short_name = }\n{[round(feature,0) for feature in notes_features_15[inx,[6,4,5,14]]]}') # [[6, 4, 5, 14]] voice, note, octave, volume  array([[ 0., 86.,  5.,  7.],
@@ -2186,20 +1489,10 @@ def clip_note_features(notes_features_15, voice_time):
 def remove_zeros_from_midi(initial_chord):
     """
     Replace zero MIDI values (silence) with non-zero notes from the chord.
-    
+
     Prevents scoring issues where 0 indicates silence, not the note C.
     If all zeros, returns array of zeros. Otherwise replaces zeros with
     the first non-zero note (cyclically).
-    
-    Parameters
-    ----------
-    initial_chord : np.ndarray
-        Array of 4 MIDI note numbers (0 indicates silence).
-    
-    Returns
-    -------
-    np.ndarray
-        Array with zeros replaced by non-zero notes, or all zeros if input was all zeros.
     """
     saved_values = np.array(np.nonzero(initial_chord)) # save the index to the initial_chord of those values that are not zero
     zeros = 0
@@ -2221,44 +1514,11 @@ def midi_to_notes_octaves_trimmed(chorale, top_notes, tonal_diamond, ratio_facto
             flats = True, range = 6, use_perm_or_roll = True, improvement_attempts = 6, cooling_rate = 0.98, bypass_permutations = False):
     """
     Convert MIDI chorale to cent values and octaves using just intonation tuning.
-    
+
     Processes each chord, finds optimal tuning using permutations and simulated annealing,
     then transposes to align with top_notes priorities. Handles repeated chords by
     reusing previous tuning.
-    
-    Parameters
-    ----------
-    chorale : np.ndarray
-        Shape (voices, time_steps), MIDI note numbers.
-    top_notes : np.ndarray
-        Shape (2, 12), prioritized target cent values.
-    tonal_diamond : np.ndarray
-        Shape (N, 3), tonal diamond [ratio, cents, limit_score].
-    ratio_factor : float, optional
-        Weighting factor for ratio scores (default: 1).
-    dist_factor : float, optional
-        Weighting factor for distance scores (default: 1).
-    flats : bool, optional
-        Use flats in note names if True, sharps if False (default: True).
-    range : int, optional
-        Search range for annealing (default: 6).
-    use_perm_or_roll : bool, optional
-        If True, use permutation search; if False, use top_notes directly (default: True).
-    improvement_attempts : int, optional
-        Number of improvement attempts in annealing (default: 6).
-    cooling_rate : float, optional
-        Cooling rate for simulated annealing (default: 0.98).
-    bypass_permutations : bool, optional
-        If True, skip permutation search (default: False).
-    
-    Returns
-    -------
-    tuple
-        (chorale_in_cents_octaves, scores)
-        - chorale_in_cents_octaves: np.ndarray, shape (voices, chords, 2),
-          [cent_values, octaves] for each note
-        - scores: np.ndarray, chord scores for each unique chord
-    """ 
+    """
     logging.debug(f'In midi_to_notes_octaves_trimmed. {chorale.shape = }') # In midi_to_notes_octaves. chorale.shape = (4, 256)
     # this function is passed a numpy array of note numbers in midi format, four per time step SATB. input is of the form: voice, midi_note
     # it converts the midi numbers into two features: cents and octaves
@@ -2333,30 +1593,9 @@ def midi_to_notes_octaves_trimmed(chorale, top_notes, tonal_diamond, ratio_facto
 def build_octave_alteration_mask(repeats, voices, chorale, octave_stretch = 4, octave_reduce = 2, stay = 7):
     """
     Build a mask for octave alterations with random variations.
-    
+
     Creates octave change values using normal distributions, then repeats them
     for specified durations. Each voice gets a rolled version of the mask.
-    
-    Parameters
-    ----------
-    repeats : int
-        Base repeat count for each octave change.
-    voices : int
-        Number of voices (mask is rolled for each voice).
-    chorale : np.ndarray
-        Chorale array (used to determine length).
-    octave_stretch : int, optional
-        Number of possible octave change values (default: 4).
-    octave_reduce : int, optional
-        Offset to center changes around zero (default: 2).
-    stay : int, optional
-        Number of possible repeat durations (default: 7).
-    
-    Returns
-    -------
-    np.ndarray
-        Shape (voices, chorale_length), octave alteration values.
-        Each voice has a rolled version of the same pattern.
     """
       
     octave_alteration_mask = np.empty(0, dtype = int)
@@ -2388,29 +1627,9 @@ def build_octave_alteration_mask(repeats, voices, chorale, octave_stretch = 4, o
 def build_long_mask(repeats, voices, chorale, p1 = [.5, .5], stay = 7, p2 =  [.1, .1, .2, .2, .2, .1, .1]):
     """
     Build a binary mask with long strings of 0s and 1s.
-    
+
     Creates patterns of long held notes (1) followed by long rests (0),
     used for woodwind parts. Each voice gets a rolled version.
-    
-    Parameters
-    ----------
-    repeats : int
-        Base repeat count for each pattern segment.
-    voices : int
-        Number of voices.
-    chorale : np.ndarray
-        Chorale array (used to determine length).
-    p1 : list, optional
-        Probabilities for [0, 1] choices (default: [.5, .5]).
-    stay : int, optional
-        Number of possible repeat durations (default: 7).
-    p2 : list, optional
-        Probabilities for repeat duration choices (default: [.1, .1, .2, .2, .2, .1, .1]).
-    
-    Returns
-    -------
-    np.ndarray
-        Shape (voices, chorale_length), binary mask (0 or 1).
     """
     octave_alteration_mask = np.empty(0, dtype = int)
     done = False
@@ -2428,31 +1647,9 @@ def build_long_mask(repeats, voices, chorale, p1 = [.5, .5], stay = 7, p2 =  [.1
 def build_long_mask_v2(repeats, voices, chorale, p1 = [.5, .5], stay = 12, p2 =  np.arange(12), variability=.5):
     """
     Build a binary mask with variable probabilities over time.
-    
+
     Similar to build_long_mask but adds variability to p1 probabilities,
     creating more varied patterns across the chorale length.
-    
-    Parameters
-    ----------
-    repeats : int
-        Base repeat count for each pattern segment.
-    voices : int
-        Number of voices.
-    chorale : np.ndarray
-        Chorale array (used to determine length).
-    p1 : list, optional
-        Base probabilities for [0, 1] choices (default: [.5, .5]).
-    stay : int, optional
-        Number of possible repeat durations (default: 7).
-    p2 : list, optional
-        Probabilities for repeat duration choices (default: [.1, .1, .2, .2, .2, .1, .1]).
-    variability : float, optional
-        Amount of variation added to p1[0] (default: 0.5).
-    
-    Returns
-    -------
-    np.ndarray
-        Shape (voices, chorale_length), binary mask (0 or 1).
     """
     p2 = p2 / np.sum(p2) # make sure p2 is normalized to sum to 1
     octave_alteration_mask = np.empty(0, dtype = int)
@@ -2477,23 +1674,10 @@ def build_long_mask_v2(repeats, voices, chorale, p1 = [.5, .5], stay = 12, p2 = 
 def add_features(voices_notes_features, guev_array):
     """
     Add glissando, upsample, envelope, and velocity features to notes.
-    
+
     NOTE: This function is deprecated, replaced by add_features_glides.
     Assigns features based on note changes and break points, varying
     features over time.
-    
-    Parameters
-    ----------
-    voices_notes_features : np.ndarray
-        Shape (voices, notes, 2), [note, octave] features.
-    guev_array : np.ndarray
-        Array containing gliss, upsample, envelope, velocity arrays and probabilities.
-    
-    Returns
-    -------
-    np.ndarray
-        Shape (6, voices, notes), stacked features:
-        [notes, octaves, gliss, upsample, envelope, velocity]
     """
     gls, gls_p, ups, ups_p, env, env_p, vel, vel_p = np.moveaxis(guev_array, 0, 0)
     # logging.debug(f'gls, gls_p, ups, ups_p, env, env_p, vel, vel_p: {[value for value in (gls, gls_p, ups, ups_p, env, env_p, vel, vel_p)]}')
@@ -2552,24 +1736,9 @@ def add_features(voices_notes_features, guev_array):
 def add_features_glides(notes_octaves, glides, guev_array):
     """
     Add upsample, envelope, and velocity features to notes with glides.
-    
+
     Similar to add_features but uses pre-computed glides array instead of
     generating glissando. Features change at note boundaries and break points.
-    
-    Parameters
-    ----------
-    notes_octaves : np.ndarray
-        Shape (voices, notes, 2), [note, octave] features.
-    glides : np.ndarray
-        Shape (voices, notes), glide function table numbers (0 if no glide).
-    guev_array : np.ndarray
-        Array containing upsample, envelope, velocity arrays and probabilities.
-    
-    Returns
-    -------
-    np.ndarray
-        Shape (6, voices, notes), stacked features:
-        [notes, octaves, glides, upsample, envelope, velocity]
     """
     gls, gls_p, ups, ups_p, env, env_p, vel, vel_p = np.moveaxis(guev_array, 0, 0)
     logging.debug(f'in add_features_glides. {notes_octaves.shape = }, {glides.shape = }, {guev_array.shape = }')
@@ -2621,25 +1790,8 @@ def add_features_glides(notes_octaves, glides, guev_array):
 def build_glides_report(chorale_in_cents_slides, glides,  stored_gliss): # chorale_in_cents_slides.shape = (4, 258, 2), glides.shape = (4, 258), stored_gliss.shape = (5, 9)
     """
     Generate a detailed report of all glides/slides in the chorale.
-    
+
     Logs glide function tables, chord positions, cent values, ratios, and statistics.
-    
-    Parameters
-    ----------
-    chorale_in_cents_slides : np.ndarray
-        Shape (voices, chords, 2), [cent_values, octaves].
-    glides : np.ndarray
-        Shape (voices, chords), glide function table numbers (0 if no glide).
-    stored_gliss : np.ndarray
-        Shape (N, 9), stored glide function table definitions.
-    
-    Returns
-    -------
-    None
-        Logs detailed report including:
-        - List of all glide function tables with ratios and cent values
-        - For each glide: chord#, voice#, start cents, glide#, ratio, slide cents, end cents
-        - Statistics: total slides, min/max glide sizes
     """
     logging.debug(f'glides report') 
     logging.debug(f'{chorale_in_cents_slides.shape = }, {glides.shape = }, {stored_gliss.shape = }')
@@ -2673,26 +1825,9 @@ def build_glides_report(chorale_in_cents_slides, glides,  stored_gliss): # chora
 def stream_to_midi_array(corpus, save_midi_file = False):
     """
     Convert a music21 corpus work to a NumPy array of MIDI information.
-    
+
     Extracts notes, timing, and key information, then converts to a 4-voice
     chorale format by distributing notes across voices based on arrival time.
-    
-    Parameters
-    ----------
-    corpus : str
-        Corpus work identifier (e.g., 'bwv244.3').
-    save_midi_file : bool, optional
-        If True, save MIDI file to disk (default: False).
-    
-    Returns
-    -------
-    tuple
-        (trimmed_chorale, root, mode, time_sig, stream)
-        - trimmed_chorale: np.ndarray, shape (voices, time_steps), MIDI notes
-        - root: int, pitch class (0-11) of the root note
-        - mode: str, 'major' or 'minor'
-        - time_sig: str, time signature (e.g., '4/4')
-        - stream: music21.stream.Stream object
     """
     stream = m21.corpus.parse(corpus) # Create the strem from the corpus
     key = stream.analyze('key')
@@ -2742,39 +1877,10 @@ def print_interval_cent_report(chorale_in_cents, chorale, top_notes, tonal_diamo
       ratio_factor, limit_denominator = 42, print_intervals = True, end_chord = 999, tolerance=1):
     """
     Print a detailed report of chord intervals and scores.
-    
+
     NOTE: This function is obsolete and should be removed.
     Prints chord information including note names, cent values, intervals,
     ratios, and chord scores.
-    
-    Parameters
-    ----------
-    chorale_in_cents : np.ndarray
-        Shape (voices, chords, 2), [cent_values, octaves].
-    chorale : np.ndarray
-        Shape (voices, chords), original MIDI notes.
-    top_notes : np.ndarray
-        Shape (2, 12), prioritized target cent values.
-    tonal_diamond : np.ndarray
-        Shape (N, 3), tonal diamond [ratio, cents, limit_score].
-    keys : np.ndarray
-        Array of 12 note names.
-    ratio_factor : float
-        Weighting factor for ratio scores.
-    limit_denominator : int, optional
-        Maximum denominator for ratio formatting (default: 42).
-    print_intervals : bool, optional
-        If True, print interval details (default: True).
-    end_chord : int, optional
-        Last chord to process (default: 999).
-    tolerance : int, optional
-        Tolerance for interval matching (default: 1).
-    
-    Returns
-    -------
-    tuple
-        (max_score_reported, sum_scores, count_scores, len(value), current_score, counts, value)
-        Various statistics about the chorale.
     """
     chord_scorer = ChordScorer(tonal_diamond) 
     max_score_reported = 0
@@ -2840,21 +1946,7 @@ def print_interval_cent_report(chorale_in_cents, chorale, top_notes, tonal_diamo
     return max_score_reported, sum_scores, count_scores, len(value), current_score, counts, value
 
 def _get_scale(root, mode):
-    """
-    Get a boolean array indicating which pitch classes are in the scale.
-    
-    Parameters
-    ----------
-    root : int
-        Root pitch class (0-11).
-    mode : str
-        'major' or 'minor'.
-    
-    Returns
-    -------
-    np.ndarray
-        Boolean array of length 12, True for scale degrees.
-    """
+    """Get a boolean array indicating which pitch classes are in the scale."""
     if mode == "major":
           c_scale = np.array([1, 0, 1, 0, 1, 1, 0, 1, 0, 1, 0, 1], bool)
     elif mode == "minor":
@@ -2864,23 +1956,7 @@ def _get_scale(root, mode):
     return np.roll(c_scale, root)
 
 def pitch_in_scale(chord, root, mode):
-    """
-    Calculate the fraction of chord notes that are in the scale.
-    
-    Parameters
-    ----------
-    chord : np.ndarray
-        Array of MIDI note numbers or pitch classes.
-    root : int
-        Root pitch class (0-11).
-    mode : str
-        'major' or 'minor'.
-    
-    Returns
-    -------
-    float
-        Fraction of notes in scale (0.0 to 1.0), or NaN if chord is empty.
-    """
+    """Calculate the fraction of chord notes that are in the scale."""
     scale = _get_scale(root, mode.lower())
     note_count = 0
     in_scale_count = 0
@@ -2893,23 +1969,7 @@ def pitch_in_scale(chord, root, mode):
     return in_scale_count / note_count
 
 def get_keysig(root, mode):
-    """
-    Get the key signature (number of sharps or flats) for a root and mode.
-    
-    Parameters
-    ----------
-    root : int
-        Root pitch class (0-11).
-    mode : str
-        'major' or 'minor'.
-    
-    Returns
-    -------
-    tuple
-        (num_accidentals, use_flats)
-        - num_accidentals: int, number of sharps or flats
-        - use_flats: int, 0 for sharps, 1 for flats
-    """
+    """Get the key signature (number of sharps or flats) for a root and mode."""
     #         ['C♮','C♯','D♮','D♯','E♮','F♮','F♯','G♮','G♯','A♮','A♯','B♮']
     major_keys = np.array([ [0,   0,   2,   0,   4,   0,   6,   1,   0,   3,   0,   5 ],  # sharps
                             [0,   5,   0,   3,   0,   1,   6,   0,   4,   0,   2,   0 ]])  # flats
@@ -2924,27 +1984,9 @@ def get_keysig(root, mode):
 def assign_chorale(version, save_midi_file = False):        #, quantization = 4):
     """
     Load a chorale from corpus and extract key information.
-    
+
     Uses music21 (not mido) to parse corpus work and extract chorale,
     root, mode, time signature, and key information.
-    
-    Parameters
-    ----------
-    version : str
-        Corpus work identifier (e.g., 'bwv244.3'). Truncated to 6 chars if longer.
-    save_midi_file : bool, optional
-        If True, save MIDI file to disk (default: False).
-    
-    Returns
-    -------
-    tuple
-        (chorale, root, mode, time_sig, stream, keys)
-        - chorale: np.ndarray, shape (voices, time_steps), MIDI notes
-        - root: int, pitch class (0-11) of the root note
-        - mode: str, 'major' or 'minor'
-        - time_sig: str, time signature (e.g., '4/4')
-        - stream: music21.stream.Stream object
-        - keys: np.ndarray, array of 12 note names (with appropriate accidentals)
     """
 # this is the new version that doesn't require mido, only music21. 
     if len(version) > 8:
@@ -2961,37 +2003,10 @@ def load_chorale_in_cents(version, numpy_dir, save_midi_file=False, save_top_not
             werck_top_notes=False, twelve_tet=False):
     """
     Load a chorale and convert it to cent values using top_notes.
-    
+
     Loads top_notes from numpy file, or initializes if not found. Converts
     MIDI chorale to cent values using top_notes (or 12-TET if twelve_tet=True).
     Expands top_notes to 12 entries if needed.
-    
-    Parameters
-    ----------
-    version : str
-        Corpus work identifier (e.g., 'bwv244.3'). Truncated to 6 chars if longer.
-    numpy_dir : str
-        Directory containing top_notes numpy files.
-    save_midi_file : bool, optional
-        If True, save MIDI file to disk (default: False).
-    save_top_notes : bool, optional
-        If True, save expanded top_notes to file (default: True).
-    werck_top_notes : bool, optional
-        If True, use Werckmeister top_notes filename format (default: False).
-    twelve_tet : bool, optional
-        If True, use 12-TET tuning (100 cents per semitone) instead of top_notes
-        (default: False).
-    
-    Returns
-    -------
-    tuple
-        (chorale_in_cents, top_notes, chorale, root, mode, keys)
-        - chorale_in_cents: np.ndarray, shape (voices, chords), cent values
-        - top_notes: np.ndarray, shape (2, 12), [pitch_classes, cent_values]
-        - chorale: np.ndarray, shape (voices, chords), MIDI notes
-        - root: int, pitch class (0-11) of the root note
-        - mode: str, 'major' or 'minor'
-        - keys: np.ndarray, array of 12 note names
     """
     chorale, root, mode, time_sig, s, keys = assign_chorale(version, save_midi_file = save_midi_file)
     if len(version) > 8:
@@ -3030,23 +2045,7 @@ def load_chorale_in_cents(version, numpy_dir, save_midi_file=False, save_top_not
 
 # if you only want the delta
 def cent_delta(a, b, max_value=1200):
-    """
-    Calculate the absolute interval between two cent values with wrapping.
-    
-    Parameters
-    ----------
-    a : float
-        First cent value.
-    b : float
-        Second cent value.
-    max_value : int, optional
-        Maximum value for wrapping (default: 1200).
-    
-    Returns
-    -------
-    int
-        Absolute interval size in cents (wrapped).
-    """
+    """Calculate the absolute interval between two cent values with wrapping."""
     delta, _, _ = cent_value_interval((a, b), max_value=max_value)
     return delta
 # retrieve a list of valid indices to tonal_diamond from which to choose the best interval. 
@@ -3058,14 +2057,7 @@ class LowNumberRatioIntervals():
     then sorts by consonance (limit score). Uses caching for performance.
     """
     def __init__(self, tonal_diamond):
-        """
-        Initialize with a tonal diamond.
-        
-        Parameters
-        ----------
-        tonal_diamond : np.ndarray
-            Shape (N, 3), tonal diamond [ratio, cents, limit_score].
-        """      
+        """Initialize with a tonal diamond."""
         self.tonal_diamond = tonal_diamond
         self.cache = {}  
         self.hits = 0
@@ -3079,33 +2071,7 @@ class LowNumberRatioIntervals():
         1. Strict pitch class filter: interval must map to target pitch class
         2. Cent delta filter: target cent must be within max_delta of previous chord
         3. Sort by combined key: limit_score * ratio_factor + abs(ratio_cents - interval_cents) * (1/ratio_factor)
-           + delta_from_prev * stability_factor  (when prev chord is available)
-
-        Parameters
-        ----------
-        interval : array-like
-            Array of [cent1, cent2] values.
-        cent_value_target_prev : array-like or None
-            Previous chord cent values for same pitch class, or None.
-        tolerance : int
-            Search tolerance for finding initial ratio index.
-        max_delta : int, optional
-            Maximum cent difference from previous chord (default: 33).
-        ratio_factor : float, optional
-            Controls the consonance/stability trade-off (default: 1.0).
-            Higher values favour consonant (low-limit) ratios over staying near the
-            current interval. dist_factor is computed internally as 1/ratio_factor.
-        stability_factor : float, optional
-            Weight applied to the cent distance from the previous chord in the sort key
-            (default: 0.0). Positive values bias selection toward pitch-class cent values
-            that are close to the previous chord, reducing cumulative drift.
-
-        Returns
-        -------
-        tuple
-            (sorted_indices, cent_value_moves)
-            - sorted_indices: np.ndarray, valid ratio indices sorted by combined key
-            - cent_value_moves: int, direction (-1 or 1) for interval application
+        + delta_from_prev * stability_factor  (when prev chord is available)
         """
         # midi_note = np.zeros(2, dtype=int)
         num_ratios = 20 // 2 # changed from 30 to 20 12/11/25 this is to limit the number of ratios returned. This will return 20 ratios - made this increase from 15 to 30 on 12/1/25 to deal with the fact that we are returning fewer intervals because we are checking if the interval cent target is more than max_delta from the previous chord cent for the same pitch class as the target pitch class. 
@@ -3195,29 +2161,6 @@ class LowNumberRatioIntervals():
 
         Wrapper around _select_ratios that caches results based on interval,
         previous chord, tolerance, max_delta, ratio_factor, and stability_factor.
-
-        Parameters
-        ----------
-        interval : array-like
-            Array of [cent1, cent2] values.
-        cent_value_target_prev : array-like or None
-            Previous chord cent values for same pitch class, or None.
-        tolerance : int
-            Search tolerance for finding initial ratio index.
-        max_delta : int, optional
-            Maximum cent difference from previous chord (default: 33).
-        ratio_factor : float, optional
-            Controls consonance/stability trade-off (default: 1.0).
-        stability_factor : float, optional
-            Weight applied to the cent distance from the previous chord in the sort
-            key (default: 0.0). See _select_ratios for details.
-
-        Returns
-        -------
-        tuple
-            (sorted_indices, cent_value_moves)
-            - sorted_indices: np.ndarray, valid ratio indices sorted by combined key
-            - cent_value_moves: int, direction (-1 or 1) for interval application
         """
         interval_key = tuple(int(x) for x in np.asarray(interval, dtype=int))
         if cent_value_target_prev is None:
@@ -3239,26 +2182,11 @@ class LowNumberRatioIntervals():
                 return result
       
     def reset_cache(self):
-        """
-        Clear the cache.
-        
-        Returns
-        -------
-        None
-        """
+        """Clear the cache."""
         self.cache = {}
             
     def return_cache_results(self):
-        """
-        Get cache statistics.
-        
-        Returns
-        -------
-        tuple
-            (hits, misses)
-            - hits: int, number of cache hits
-            - misses: int, number of cache misses
-        """
+        """Get cache statistics."""
         return self.hits, self.misses
 
 class ChordScorer():
@@ -3269,14 +2197,7 @@ class ChordScorer():
     their limit scores from the tonal diamond. Uses caching for performance.
     """
     def __init__(self, tonal_diamond):
-        """
-        Initialize with a tonal diamond.
-        
-        Parameters
-        ----------
-        tonal_diamond : np.ndarray
-            Shape (N, 3), tonal diamond [ratio, cents, limit_score].
-        """
+        """Initialize with a tonal diamond."""
         self.tonal_diamond = tonal_diamond
         self.cache = {}
         self.hits = 0
@@ -3289,22 +2210,8 @@ class ChordScorer():
     def find_best_interval(self, distance, tolerance):
         """
         Find the best matching interval in the tonal diamond.
-        
+
         Searches for the interval closest to the given distance within tolerance.
-        
-        Parameters
-        ----------
-        distance : float
-            Interval distance in cents (absolute value is used).
-        tolerance : int
-            Maximum allowed difference from distance.
-        
-        Returns
-        -------
-        tuple
-            (best_idx, found)
-            - best_idx: int, index into tonal_diamond of closest match
-            - found: bool, True if match is within tolerance, False otherwise
         """
         distance = abs(distance)
 
@@ -3328,24 +2235,9 @@ class ChordScorer():
     def _score_chord(self, cent_values_chord, tolerance=1, method=combinations):
         """
         Score a chord by summing interval limit scores.
-        
+
         Calculates all intervals between note pairs and sums their limit scores.
         Adds penalty (1000) for intervals not found in tonal diamond.
-        
-        Parameters
-        ----------
-        cent_values_chord : np.ndarray
-            Array of cent values for the chord.
-        tolerance : int, optional
-            Tolerance for interval matching (default: 1).
-        method : callable, optional
-            Function to generate note pairs (default: combinations).
-            Should be combinations or permutations.
-        
-        Returns
-        -------
-        float
-            Chord score (sum of interval limit scores, rounded to 1 decimal).
         """
         score = 0
         for notes in method(cent_values_chord, 2):  # this used to be combinations(cent_values_chord, 2):
@@ -3367,23 +2259,9 @@ class ChordScorer():
     def score_chord(self, cent_values_chord, tolerance=1, method=combinations):
         """
         Score a chord with caching.
-        
+
         Wrapper around _score_chord that caches results based on chord values,
         tolerance, and method.
-        
-        Parameters
-        ----------
-        cent_values_chord : np.ndarray
-            Array of cent values for the chord.
-        tolerance : int, optional
-            Tolerance for interval matching (default: 1).
-        method : callable, optional
-            Function to generate note pairs (default: combinations).
-        
-        Returns
-        -------
-        float
-            Chord score (sum of interval limit scores, rounded to 1 decimal).
         """
         key = tuple(cent_values_chord)
         # logging.info(f'In score_chord function. {tolerance = }, {cent_values_chord = }')
@@ -3398,26 +2276,11 @@ class ChordScorer():
                 return result
             
     def reset_cache(self):
-        """
-        Clear the cache.
-        
-        Returns
-        -------
-        None
-        """
+        """Clear the cache."""
         self.cache = {}
       
     def return_cache_results(self):
-        """
-        Get cache statistics.
-        
-        Returns
-        -------
-        tuple
-            (hits, misses)
-            - hits: int, number of cache hits
-            - misses: int, number of cache misses
-        """
+        """Get cache statistics."""
         return self.hits, self.misses
             
       
@@ -3425,23 +2288,9 @@ class ChordScorer():
 def score_chord_cents_v2(chord_1200, tonal_diamond, tolerance = 1):
     """
     Score a chord by summing interval limit scores.
-    
+
     NOTE: This function is obsolete. Use ChordScorer class instead.
     Calculates all intervals between note pairs and sums their limit scores.
-    
-    Parameters
-    ----------
-    chord_1200 : np.ndarray
-        Array of cent values for the chord.
-    tonal_diamond : np.ndarray
-        Shape (N, 3), tonal diamond [ratio, cents, limit_score].
-    tolerance : int, optional
-        Tolerance for interval matching (default: 1).
-    
-    Returns
-    -------
-    float
-        Chord score (sum of interval limit scores, rounded to 1 decimal).
     """
     score = 0
     logging.debug(f'{tonal_diamond.shape = }')
@@ -3489,39 +2338,8 @@ def print_simple_report(best_results, best_scores, keys, chord_scorer, tonal_dia
       print_to_output=0, worse_count=30, tolerance = 0):
     """
     Print a simplified report of chord scores.
-    
+
     Prints chord information and lists the worst-scoring chords.
-    
-    Parameters
-    ----------
-    best_results : np.ndarray
-        Shape (chords, 4), cent values for each chord.
-    best_scores : np.ndarray
-        Array of scores for each chord.
-    keys : np.ndarray
-        Array of 12 note names.
-    chord_scorer : ChordScorer
-        ChordScorer instance for scoring.
-    tonal_diamond : np.ndarray
-        Shape (N, 3), tonal diamond (for reference).
-    print_intervals : bool, optional
-        If True, print interval details (default: True).
-    print_to_output : int, optional
-        Number of chords to print in detail (default: 0).
-    worse_count : int, optional
-        Number of worst chords to list (default: 30).
-    tolerance : int, optional
-        Tolerance for scoring (default: 0).
-    
-    Returns
-    -------
-    tuple
-        (score_results, total_score, chord_num, max_measured_score, max_measured_chord)
-        - score_results: list of (score, chord_index) tuples
-        - total_score: float, sum of all chord scores
-        - chord_num: int, number of unique chords
-        - max_measured_score: float, highest score found
-        - max_measured_chord: int, chord index with highest score
     """
       
     prev_chord = np.zeros(4, dtype=int)
@@ -3579,24 +2397,9 @@ def print_simple_report(best_results, best_scores, keys, chord_scorer, tonal_dia
 def compress_chorale(chorale, chorale_in_cents):
     """
     Compress chorale and chorale_in_cents to unique rows.
-    
+
     Finds unique chord patterns and creates mapping to restore original order.
     Useful for parallel processing of unique chords only.
-    
-    Parameters
-    ----------
-    chorale : np.ndarray
-        Shape (N, 4), integer array of chorale rows (MIDI notes).
-    chorale_in_cents : np.ndarray
-        Shape (N, 4), parallel array aligned with chorale (cent values).
-    
-    Returns
-    -------
-    tuple
-        (unique_chorale, unique_cents, inverse)
-        - unique_chorale: np.ndarray, shape (M, 4), unique rows in order of first appearance
-        - unique_cents: np.ndarray, shape (M, 4), corresponding cent values
-        - inverse: np.ndarray, shape (N,), mapping to reconstruct original arrays
     """
     """
     Compress chorale and chorale_in_cents to unique rows,
@@ -3636,23 +2439,9 @@ def compress_chorale(chorale, chorale_in_cents):
 def decompress_chorale(unique_cents, inverse, tolerance=1):
     """
     Restore chorale_in_cents to its original shape from compressed form.
-    
+
     Reconstructs the full chorale_in_cents array using processed unique chords
     and the inverse mapping.
-    
-    Parameters
-    ----------
-    unique_cents : np.ndarray
-        Shape (M, 4), processed unique chorale_in_cents rows.
-    inverse : np.ndarray
-        Shape (N,), mapping back to the original order.
-    tolerance : int, optional
-        Tolerance parameter (unused, kept for compatibility) (default: 1).
-    
-    Returns
-    -------
-    np.ndarray
-        Shape (N, 4), restored chorale_in_cents array.
     """
     cents_restored = unique_cents[inverse]
     

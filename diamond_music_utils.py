@@ -894,6 +894,7 @@ def build_density_function(y: np.ndarray, points: int) -> np.ndarray:
 
 def format_seconds_to_minutes(sec: float, n_msec: int = 3) -> str:
     """Convert seconds to MM:SS.FFF (or with days); n_msec controls decimal places."""
+    # ponytail: stdlib datetime.timedelta could replace this, but caller slices [3:8] on the result and depends on the leading "00:" padding
     # Convert seconds to D days, HH:MM:SS.FFF
       # if hasattr(sec,'__len__'): return [sec2time(s) for s in sec]
       # logging.debug(f'in format_seconds_to_minutes. {sec = }, {n_msec = }')

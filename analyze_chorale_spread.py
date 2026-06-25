@@ -23,25 +23,13 @@ import adaptive_tuning_util as atu
 def compute_spread_score(cent_value_chorale, chorale):
     """
     Compute spread score using circular MAD (Mean Absolute Deviation).
-    
+
     Returns the MAXIMUM circular MAD across all pitch classes — the single most
     inconsistently-tuned note name in the piece. One unstable pitch class is
     enough to make a chorale sound wrong, so the worst offender drives the score
     rather than an average that lets bad notes hide in the crowd.
-    
+
     This is the same calculation used in select_best_and_render.py.
-    
-    Parameters
-    ----------
-    cent_value_chorale : np.ndarray, shape (4, N)
-        Tuned cent values for each voice and chord
-    chorale : np.ndarray, shape (4, N)
-        Original MIDI note values
-        
-    Returns
-    -------
-    float
-        Maximum MAD across all pitch classes (in cents)
     """
     pitch_class_counts = Counter((chorale % 12).flatten().tolist())
     pc_cents = defaultdict(list)
@@ -63,31 +51,7 @@ def compute_spread_score(cent_value_chorale, chorale):
 
 def analyze_chorale_spread(numpy_dir, version, suffix, show_details=True,
                           *, tolerance, ratio_factor=1.5, limit_max=19):
-    """
-    Analyze the spread (MAD) for each pitch class in a tuned chorale.
-    
-    Parameters
-    ----------
-    numpy_dir : str
-        Directory containing the tuned numpy files
-    version : str
-        Chorale name (e.g., 'bwv253')
-    suffix : str
-        File suffix (e.g., '-trans-sa-opt.npy')
-    show_details : bool
-        If True, print per-pitch-class MAD values (default: True)
-    tolerance : int
-        Tolerance value used for tuning (default: 1)
-    ratio_factor : float
-        Ratio factor used for tuning (default: 1.5)
-    limit_max : int
-        Maximum limit for tonal diamond (default: 19)
-        
-    Returns
-    -------
-    dict or None
-        Dictionary with analysis results, or None if error
-    """
+    """Analyze the spread (MAD) for each pitch class in a tuned chorale."""
     input_file = os.path.join(numpy_dir, f'{version}{suffix}')
     try:
         cent_value_chorale = np.load(input_file)
@@ -179,29 +143,7 @@ def analyze_chorale_spread(numpy_dir, version, suffix, show_details=True,
 
 def analyze_all_chorales(numpy_dir, suffix='-trans-sa-opt.npy', show_details=False,
                          *, tolerance, ratio_factor=1.5, limit_max=19):
-    """
-    Analyze spread (MAD) for all chorales (bwv253-264) and display formatted report.
-    
-    Parameters
-    ----------
-    numpy_dir : str
-        Directory containing the tuned numpy files
-    suffix : str
-        File suffix (default: '-trans-sa-opt.npy')
-    show_details : bool
-        If True, show per-pitch-class details for each chorale (default: False)
-    tolerance : int
-        Tolerance value used for tuning (default: 1)
-    ratio_factor : float
-        Ratio factor used for tuning (default: 1.5)
-    limit_max : int
-        Maximum limit for tonal diamond (default: 19)
-        
-    Returns
-    -------
-    list of dict
-        Analysis results for each chorale
-    """
+    """Analyze spread (MAD) for all chorales (bwv253-264) and display formatted report."""
     print("\n" + "="*100)
     print("CHORALE ANALYSIS - MAD Spread and Scores")
     print("="*100)

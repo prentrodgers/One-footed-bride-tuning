@@ -79,54 +79,6 @@ def generate_k_candidates(cent_value_chord, cent_value_chord_prev, chord_num,
 
     Uses different random seeds and temperature variations to explore
     the solution space and generate diverse high-quality candidates.
-
-    Parameters
-    ----------
-    cent_value_chord : np.ndarray
-        Initial cent values for the chord (4 notes).
-    cent_value_chord_prev : np.ndarray
-        Cent values from the previous chord (for context).
-    chord_num : int
-        Chord index in the chorale.
-    chord_scorer : atu.ChordScorer
-        Scorer object for evaluating chord quality.
-    low_number_ratios : atu.LowNumberRatioIntervals
-        Ratio selector object.
-    tonal_diamond : np.ndarray
-        Tonal diamond array [ratio, cents, limit_score].
-    tolerance : int, optional
-        Cent tolerance for ratio matching (default: 1).
-    K : int, optional
-        Number of candidates to generate (default: 10).
-    rolls : int, optional
-        Number of rolls per SA run (default: 4).
-    sa_iterations : int, optional
-        SA iterations per roll (default: 100).
-    initial_temperature : float, optional
-        Starting SA temperature (default: 2.0).
-    cooling_rate : float, optional
-        Temperature decay rate (default: 0.995).
-    ratio_factor : float, optional
-        Consonance/stability trade-off (default: 1.0).
-    stability_factor : float, optional
-        Weight for previous chord proximity (default: 0.0).
-    spread : int, optional
-        Gaussian noise std dev in cents (default: 7).
-    rng : np.random.Generator, optional
-        Random number generator (default: None, creates new one).
-    build_chord_sa_func : callable, optional
-        SA chord building function (default: None, must be provided).
-    candidate_max_no_improve : int or None, optional
-        Max iterations without improvement before early-stopping each SA
-        candidate run.  None uses the SA default (max_iterations / 10).
-        Set higher (e.g. sa_iterations // 3) to keep the SA exploring
-        longer per candidate, which improves diversity at the cost of speed.
-
-    Returns
-    -------
-    list of tuples
-        List of (cent_values, score) tuples, sorted by score (best first).
-        Length is min(K, actual_unique_candidates).
     """
     if rng is None:
         rng = np.random.default_rng()
@@ -177,11 +129,6 @@ def generate_k_candidates(cent_value_chord, cent_value_chord_prev, chord_num,
                 f'(scores: {[f"{s:.1f}" for _, s in candidates[:5]]}...)')
     
     return candidates[:K]
-
-
-def _make_pc_accum():
-    """Return a zeroed (12, 3) array: [sum_sin, sum_cos, count] per pitch class."""
-    return np.zeros((12, 3), dtype=float)
 
 
 def _update_pc_accum(accum, cents_array, octave=1200.0):
@@ -257,26 +204,8 @@ def compute_transition_cost(prev_cents, curr_cents, prev_midi, curr_midi,
                            penalty_type='pitch_class_jump'):
     """
     Compute horizontal penalty for transitioning between two chords.
-    
+
     Penalizes pitch-class jumps for shared notes between adjacent chords.
-    
-    Parameters
-    ----------
-    prev_cents : np.ndarray
-        Cent values of previous chord (4 notes).
-    curr_cents : np.ndarray
-        Cent values of current chord (4 notes).
-    prev_midi : np.ndarray
-        MIDI notes of previous chord (4 notes).
-    curr_midi : np.ndarray
-        MIDI notes of current chord (4 notes).
-    penalty_type : str, optional
-        Type of penalty: 'pitch_class_jump' (default), 'voice_leading', or 'combined'.
-    
-    Returns
-    -------
-    float
-        Horizontal transition cost (lower is better).
     """
     prev_pcs = atu.pitch_class_from_cents(prev_cents)
     curr_pcs = atu.pitch_class_from_cents(curr_cents)
@@ -330,40 +259,6 @@ def viterbi_select_path(all_candidates, chorale_midi, vertical_weight=1.0,
     how far its notes deviate from the running circular mean for their pitch
     class — catching global tuning drift that the adjacent-only horizontal cost
     cannot see.
-
-    Parameters
-    ----------
-    all_candidates : list of lists
-        all_candidates[i] contains K candidates for chord i, each as
-        (cent_values, vertical_score) tuple.
-    chorale_midi : np.ndarray
-        Shape (4, N), original MIDI notes for the chorale.
-    vertical_weight : float, optional
-        Weight for chord quality scores (default: 1.0).
-    horizontal_weight : float, optional
-        Weight for adjacent-chord transition costs (default: 0.5).
-    penalty_type : str, optional
-        Type of horizontal penalty (default: 'pitch_class_jump').
-    mad_weight : float, optional
-        Weight for global pitch-class MAD consistency cost (default: 0.0).
-        Set > 0 to penalise candidates that deviate from the running
-        circular mean for their pitch class.
-    verbose : bool, optional
-        Print a per-chord report after path selection (default: False).
-        For each chord shows: chosen candidate index, its chord score, the
-        best available chord score, and whether a worse-scoring candidate
-        was chosen (meaning spread/horizontal cost drove the decision).
-    verbose_threshold : float or None, optional
-        When verbose=True, only print chords whose chosen score exceeds
-        this value.  None prints every chord (default: None).
-
-    Returns
-    -------
-    tuple
-        (selected_tunings, path, total_cost)
-        - selected_tunings: np.ndarray, shape (N, 4), selected cent values
-        - path: list of int, indices of selected candidates for each chord
-        - total_cost: float, total cost of the selected path
     """
     n_chords = len(all_candidates)
     if n_chords == 0:
@@ -378,7 +273,7 @@ def viterbi_select_path(all_candidates, chorale_midi, vertical_weight=1.0,
     for k in range(len(all_candidates[0])):
         cent_vals, v_score = all_candidates[0][k]
         # Try transposition even at chord 0 (no prior history → no-op, but safe)
-        accum = _update_pc_accum(_make_pc_accum(), cent_vals)
+        accum = _update_pc_accum(np.zeros((12, 3), dtype=float), cent_vals)
         dp[0][k] = (vertical_weight * v_score, -1, accum, cent_vals)
 
     # Fill DP table left to right
@@ -494,63 +389,10 @@ def hierarchical_viterbi_optimization(chorale, cent_value_chorale,
                                      build_chord_sa_func=None):
     """
     Apply Viterbi optimization hierarchically at phrase and piece levels.
-    
+
     Optimizes in two stages:
     1. Phrase level: Strong horizontal constraints within musical phrases
     2. Piece level: Weaker constraints for global smoothing
-    
-    Parameters
-    ----------
-    chorale : np.ndarray
-        Shape (4, N), original MIDI notes.
-    cent_value_chorale : np.ndarray
-        Shape (4, N), initial cent values (e.g., 12-TET).
-    chord_scorer : atu.ChordScorer
-        Scorer for chord quality.
-    low_number_ratios : atu.LowNumberRatioIntervals
-        Ratio selector.
-    tonal_diamond : np.ndarray
-        Tonal diamond array.
-    tolerance : int, optional
-        Cent tolerance (default: 1).
-    K : int, optional
-        Candidates per chord (default: 10).
-    rolls : int, optional
-        SA rolls (default: 4).
-    sa_iterations : int, optional
-        SA iterations (default: 100).
-    initial_temperature : float, optional
-        SA temperature (default: 2.0).
-    cooling_rate : float, optional
-        SA cooling (default: 0.995).
-    ratio_factor : float, optional
-        Consonance weight (default: 1.0).
-    stability_factor : float, optional
-        Previous chord weight (default: 0.0).
-    spread : int, optional
-        Noise std dev (default: 7).
-    rng : np.random.Generator, optional
-        RNG (default: None).
-    phrase_boundaries : list of tuples, optional
-        List of (start, end) indices for phrases (default: None, treat as one phrase).
-    vertical_weight_phrase : float, optional
-        Vertical weight for phrase-level optimization (default: 1.0).
-    horizontal_weight_phrase : float, optional
-        Horizontal weight for phrase-level optimization (default: 1.0).
-    vertical_weight_piece : float, optional
-        Vertical weight for piece-level optimization (default: 1.0).
-    horizontal_weight_piece : float, optional
-        Horizontal weight for piece-level optimization (default: 0.3).
-    build_chord_sa_func : callable, optional
-        SA chord building function (required).
-    
-    Returns
-    -------
-    tuple
-        (final_tuning, phrase_paths, piece_path)
-        - final_tuning: np.ndarray, shape (N, 4), optimized cent values
-        - phrase_paths: list of lists, candidate paths for each phrase
-        - piece_path: list of int, final path through piece-level candidates
     """
     if rng is None:
         rng = np.random.default_rng()
@@ -656,22 +498,7 @@ def hierarchical_viterbi_optimization(chorale, cent_value_chorale,
 
 
 def detect_phrase_boundaries(chorale, fermata_threshold=2):
-    """
-    Detect phrase boundaries in a chorale based on repeated chords (fermatas).
-    
-    Parameters
-    ----------
-    chorale : np.ndarray
-        Shape (4, N), MIDI notes.
-    fermata_threshold : int, optional
-        Minimum number of consecutive identical chords to mark a phrase boundary
-        (default: 2).
-    
-    Returns
-    -------
-    list of tuples
-        List of (start, end) indices for each phrase.
-    """
+    """Detect phrase boundaries in a chorale based on repeated chords (fermatas)."""
     n_chords = chorale.shape[1]
     boundaries = []
     phrase_start = 0

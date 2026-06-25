@@ -13,7 +13,6 @@ for d in [local_dir]: # , parent_dir, diamond_music_dir might also be required
         sys.path.insert(0, d)
 
 import matplotlib.pyplot as plt
-from argon2 import Parameters
 from datetime import datetime
 from fractions import Fraction
 # from importlib import reload
@@ -32,10 +31,6 @@ user = '~'
 base_dir = os.path.join(user, 'One-footed-bride-tuning') 
 WAVE_DIR = os.path.join(user, 'Music', 'sflib')
 os.makedirs(os.path.expanduser(WAVE_DIR), exist_ok=True)
-from datetime import datetime
-import numpy as np
-import adaptive_tuning_util as atu
-import diamond_music_utils as dmu 
 rng = np.random.default_rng()
 
 def parse_params_from_filename(filename):
@@ -100,41 +95,6 @@ FP_DENSITY_MAPS = [
 # keep track of all the voice features, and where they are in time
 voice_time = atu.init_voice_time()
 # pp.pprint(voice_time, sort_dicts=False)
-
-# This function and the pitch_in_scale function were copied from the muspy library source code
-def _get_scale(root, mode):
-      if mode == "major":
-            c_scale = np.array([1, 0, 1, 0, 1, 1, 0, 1, 0, 1, 0, 1], bool)
-      elif mode == "minor":
-            c_scale = np.array([1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1, 0], bool)
-      else:
-            raise ValueError("`mode` must be either 'major' or 'minor'.")
-      return np.roll(c_scale, root)
-
-def pitch_in_scale(chord, root, mode):
-      scale = _get_scale(root, mode.lower())
-      note_count = 0
-      in_scale_count = 0
-      for note in chord:
-            note_count += 1
-            if scale[note % 12]:
-                  in_scale_count += 1
-      if note_count < 1:
-            return math.nan
-      return in_scale_count / note_count
-
-def get_keysig(root, mode):
-      #             ['C♮','C♯','D♮','D♯','E♮','F♮','F♯','G♮','G♯','A♮','A♯','B♮']
-      major_keys = np.array([[0,   0,   2,   0,   4,   0,   6,   1,   0,   3,   0,   5 ],  # sharps
-                  [0,   5,   0,   3,   0,   1,   6,   0,   4,   0,   2,   0 ]])  # flats
-      minor_keys = np.array([[0,   4,   0,   6,   1,   0,   3,   0,   5,   0,   0,   2 ],  # sharps
-                  [3,   0,   1,   6,   0,   4,   0,   2,   0,   0,   5,   0 ]])  # flats
-      if mode == 'major':
-            accidentals = np.array([major_keys[0][root],major_keys[1][root]])
-      elif mode == 'minor':
-            accidentals = np.array([minor_keys[0][root],minor_keys[1][root]])
-      return np.max(accidentals), np.argmax(accidentals) # how many sharps or flats, flats set to true if it should be flats instead of sharps
-
 
 # This will display the stacked bar of sections volume levels across all the time sgments
 def display_volumes(volume_function, include_sections, save_path: str | None = None, version: str | None = None, dpi: int = 150):
@@ -410,48 +370,6 @@ def arpeggio_mask_variable_runs(
     `sparsity_min` to `sparsity_max` in `num_cycles` full swing over the
     entire chorale.  Instruments can start at arbitrary points in the
     cycle by passing a `phase_offset`.
-
-    Parameters
-    ----------
-    chords : np.ndarray
-        Shape (voices, time_steps).  Only the shape matters.
-    min_run, max_run : int
-        Minimum/maximum run length for a single pattern segment.
-    seed : int | None
-        Seed for the RNG; pass a different value for each instrument to
-        get different starting phases.
-    verbose : bool
-        When True the final mask is printed.
-    sparsity_min, sparsity_max : float
-        Bounds on how many 1-entries will be removed per run
-        (0-→-all ones, 1-→-all zeros).
-    num_cycles : int
-        Full [min-→-max] oscillations over the entire rhythm.
-    phase_offset : float | None
-        Fraction (0-→-1) of the cycle that the first run should
-        start at.  If None, a random offset is drawn for this call.
-
-    mutation_factor : float
-        Probability (0.0-1.0) that a voice's pattern will be flipped
-        between runs (default 0.05). Replaces the previous hard-coded
-        0.2 mutation probability.
-
-    base_waveform : str
-        One of ['sine', 'triangle', 'sawtooth_rise', 'sawtooth_fall', 'pulse']
-        Selects the waveform controlling sparsity variation across time.
-        'sine' replicates the original behavior; sawtooth gives a linear
-        ramp per cycle (useful for quick drop/rise behavior).
-    invert_waveform : bool
-        If True, invert the waveform (flip low/high), useful for making
-        density increase instead of decrease.
-    duty : float
-        Pulse duty cycle (fraction 0..1) used when `base_waveform` is
-        'pulse'/'square'. Defaults to 0.5 (50% on).
-
-    Returns
-    -------
-    np.ndarray
-        Binary mask of shape (voices, time_steps).
     """
     rng = np.random.default_rng(seed)
     random.seed(seed)
@@ -1025,26 +943,10 @@ def bwv846_mask_patterned(
     with optional random inversion and optional 12-step block extensions.
 
     Guarantees:
-      • Always returns an array of shape (8, N)
-      • No early None returns
-      • No broadcasting errors
-      • No short final blocks
-
-    Parameters
-    ----------
-    chorale_pc : np.ndarray
-        Shape (8, N). Pitch classes for 8 voices (SATBSATB).
-    swap_ones_for_zeros : float
-        Probability of inverting either columns 0–3 or 4–7 in a block.
-    extend_set : float
-        Probability of extending an 8-step block into a 12-step block.
-    rng : np.random.Generator or None
-        Optional RNG for reproducibility.
-
-    Returns
-    -------
-    mask : np.ndarray
-        Shape (8, N). Binary mask.
+    • Always returns an array of shape (8, N)
+    • No early None returns
+    • No broadcasting errors
+    • No short final blocks
     """
 
     if rng is None:
@@ -1593,7 +1495,7 @@ def set_probabilities(mask):        # (repeats, quantization): # we no longer us
 # end set_probabilities
 
 
-def generate_random_volumes_v2(time_slots = 8, max_value=25, sections = 8, max_section_sum = 70, max_voice_value = 10, min_time_slot_sum = 10, sparse_mode = False):
+def generate_random_volumes(time_slots = 8, max_value=25, sections = 8, max_section_sum = 70, max_voice_value = 10, min_time_slot_sum = 10, sparse_mode = False):
       # time_slots: The piece has several equal length time slots. The more slots, the smaller each is
       # max_value: 12. one more than the max random value assigned at the initialization. Final result is clipped to this 
       # max_voice_value: 6. If the sum of wood and bras sections exceed this, set bows to zero. If less than this, let the bowed value stay as set at the initialization. 
@@ -1898,7 +1800,7 @@ def expand_chorale(repeats, chorale_in_cents_slides, glides, stored_gliss, voice
         max_value = 11 # how loud can each instrument go
         logging.info(f'{time_slots = }, {_prime_count = }, {_total_expanded = }, {repeats.shape = }, {repeats_average = }')
         _sparse_range = {0: (2, 3), 1: (3, 4), 2: (4, 5)}.get(density_level, False)
-        volume_function = generate_random_volumes_v2(time_slots=time_slots, sparse_mode=_sparse_range)
+        volume_function = generate_random_volumes(time_slots=time_slots, sparse_mode=_sparse_range)
         logging.info(f'{volume_function.shape = }')
         logging.info(f'sums of each time_slot: ')
         total_sums = 0
