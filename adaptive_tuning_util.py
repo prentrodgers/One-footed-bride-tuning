@@ -1902,7 +1902,7 @@ def print_interval_cent_report(chorale_in_cents, chorale, top_notes, tonal_diamo
         # convert the cent value back into the original MIDI scale degree 0-12
         chord_12 = np.array([note % 12 for note in midi_12])
         if not np.array_equal(chord_12, previous_chord_12):
-                current_score[chord_num] = chord_scorer.score_chord(chord_1200, tolerance) 
+                current_score[chord_num] = chord_scorer.score_chord(chord_1200, tolerance=tolerance)
                 if current_score[chord_num] > max_score_reported:
                     max_score_reported = current_score[chord_num]
                     max_score_chord_num = chord_num
@@ -2263,7 +2263,7 @@ class ChordScorer():
         Wrapper around _score_chord that caches results based on chord values,
         tolerance, and method.
         """
-        key = tuple(cent_values_chord)
+        key = (tuple(cent_values_chord), tolerance, method)
         # logging.info(f'In score_chord function. {tolerance = }, {cent_values_chord = }')
         if key in self.cache:
                 self.hits += 1
