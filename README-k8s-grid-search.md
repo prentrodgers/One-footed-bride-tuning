@@ -156,3 +156,39 @@ All jobs share the same PVC (`dropbox-pvc`). Ensure:
 - Jobs can run on different nodes thanks to shared storage
 - The aggregation job must run AFTER all 20 jobs complete
 - Failed jobs can be retried independently without affecting others
+
+## How jobs decide whether to keep or replace existing numpy arrays
+
+Each job runs three steps. The keep/discard logic differs by step.
+
+### Step 1 — `Straw_man_tuning_v2.py` produces `{version}-opt.npy`
+
+Before saving, the script calls `load_and_merge_previous()` (defined at line 313 of
+`Straw_man_tuning_v2.py`). It loads the existing `.npy` file (if present), rescores both
+the old and new result using a combined metric:
+
+```
+combined = mean_score + spread_weight * weighted_spread
+```
+
+`spread_weight` defaults to **0.5** and is not overridden in the job YAML, so both score
+and pitch-class spread matter equally. Whichever result has the lower combined value is
+what gets written to disk. If the old file was better, its data is written back unchanged.
+
+### Step 2 — `horizontal_transpose.py` produces `{version}-trans-sa-opt.npy`
+
+This step always overwrites unconditionally (`np.save(dest, adjusted)` at line 261 of
+`horizontal_transpose.py`). There is no comparison with a previous file. This is safe
+because it merely re-derives a horizontal-consistency pass from the `-opt.npy` that won
+in Step 1, so the `-trans-sa-opt.npy` always reflects the current best tuning.
+
+### Step 3 — `analyze_spread.py`
+
+Read-only analysis; writes no `.npy` files.
+
+### Bottom line
+
+The selection is fully handled inside each job. You do **not** need to run
+`select_best_and_render.py` to protect against regression — that already happened.
+`select_best_and_render.py` is for ranking the 24 parameter combinations against each
+other after all jobs finish, not for guarding individual files.

@@ -10,7 +10,7 @@
 # <p>The outcome of this process is a chord that can be transposed to improve on horizontal consistency, that is choose a transposition that keeps cent values of pitch classes of adjacent chords in place, if possible. If it's not possible, then I build a glissando in csound to hide the change, to a certain degree. In this way we hear ideal intervals for every chord, at the expense of some effort of some voices to move from one cent value to another for the same pitch class, to optimize the current chord.</p>
 #
 
-import argparse, logging, os, sys, time
+import argparse, datetime, logging, os, sys, time
 import multiprocessing
 import numpy as np
 from math import exp
@@ -319,7 +319,7 @@ def load_and_merge_previous(output_file, best_cents, best_scores, chord_scorer, 
     breaks the adjacency continuity each run carefully builds.
     """
     if not os.path.exists(output_file):
-        return best_cents, best_scores
+        return best_cents, best_scores, True
 
     prev = np.load(output_file)          # shape (4, N)
     prev_chords = (prev.T) % 1200        # shape (N, 4)
@@ -337,7 +337,7 @@ def load_and_merge_previous(output_file, best_cents, best_scores, chord_scorer, 
                   f" (combined {prev_combined:.2f} vs {curr_combined:.2f};"
                   f" score {np.mean(prev_scores):.1f} vs {np.mean(best_scores):.1f};"
                   f" spread {prev_spread:.1f} vs {curr_spread:.1f}¢)")
-            return prev_chords, prev_scores
+            return prev_chords, prev_scores, False
         else:
             print(f"  Current result is better — keeping current"
                   f" (combined {curr_combined:.2f} vs {prev_combined:.2f};"
@@ -346,10 +346,10 @@ def load_and_merge_previous(output_file, best_cents, best_scores, chord_scorer, 
     else:
         if np.sum(prev_scores) < np.sum(best_scores):
             print(f"  Previous result is better (total {np.sum(prev_scores):.1f} vs {np.sum(best_scores):.1f}) — keeping previous")
-            return prev_chords, prev_scores
+            return prev_chords, prev_scores, False
         else:
             print(f"  Current result is better (total {np.sum(best_scores):.1f} vs {np.sum(prev_scores):.1f}) — keeping current")
-    return best_cents, best_scores
+    return best_cents, best_scores, True
 
 
 def _max_pitch_class_gap(prev_chord_cents, curr_chord_cents):
@@ -799,7 +799,7 @@ def main():
 
             # Compare with previously saved file
             output_file = os.path.join(numpy_dir, f'{version}-opt.npy')
-            final_cent_value_chorale, final_score = load_and_merge_previous(
+            final_cent_value_chorale, final_score, improved = load_and_merge_previous(
                 output_file, final_cent_value_chorale, final_score, chord_scorer, tolerance,
                 chorale=chorale, spread_weight=args.spread_weight)
 
@@ -853,7 +853,7 @@ def main():
 
             # Compare with previously saved file
             output_file = os.path.join(numpy_dir, f'{version}-opt.npy')
-            final_cent_value_chorale, final_score = load_and_merge_previous(
+            final_cent_value_chorale, final_score, improved = load_and_merge_previous(
                 output_file, final_cent_value_chorale, final_score, chord_scorer, tolerance,
                 chorale=chorale, spread_weight=args.spread_weight)
 
@@ -936,8 +936,20 @@ def main():
 
         # Save metadata sidecar
         meta_file = os.path.join(numpy_dir, f'{version}-opt.txt')
+        if improved:
+            last_improved = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        else:
+            last_improved = None
+            if os.path.exists(meta_file):
+                for line in open(meta_file):
+                    if line.startswith('last_improved:'):
+                        last_improved = line.split(':', 1)[1].strip()
+                        break
+            if last_improved is None:
+                last_improved = 'unknown'
         with open(meta_file, 'w') as f:
             f.write(f"version: {version}\n")
+            f.write(f"last_improved: {last_improved}\n")
             f.write(f"mean: {np.mean(final_score):.1f}\n")
             f.write(f"median: {np.median(final_score):.1f}\n")
             f.write(f"min: {np.min(final_score):.1f}\n")
