@@ -16,10 +16,17 @@ spec:
         app: grid-search
         job-id: "JOBID"
     spec:
-      securityContext:
-        fsGroup: 1000
-        fsGroupChangePolicy: OnRootMismatch  # add this line
       restartPolicy: Never
+      securityContext:
+        seLinuxOptions:
+          level: s0
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: DoNotSchedule
+        labelSelector:
+          matchLabels:
+            app: grid-search
       affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -28,10 +35,14 @@ spec:
               - key: kubernetes.io/hostname
                 operator: In
                 values:
+                - fs1
+                - fs2
+                - fs3
                 - fs4
                 - fs6
                 - fs7
                 - fs8
+                - fs9
       initContainers:
       - name: git-sync
         image: quay.io/prentrodgers/python-music:0.7
@@ -44,15 +55,13 @@ spec:
             set -euo pipefail
             REPO_DIR=/home/prent/Repos/One-footed-bride-tuning
             REPO_URL=https://github.com/prentrodgers/One-footed-bride-tuning.git
-            git lfs install
             if [ -d "$REPO_DIR/.git" ]; then
               echo "Repo exists — pulling latest..."
-              cd "$REPO_DIR" && git pull && git lfs pull
+              cd "$REPO_DIR" && git pull
             else
               echo "Cloning repo..."
               mkdir -p /home/prent/Repos
               git clone "$REPO_URL" "$REPO_DIR"
-              cd "$REPO_DIR" && git lfs pull
             fi
             chgrp -R 1000 "$REPO_DIR"
             chmod -R g+rwX "$REPO_DIR"

@@ -18000,3 +18000,227 @@ ls -1Sr /home/prent/Dropbox/Uploads/$dirname/*.mp3 > /home/prent/Dropbox/Uploads
                   remote: Resolving deltas: 100% (18/18), completed with 7 local objects.
                   To https://github.com/prentrodgers/One-footed-bride-tuning.git
                   ea46a4b..7c3d9b7  main -> main
+      I'm writing this inside the repo on fs9. I just started up the 24 tuning jobs here to verify that the latest changes will not cause trouble. They were all submitted at once, which I wanted to prevent. Look at 
+            k get po -l app=grid-search
+                  NAME                                  READY   STATUS                      RESTARTS   AGE
+                  grid-search-01-lm17-t1-r1-125-rxzlp   0/1     Init:CreateContainerError   0          3m
+      They are all in the same status. Deployment was supposed to be staged in deploy-grid-search-jobs.sh, instead we get them all at once. 
+            Deployment Summary
+            ========================================
+            Successfully deployed: 24 jobs
+      I asked claude to insert a five minute delay between each collection of 4 jobs, but even four jobs appears too much to handle. And all the previous pods are stuck in terminating. 
+
+----------------–
+6/26/26 I submitted the 24 batch jobs to test the tuning code.
+      After all the changes that claude & ponytail recommended, I want to make sure it still runs. I had a lot of trouble. 
+      1. Submitting too many jobs all at once doesn't work, even if only 4. I asked claude to submit one job, wait in a polling loop (every 10s) until no pods are in a non-Running/non-terminal state, then submit the next. 
+      2. The jobs were all submitted only to fs6. I asked claude to fix that, so he added this to the templat: 
+            topologySpreadConstraints:
+            - maxSkew: 1
+            topologyKey: kubernetes.io/hostname
+              whenUnsatisfiable: DoNotSchedule
+            labelSelector:
+              matchLabels:
+                app: grid-search
+      3. I was getting lots of selinux alerts, so he added this to the template.
+            securityContext:
+              seLinuxOptions:
+                level: s0
+
+      4. I submitted the jobs by hand, watching the progress of the pods, and only submitting another when the previous pod was in status Running:
+            kubectl get po -l app=grid-search -o custom-columns='NAME:.metadata.name,NODE:.spec.nodeName,STATUS:.status.phase' -w
+      The ones on fs7 are finishing first, then the fs4, then the fs8. None of the fs6 are finishing. 
+                  NAME                                  NODE   STATUS
+                  grid-search-01-lm17-t1-r1-125-vjsj2   fs4    Running
+                  grid-search-02-lm17-t1-r1-25-vq4vk    fs1    Running
+                  grid-search-03-lm17-t1-r1-5-2b8hh     fs7    Running
+                  grid-search-04-lm17-t1-r1-75-ndsl5    fs7    Running
+                  grid-search-05-lm17-t2-r1-125-56r5h   fs7    Running
+                  grid-search-06-lm17-t2-r1-25-sfg7f    fs9    Running
+                  grid-search-07-lm17-t2-r1-5-vggls     fs8    Running
+      Now I just want to know the age of the job:
+            kubectl get po -l app=grid-search -o custom-columns='NAME:.metadata.name,NODE:.spec.nodeName,STATUS:.status.phase,Created:.metadata.creationTimestamp' -w
+                  NAME                                  NODE   STATUS      Created
+                  grid-search-01-lm17-t1-r1-125-vjsj2   fs4    Running     15:02:06Z
+            kubectl get po -l app=grid-search --sort-by='.spec.nodeName' -o custom-columns='NODE:.spec.nodeName,NAME:.metadata.name,STATUS:.status.phase,Created:.metadata.creationTimestamp'
+                  NODE   NAME                                  STATUS    Created
+                  fs1    grid-search-10-lm17-t3-r1-25-9nv7p    Running   2026-06-27T14:38:55Z
+                  fs1    grid-search-22-lm19-t3-r1-25-tznmh    Running   2026-06-27T14:42:48Z
+                  fs1    grid-search-04-lm17-t1-r1-75-bkv5q    Running   2026-06-27T14:36:54Z
+                  fs1    grid-search-16-lm19-t1-r1-75-trh8q    Running   2026-06-27T14:40:36Z
+                  fs4    grid-search-23-lm19-t3-r1-5-s6ssg     Running   2026-06-27T14:43:18Z
+                  fs4    grid-search-05-lm17-t2-r1-125-xkc5q   Running   2026-06-27T14:37:24Z
+                  fs4    grid-search-17-lm19-t2-r1-125-47fk9   Running   2026-06-27T14:41:07Z
+                  fs4    grid-search-11-lm17-t3-r1-5-fdgff     Running   2026-06-27T14:39:15Z
+                  fs6    grid-search-13-lm19-t1-r1-125-mwjxd   Running   2026-06-27T14:39:46Z
+                  fs6    grid-search-07-lm17-t2-r1-5-7ln89     Running   2026-06-27T14:37:54Z
+                  fs6    grid-search-19-lm19-t2-r1-5-dmwxf     Running   2026-06-27T14:41:37Z
+                  fs6    grid-search-01-lm17-t1-r1-125-l4n7b   Running   2026-06-27T14:36:03Z
+                  fs7    grid-search-15-lm19-t1-r1-5-dnpb5     Running   2026-06-27T14:40:26Z
+                  fs7    grid-search-09-lm17-t3-r1-125-xbp7v   Running   2026-06-27T14:38:35Z
+                  fs7    grid-search-21-lm19-t3-r1-125-wff6v   Running   2026-06-27T14:42:28Z
+                  fs7    grid-search-03-lm17-t1-r1-5-qldnp     Running   2026-06-27T14:36:54Z
+                  fs8    grid-search-12-lm17-t3-r1-75-tfp77    Running   2026-06-27T14:39:36Z
+                  fs8    grid-search-06-lm17-t2-r1-25-tmwbk    Running   2026-06-27T14:37:44Z
+                  fs8    grid-search-18-lm19-t2-r1-25-24bl2    Running   2026-06-27T14:41:27Z
+                  fs8    grid-search-24-lm19-t3-r1-75-rxvmk    Running   2026-06-27T14:43:39Z
+                  fs9    grid-search-14-lm19-t1-r1-25-pvdst    Running   2026-06-27T14:40:06Z
+                  fs9    grid-search-08-lm17-t2-r1-75-tjzbm    Running   2026-06-27T14:38:14Z
+                  fs9    grid-search-20-lm19-t2-r1-75-269zx    Running   2026-06-27T14:41:57Z
+                  fs9    grid-search-02-lm17-t1-r1-25-94f64    Running   2026-06-27T14:36:23Z
+      Nicely evenly spread. Takes about 8 minutes to get them all going. Much better than before. But at one point the lights dimmed.
+      
+      Watch the number drop to 0:
+            watch -n 30 "kubectl get po -l app=grid-search -o custom-columns='NAME:.metadata.name,NODE:.spec.nodeName,STATUS:.status.phase,Created:.metadata.creationTimestamp' | grep Running | wc -l"
+
+      How can I find out if there were any improvements made? The logs of the jobs only provide spread information. The way to assess spread and scores is this:
+            CHORALES=${1:-$(echo bwv{253..264})}
+            python select_best_and_render.py --numpy_dir_root Archive/straw-man --chorale_list $CHORALES --spread_weight 0.5
+      Add these arguments once you get what you need.
+      # --copy_npy_to Archive/straw-man/viterbi-tunings-6-27 --render --short_repeats
+
+-------------------------
+6/27/26 Trouble keeping track of which version of this file is the current one. 
+      Right now it looks like it's the one on fs9.
+      I asked Claude on the Asus-16 node to: I need to know what files have been changed in the last few days in Archive/straw-man. Each directory in straw-man has a set of numpy array files. I need to go deeper than ls -lth Archive/straw-man to see the dates on the files in the subdirectories like t2_r1.5_lm19-tmp3.0
+
+      June 26 (yesterday) — all 24 t{1,2,3}_r{1.125,1.25,1.5,1.75}_lm{17,19}_tmp3.0 directories had files updated. Activity ran from ~06:23 to ~09:54. The last files written were the *-trans-sa-opt.npy files (the SA-optimized versions), finishing up with t1_r1.25_lm17 and t2_r1.125_lm19 around 09:54.
+
+      But then I asked him to look at the code and determine how the decision to save a new version based on scores and spread. I asked Claude to document that in a markdown file: README-k8s-grid-search.md.
+      Some things I didn't know:
+      1. The spread-weight in Straw_man_tuning_v2.py is hard coded to 0.50
+      2. It writes out the better of the current and the new numpy arrays. This means the dates on those files don't indicate improvement, but they also can't regress, since the loser is overwritten, but the winner is written also. 
+      3. If I run the 24 jobs again, they might improve scores, or they might just rewrite the best scoring numpy arrays, but they won't regress any of the contents of the numpy arrays in directories like Archive/straw-man/t2_r1.5_lm19_tmp3.0. Is that correct? Yes. 
+      4. The ratchet is still ratcheting. But the file dates won't indicate anything. 
+      5. I need to know what files have been changed in the last few days in Archive/straw-man. Each directory in straw-man has a set of numpy array files. I need to go deeper than ls -lth Archive/straw-man to see the dates on the files in the subdirectories like t2_r1.5_lm19-tmp3.0
+      Bash Find recently modified .npy files in Archive/straw-man subdirectories
+            find Archive/straw-man -name "*.npy" -newer Archive/straw-man -printf "%TY-%Tm-%Td %TH:%TM  %p\n" 2>/dev/null | sort -r | head -60
+
+      Since I've run those 24 jobs several times, the marginal improvements I'm expecting may or may not be significant. Does Straw_man_tuning_v2.py write to a log file when it finds that the current file is better than the existing one on disk. Is there any way for me to know that I'm getting better scores or spread values over the repeated runs? They take about 3 hours and really heat up the room.
+
+      New concept I learned today: anacrusis - This is a pickup note in a chorale, if it doesn't start on the 1, but rather on the 4 of the previous measure. From here: https://bach-chorales.com/ChoraleTuneIndex.htm and here: http://sporadic.stanford.edu/Chorales/. Lots of scholarship involved in both of these projects. 
+
+      I asked Claude to include information in the "side-car" in each tuning directory showing the date it was written. These files: Archive/straw-man/t2_r1.5_lm19_tmp3.0/bwv264-opt.txt. They contain the hyperparamters used to create the tuning. It will now contain a date revised, not with this run, but the run after this one. 
+
+      I noticed that the ./deploy-grid-search-jobs.sh now sensibly waits until the prior job submission results in a running pod. 
+
+      --------------------------
+      All 24 jobs have been running for about an hour now.
+      Now: 15:41 UTC
+      started: 14:36 UTC
+      Four jobs have finished on fs7 and no other node has any finished jobs. That's the node that I want to upgrade the motherboard on. Maybe not needed? But it's the only one in a case that accepts Micro-ATX motherboards, and those are at a steep discount now that the DDR5 RAMpocalypse is neigh. 
+      Now all four on node fs4 have finished,
+      Two have finished on fs8 as of 15:52. 
+      14 left to go. Fs6 is chugging away on the Ryzen 7 7800X3D 16 threads at 89° with almost all threads at 100%.
+      Meanwhile the fs9 is doing fine with its Ryzen 9 7900 24 threads at 57°, but it hasn't finished any jobs as of 16:00 UTC.
+      The node fs1 hasn't finished any jobs on the Rysen 9 5950X 32 threads at 79°
+      Node fs8 with the 245kf 14 threads has finished it's four jobs bu 15:58 UTC 
+      Nodes that finished all their jobs: fs4 with 265k, fs7 with 270k, fs8 with 245k - all the Intel CPU's have finished in a little over an hour.
+      Nodes that haven't finished any jobs are the fs1 with 5950X 32 threads, fs6 with 7800X3D 16 threads, and fs9 with 7900 24 threads - all the AMD's are lagging. Interesting. This is not a gaming workload. 
+      The fs9 (7900 24 threads) is the first to finish in the AMD group, at 16:16 UTC vs start time of 14:36 UTC 
+      All 24 done by 17:00 UTC. Rough performance ranking makes sense now as a compound of three factors: IPC generation × clock headroom × thermal margin. 
+      --------------------------------------
+      I submitted another run at 17:06 UTC so I can validate if this has any benefit.
+      # Before submitting — snapshot current values. But don't put it in /tmp, otherwise it's gone in the morning. 
+            grep "last_improved:" Archive/straw-man/t*_lm*_tmp*/bwv*-opt.txt | sort > scores-before.txt
+
+      # After jobs finish — compare
+            grep "last_improved:" Archive/straw-man/t*_lm*_tmp*/bwv*-opt.txt | sort > scores-after.txt
+
+            diff /tmp/scores-before.txt /tmp/scores-after.txt
+
+      Here is the  before:
+
+            grep -v unknown scores-after.txt
+                  Archive/straw-man/t1_r1.125_lm17_tmp3.0/bwv253-opt.txt:last_improved: 2026-06-27 07:41:4
+                  ...
+            grep -v unknown scores-before.txt  | wc -l
+                  47
+      After the two 6-27 runs there are more: 
+            grep -v unknown scores-after.txt | wc -l
+                  88
+            grep unknown scores-after.txt | wc -l
+                  200
+      A total of 12 chorales * 24 jobs = 288 total SA-Viterbi runs
+
+      I added the fs5 and fs3 (old M70q ThinkCentre box) to the job template, and now the lights are dimming and the UPS in the server closet is at 134%. I fear for the future. It just all died. The UPS in the server closet can't handle the load so it overheats then quits. I ordered another from BestBuy in Issaquah. Should be here in July. 
+      
+      The last straw was adding the fs5 to the load. I'm hoping it sorts itself out over time. But now all the pods that were in a failed status are trying to restart at once, and that's a recipe for disaster. Delete the existing jobs and start the deployment over again.
+            k delete job -l app=grid-search 
+      Let the pods terminate gracefully in a few minutes. Then start the deployment once there are no more pods trying to start up. 
+             k get po
+                  NAME                                             READY   STATUS              RESTARTS   AGE
+                  dropbox-bisync-6589d8c5bf-dn4mg                  0/1     ContainerCreating   1          10d
+                  grid-search-08-lm17-t2-r1-75-gw5hs               1/1     Terminating         0          24m
+                  grid-search-14-lm19-t1-r1-25-vb64t               1/1     Terminating         0          21m
+                  grid-search-22-lm19-t3-r1-25-h45lh               1/1     Terminating         0          18m
+      Those ones are trying to terminate on the fs5 which I haven't started up yet. I started it, but I'm going to drain it before I deploy, just to make sure it doesn't overload the UPS. I removed it from the job template yaml, and deleted all the jobs in k8s-jobs. All the non-grid-search pods are running now.
+            ./generate-grid-search-jobs.sh 
+            ./deploy-grid-search-jobs.sh 
+      Some pods were in a failed state, but they are all replaced with running. The UPS is in overload again. 116% load. I can't give it any more power, captain, or she'll blow. She blew. I removed fs6 from the template. 
+      
+      --------------
+      Back to the 24 jobs running now. Look for failed pods:
+            kubectl get po -l app=grid-search -o custom-columns='NAME:.metadata.name,NODE:.spec.nodeName,STATUS:.status.phase,AGE:.metadata.creationTimestamp' -w
+
+      Better:
+            kubectl get po -l app=grid-search -o wide | awk 'BEGIN{OFS="\t"} {print $7, $1,$2,$3,$4,$5}' | sort -k1 # or -k2 if you want sort by podname
+      Best:
+            watch -n 5 "kubectl get po -l app=grid-search -o wide | awk 'BEGIN{OFS=\"\t\"} {print \$7,\$1,\$2,\$3,\$5}' | sort -k1"
+      Also: Sort jobs by completion:
+            watch -n 30 "kubectl get job -l app=grid-search --sort-by='{.status.succeeded}'"
+                  NAME                            STATUS     COMPLETIONS   DURATION   AGE
+                  grid-search-18-lm19-t2-r1-25    Failed     0/1           5m5s       5m5s
+                  grid-search-11-lm17-t3-r1-5     Running    0/1           71m        71m
+      The fs3 is a whole new level of slow. One is over three hours and not yet complete. I will be happy to have this revert to a win11 machine when I build the new fs3 on the 250k without a GPU. None of them have finished yet. 
+            k get po -l app=grid-search -o wide | grep fs3
+                  grid-search-01-lm17-t1-r1-125-29lzq 1/1 Running  0 3h10m fs3 
+                  grid-search-15-lm19-t1-r1-5-fhvh8   1/1 Running  0 3h3m  fs3 
+                  grid-search-22-lm19-t3-r1-25-9tdv2  1/1 Running  0 3h    fs3
+      What's the log look like for them 
+            k logs grid-search-01-lm17-t1-r1-125-29lzq -c grid-search | grep bwv26 | tail 
+                  version = 'bwv263', chords: 192, tolerance = 1, rolls = 5, limit_max = 17, sa_iterations = 1000, initial_temperature = 3.0, cooling_rate = 0.999, args.ratio_factor = 1.125, args.stability_factor = 0.0
+            k logs grid-search-15-lm19-t1-r1-5-fhvh8 -c grid-search | grep bwv26 | tail 
+                  version = 'bwv262', chords: 192, tolerance = 1, rolls = 5, limit_max = 19, sa_iterations = 1000, initial_temperature = 3.0, cooling_rate = 0.999, args.ratio_factor = 1.5, args.stability_factor = 0.0
+            k logs grid-search-22-lm19-t3-r1-25-9tdv2 -c grid-search | grep bwv26 | tail 
+                  version = 'bwv261', chords: 280, tolerance = 3, rolls = 5, limit_max = 19, sa_iterations = 1000, initial_temperature = 3.0, cooling_rate = 0.999, args.ratio_factor = 1.25, args.stability_factor = 0.0
+      Making progress. 262, 263, 264 still to go. The two that ran on fs1 took 121 and 123 minutes. This one is taking about 10 minutes per chorale. So should be another 30 minutes or so. It might start going faster if one of them finishes. 
+      Done. 3 3/4 hours vs 1 hour on the best Intel current line up. Win11 here we come. 
+
+-------------------
+6/28/26 To do today. Decide if more runs would continue the improvements I say yesterday.
+      What we see is that the two runs improved from before yesterday. That means the majority, 200 are at their best, but 88 improved is pretty darn good in my mind. It means I can continue to run the 24 jobs as long as the 88 value keeps improving. But if some limit_max or ratio_factors are no longer improving, I can reduce the job count considerably. Which hyperparameters had the most improvements, and which had the least.
+            grep -v unknown scores-after.txt | grep -oP 'straw-man/\Kt[^/]+' | sort | uniq -c | sort -rn
+                  7 t2_r1.25_lm17_tmp3.0
+                  7 t1_r1.5_lm17_tmp3.0
+                  6 t1_r1.75_lm17_tmp3.0
+                  5 t3_r1.75_lm19_tmp3.0
+                  5 t3_r1.75_lm17_tmp3.0
+                  5 t2_r1.5_lm17_tmp3.0
+                  5 t2_r1.125_lm17_tmp3.0
+                  5 t1_r1.25_lm19_tmp3.0
+                  5 t1_r1.25_lm17_tmp3.0
+                  5 t1_r1.125_lm17_tmp3.0
+                  4 t3_r1.5_lm19_tmp3.0
+                  4 t3_r1.5_lm17_tmp3.0
+                  4 t3_r1.25_lm17_tmp3.0
+                  4 t2_r1.5_lm19_tmp3.0
+                  3 t3_r1.125_lm17_tmp3.0
+                  3 t2_r1.25_lm19_tmp3.0
+                  2 t3_r1.25_lm19_tmp3.0
+                  2 t2_r1.75_lm19_tmp3.0
+                  2 t2_r1.125_lm19_tmp3.0
+                  2 t1_r1.5_lm19_tmp3.0
+                  1 t3_r1.125_lm19_tmp3.0
+                  1 t2_r1.75_lm17_tmp3.0
+                  1 t1_r1.75_lm19_tmp3.0
+      Save the scores after file:
+            cp scores-after.txt scores-$(date +%Y-%m-%d).txt
+            ls score*.txt -lth
+                  -rw-r--r--. 1 root 1000 23K Jun 28 06:33 scores-2026-06-28.txt
+                  -rw-r--r--. 1 root 1000 23K Jun 28 06:10 scores-after.txt
+      Then after the next run:
+            diff scores-2026-06-27.txt scores-2026-06-28.txt | grep "^[<>]" | grep -v unknown
+      The improvements were well spread out, except for t1_r1.125_lm19 = 0.
+      If you want to reduce the job count, dropping all lm19 combinations and r1.125 would cut from 24 jobs down to 9 (t1/t2/t3 × r1.25/r1.5/r1.75 with lm17 only) while keeping your best-performing hyperparameter space. Sounds like a sound strategy. 
+      I had to ask claude to update the ./generate-grid-search-jobs.sh so it knows about the change from 24 down to 9 jobs. I'll have to remember to do this if I ever change the template job to match the values in the bash shell.

@@ -321,7 +321,10 @@ def load_and_merge_previous(output_file, best_cents, best_scores, chord_scorer, 
     if not os.path.exists(output_file):
         return best_cents, best_scores, True
 
-    prev = np.load(output_file)          # shape (4, N)
+    try:
+        prev = np.load(output_file)          # shape (4, N)
+    except (EOFError, ValueError):
+        return best_cents, best_scores
     prev_chords = (prev.T) % 1200        # shape (N, 4)
     prev_scores = np.array([chord_scorer.score_chord(prev_chords[i], tolerance)
                              for i in range(prev_chords.shape[0])])

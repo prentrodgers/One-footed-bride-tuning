@@ -1,15 +1,16 @@
 #!/usr/bin/env bash
-# Generate 20 Kubernetes Job manifests for grid search parallelization
+# Generate Kubernetes Job manifests for grid search parallelization
 # Each job runs one parameter combination independently
+# lm19 and r1.125 dropped: lm17 dominates (57 vs 31 improvements), r1.125 weakest ratio
 
 set -euo pipefail
 TEMPLATE="k8s-grid-search-job-template.yaml"
 OUTPUT_DIR="k8s-jobs"
 
-# Parameter arrays (matching grid_search.sh)
-LIMIT_MAXES=(17 19)
+# Parameter arrays
+LIMIT_MAXES=(17)
 TOLERANCES=(1 2 3)
-RATIOS=(1.125 1.25 1.5 1.75)
+RATIOS=(1.25 1.5 1.75)
 
 
 echo "Generating Kubernetes Job manifests..."
@@ -22,6 +23,7 @@ mkdir -p "$OUTPUT_DIR"
 
 # Counter for job IDs
 job_counter=1
+total_jobs=$(( ${#LIMIT_MAXES[@]} * ${#TOLERANCES[@]} * ${#RATIOS[@]} ))
 
 # Generate a manifest for each parameter combination
 for limit_max in "${LIMIT_MAXES[@]}"; do
@@ -41,7 +43,7 @@ for limit_max in "${LIMIT_MAXES[@]}"; do
                 -e "s/RATIO_VALUE/${ratio}/g" \
                 "$TEMPLATE" > "$output_file"
             
-            echo "[$job_num/10] Generated: $output_file"
+            echo "[$job_num/$(printf "%02d" "$total_jobs")] Generated: $output_file"
             echo "         Parameters: limit_max=$limit_max, tolerance=$tolerance, ratio=$ratio"
             
             ((job_counter++))
@@ -50,7 +52,7 @@ for limit_max in "${LIMIT_MAXES[@]}"; do
 done
 
 echo ""
-echo "✓ Generated $((job_counter - 1))/10 Job manifests in $OUTPUT_DIR/"
+echo "✓ Generated $((job_counter - 1))/$total_jobs Job manifests in $OUTPUT_DIR/"
 echo ""
 echo "Next steps:"
 echo "  1. Review the generated manifests in $OUTPUT_DIR/"
