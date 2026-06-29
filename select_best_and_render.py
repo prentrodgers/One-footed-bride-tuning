@@ -155,7 +155,11 @@ def main():
     parser.add_argument('--chorale_list', type=str, nargs='+', default=['bwv253'],
                         help='Chorale names to evaluate')
     parser.add_argument('--suffix', type=str, default='-trans-sa-opt.npy',
-                        help='File suffix to evaluate (default: -trans-sa-opt.npy)')
+                        help='Primary file suffix to evaluate (default: -trans-sa-opt.npy)')
+    parser.add_argument('--alt_suffix', type=str, default='-opt.npy',
+                        help='Fallback suffix: used instead of --suffix when it produces fewer hard '
+                             'jumps for a given directory/chorale combination. Set to empty string "" '
+                             'to disable fallback (default: -opt.npy)')
     parser.add_argument('--max_cents_slide', type=float, default=33.0,
                         help='Glissando threshold: gaps above this value (cents) produce no slide in '
                              'WreckingCrew and count as hard jumps in the ranking metric. '
@@ -213,42 +217,75 @@ def main():
 
     winners = []  # (version, best_dir, best_params) for rendering
 
+    use_alt_suffix = bool(args.alt_suffix)
+
     for version in args.chorale_list:
         print(f'\n{"=" * 78}')
-        print(f'Chorale: {version}  (suffix: {args.suffix})')
+        print(f'Chorale: {version}  (suffix: {args.suffix}'
+              + (f'  alt_suffix: {args.alt_suffix}' if use_alt_suffix else '') + ')')
         print(f'  max_cents_slide={args.max_cents_slide}  penalty_weight={args.penalty_weight}  '
               f'score_weight={args.score_weight}')
         print(f'{"=" * 78}')
-        print(f'  {"Directory":<42} {"lm":>4} {"Mean":>6} {"MaxGap":>7} {"HardJmp":>8} {"Combined":>10}')
-        print(f'  {"-" * 42} {"--":>4} {"-----":>6} {"------":>7} {"-------":>8} {"---------":>10}')
+        print(f'  {"Directory":<42} {"lm":>4} {"Mean":>6} {"MaxGap":>7} {"HardJmp":>8} {"Suffix":<8} {"Combined":>10}')
+        print(f'  {"-" * 42} {"--":>4} {"-----":>6} {"------":>7} {"-------":>8} {"------":<8} {"---------":>10}')
 
         results = []
         for d in dirs:
             params = parse_dir_params(d)
-            input_file = os.path.join(d, f'{version}{args.suffix}')
-            if not os.path.exists(input_file):
-                continue
-            try:
-                cent_4n = np.load(input_file, allow_pickle=True)  # shape (4, N)
-            except Exception as e:
-                print(f'  {os.path.basename(d)}: could not load — {e}')
+
+            # Load primary suffix
+            primary_file = os.path.join(d, f'{version}{args.suffix}')
+            alt_file = os.path.join(d, f'{version}{args.alt_suffix}') if use_alt_suffix else None
+
+            # Determine which file(s) exist
+            has_primary = os.path.exists(primary_file)
+            has_alt = alt_file is not None and os.path.exists(alt_file)
+            if not has_primary and not has_alt:
                 continue
 
             lm = params['limit_max']
             if lm not in tonal_diamond_cache:
                 tonal_diamond_cache[lm] = atu.build_tonal_diamond(lm)
             tol = params['tolerance']
-            mean_sc, max_sc, max_ch = score_array(cent_4n, tonal_diamond_cache[lm], tol)
 
-            hard_count, mean_hard, max_gap, total_trans = compute_adjacency_metric(
-                cent_4n, args.max_cents_slide)
+            def _score_file(path):
+                try:
+                    arr = np.load(path, allow_pickle=True)
+                    mean_sc, max_sc, max_ch = score_array(arr, tonal_diamond_cache[lm], tol)
+                    hard_count, mean_hard, max_gap, total_trans = compute_adjacency_metric(
+                        arr, args.max_cents_slide)
+                    combined = (args.penalty_weight * hard_count
+                                + args.penalty_weight * 0.1 * mean_hard
+                                + args.score_weight * mean_sc)
+                    return combined, mean_sc, max_sc, max_ch, hard_count, mean_hard, max_gap, total_trans
+                except Exception as e:
+                    print(f'  {os.path.basename(d)}: could not load {os.path.basename(path)} — {e}')
+                    return None
 
-            combined = (args.penalty_weight * hard_count
-                        + args.penalty_weight * 0.1 * mean_hard
-                        + args.score_weight * mean_sc)
+            primary_scores = _score_file(primary_file) if has_primary else None
+            alt_scores = _score_file(alt_file) if has_alt else None
 
+            # Pick whichever has fewer hard jumps; use combined score as tiebreaker
+            if primary_scores is not None and alt_scores is not None:
+                # prefer fewer hard jumps; if equal prefer lower combined cost
+                if alt_scores[4] < primary_scores[4] or (
+                        alt_scores[4] == primary_scores[4] and alt_scores[0] < primary_scores[0]):
+                    chosen_scores = alt_scores
+                    chosen_suffix = args.alt_suffix
+                else:
+                    chosen_scores = primary_scores
+                    chosen_suffix = args.suffix
+            elif primary_scores is not None:
+                chosen_scores = primary_scores
+                chosen_suffix = args.suffix
+            else:
+                chosen_scores = alt_scores
+                chosen_suffix = args.alt_suffix
+
+            combined, mean_sc, max_sc, max_ch, hard_count, mean_hard, max_gap, total_trans = chosen_scores
             results.append((combined, mean_sc, max_sc, max_ch,
-                             hard_count, mean_hard, max_gap, total_trans, d, params))
+                             hard_count, mean_hard, max_gap, total_trans,
+                             d, params, chosen_suffix))
 
         if not results:
             print(f'  No results found for {version}')
@@ -256,31 +293,35 @@ def main():
 
         results.sort(key=lambda x: x[0])
         for i, (combined, mean_sc, max_sc, max_ch,
-                hard_count, mean_hard, max_gap, total_trans, d, params) in enumerate(results):
+                hard_count, mean_hard, max_gap, total_trans,
+                d, params, chosen_suffix) in enumerate(results):
             marker = ' <-- BEST' if i == 0 else ''
             lm = params['limit_max']
             hard_flag = f' ({hard_count} jumps)' if hard_count > 0 else ' (clean)'
+            suffix_label = 'trans' if 'trans' in chosen_suffix else 'opt'
             print(f'  {os.path.basename(d):<42} {lm:>4} {mean_sc:>6.1f} {max_gap:>7.1f} '
-                  f'{hard_count:>8}{hard_flag:<12} {combined:>10.1f}{marker}')
+                  f'{hard_count:>8}{hard_flag:<12} {suffix_label:<8} {combined:>10.1f}{marker}')
 
         best = results[0]
         (best_combined, best_mean, best_max, best_maxch,
          best_hard_count, best_mean_hard, best_max_gap,
-         best_total_trans, best_dir, best_params) = best
-        print(f'\n  Winner: {os.path.basename(best_dir)}')
+         best_total_trans, best_dir, best_params, best_suffix) = best
+        print(f'\n  Winner: {os.path.basename(best_dir)}  [{best_suffix}]')
         print(f'    mean_score={best_mean:.1f}, max_gap={best_max_gap:.1f}¢, '
               f'hard_jumps={best_hard_count} (>{args.max_cents_slide:.0f}¢), '
               f'total_transitions={best_total_trans}, combined={best_combined:.1f}')
-        winners.append((version, best_dir, best_params))
+        winners.append((version, best_dir, best_params, best_suffix))
 
     print(f'\n{"=" * 78}')
 
     if args.trim and winners:
-        winning_dirs = {best_dir for _, best_dir, _ in winners}
-        # Map each winning dir to the chorales it won
+        winning_dirs = {best_dir for _, best_dir, _, _ in winners}
+        # Map each winning dir to the chorales it won (and the chosen suffix per chorale)
         dir_winners = defaultdict(set)
-        for version, best_dir, _ in winners:
+        dir_winner_suffix = {}   # (dir, version) -> chosen suffix
+        for version, best_dir, _, w_suffix in winners:
             dir_winners[best_dir].add(version)
+            dir_winner_suffix[(best_dir, version)] = w_suffix
 
         # Delete non-winning directories entirely
         to_delete = [d for d in dirs if d not in winning_dirs]
@@ -301,10 +342,11 @@ def main():
                 for f in glob.glob(os.path.join(d, f'{version}*')):
                     os.remove(f)
                     removed.append(os.path.basename(f))
-            # For winning chorales, keep only the suffix file
+            # For winning chorales, keep only the chosen suffix file
             for version in dir_winners[d]:
+                keep_suffix = dir_winner_suffix.get((d, version), args.suffix)
                 for f in glob.glob(os.path.join(d, f'{version}*')):
-                    if not f.endswith(args.suffix):
+                    if not f.endswith(keep_suffix):
                         os.remove(f)
                         removed.append(os.path.basename(f))
             kept = sorted(dir_winners[d])
@@ -316,12 +358,12 @@ def main():
     if args.render:
         render_start_time = time.time()
         print('\nRendering winners with WreckingCrew.py...\n')
-        for version, best_dir, params in winners:
-            print(f'  {version}  →  {os.path.basename(best_dir)}')
+        for version, best_dir, params, w_suffix in winners:
+            print(f'  {version}  →  {os.path.basename(best_dir)}  [{w_suffix}]')
             cmd = [
                 sys.executable, os.path.join(base_dir, 'WreckingCrew.py'),
                 '--chorale_name', version,
-                f'--cent_file_partial={args.suffix}',
+                f'--cent_file_partial={w_suffix}',
                 '--no_show_volumes',
                 '--album', str(args.album),
                 '--tolerance', str(params['tolerance']),
@@ -347,7 +389,7 @@ def main():
         dest = os.path.expanduser(args.copy_mp3_to)
         os.makedirs(dest, exist_ok=True)
         print(f'\nCopying winning MP3s to {dest} ...\n')
-        for version, best_dir, params in winners:
+        for version, best_dir, params, _ in winners:
             tol = params['tolerance']
             lm  = params['limit_max']
             rf  = params['ratio_factor']
@@ -374,8 +416,8 @@ def main():
         dest = os.path.expanduser(args.copy_npy_to)
         os.makedirs(dest, exist_ok=True)
         print(f'\nCopying winning .npy files to {dest} ...\n')
-        for version, best_dir, params in winners:
-            src = os.path.join(best_dir, f'{version}{args.suffix}')
+        for version, best_dir, params, w_suffix in winners:
+            src = os.path.join(best_dir, f'{version}{w_suffix}')
             if not os.path.exists(src):
                 print(f'  {version}: not found — {src}')
             else:
