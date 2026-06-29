@@ -3,17 +3,36 @@
 select_best_and_render.py
 
 Scan all tuned-array directories under --numpy_dir_root, compute per-chorale
-combined metric (mean_score + spread_weight * weighted_spread), print a ranked
-table, and optionally render the winning directory per chorale with WreckingCrew.py.
+combined metric, print a ranked table, and optionally render the winning
+directory per chorale with WreckingCrew.py.
+
+Ranking metric
+--------------
+The primary concern is whether WreckingCrew.py can generate a glissando for
+each adjacent-chord pitch-class transition.  build_glides_array() only creates
+a slide when the cent gap is in the range (1, max_cents_slide).  Gaps above
+max_cents_slide produce no slide — just an abrupt, audibly sour jump.
+
+  combined = penalty_weight * hard_jump_count
+           + penalty_weight * 0.1 * mean_hard_jump_cents
+           + score_weight   * mean_chord_score
+
+  hard_jump_count  — number of adjacent PC transitions whose gap exceeds
+                     max_cents_slide (these will NOT be smoothed by a glissando)
+  mean_hard_jump   — average gap size of those hard jumps (secondary penalty)
+  mean_chord_score — vertical chord quality (tiebreaker)
+
+A result with zero hard jumps and a slightly worse chord score always beats
+one with even one hard jump.
 
 Usage:
     python select_best_and_render.py \
         --numpy_dir_root Archive/straw-man \
         --chorale_list bwv253 bwv254 \
         --suffix=-trans-sa-opt.npy \
-        --spread_weight 0.5 \
-        --tolerance 1 \
-        --limit_max 23
+        --max_cents_slide 33 \
+        --penalty_weight 10.0 \
+        --score_weight 1.0
 
     # To also render winners:
     python select_best_and_render.py ... --render
@@ -73,32 +92,49 @@ def parse_dir_params(dirname):
     return None
 
 
-def compute_spread_score(cent_value_chorale_4n, chorale):
-    """Worst-case pitch-class tuning consistency (lower is better).
+def compute_adjacency_metric(cent_4n, max_cents_slide):
+    """Count adjacent-chord PC transitions that exceed max_cents_slide (lower is better).
 
-    Returns the maximum circular MAD across all pitch classes — the single most
-    inconsistently-tuned note name in the piece.  One unstable pitch class is
-    enough to make a chorale sound wrong, so the worst offender drives the score
-    rather than an average that lets bad notes hide in the crowd.
+    WreckingCrew's build_glides_array() only generates a glissando when the cent
+    gap between the same pitch class in consecutive chords is in the range
+    (1, max_cents_slide).  Gaps above that threshold produce no slide — just an
+    abrupt audible jump.  This function returns:
 
-    Parameters
-    ----------
-    cent_value_chorale_4n : np.ndarray, shape (4, N)
-    chorale              : np.ndarray, shape (4, N)  original MIDI notes
+        (hard_jump_count, mean_hard_jump_cents, max_gap_cents, total_transitions)
+
+    hard_jump_count      — transitions above max_cents_slide (primary penalty)
+    mean_hard_jump_cents — mean gap of those hard jumps (secondary penalty)
+    max_gap_cents        — worst single gap anywhere in the piece
+    total_transitions    — total shared-PC adjacent transitions found
     """
-    pitch_class_counts = Counter((chorale % 12).flatten().tolist())
-    pc_cents = defaultdict(list)
-    for chord_cents in cent_value_chorale_4n.T:      # iterate over N chords
-        pcs = atu.pitch_class_from_cents(chord_cents)
-        for pc, cv in zip(pcs, chord_cents):
-            pc_cents[int(pc)].append(float(cv))
-    max_mad = 0.0
-    for pc in pitch_class_counts:
-        cvs = pc_cents.get(pc, [])
-        if len(cvs) < 2:
+    n_chords = cent_4n.shape[1]
+    hard_jumps = []
+    all_gaps = []
+
+    for i in range(1, n_chords):
+        prev_col = cent_4n[:, i - 1]
+        curr_col = cent_4n[:, i]
+        if np.array_equal(prev_col, curr_col):
             continue
-        max_mad = max(max_mad, atu.circular_mad(cvs))
-    return max_mad
+        prev_pcs = atu.pitch_class_from_cents(prev_col)
+        curr_pcs = atu.pitch_class_from_cents(curr_col)
+        prev_map = defaultdict(list)
+        for pc, cv in zip(prev_pcs, prev_col):
+            prev_map[int(pc)].append(float(cv))
+        for pc, cv in zip(curr_pcs, curr_col):
+            pc = int(pc)
+            if pc not in prev_map:
+                continue
+            gap = min(atu.cent_distance_mod_1200(cv, p) for p in prev_map[pc])
+            if gap > 1.0:
+                all_gaps.append(gap)
+                if gap >= max_cents_slide:
+                    hard_jumps.append(gap)
+
+    hard_jump_count = len(hard_jumps)
+    mean_hard_jump = float(np.mean(hard_jumps)) if hard_jumps else 0.0
+    max_gap = float(np.max(all_gaps)) if all_gaps else 0.0
+    return hard_jump_count, mean_hard_jump, max_gap, len(all_gaps)
 
 
 def score_array(cent_4n, tonal_diamond, tolerance):
@@ -113,25 +149,35 @@ def score_array(cent_4n, tonal_diamond, tolerance):
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Rank tuned-array directories by combined score+spread and optionally render winners')
+        description='Rank tuned-array directories by glissando-aware adjacency metric and optionally render winners')
     parser.add_argument('--numpy_dir_root', type=str, default='Archive/straw-man',
                         help='Root directory containing tuned-array subdirectories')
     parser.add_argument('--chorale_list', type=str, nargs='+', default=['bwv253'],
                         help='Chorale names to evaluate')
     parser.add_argument('--suffix', type=str, default='-trans-sa-opt.npy',
                         help='File suffix to evaluate (default: -trans-sa-opt.npy)')
-    parser.add_argument('--spread_weight', type=float, default=0.5,
-                        help='Weight of spread in combined metric: mean_score + spread_weight * spread (default: 0.5)')
+    parser.add_argument('--max_cents_slide', type=float, default=33.0,
+                        help='Glissando threshold: gaps above this value (cents) produce no slide in '
+                             'WreckingCrew and count as hard jumps in the ranking metric. '
+                             'Must match --max_cents_slide passed to WreckingCrew.py (default: 33)')
+    parser.add_argument('--penalty_weight', type=float, default=10.0,
+                        help='Weight applied to each hard jump (gap >= max_cents_slide) in the combined '
+                             'metric; set high so even one hard jump outweighs chord-quality differences '
+                             '(default: 10.0)')
+    parser.add_argument('--score_weight', type=float, default=1.0,
+                        help='Weight of mean chord quality score in combined metric; acts as tiebreaker '
+                             'when hard_jump_count is equal (default: 1.0)')
+    # kept for backward compatibility but no longer drives ranking
+    parser.add_argument('--spread_weight', type=float, default=0.0,
+                        help='(Legacy, ignored in ranking) Whole-chorale MAD spread weight (default: 0.0)')
     parser.add_argument('--tolerance', type=int, default=None,
-                        help='Ignored — tolerance is read per-directory from the directory name (e.g. t1_r1.375_lm17_tmp3.0).')
+                        help='Ignored — tolerance is read per-directory from the directory name.')
     parser.add_argument('--limit_max', type=int, default=23,
                         help='Tonal diamond limit_max (default: 23)')
     parser.add_argument('--render', action='store_true',
                         help='Run WreckingCrew.py for the best directory per chorale')
     parser.add_argument('--album', type=int, default=4,
                         help='WreckingCrew album number (default: 4)')
-    parser.add_argument('--max_cents_slide', type=int, default=50,
-                        help='WreckingCrew max_cents_slide (default: 50)')
     parser.add_argument('--bass_sustain', type=int, default=15,
                         help='Bass sustain duration passed to WreckingCrew.py (default: 15)')
     parser.add_argument('--spread_render', type=int, default=7,
@@ -169,10 +215,12 @@ def main():
 
     for version in args.chorale_list:
         print(f'\n{"=" * 78}')
-        print(f'Chorale: {version}  (suffix: {args.suffix}, spread_weight: {args.spread_weight})')
+        print(f'Chorale: {version}  (suffix: {args.suffix})')
+        print(f'  max_cents_slide={args.max_cents_slide}  penalty_weight={args.penalty_weight}  '
+              f'score_weight={args.score_weight}')
         print(f'{"=" * 78}')
-        print(f'  {"Directory":<42} {"lm":>4} {"Mean":>6} {"Max":>6} {"MaxCh":>6} {"Spread":>8} {"Combined":>10}')
-        print(f'  {"-" * 42} {"--":>4} {"-----":>6} {"-----":>6} {"-----":>6} {"-------":>8} {"---------":>10}')
+        print(f'  {"Directory":<42} {"lm":>4} {"Mean":>6} {"MaxGap":>7} {"HardJmp":>8} {"Combined":>10}')
+        print(f'  {"-" * 42} {"--":>4} {"-----":>6} {"------":>7} {"-------":>8} {"---------":>10}')
 
         results = []
         for d in dirs:
@@ -182,8 +230,6 @@ def main():
                 continue
             try:
                 cent_4n = np.load(input_file, allow_pickle=True)  # shape (4, N)
-                _, _, chorale, _, _, _ = atu.load_chorale_in_cents(
-                    version, d, twelve_tet=True, save_top_notes=False)
             except Exception as e:
                 print(f'  {os.path.basename(d)}: could not load — {e}')
                 continue
@@ -193,25 +239,38 @@ def main():
                 tonal_diamond_cache[lm] = atu.build_tonal_diamond(lm)
             tol = params['tolerance']
             mean_sc, max_sc, max_ch = score_array(cent_4n, tonal_diamond_cache[lm], tol)
-            spread = compute_spread_score(cent_4n, chorale)
-            combined = mean_sc + args.spread_weight * spread
-            results.append((combined, mean_sc, max_sc, max_ch, spread, d, params))
+
+            hard_count, mean_hard, max_gap, total_trans = compute_adjacency_metric(
+                cent_4n, args.max_cents_slide)
+
+            combined = (args.penalty_weight * hard_count
+                        + args.penalty_weight * 0.1 * mean_hard
+                        + args.score_weight * mean_sc)
+
+            results.append((combined, mean_sc, max_sc, max_ch,
+                             hard_count, mean_hard, max_gap, total_trans, d, params))
 
         if not results:
             print(f'  No results found for {version}')
             continue
 
         results.sort(key=lambda x: x[0])
-        for i, (combined, mean_sc, max_sc, max_ch, spread, d, params) in enumerate(results):
+        for i, (combined, mean_sc, max_sc, max_ch,
+                hard_count, mean_hard, max_gap, total_trans, d, params) in enumerate(results):
             marker = ' <-- BEST' if i == 0 else ''
             lm = params['limit_max']
-            print(f'  {os.path.basename(d):<42} {lm:>4} {mean_sc:>6.1f} {max_sc:>6.0f} {max_ch:>6} {spread:>8.1f} {combined:>10.1f}{marker}')
+            hard_flag = f' ({hard_count} jumps)' if hard_count > 0 else ' (clean)'
+            print(f'  {os.path.basename(d):<42} {lm:>4} {mean_sc:>6.1f} {max_gap:>7.1f} '
+                  f'{hard_count:>8}{hard_flag:<12} {combined:>10.1f}{marker}')
 
         best = results[0]
-        best_combined, best_mean, best_max, best_maxch, best_spread, best_dir, best_params = best
+        (best_combined, best_mean, best_max, best_maxch,
+         best_hard_count, best_mean_hard, best_max_gap,
+         best_total_trans, best_dir, best_params) = best
         print(f'\n  Winner: {os.path.basename(best_dir)}')
-        print(f'    mean={best_mean:.1f}, max={best_max:.0f} at chord {best_maxch}, '
-              f'spread={best_spread:.1f}, combined={best_combined:.1f}')
+        print(f'    mean_score={best_mean:.1f}, max_gap={best_max_gap:.1f}¢, '
+              f'hard_jumps={best_hard_count} (>{args.max_cents_slide:.0f}¢), '
+              f'total_transitions={best_total_trans}, combined={best_combined:.1f}')
         winners.append((version, best_dir, best_params))
 
     print(f'\n{"=" * 78}')
