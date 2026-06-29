@@ -146,6 +146,15 @@ spec:
                 --numpy_dir "$DIR" \
                 --chorale_list $CHORALES \
                 --suffix="-trans-sa-opt.npy"
+
+            # Step 4: adjacent-chord spread analysis
+            echo "Step 4: Running analyze_adjacent_spread.py..."
+            python analyze_adjacent_spread.py \
+                --numpy_dir "$DIR" \
+                --chorale_list $CHORALES \
+                --suffix="-trans-sa-opt.npy" \
+                --gap_threshold 15 \
+                --top 20
             
             echo "========================================"
             echo "Job JOBID complete!"
