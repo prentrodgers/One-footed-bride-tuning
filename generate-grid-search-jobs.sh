@@ -9,8 +9,8 @@ OUTPUT_DIR="k8s-jobs"
 
 # Parameter arrays
 LIMIT_MAXES=(17)
-TOLERANCES=(1 2 3)
-RATIOS=(1.25 1.5 1.75)
+TOLERANCES=(3)
+RATIOS=(1.5)
 
 
 echo "Generating Kubernetes Job manifests..."

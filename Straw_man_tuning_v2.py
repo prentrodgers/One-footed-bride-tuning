@@ -705,12 +705,16 @@ def main():
     print(' '.join(f'--{arg} {value}' for arg, value in vars(args).items()))
 
     reload(atu)
-    start_logger(os.path.join(base_dir, 'test.log'), level = logging.INFO)
     global numpy_dir
     if args.numpy_dir is not None:
         numpy_dir = args.numpy_dir if os.path.isabs(args.numpy_dir) else os.path.join(base_dir, args.numpy_dir)
         os.makedirs(numpy_dir, exist_ok=True)
+    # Write the log into numpy_dir so each grid-search job keeps its own log
+    # alongside its numpy results rather than overwriting the shared test.log.
+    log_path = os.path.join(numpy_dir, 'straw-man-tuning.log')
+    start_logger(log_path, level=logging.INFO)
     print(f'{numpy_dir = }')
+    print(f'Logging to {log_path}')
     limit_max = args.limit_max
     max_delta = args.max_delta
     tonal_diamond = atu.build_tonal_diamond(limit_max)[:-1] # stop using the 2 at the end.

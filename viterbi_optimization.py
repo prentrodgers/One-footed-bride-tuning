@@ -73,12 +73,17 @@ def generate_k_candidates(cent_value_chord, cent_value_chord_prev, chord_num,
                          initial_temperature=2.0, cooling_rate=0.995,
                          ratio_factor=1.0, stability_factor=0.0, spread=7,
                          rng=None, build_chord_sa_func=None,
-                         candidate_max_no_improve=None):
+                         candidate_max_no_improve=None,
+                         max_duplicate_streak=5):
     """
     Generate K diverse candidate tunings for a single chord.
 
     Uses different random seeds and temperature variations to explore
     the solution space and generate diverse high-quality candidates.
+
+    When SA consistently converges to the same tuning (a strong local optimum),
+    further attempts are wasteful.  ``max_duplicate_streak`` consecutive duplicate
+    results trigger an early exit so those SA calls are skipped entirely.
     """
     if rng is None:
         rng = np.random.default_rng()
@@ -88,6 +93,7 @@ def generate_k_candidates(cent_value_chord, cent_value_chord_prev, chord_num,
     
     candidates = []
     seen_tunings = set()  # Track unique tunings to avoid duplicates
+    duplicate_streak = 0  # Consecutive attempts that produced only duplicates
     
     base_seed = rng.integers(0, 2**31)
     
@@ -116,10 +122,19 @@ def generate_k_candidates(cent_value_chord, cent_value_chord_prev, chord_num,
         
         if tuning_key not in seen_tunings:
             seen_tunings.add(tuning_key)
+            duplicate_streak = 0
             score = chord_scorer.score_chord(tuned_chord, tolerance=tolerance)
             candidates.append((tuned_chord.copy(), float(score)))
             
             if len(candidates) >= K:
+                break
+        else:
+            duplicate_streak += 1
+            if duplicate_streak >= max_duplicate_streak:
+                logging.debug(
+                    f'chord {chord_num}: stopping after {k+1} attempts '
+                    f'({duplicate_streak} consecutive duplicates, '
+                    f'{len(candidates)} unique candidates found)')
                 break
     
     # Sort by score (lower is better)

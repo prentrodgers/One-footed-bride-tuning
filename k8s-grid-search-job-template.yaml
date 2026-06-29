@@ -35,14 +35,9 @@ spec:
               - key: kubernetes.io/hostname
                 operator: In
                 values:
-                - fs1
-                - fs2
-                - fs3
                 - fs4
-                - fs6
                 - fs7
                 - fs8
-                - fs9
       initContainers:
       - name: git-sync
         image: quay.io/prentrodgers/python-music:0.7
@@ -126,7 +121,7 @@ spec:
                 --initial_temp "$INITIAL_TEMP" \
                 --spread "$SPREAD" \
                 --use_viterbi \
-                --viterbi_mad_weight 0.0 \
+                --viterbi_mad_weight 0.3 \
                 --k_candidates 20 \
                 --viterbi_vertical_weight 1.0 \
                 --viterbi_horizontal_weight 0.5 \
