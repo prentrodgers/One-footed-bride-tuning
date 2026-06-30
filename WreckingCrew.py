@@ -2080,12 +2080,18 @@ def chorale_to_wave_v4(version, album, include_sections, ratio_factor, limit_max
 
     cent_file_name = os.path.join(numpy_dir, f'{version}{cent_file_partial}') # fills out to the actual cent file name
     
-    # If the file doesn't exist, try to find a file with encoded parameters
+    # If the file doesn't exist, try to find a file with encoded parameters.
+    # Also try alternative suffixes so a mixed directory (some -opt.npy, some
+    # -trans-sa-opt.npy) works without specifying --cent_file_partial per chorale.
     if not os.path.exists(cent_file_name):
         import glob
-        # Look for files matching pattern: version_t*_r*_lm*{cent_file_partial}
-        pattern = os.path.join(numpy_dir, f'{version}_t*_r*_lm*{cent_file_partial}')
-        matches = glob.glob(pattern)
+        alt_suffixes = [cent_file_partial, '-trans-sa-opt.npy', '-opt.npy']
+        matches = []
+        for sfx in alt_suffixes:
+            pattern = os.path.join(numpy_dir, f'{version}_t*_r*_lm*{sfx}')
+            matches = glob.glob(pattern)
+            if matches:
+                break
         if matches:
             # Use the first match (there should only be one per chorale)
             cent_file_name = matches[0]
@@ -2317,11 +2323,12 @@ def mainline(chorale_override=None, short_repeats=False, just_triangle=False, in
                   # a NumPy array listing the instruments in that section.
                   # section --      play or not --    instruments in the section
                   # Use high-range instruments for S/A (tracks 0-3), low-range for T/B (tracks 4-7)
+                  # think SS AA TT BB
                   'finger_pianos': [False, np.array(['fing1', 'fing2', 'fing3', 'fing4', 'fing5', 'fing6', 'bfin1', 'bfin2'])],
-                  'wood_winds':    [True, np.array(['flut1', 'frnh1', 'clar1', 'trmp1', 'oboe1', 'trmb1', 'basn1', 'tuba1'])],
+                  'wood_winds':    [True, np.array(['flut1', 'clar1', 'oboe1', 'oboe2', 'frnh1', 'frnh2', 'basn1', 'basn2'])],
                   'pizz_strings':  [False, np.array(['vlip1', 'vlip2', 'vlip3', 'vlip4', 'vlap1', 'vlap2', 'celp1', 'celp2'])],
                   'bowed_strings': [False, np.array(['vliv1', 'vliv2', 'vliv3', 'vliv4', 'vlav1', 'vlav2', 'celv1', 'celv2'])],
-                  'brass_section': [False, np.array(['trmp1', 'trmp2', 'trmp3', 'trmp4', 'trmb1', 'trmb2', 'tuba1', 'tuba2'])],
+                  'brass_section': [True, np.array(['trmp1', 'trmp2', 'trmp3', 'trmp4', 'trmb1', 'trmb2', 'tuba1', 'tuba2'])],
                   'marimbas':   [False, np.array(['xylp1', 'mari1', 'vibp1', 'harp1', 'ebss1', 'stri1', 'bgui1', 'long1'])],
                   'bass_section':  [False, np.array(['bfin3', 'bfin4', 'celp3', 'celp4', 'bgui3', 'bgui2', 'long2', 'long3'])],
                   'melody_section':[False, np.array(['flut2', 'flut3', 'clar2', 'mari2', 'oboe3', 'basn4', 'trmp5', 'frnh3'])]}
