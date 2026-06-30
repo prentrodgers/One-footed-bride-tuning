@@ -426,7 +426,7 @@ def main():
                 r = params['ratio_factor']
                 lm = params['limit_max']
                 # Extract the suffix part (e.g., '-trans-sa-opt.npy')
-                dest_filename = f'{version}_t{t}_r{r:.3f}_lm{lm}{args.suffix}'
+                dest_filename = f'{version}_t{t}_r{r:.3f}_lm{lm}{w_suffix}'
                 dest_path = os.path.join(dest, dest_filename)
                 shutil.copy2(src, dest_path)
                 print(f'  {version}  →  {dest_filename}  (from {os.path.basename(best_dir)})')
