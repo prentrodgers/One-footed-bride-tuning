@@ -73,16 +73,22 @@ numpy_dir = os.path.join(local_dir, 'Archive', 'opt')
 # Columns: bass_hold_scale, bass_hold_swing, fp_hold_scale, fp_density_map_index, num_primes
 # num_primes controls how many entries from [1,3,5,11,17,31,47,71] are used for chord repeats.
 # Sparse → shortest (4-5 primes); moderate → longer (6-7); dense → moderate length (6-7).
+# 7/1/26: bass_hold_scale/fp_hold_scale spread doubled around their old centroid (~1.12) so the
+# extremes saturate the [1,6]-click duration clamp much more consistently — sparsest levels sit at
+# the long-note ceiling almost every draw, densest levels sit at the short-note floor almost every
+# draw. bass_part's own internal clip was widened to match (see hold_scale in bass_part).
 DENSITY_LEVELS = [
-    (1.75, 0.12, 1.75, 5, 4),  # 0: sparsest
-    (1.45, 0.22, 1.45, 4, 5),  # 1: sparse
-    (1.10, 0.45, 1.10, 3, 7),  # 2: moderate-sparse
-    (0.95, 0.55, 0.95, 2, 8),  # 3: moderate-dense
-    (0.80, 0.72, 0.80, 1, 7),  # 4: dense
-    (0.65, 0.80, 0.65, 0, 6),  # 5: densest
+    (2.38, 0.12, 2.38, 5, 4),  # 0: sparsest
+    (1.78, 0.22, 1.78, 4, 5),  # 1: sparse
+    (1.08, 0.45, 1.08, 3, 7),  # 2: moderate-sparse
+    (0.78, 0.55, 0.78, 2, 8),  # 3: moderate-dense
+    (0.48, 0.72, 0.48, 1, 7),  # 4: dense
+    (0.18, 0.80, 0.18, 0, 6),  # 5: densest
 ]
-# Staccato thinning ratio per density level: sparse → thin more, dense → thin less
-FATIGUE_THIN_RATIOS = [0.9, 0.76, 0.62, 0.48, 0.34, 0.2]
+# Staccato thinning ratio per density level: sparse → thin more, dense → thin less.
+# 7/1/26: pushed toward the valid [0,1] extremes (was 0.9..0.2) for a much more audible contrast.
+# 7/1/26 pm: nudged level 5 down a bit further (less thinning = a bit busier) per listening feedback.
+FATIGUE_THIN_RATIOS = [0.95, 0.77, 0.59, 0.41, 0.23, 0.02]
 FP_DENSITY_MAPS = [
     {'finger_pianos': 'dense',    'pizz_strings': 'dense',    'marimbas': 'dense'},
     {'finger_pianos': 'dense',    'pizz_strings': 'dense',    'marimbas': 'dense'},
@@ -743,7 +749,7 @@ def bass_part(chorale, glides, repeats, voice_names, voice_time, tpq, volume_fun
     # two interleaved streams in each quartet for roughly 2x bass activity.
     n_steps = chorale.shape[1]
     density_function = np.zeros((voices, n_steps), dtype=int)
-    hold_scale = float(np.clip(bass_hold_scale, 0.6, 1.8))
+    hold_scale = float(np.clip(bass_hold_scale, 0.15, 2.5))  # 7/1/26: widened to match the doubled DENSITY_LEVELS spread
     hold_cycles = max(1, int(bass_hold_cycles))
     mode_phase = {'dense': 0, 'moderate': 2, 'sparse': 4}
     base_patterns = np.array([
@@ -1799,7 +1805,13 @@ def expand_chorale(repeats, chorale_in_cents_slides, glides, stored_gliss, voice
         time_slots = int(np.clip(_total_expanded // 52, 6, 80))
         max_value = 11 # how loud can each instrument go
         logging.info(f'{time_slots = }, {_prime_count = }, {_total_expanded = }, {repeats.shape = }, {repeats_average = }')
-        _sparse_range = {0: (2, 3), 1: (3, 4), 2: (4, 5)}.get(density_level, False)
+        # 7/1/26: previously only levels 0-2 restricted simultaneous active sections (3-5 were
+        # all unrestricted/identical on this axis). Now every level gets a distinct range so the
+        # sparse end plays fewer of the 8 sections at once and the dense end is pushed to nearly
+        # all of them, widening the audible gap between e.g. density_level 1 and density_level 5.
+        # 7/1/26 pm: level 5 bumped from (7,8) to (8,8) — force every time slot to use the full
+        # ensemble, a small further push per listening feedback ("come up a small amount").
+        _sparse_range = {0: (1, 2), 1: (2, 3), 2: (3, 4), 3: (5, 6), 4: (6, 7), 5: (8, 8)}.get(density_level, False)
         volume_function = generate_random_volumes(time_slots=time_slots, sparse_mode=_sparse_range)
         logging.info(f'{volume_function.shape = }')
         logging.info(f'sums of each time_slot: ')
@@ -1927,14 +1939,58 @@ def expand_chorale(repeats, chorale_in_cents_slides, glides, stored_gliss, voice
             # standard path: each entry in repeats is how many steps that chord occupies.
             _boundaries = np.concatenate(([0.0], np.cumsum(repeats, dtype=float)))
         _tpq = tpq if tpq != 0 else 0.25
-        notes_16 = _chord_idx_from_boundaries(notes_features_15, _boundaries, _tpq)
-        notes_16 = apply_rondo(notes_16, rondo_sections, rondo_insertions, _boundaries, _tpq)
-        notes_features_15 = notes_16[:, :15]
-        logging.info(f'rondo applied: {notes_features_15.shape[0]} rows after splice')
+
+        # Reject insertions inside the last measure: voices commonly taper off
+        # (fewer notes) heading into the final cadence, so a chunk ending there
+        # doesn't reach its nominal boundary time for every voice. That desyncs
+        # the spliced-in section's re-entry point across voices by several beats.
+        # Require insertions to land at least 16 chords before the ending.
+        _last_chord_idx = len(_boundaries) - 2
+        _min_margin_chords = 16
+        _cutoff_chord_idx = _last_chord_idx - _min_margin_chords
+        _skipped_insertions = [(a, l) for a, l in rondo_insertions if a >= _cutoff_chord_idx]
+        rondo_insertions = [(a, l) for a, l in rondo_insertions if a < _cutoff_chord_idx]
+        if _skipped_insertions:
+            logging.warning(f'Skipping rondo insertions within {_min_margin_chords} chords of the ending ({_last_chord_idx}): {_skipped_insertions}')
+
+        if rondo_insertions:
+            notes_16 = _chord_idx_from_boundaries(notes_features_15, _boundaries, _tpq)
+            notes_16 = apply_rondo(notes_16, rondo_sections, rondo_insertions, _boundaries, _tpq)
+            notes_features_15 = notes_16[:, :15]
+            logging.info(f'rondo applied: {notes_features_15.shape[0]} rows after splice')
 
     # now that you have the voices, assign note start times from durations of notes in a voice
     notes_features_final, voice_time = dmu.fix_start_times(notes_features_15, voice_time)
     print(f'{notes_features_final.shape = }') # notes_features_final.shape = (16495, 15)
+
+    # 7/1/26 pm: the hold_scale/thin_ratio/sparse_range knobs above still left density_level 0-2
+    # too busy, so directly drop a random fraction of notes for those levels only. Safe to do here
+    # (post fix_start_times) since column 1 is now each note's own absolute start time, not a
+    # duration other rows depend on — dropping rows doesn't shift anything else's timing.
+    # 7/2/26: column 6 now holds the csound instrument voice number (fix_start_times overwrites
+    # the tracker id with it above). Long-held sustained sections read as "dropped notes" rather
+    # than natural sparseness when thinned at the same rate as busy arpeggio/bass material, so
+    # give wood_winds/bowed_strings/brass_section csound voices a keep fraction that's a multiple
+    # of that level's base rate (capped at 1.0 = untouched). Levels with no base filter (3, 4, 5)
+    # default their base rate to 1.0, so a multiplier there only has effect if a base filter is
+    # added for that level later.
+    _SUSTAINED_CSOUND_VOICES = {12, 13, 14, 15, 16, 17, 18, 19, 25, 26, 27}  # wood_winds, bowed_strings, brass_section
+    _SPARSE_KEEP_FRACTION = {0: 1 / 2.0, 1: 1 / 1.75, 2: 1 / 1.5}  # 2x/1.75x/1.5x fewer notes
+    _SUSTAINED_BOOST_MULTIPLIER = {0: 2.0, 1: 2.0, 2: 1.5, 3: 1.15}  # relative to that level's base keep rate
+    _base_keep_fraction = _SPARSE_KEEP_FRACTION.get(density_level, 1.0)
+    _sustained_multiplier = _SUSTAINED_BOOST_MULTIPLIER.get(density_level)
+    if density_level in _SPARSE_KEEP_FRACTION or _sustained_multiplier is not None:
+        _n_before = notes_features_final.shape[0]
+        _keep_prob = np.full(_n_before, _base_keep_fraction)
+        if _sustained_multiplier is not None:
+            _is_sustained = np.isin(notes_features_final[:, 6].astype(int), list(_SUSTAINED_CSOUND_VOICES))
+            _sustained_keep_fraction = min(1.0, _base_keep_fraction * _sustained_multiplier)
+            _keep_prob[_is_sustained] = _sustained_keep_fraction
+            logging.info(f'sparse note-count filter: {int(np.sum(_is_sustained))} sustained-section rows at keep={_sustained_keep_fraction:.3f} (vs base {_base_keep_fraction:.3f})')
+        _keep_mask = rng.random(_n_before) < _keep_prob
+        notes_features_final = notes_features_final[_keep_mask]
+        logging.info(f'sparse note-count filter (density_level={density_level}, base keep={_base_keep_fraction:.3f}): {_n_before} -> {notes_features_final.shape[0]} rows')
+        print(f'sparse note-count filter (density_level={density_level}, base keep={_base_keep_fraction:.3f}): {_n_before} -> {notes_features_final.shape[0]} rows')
 
     # Filter inaudible notes: ampdb(velocity) * volume / 5 >= 1 matches Csound iamp = ampdb(iVel) * p15 / 5
     _velocity = notes_features_final[:, 3]
@@ -1977,7 +2033,7 @@ def expand_chorale(repeats, chorale_in_cents_slides, glides, stored_gliss, voice
     # I want to switch the mod string to include the ratio_factor instead of avg_probs
     # and I want to switch the round(1 - max_silence, 2) to tolerance.
     density_tag = f'_df{density_level}' if density_level is not None else f'_md{int(max_delta):02d}'
-    mod = f'{mod}_r{ratio_factor:.2f}_sf{stability_factor:.2f}{density_tag}_sp{int(spread):02d}_t{tolerance}_d{dur_short}_t{tempo:03}'
+    mod = f'{mod}_r{ratio_factor:.2f}{density_tag}_t{tolerance}_d{dur_short}_t{tempo:03}'
     mod = atu.windows_compliant_filename(mod) # get rid of the windows invalid characters in the file name
     print(f'{mod = }')
     return duration, volume_function, mod

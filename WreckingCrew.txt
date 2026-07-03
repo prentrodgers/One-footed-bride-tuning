@@ -18188,7 +18188,7 @@ ls -1Sr /home/prent/Dropbox/Uploads/$dirname/*.mp3 > /home/prent/Dropbox/Uploads
       Done. 3 3/4 hours vs 1 hour on the best Intel current line up. Win11 here we come. 
 
 -------------------
-6/28/26 To do today. Decide if more runs would continue the improvements I say yesterday.
+6/28/26 To do today. Decide if more runs would continue the improvements I saw yesterday.
       What we see is that the two runs improved from before yesterday. That means the majority, 200 are at their best, but 88 improved is pretty darn good in my mind. It means I can continue to run the 24 jobs as long as the 88 value keeps improving. But if some limit_max or ratio_factors are no longer improving, I can reduce the job count considerably. Which hyperparameters had the most improvements, and which had the least.
             grep -v unknown scores-after.txt | grep -oP 'straw-man/\Kt[^/]+' | sort | uniq -c | sort -rn
                   7 t2_r1.25_lm17_tmp3.0
@@ -18224,3 +18224,100 @@ ls -1Sr /home/prent/Dropbox/Uploads/$dirname/*.mp3 > /home/prent/Dropbox/Uploads
       The improvements were well spread out, except for t1_r1.125_lm19 = 0.
       If you want to reduce the job count, dropping all lm19 combinations and r1.125 would cut from 24 jobs down to 9 (t1/t2/t3 × r1.25/r1.5/r1.75 with lm17 only) while keeping your best-performing hyperparameter space. Sounds like a sound strategy. 
       I had to ask claude to update the ./generate-grid-search-jobs.sh so it knows about the change from 24 down to 9 jobs. I'll have to remember to do this if I ever change the template job to match the values in the bash shell.
+            grep "last_improved:" Archive/straw-man/t*_lm*_tmp*/bwv*-opt.txt | sort > scores-$(date +%Y-%m-%d).txt
+            grep 06-28 scores-2026-06-28.txt | wc -l
+                  21
+
+--------------------------
+6/30/26 All my notes from today were lost somewhere. It could be in git stash somewhere. 
+      Here is from history:
+            python select_best_and_render.py --numpy_dir_root Archive/straw-man --chorale_list $CHORALES --spread_weight 0.5  --copy_npy_to Archive/straw-man/viterbi-tunings-6-29
+
+            CHORALES=${1:-$(echo bwv{253..264})}
+            python WreckingCrew.py --numpy_dir Archive/straw-man/viterbi-tunings-6-29 --chorale_list $CHORALES --auto_density --shuffle_density --deep_bass_backoff 0.25 --back_off_clicks 0.25 --album 7 --mod c --rondo_section_a 0 31 --rondo_insert_a_after 63 127
+            
+            dirname=c5-06-29-26
+            mkdir -p Uploads/$dirname
+            mv Uploads/*.mp3 Uploads/$dirname
+            mv Uploads/$dirname /home/prent/Dropbox/Uploads/
+
+----------------------------------
+7/1/26 Notes from yesterday's walk:
+      1. I'd like to fix bwv255 so it doesn't screw up the rondos in the second repeat. It turned out that the bug was caused by the fact that the bwv255 chorale only has 128 chords. 8 measures * 16 = 128. So an insertion after pythonic 127 would need a major fix to work. I asked claude to create some code that would skip an insertion near the end. Must not be inside a measure from the end, so 16 less than the length of the chorale. 
+
+      2. Make the density factor more different. Today the df1 and df5 sound about the same; I want really sparse and really dense realizations. I asked Claude to effect that: I'd like you to review the code in WreckingCrew.py that involves the density level. A few weeks ago we consolidated all the variables that affected density into --density_level, and automated the selection with --auto_density and --shuffle_density. But in listening to all the mp3 files over the last few weeks it's clear that the difference between --density_level 1 and density_level 5 is not sufficient. I want to take both the lower density and the upper density into much more pronounced effects. Be bold. Let's stretch the variabliity by twice as much up and down both, so the density levels are much more apparent in the results. Be bold.
+
+      Claude did his best: Verified: comparing density_level=1 vs density_level=5 on bwv255 now produces 8,292 notes vs 23,139 notes — a 2.8x difference in note count, plus level 1 renders at 2:15 while level 5 renders at 4:20. Both ran clean through the full pipeline with no errors.
+
+      Summary of changes in WreckingCrew.py:72-93:
+
+      bass_hold_scale / fp_hold_scale (controls how long each arpeggio/bass note is held, 1–6 clicks): doubled the spread around the old centroid (~1.12). Sparsest level now 2.38 (was 1.75), densest now 0.18 (was 0.65). At the dense extreme this pushes essentially every note to the 1-click floor; at the sparse extreme, most notes saturate at the 6-click ceiling.
+      bass_part's internal clip (line 746): widened from (0.6, 1.8) to (0.15, 2.5) — the old clip would have silently clamped the new bass_hold_scale extremes right back to the old range, cancelling out change #1 for the bass part. This was the one place a pure table edit wouldn't have worked.
+      FATIGUE_THIN_RATIOS (staccato-chain thinning): widened from [0.9…0.2] to [0.95…0.05], close to the full valid [0,1] range — sparsest level now silences ~95% of eligible chain notes, densest only ~5%.
+      Simultaneous-section restriction (line 1802): previously only levels 0–2 restricted how many of the 8 instrument sections could sound at once ((2,3)/(3,4)/(4,5)), while levels 3–5 were all identically unrestricted — meaning density_level 3, 4, and 5 sounded the same on this axis. Now every level has a distinct range: {0:(1,2), 1:(2,3), 2:(3,4), 3:(5,6), 4:(6,7), 5:(7,8)}, so the dense end is pushed toward nearly full orchestration and the sparse end toward just 1–2 sections at a time.
+
+      I asked him to go lower on the 0-2 settings to make them more sparse. The new filter works exactly as specified — verified directly from the "before → after" counts it logs:
+
+      Level 0: 6504 → 3240 rows (2.01x reduction)
+      Level 1: 14992 → 8558 rows (1.75x reduction)
+      Level 2: 17236 → 11526 rows (1.50x reduction)
+      Changes made:
+
+      New note-count filter (WreckingCrew.py:1966-1974): added right after fix_start_times, where each note already has an absolute start time — so randomly dropping rows there is safe and doesn't disturb any other note's timing. It's a flat random keep-probability applied only to density_level 0/1/2 ({0: 1/2.0, 1: 1/1.75, 2: 1/1.5}), layered on top of the existing hold_scale/thin_ratio/sparse_range mechanism rather than replacing it — simplest way to guarantee the exact factor you asked for regardless of how busy the upstream generation already was.
+
+      Level 5 nudged up slightly, two small levers rather than touching the already-near-saturated bass_hold_scale/fp_hold_scale (0.18 — further reduction there has almost no effect since values are already rounding to the 1-click floor):
+
+      FATIGUE_THIN_RATIOS[5]: 0.05 → 0.02 (marginally less thinning)
+      Section-restriction range for level 5: (7,8) → (8,8) (every time slot now uses the full 8-section ensemble instead of occasionally dropping to 7)
+      One caveat worth flagging: this pipeline has a lot of per-render randomness independent of density_level (volume-section shuffling, rhythm-pattern mutation, and num_primes — which varies non-monotonically across levels and drives overall piece length). So a single render at level 2 can occasionally land close to level 1 in raw notes/second, same as before my change. That's pre-existing behavior, not something the new filter affects — it reduces each level's note count by exactly its target factor relative to what it would otherwise have produced. Give it a listen and let me know if 0/1/2 need further adjustment or if level 5 needs more (or less).
+
+      3. Start a new python program based on WreckingCrew.py structure overall, but one that is similar to the structure of Partch's Castor and Pollux. From a review of the performance: "In Castor each of the first three sections requires pairs of different instruments and dancers, all three of which have identical measure patterns, but not necessarily the same rhythms. Number 4, then, is the total of these, played and danced simultaneously. Thus, three different compositions become one composition—the “Delivery,” the logical result and the sum total of the factors that make it inevitable. Pollux follows the same plan: Numbers 5, 6, and 7 combined to result in Number 8.”
+      I used this scheme in Alpine Daisy - Roof of Wind #28. My blog post: I stole a technique that Harry Partch employed in Castor & Pollux. That piece is structured as three duets, followed by all the instruments playing their same parts together in a “tutti” section. While two players execute their duet, the other four instrumentalists are silent. For the “tutti” they play together. This is done twice, symbolizing the birth of both Castor and Pollux. In this way, you get to listen to the individual parts and to the collection of all the instruments together. It’s very effective in his piece. I hope it will help mine as well. Posted here: http://ripnread.com/sample-page/blog/page/25/. I never really tried the method. Randomness got into the way. 
+
+      4. Work on a video that initially just shows stick figures playing instruments in perfect syncronization with the music. Start with a proof-of-concept with a single measure of one marimba, then if that works, start adding more instruments. I'm trying to create my own Animusic. Midi-Motion feeds midi information into a tool that creates the keyframes for the motion in a computer animation pipeline, with prebuilt models for instruments. Wayne Lytle was the musician brains behind the project. He founded Visual Music in 1990. Dave Crognale was the artist who created the models. In 1995 changed name to Animusic. 
+
+
+      5. Take down the volume of the finger piano. Done. 
+            "fing1": {"full_name": "finger piano 1", "start": 0, "csound_voice": 1,"time_tracker_number": 0,  "volume_factor": -2, "min_oct": 2, "max_oct": 7},
+
+--------------------------
+7/2/26 The sustained instruments became too sparse on low density_level.
+      I've listened to all the changes and I like them a lot. One request to improve the results is to limit the filter on --density_level 0 and 1 to less restrictive on the long held notes in the woodwinds, bowed strings, and brass instruments. If the filter is able to detect the csound instrument numbers, then set the filter to about twice as permissive for those instruments.
+      Claud obliged: Implemented and verified. Column 6 already holds the csound instrument voice number at the point this filter runs (fix_start_times overwrites it), so I mapped the three sections' voices directly from adaptive_tuning_util.py:
+
+            wood_winds: 12 (bassoon), 13 (clarinet), 14 (flute), 15 (oboe), 16 (french horn)
+            bowed_strings: 17 (violin), 18 (viola), 19 (cello)
+            brass_section: 25 (trumpet), 26 (trombone), 27 (tuba)
+      At WreckingCrew.py:1966-1980, for density_level 0 and 1 only, rows whose voice is in that set get a keep-probability of min(1.0, base_keep × 2) instead of the base rate — which works out to a full exemption at both levels (0.5×2=1.0, 0.571×2=1.14→capped at 1.0), since "twice as permissive" pushed past 100% for both. Level 2 is untouched, per your request to limit this to levels 0 and 1.
+
+      Confirmed on bwv255 by checking the overall keep ratio moved as expected once the sustained rows got excluded from thinning:
+
+      Level 0: 7148→4235 rows, ratio 0.593 (above the 0.500 base — sustained rows pulling the average up)
+      Level 1: 15126→9285 rows, ratio 0.614 (above the 0.571 base)
+      Level 2: 11497→7590 rows, ratio 0.660 (matches the 0.667 base — no exemption applied, as intended)
+      So at levels 0/1, finger pianos/pizzicato/marimbas/bass still get thinned hard, while the sustained wood/bowed-string/brass lines are left essentially intact. Give it a listen and let me know if the sustained sections need to come back down a bit (e.g. exempt them at 1.5x instead of full pass-through) or if this is right.
+            python WreckingCrew.py --numpy_dir Archive/straw-man/viterbi-tunings-6-29 --chorale_list $CHORALES --auto_density --shuffle_density --deep_bass_backoff 0.25 --back_off_clicks 0.25 --album 6 --mod c --rondo_section_a 0 31 --rondo_insert_a_after 63 127
+
+            dirname=c6-07-02-26
+            mkdir -p Uploads/$dirname
+            mv Uploads/*.mp3 Uploads/$dirname
+            mv Uploads/$dirname /home/prent/Dropbox/Uploads/
+      Might as well upload it while you are at it:
+            eval $(op signin) && FTP_PASS=$(op item get "GoDaddy FTP server" --fields password --reveal) && lftp -u prent,"$FTP_PASS" ftp://50.63.8.141 -e "set ssl:verify-certificate false; cd httpdocs/listen; mput /home/prent/Dropbox/Uploads/$dirname/*.mp3; quit"   
+
+----------------------
+7/3/26 To do today: Reread the last two ideas from 7-1-26 above, renumbered.
+      1. Start a new python program based on WreckingCrew.py structure overall, but one that is similar to the structure of Partch's Castor and Pollux. From a review of the performance: "In Castor each of the first three sections requires pairs of different instruments and dancers, all three of which have identical measure patterns, but not necessarily the same rhythms. Number 4, then, is the total of these, played and danced simultaneously. Thus, three different compositions become one composition—the “Delivery,” the logical result and the sum total of the factors that make it inevitable. Pollux follows the same plan: Numbers 5, 6, and 7 combined to result in Number 8.”
+      I used this scheme in Alpine Daisy - Roof of Wind #28. My blog post: I stole a technique that Harry Partch employed in Castor & Pollux. That piece is structured as three duets, followed by all the instruments playing their same parts together in a “tutti” section. While two players execute their duet, the other four instrumentalists are silent. For the “tutti” they play together. This is done twice, symbolizing the birth of both Castor and Pollux. In this way, you get to listen to the individual parts and to the collection of all the instruments together. It’s very effective in his piece. I hope it will help mine as well. Posted here: http://ripnread.com/sample-page/blog/page/25/. I never really tried the method. Randomness got into the way. 
+
+      2. Work on a video that initially just shows stick figures playing instruments in perfect syncronization with the music. Start with a proof-of-concept with a single measure of one marimba, then if that works, start adding more instruments. I'm trying to create my own Animusic. Midi-Motion feeds midi information into a tool that creates the keyframes for the motion in a computer animation pipeline, with prebuilt models for instruments. Wayne Lytle was the musician brains behind the project. He founded Visual Music in 1990. Dave Crognale was the artist who created the models. In 1995 changed name to Animusic. 
+
+      3. Write another post for substack that describes the latest ideas in action. Done.
+    
+      Trouble pushing to github. Expired token. Try this one:
+            
+            git remote set-url origin https://<PAT-from-1Password>@github.com/prentrodgers/One-footed-bride-tuning.git
+
+            git remote set-url origin https://ghp_...Et@github.com/prentrodgers/One-footed-bride-tuning.git
+
+            git push
