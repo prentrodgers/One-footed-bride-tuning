@@ -21,6 +21,7 @@ Before first use:
 import os
 import re
 import json
+import random
 import sys
 from pathlib import Path
 from urllib.parse import quote
@@ -74,9 +75,9 @@ FILENAME_RE = re.compile(
     r"ball9-t(\d{2,3})(\w?)_"        # track number + variant letter
     r"lm(\d+)_"                       # limit
     r"r([\d.]+)_"                     # ratio factor
-    r"sf([\d.]+)_"                    # stability factor
+    r"(?:sf[\d.]+_)?"                 # stability factor (optional — removed from new filenames)
     r"(?:md|df)(\d+)_"                # detail value (legacy md max-delta / newer df density-level)
-    r"sp(\d+)_"                       # spread
+    r"(?:sp\d+_)?"                    # spread (optional — removed from new filenames)
     r"t(\d+)_"                        # tolerance
     r"d(\d+)_(\d+)_"                  # duration mm_ss
     r"t(\d+)"                         # tempo
@@ -103,7 +104,7 @@ def parse_filename(fname, base_url=BASE_URL):
     if not m:
         return None, f"{fname}\n{url}", url
 
-    track, variant, limit, ratio, sf, detail_value, sp, tol, dur_m, dur_s, tempo = m.groups()
+    track, variant, limit, ratio, detail_value, tol, dur_m, dur_s, tempo = m.groups()
     bwv = f"2{track}"  # e.g. track 53 → BWV 253
     title = BWV_TITLES.get(bwv, "Bach Chorale")
 
@@ -146,11 +147,11 @@ def get_mp3_files(directory):
 
 
 def load_state():
-    """Load the index of the next file to post."""
+    """Load posted-file tracking state."""
     if os.path.exists(STATE_FILE):
         with open(STATE_FILE) as f:
             return json.load(f)
-    return {"posted": [], "next_index": 0, "mp3_dir": MP3_DIR}
+    return {"posted": [], "mp3_dir": MP3_DIR}
 
 
 def save_state(state):
@@ -222,31 +223,25 @@ def main():
     files = get_mp3_files(mp3_dir)
 
     state = load_state()
-    if args.reset:
-        state = {"posted": [], "next_index": 0, "mp3_dir": mp3_dir}
+    if args.reset or state.get("mp3_dir") != mp3_dir:
+        state = {"posted": [], "mp3_dir": mp3_dir}
 
-    # If the directory changed, reset
-    if state.get("mp3_dir") != mp3_dir:
-        state = {"posted": [], "next_index": 0, "mp3_dir": mp3_dir}
-
-    idx = state["next_index"]
-    if idx >= len(files):
-        # Wrap around for rotation
-        idx = 0
-        state["next_index"] = 0
+    posted = set(state["posted"])
+    remaining = [f for f in files if f not in posted]
+    if not remaining:
         print("Completed full rotation, starting over.")
+        state["posted"] = []
+        remaining = files[:]
 
-    fname = files[idx]
+    fname = random.choice(remaining)
     bwv, description, url = parse_filename(fname, base_url=args.base_url)
 
     success = post_tweet(fname, description, url, dry_run=args.dry_run)
 
     if success:
         state["posted"].append(fname)
-        state["next_index"] = idx + 1
         save_state(state)
-        remaining = len(files) - state["next_index"]
-        print(f"\n{remaining} chorales until next rotation.")
+        print(f"\n{len(remaining) - 1} chorales remaining in rotation.")
 
 
 if __name__ == "__main__":
