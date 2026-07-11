@@ -1,0 +1,179 @@
+# Kubernetes Job template for grid search parameter combination
+# This template will be used to generate 20 individual Job manifests
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: grid-search-18-lm19-t2-r1-25
+  labels:
+    app: grid-search
+    job-id: "18-lm19-t2-r1-25"
+spec:
+  backoffLimit: 2
+  ttlSecondsAfterFinished: 86400  # Clean up after 24 hours
+  template:
+    metadata:
+      labels:
+        app: grid-search
+        job-id: "18-lm19-t2-r1-25"
+    spec:
+      securityContext:
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch  # add this line
+      restartPolicy: Never
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: In
+                values:
+                - fs4
+                - fs6
+                - fs7
+                - fs8
+      initContainers:
+      - name: git-sync
+        image: quay.io/prentrodgers/python-music:0.7
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          runAsUser: 0
+        command: ["/bin/bash", "-c"]
+        args:
+          - |
+            set -euo pipefail
+            REPO_DIR=/home/prent/Repos/One-footed-bride-tuning
+            REPO_URL=https://github.com/prentrodgers/One-footed-bride-tuning.git
+            git lfs install
+            if [ -d "$REPO_DIR/.git" ]; then
+              echo "Repo exists — pulling latest..."
+              cd "$REPO_DIR" && git pull && git lfs pull
+            else
+              echo "Cloning repo..."
+              mkdir -p /home/prent/Repos
+              git clone "$REPO_URL" "$REPO_DIR"
+              cd "$REPO_DIR" && git lfs pull
+            fi
+            chgrp -R 1000 "$REPO_DIR"
+            chmod -R g+rwX "$REPO_DIR"
+            find "$REPO_DIR" -type d -exec chmod g+s {} +
+            echo "Repo ready at $REPO_DIR"
+        volumeMounts:
+        - mountPath: /home/prent
+          name: ceph-files
+        env:
+        - name: HOME
+          value: "/home/prent"
+      containers:
+      - name: grid-search
+        image: quay.io/prentrodgers/python-music:0.7
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          runAsUser: 1000
+          runAsGroup: 1000
+        workingDir: /home/prent/Repos/One-footed-bride-tuning
+        command: ["/bin/bash", "-c"]
+        args:
+          - |
+            set -euo pipefail
+            
+            # Parameters for this job
+            LIMIT_MAX=19
+            TOLERANCE=2
+            RATIO=1.25
+            STABILITY_FACTOR=0
+            MAX_DELTA=33
+            SPREAD=7
+            INITIAL_TEMP=3.0
+            CHORALES="bwv253 bwv254 bwv255 bwv256 bwv257 bwv258 bwv259 bwv260 bwv261 bwv262 bwv263 bwv264"
+
+            DIR="Archive/straw-man/t${TOLERANCE}_r${RATIO}_lm${LIMIT_MAX}_tmp${INITIAL_TEMP}"
+
+            echo "========================================"
+            echo "Job 18-lm19-t2-r1-25 starting"
+            echo "limit_max=${LIMIT_MAX}  tolerance=${TOLERANCE}  ratio_factor=${RATIO}"
+            echo "initial_temp=${INITIAL_TEMP}  stability_factor=${STABILITY_FACTOR}  spread=${SPREAD}"
+            echo "dir=${DIR}"
+            echo "========================================"
+
+            mkdir -p "$DIR"
+            mkdir -p ~/Music/sflib
+
+            # Step 1: tune with SA and viterbi optimization
+            echo "Step 1: Running Straw_man_tuning_v2.py..."
+            time python Straw_man_tuning_v2.py \
+                --no-print_values --no-print_finals --no-print_initial \
+                --rolls 5 --workers 1 --runs 1 \
+                --limit_max "$LIMIT_MAX" \
+                --chorale_list $CHORALES \
+                --ratio_factor "$RATIO" \
+                --tolerance "$TOLERANCE" \
+                --max_delta "$MAX_DELTA" \
+                --numpy_dir "$DIR" \
+                --max_gap 33 --retune_on_gaps 5 \
+                --stability_factor "$STABILITY_FACTOR" \
+                --sa_iterations 1000 \
+                --cooling_rate 0.999 \
+                --initial_temp "$INITIAL_TEMP" \
+                --spread "$SPREAD" \
+                --use_viterbi \
+                --viterbi_mad_weight 0.0 \
+                --k_candidates 20 \
+                --viterbi_vertical_weight 1.0 \
+                --viterbi_horizontal_weight 0.5 \
+                --viterbi_verbose \
+                --viterbi_verbose_threshold 80 \
+                --detect_phrases \
+                --phrase_horizontal_weight 1.0 \
+                --viterbi_workers 4
+            
+            # Step 2: horizontal consistency pass
+            echo "Step 2: Running horizontal_transpose.py for each chorale..."
+            for c in $CHORALES; do
+                python horizontal_transpose.py \
+                    --destination "${DIR}/${c}-trans-sa-opt.npy" \
+                    "${DIR}/${c}-opt.npy" \
+                    --log-level DEBUG
+            done
+            
+            # Step 3: spread analysis
+            echo "Step 3: Running analyze_spread.py..."
+            python analyze_spread.py \
+                --numpy_dir "$DIR" \
+                --chorale_list $CHORALES \
+                --suffix="-trans-sa-opt.npy"
+            
+            echo "========================================"
+            echo "Job 18-lm19-t2-r1-25 complete!"
+            echo "Results saved to: $DIR"
+            echo "========================================"
+        volumeMounts:
+        - mountPath: /home/prent
+          name: ceph-files
+        env:
+        - name: SFDIR
+          value: "/home/prent/Music/sflib"
+        - name: SSDIR
+          value: "/home/prent/Music/sflib"
+        - name: TZ
+          value: "America/Los_Angeles"
+        - name: HOME
+          value: "/home/prent"
+        - name: LOGNAME
+          value: "prent"
+        resources:
+          requests:
+            cpu: "1"
+            memory: "1Gi"
+          limits:
+            cpu: "8"
+            memory: "8Gi"
+      volumes:
+      - name: ceph-files
+        persistentVolumeClaim:
+          claimName: dropbox-pvc
+          readOnly: false
+      imagePullSecrets:
+        - name: regcred
+
+# Made with Bob
