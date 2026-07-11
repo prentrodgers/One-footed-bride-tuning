@@ -1,0 +1,405 @@
+
+Found 1 chorale(s) across 1 directory/directories
+
+==========================================================================================
+Options: default tolerance=1, default limit_max=23, spread_weight=0.5 (per-file _tN/_lmN filename overrides enabled)
+==========================================================================================
+  Chorale      Mean    Max  MaxCh    Top2dec   Spread   Combined  PCerr
+  ----------  -----  -----  -----   --------  -------  ---------  -----
+  bwv261       56.7    145     72   74   78     16.7       65.0      0
+
+version: bwv261, tolerance=1, limit_max=17, Average score: 56.7, max score: 145 max chord: 72
+
+#          cents       note names   chord score
+0:  207  593  909  207	D♮ F♯ A♮ D♮	43.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 D♮ F♯   386  5/4      2 D♮ A♮   498  4/3      3 D♮ D♮     0  1/1  
+ 4 F♯ A♮   316  6/5      5 F♯ D♮   386  5/4      6 A♮ D♮   498  4/3  
+2:  207  705  909  358	D♮ G♮ A♮ E♮	93.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 D♮ G♮   498  4/3      2 D♮ A♮   498  4/3      3 D♮ E♮   151 12/11 
+ 4 G♮ A♮   204  9/8      5 G♮ E♮   347  11/9     6 A♮ E♮   551  11/8 
+4:  909  909  207  593	A♮ A♮ D♮ F♯	45.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 A♮ A♮     0  1/1      2 A♮ D♮   498  4/3      3 A♮ F♯   316  6/5  
+ 4 A♮ D♮   498  4/3      5 A♮ F♯   316  6/5      6 D♮ F♯   386  5/4  
+8: 1091  705  207  705	B♮ G♮ D♮ G♮	43.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 B♮ G♮   386  5/4      2 B♮ D♮   316  6/5      3 B♮ G♮   386  5/4  
+ 4 G♮ D♮   498  4/3      5 G♮ G♮     0  1/1      6 D♮ G♮   498  4/3  
+10:   87  705  207  705	C♯ G♮ D♮ G♮	67.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 C♯ G♮   582  7/5      2 C♯ D♮   120 15/14     3 C♯ G♮   582  7/5  
+ 4 G♮ D♮   498  4/3      5 G♮ G♮     0  1/1      6 D♮ G♮   498  4/3  
+12:  207  909  207  593	D♮ A♮ D♮ F♯	43.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 D♮ A♮   498  4/3      2 D♮ D♮     0  1/1      3 D♮ F♯   386  5/4  
+ 4 A♮ D♮   498  4/3      5 A♮ F♯   316  6/5      6 D♮ F♯   386  5/4  
+14:  411  909  207  593	E♮ A♮ D♮ F♯	70.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 E♮ A♮   498  4/3      2 E♮ D♮   204  9/8      3 E♮ F♯   182  10/9 
+ 4 A♮ D♮   498  4/3      5 A♮ F♯   316  6/5      6 D♮ F♯   386  5/4  
+16:  593 1047  207  593	F♯ A♯ D♮ F♯	93.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 F♯ A♯   454 13/10     2 F♯ D♮   386  5/4      3 F♯ F♯     0  1/1  
+ 4 A♯ D♮   360 16/13     5 A♯ F♯   454 13/10     6 D♮ F♯   386  5/4  
+18:  593 1091  207  825	F♯ B♮ D♮ G♯	67.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 F♯ B♮   498  4/3      2 F♯ D♮   386  5/4      3 F♯ G♯   232  8/7  
+ 4 B♮ D♮   316  6/5      5 B♮ G♯   266  7/6      6 D♮ G♯   582  7/5  
+20:  395  128  128 1012	E♮ C♯ C♯ A♯	60.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 E♮ C♯   267  7/6      2 E♮ C♯   267  7/6      3 E♮ A♯   583  7/5  
+ 4 C♯ C♯     0  1/1      5 C♯ A♯   316  6/5      6 C♯ A♯   316  6/5  
+24:  204  590  204 1088	D♮ F♯ D♮ B♮	47.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 D♮ F♯   386  5/4      2 D♮ D♮     0  1/1      3 D♮ B♮   316  6/5  
+ 4 F♯ D♮   386  5/4      5 F♯ B♮   498  4/3      6 D♮ B♮   316  6/5  
+26:  204  590   92  906	D♮ F♯ C♯ A♮	74.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 D♮ F♯   386  5/4      2 D♮ C♯   112 16/15     3 D♮ A♮   498  4/3  
+ 4 F♯ C♯   498  4/3      5 F♯ A♮   316  6/5      6 C♯ A♮   386  5/4  
+28:  204  435 1137  821	D♮ E♮ B♮ G♯	67.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 D♮ E♮   231  8/7      2 D♮ B♮   267  7/6      3 D♮ G♯   583  7/5  
+ 4 E♮ B♮   498  4/3      5 E♮ G♯   386  5/4      6 B♮ G♯   316  6/5  
+32:  119  435  933  933	C♯ E♮ A♮ A♮	43.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 C♯ E♮   316  6/5      2 C♯ A♮   386  5/4      3 C♯ A♮   386  5/4  
+ 4 E♮ A♮   498  4/3      5 E♮ A♮   498  4/3      6 A♮ A♮     0  1/1  
+36:  231  617  933  231	D♮ F♯ A♮ D♮	43.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 D♮ F♯   386  5/4      2 D♮ A♮   498  4/3      3 D♮ D♮     0  1/1  
+ 4 F♯ A♮   316  6/5      5 F♯ D♮   386  5/4      6 A♮ D♮   498  4/3  
+44:  617  933  231  231	F♯ A♮ D♮ D♮	43.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 F♯ A♮   316  6/5      2 F♯ D♮   386  5/4      3 F♯ D♮   386  5/4  
+ 4 A♮ D♮   498  4/3      5 A♮ D♮   498  4/3      6 D♮ D♮     0  1/1  
+48:  435  933  119  933	E♮ A♮ C♯ A♮	43.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 E♮ A♮   498  4/3      2 E♮ C♯   316  6/5      3 E♮ A♮   498  4/3  
+ 4 A♮ C♯   386  5/4      5 A♮ A♮     0  1/1      6 C♯ A♮   386  5/4  
+50:  434  701  119  933	E♮ G♮ C♯ A♮	67.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 E♮ G♮   267  7/6      2 E♮ C♯   315  6/5      3 E♮ A♮   499  4/3  
+ 4 G♮ C♯   582  7/5      5 G♮ A♮   232  8/7      6 C♯ A♮   386  5/4  
+52:  204  590  204 1088	D♮ F♯ D♮ B♮	47.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 D♮ F♯   386  5/4      2 D♮ D♮     0  1/1      3 D♮ B♮   316  6/5  
+ 4 F♯ D♮   386  5/4      5 F♯ B♮   498  4/3      6 D♮ B♮   316  6/5  
+56:  110  692  376  376	C♯ G♮ E♮ E♮	60.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 C♯ G♮   582  7/5      2 C♯ E♮   266  7/6      3 C♯ E♮   266  7/6  
+ 4 G♮ E♮   316  6/5      5 G♮ E♮   316  6/5      6 E♮ E♮     0  1/1  
+58: 1078  692  194  376	B♮ G♮ D♮ E♮	64.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 B♮ G♮   386  5/4      2 B♮ D♮   316  6/5      3 B♮ E♮   498  4/3  
+ 4 G♮ D♮   498  4/3      5 G♮ E♮   316  6/5      6 D♮ E♮   182  10/9 
+60:  897  581   83  581	A♮ F♯ C♯ F♯	45.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 A♮ F♯   316  6/5      2 A♮ C♯   386  5/4      3 A♮ F♯   316  6/5  
+ 4 F♯ C♯   498  4/3      5 F♯ F♯     0  1/1      6 C♯ F♯   498  4/3  
+64: 1079  693  195  581	B♮ G♮ D♮ F♯	74.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 B♮ G♮   386  5/4      2 B♮ D♮   316  6/5      3 B♮ F♯   498  4/3  
+ 4 G♮ D♮   498  4/3      5 G♮ F♯   112 16/15     6 D♮ F♯   386  5/4  
+68:  111  693  426  426	C♯ G♮ E♮ E♮	60.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 C♯ G♮   582  7/5      2 C♯ E♮   315  6/5      3 C♯ E♮   315  6/5  
+ 4 G♮ E♮   267  7/6      5 G♮ E♮   267  7/6      6 E♮ E♮     0  1/1  
+70:  195  693  426  195	D♮ G♮ E♮ D♮	57.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 D♮ G♮   498  4/3      2 D♮ E♮   231  8/7      3 D♮ D♮     0  1/1  
+ 4 G♮ E♮   267  7/6      5 G♮ D♮   498  4/3      6 E♮ D♮   231  8/7  
+72:  412  693 1009   76	E♮ G♮ A♯ C♯	145.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 E♮ G♮   281 20/17     2 E♮ A♯   597 24/17     3 E♮ C♯   336 17/14 
+ 4 G♮ A♯   316  6/5      5 G♮ C♯   583  7/5      6 A♯ C♯   267  7/6  
+74:  401  717 1103 1103	E♮ G♮ B♮ B♮	43.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 E♮ G♮   316  6/5      2 E♮ B♮   498  4/3      3 E♮ B♮   498  4/3  
+ 4 G♮ B♮   386  5/4      5 G♮ B♮   386  5/4      6 B♮ B♮     0  1/1  
+76:  401  583   85 1018	E♮ F♯ C♯ A♯	78.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 E♮ F♯   182  10/9     2 E♮ C♯   316  6/5      3 E♮ A♯   583  7/5  
+ 4 F♯ C♯   498  4/3      5 F♯ A♯   435  9/7      6 C♯ A♯   267  7/6  
+78:  401  787   85   85	E♮ G♯ C♯ C♯	45.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 E♮ G♯   386  5/4      2 E♮ C♯   316  6/5      3 E♮ C♯   316  6/5  
+ 4 G♯ C♯   498  4/3      5 G♯ C♯   498  4/3      6 C♯ C♯     0  1/1  
+80:  401 1019   86  584	E♮ A♯ C♯ F♯	78.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 E♮ A♯   582  7/5      2 E♮ C♯   315  6/5      3 E♮ F♯   183  10/9 
+ 4 A♯ C♯   267  7/6      5 A♯ F♯   435  9/7      6 C♯ F♯   498  4/3  
+84:  190 1074 1074  688	D♮ B♮ B♮ G♮	47.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 D♮ B♮   316  6/5      2 D♮ B♮   316  6/5      3 D♮ G♮   498  4/3  
+ 4 B♮ B♮     0  1/1      5 B♮ G♮   386  5/4      6 B♮ G♮   386  5/4  
+86:  190  892 1074  576	D♮ A♮ B♮ F♯	64.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 D♮ A♮   498  4/3      2 D♮ B♮   316  6/5      3 D♮ F♯   386  5/4  
+ 4 A♮ B♮   182  10/9     5 A♮ F♯   316  6/5      6 B♮ F♯   498  4/3  
+88:  106  688 1074  372	C♯ G♮ B♮ E♮	67.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 C♯ G♮   582  7/5      2 C♯ B♮   232  8/7      3 C♯ E♮   266  7/6  
+ 4 G♮ B♮   386  5/4      5 G♮ E♮   316  6/5      6 B♮ E♮   498  4/3  
+92:  106  604  990  604	C♯ F♯ A♯ F♯	43.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 C♯ F♯   498  4/3      2 C♯ A♯   316  6/5      3 C♯ F♯   498  4/3  
+ 4 F♯ A♯   386  5/4      5 F♯ F♯     0  1/1      6 A♯ F♯   386  5/4  
+94:  105  372  990  604	C♯ E♮ A♯ F♯	67.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 C♯ E♮   267  7/6      2 C♯ A♯   315  6/5      3 C♯ F♯   499  4/3  
+ 4 E♮ A♯   582  7/5      5 E♮ F♯   232  8/7      6 A♯ F♯   386  5/4  
+96: 1097  213 1097 1097	B♮ D♮ B♮ B♮	33.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 B♮ D♮   316  6/5      2 B♮ B♮     0  1/1      3 B♮ B♮     0  1/1  
+ 4 D♮ B♮   316  6/5      5 D♮ B♮   316  6/5      6 B♮ B♮     0  1/1  
+104:  599 1097  213 1097	F♯ B♮ D♮ B♮	45.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 F♯ B♮   498  4/3      2 F♯ D♮   386  5/4      3 F♯ B♮   498  4/3  
+ 4 B♮ D♮   316  6/5      5 B♮ B♮     0  1/1      6 D♮ B♮   316  6/5  
+108:  711 1097  213  395	G♮ B♮ D♮ E♮	64.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 G♮ B♮   386  5/4      2 G♮ D♮   498  4/3      3 G♮ E♮   316  6/5  
+ 4 B♮ D♮   316  6/5      5 B♮ E♮   498  4/3      6 D♮ E♮   182  10/9 
+110:  711 1097 1097  395	G♮ B♮ B♮ E♮	43.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 G♮ B♮   386  5/4      2 G♮ B♮   386  5/4      3 G♮ E♮   316  6/5  
+ 4 B♮ B♮     0  1/1      5 B♮ E♮   498  4/3      6 B♮ E♮   498  4/3  
+112:  395  893   79  893	E♮ A♮ C♯ A♮	43.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 E♮ A♮   498  4/3      2 E♮ C♯   316  6/5      3 E♮ A♮   498  4/3  
+ 4 A♮ C♯   386  5/4      5 A♮ A♮     0  1/1      6 C♯ A♮   386  5/4  
+116:  577  893   79  191	F♯ A♮ C♯ D♮	74.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 F♯ A♮   316  6/5      2 F♯ C♯   498  4/3      3 F♯ D♮   386  5/4  
+ 4 A♮ C♯   386  5/4      5 A♮ D♮   498  4/3      6 C♯ D♮   112 16/15 
+118:  577  893  893  191	F♯ A♮ A♮ D♮	45.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 F♯ A♮   316  6/5      2 F♯ A♮   316  6/5      3 F♯ D♮   386  5/4  
+ 4 A♮ A♮     0  1/1      5 A♮ D♮   498  4/3      6 A♮ D♮   498  4/3  
+120:  207  705 1091  705	D♮ G♮ B♮ G♮	43.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 D♮ G♮   498  4/3      2 D♮ B♮   316  6/5      3 D♮ G♮   498  4/3  
+ 4 G♮ B♮   386  5/4      5 G♮ G♮     0  1/1      6 B♮ G♮   386  5/4  
+122:  207  705 1091  593	D♮ G♮ B♮ F♯	74.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 D♮ G♮   498  4/3      2 D♮ B♮   316  6/5      3 D♮ F♯   386  5/4  
+ 4 G♮ B♮   386  5/4      5 G♮ F♯   112 16/15     6 B♮ F♯   498  4/3  
+124:  389  705 1091  389	E♮ G♮ B♮ E♮	45.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 E♮ G♮   316  6/5      2 E♮ B♮   498  4/3      3 E♮ E♮     0  1/1  
+ 4 G♮ B♮   386  5/4      5 G♮ E♮   316  6/5      6 B♮ E♮   498  4/3  
+128:  605  605  107  991	F♯ F♯ C♯ A♯	43.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 F♯ F♯     0  1/1      2 F♯ C♯   498  4/3      3 F♯ A♯   386  5/4  
+ 4 F♯ C♯   498  4/3      5 F♯ A♯   386  5/4      6 C♯ A♯   316  6/5  
+132: 1103  605  219 1103	B♮ F♯ D♮ B♮	45.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 B♮ F♯   498  4/3      2 B♮ D♮   316  6/5      3 B♮ B♮     0  1/1  
+ 4 F♯ D♮   386  5/4      5 F♯ B♮   498  4/3      6 D♮ B♮   316  6/5  
+136:  602 1100  602  216	F♯ B♮ F♯ D♮	43.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 F♯ B♮   498  4/3      2 F♯ F♯     0  1/1      3 F♯ D♮   386  5/4  
+ 4 B♮ F♯   498  4/3      5 B♮ D♮   316  6/5      6 F♯ D♮   386  5/4  
+140:  714 1100  398  216	G♮ B♮ E♮ D♮	64.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 G♮ B♮   386  5/4      2 G♮ E♮   316  6/5      3 G♮ D♮   498  4/3  
+ 4 B♮ E♮   498  4/3      5 B♮ D♮   316  6/5      6 E♮ D♮   182  10/9 
+144:  398  896  398   82	E♮ A♮ E♮ C♯	45.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 E♮ A♮   498  4/3      2 E♮ E♮     0  1/1      3 E♮ C♯   316  6/5  
+ 4 A♮ E♮   498  4/3      5 A♮ C♯   386  5/4      6 E♮ C♯   316  6/5  
+148:  580  896  194   82	F♯ A♮ D♮ C♯	74.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 F♯ A♮   316  6/5      2 F♯ D♮   386  5/4      3 F♯ C♯   498  4/3  
+ 4 A♮ D♮   498  4/3      5 A♮ C♯   386  5/4      6 D♮ C♯   112 16/15 
+152:  194  692  194 1078	D♮ G♮ D♮ B♮	45.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 D♮ G♮   498  4/3      2 D♮ D♮     0  1/1      3 D♮ B♮   316  6/5  
+ 4 G♮ D♮   498  4/3      5 G♮ B♮   386  5/4      6 D♮ B♮   316  6/5  
+154:  194  580   82  896	D♮ F♯ C♯ A♮	74.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 D♮ F♯   386  5/4      2 D♮ C♯   112 16/15     3 D♮ A♮   498  4/3  
+ 4 F♯ C♯   498  4/3      5 F♯ A♮   316  6/5      6 C♯ A♮   386  5/4  
+156:  390  390 1092  706	E♮ E♮ B♮ G♮	45.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 E♮ E♮     0  1/1      2 E♮ B♮   498  4/3      3 E♮ G♮   316  6/5  
+ 4 E♮ B♮   498  4/3      5 E♮ G♮   316  6/5      6 B♮ G♮   386  5/4  
+158:  390  390 1092  594	E♮ E♮ B♮ F♯	55.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 E♮ E♮     0  1/1      2 E♮ B♮   498  4/3      3 E♮ F♯   204  9/8  
+ 4 E♮ B♮   498  4/3      5 E♮ F♯   204  9/8      6 B♮ F♯   498  4/3  
+160:  594  941 1092  390	F♯ A♮ B♮ E♮	93.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 F♯ A♮   347  11/9     2 F♯ B♮   498  4/3      3 F♯ E♮   204  9/8  
+ 4 A♮ B♮   151 12/11     5 A♮ E♮   551  11/8     6 B♮ E♮   498  4/3  
+162:  594  910 1092  327	F♯ A♮ B♮ D♯	78.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 F♯ A♮   316  6/5      2 F♯ B♮   498  4/3      3 F♯ D♯   267  7/6  
+ 4 A♮ B♮   182  10/9     5 A♮ D♯   583  7/5      6 B♮ D♯   435  9/7  
+164: 1092  706 1092  390	B♮ G♮ B♮ E♮	43.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 B♮ G♮   386  5/4      2 B♮ B♮     0  1/1      3 B♮ E♮   498  4/3  
+ 4 G♮ B♮   386  5/4      5 G♮ E♮   316  6/5      6 B♮ E♮   498  4/3  
+172:  208  594 1092 1092	D♮ F♯ B♮ B♮	45.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 D♮ F♯   386  5/4      2 D♮ B♮   316  6/5      3 D♮ B♮   316  6/5  
+ 4 F♯ B♮   498  4/3      5 F♯ B♮   498  4/3      6 B♮ B♮     0  1/1  
+176:  124  510 1092  123	C♯ F♮ B♮ C♯	62.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 C♯ F♮   386  5/4      2 C♯ B♮   232  8/7      3 C♯ C♯     1  1/1  
+ 4 F♮ B♮   582  7/5      5 F♮ C♯   387  5/4      6 B♮ C♯   231  8/7  
+178:  124  510  870  124	C♯ F♮ A♮ C♯	93.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 C♯ F♮   386  5/4      2 C♯ A♮   454 13/10     3 C♯ C♯     0  1/1  
+ 4 F♮ A♮   360 16/13     5 F♮ C♯   386  5/4      6 A♮ C♯   454 13/10 
+180: 1101  603  870  288	B♮ F♯ A♮ D♯	67.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 B♮ F♯   498  4/3      2 B♮ A♮   231  8/7      3 B♮ D♯   387  5/4  
+ 4 F♯ A♮   267  7/6      5 F♯ D♯   315  6/5      6 A♮ D♯   582  7/5  
+182: 1101  785  785  518	B♮ G♯ G♯ F♮	60.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 B♮ G♯   316  6/5      2 B♮ G♯   316  6/5      3 B♮ F♮   583  7/5  
+ 4 G♯ G♯     0  1/1      5 G♯ F♮   267  7/6      6 G♯ F♮   267  7/6  
+184:  904   90  588  588	A♮ C♯ F♯ F♯	45.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 A♮ C♯   386  5/4      2 A♮ F♯   316  6/5      3 A♮ F♯   316  6/5  
+ 4 C♯ F♯   498  4/3      5 C♯ F♯   498  4/3      6 F♯ F♯     0  1/1  
+188: 1086  588  588  272	B♮ F♯ F♯ D♯	45.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 B♮ F♯   498  4/3      2 B♮ F♯   498  4/3      3 B♮ D♯   386  5/4  
+ 4 F♯ F♯     0  1/1      5 F♯ D♯   316  6/5      6 F♯ D♯   316  6/5  
+192:  700  588  700  384	G♮ F♯ G♮ E♮	101.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 G♮ F♯   112 16/15     2 G♮ G♮     0  1/1      3 G♮ E♮   316  6/5  
+ 4 F♯ G♮   112 16/15     5 F♯ E♮   204  9/8      6 G♮ E♮   316  6/5  
+194:  714  563  879  563	G♮ F♯ A♮ F♯	89.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 G♮ F♯   151 12/11     2 G♮ A♮   165 11/10     3 G♮ F♯   151 12/11 
+ 4 F♯ A♮   316  6/5      5 F♯ F♯     0  1/1      6 A♮ F♯   316  6/5  
+196:  714  398 1100  714	G♮ E♮ B♮ G♮	47.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 G♮ E♮   316  6/5      2 G♮ B♮   386  5/4      3 G♮ G♮     0  1/1  
+ 4 E♮ B♮   498  4/3      5 E♮ G♮   316  6/5      6 B♮ G♮   386  5/4  
+198:  714  398  131  896	G♮ E♮ C♯ A♮	78.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 G♮ E♮   316  6/5      2 G♮ C♯   583  7/5      3 G♮ A♮   182  10/9 
+ 4 E♮ C♯   267  7/6      5 E♮ A♮   498  4/3      6 C♯ A♮   435  9/7  
+200:  608  292  292 1106	F♯ D♯ D♯ B♮	47.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 F♯ D♯   316  6/5      2 F♯ D♯   316  6/5      3 F♯ B♮   498  4/3  
+ 4 D♯ D♯     0  1/1      5 D♯ B♮   386  5/4      6 D♯ B♮   386  5/4  
+204: 1085  200 1085  699	B♮ D♮ B♮ G♮	47.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 B♮ D♮   315  6/5      2 B♮ B♮     0  1/1      3 B♮ G♮   386  5/4  
+ 4 D♮ B♮   315  6/5      5 D♮ G♮   499  4/3      6 B♮ G♮   386  5/4  
+206: 1085  201   50  699	B♮ D♮ C♯ G♮	90.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 B♮ D♮   316  6/5      2 B♮ C♯   165 11/10     3 B♮ G♮   386  5/4  
+ 4 D♮ C♯   151 12/11     5 D♮ G♮   498  4/3      6 C♯ G♮   551  11/8 
+207: 1085  201  201  699	B♮ D♮ D♮ G♮	45.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 B♮ D♮   316  6/5      2 B♮ D♮   316  6/5      3 B♮ G♮   386  5/4  
+ 4 D♮ D♮     0  1/1      5 D♮ G♮   498  4/3      6 D♮ G♮   498  4/3  
+208:  903  201   50  699	A♮ D♮ C♯ G♮	93.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 A♮ D♮   498  4/3      2 A♮ C♯   347  11/9     3 A♮ G♮   204  9/8  
+ 4 D♮ C♯   151 12/11     5 D♮ G♮   498  4/3      6 C♯ G♮   551  11/8 
+212:  216  918  216  602	D♮ A♮ D♮ F♯	43.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 D♮ A♮   498  4/3      2 D♮ D♮     0  1/1      3 D♮ F♯   386  5/4  
+ 4 A♮ D♮   498  4/3      5 A♮ F♯   316  6/5      6 D♮ F♯   386  5/4  
+214:  216  918  420  651	D♮ A♮ E♮ G♮	75.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 D♮ A♮   498  4/3      2 D♮ E♮   204  9/8      3 D♮ G♮   435  9/7  
+ 4 A♮ E♮   498  4/3      5 A♮ G♮   267  7/6      6 E♮ G♮   231  8/7  
+216:  216  918  602  918	D♮ A♮ F♯ A♮	45.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 D♮ A♮   498  4/3      2 D♮ F♯   386  5/4      3 D♮ A♮   498  4/3  
+ 4 A♮ F♯   316  6/5      5 A♮ A♮     0  1/1      6 F♯ A♮   316  6/5  
+220:  105  687  420  918	C♯ G♮ E♮ A♮	67.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 C♯ G♮   582  7/5      2 C♯ E♮   315  6/5      3 C♯ A♮   387  5/4  
+ 4 G♮ E♮   267  7/6      5 G♮ A♮   231  8/7      6 E♮ A♮   498  4/3  
+224:  200  586  200  200	D♮ F♯ D♮ D♮	27.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 D♮ F♯   386  5/4      2 D♮ D♮     0  1/1      3 D♮ D♮     0  1/1  
+ 4 F♯ D♮   386  5/4      5 F♯ D♮   386  5/4      6 D♮ D♮     0  1/1  
+228:  902  586  200  200	A♮ F♯ D♮ D♮	43.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 A♮ F♯   316  6/5      2 A♮ D♮   498  4/3      3 A♮ D♮   498  4/3  
+ 4 F♯ D♮   386  5/4      5 F♯ D♮   386  5/4      6 D♮ D♮     0  1/1  
+232: 1134  432  818  200	B♮ E♮ G♯ D♮	67.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 B♮ E♮   498  4/3      2 B♮ G♯   316  6/5      3 B♮ D♮   266  7/6  
+ 4 E♮ G♯   386  5/4      5 E♮ D♮   232  8/7      6 G♯ D♮   582  7/5  
+236:   98  365  983   99	C♯ E♮ A♯ C♯	62.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 C♯ E♮   267  7/6      2 C♯ A♯   315  6/5      3 C♯ C♯     1  1/1  
+ 4 E♮ A♯   582  7/5      5 E♮ C♯   266  7/6      6 A♯ C♯   316  6/5  
+240:  215  215 1099 1099	D♮ D♮ B♮ B♮	44.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 D♮ D♮     0  1/1      2 D♮ B♮   316  6/5      3 D♮ B♮   316  6/5  
+ 4 D♮ B♮   316  6/5      5 D♮ B♮   316  6/5      6 B♮ B♮     0  1/1  
+242:  397  215   50 1099	E♮ D♮ C♯ B♮	101.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 E♮ D♮   182  10/9     2 E♮ C♯   347  11/9     3 E♮ B♮   498  4/3  
+ 4 D♮ C♯   165 11/10     5 D♮ B♮   316  6/5      6 C♯ B♮   151 12/11 
+244:  601  215  215 1099	F♯ D♮ D♮ B♮	47.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 F♯ D♮   386  5/4      2 F♯ D♮   386  5/4      3 F♯ B♮   498  4/3  
+ 4 D♮ D♮     0  1/1      5 D♮ B♮   316  6/5      6 D♮ B♮   316  6/5  
+246:  601  103  215  917	F♯ C♯ D♮ A♮	74.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 F♯ C♯   498  4/3      2 F♯ D♮   386  5/4      3 F♯ A♮   316  6/5  
+ 4 C♯ D♮   112 16/15     5 C♯ A♮   386  5/4      6 D♮ A♮   498  4/3  
+248:  601 1099  215  713	F♯ B♮ D♮ G♮	74.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 F♯ B♮   498  4/3      2 F♯ D♮   386  5/4      3 F♯ G♮   112 16/15 
+ 4 B♮ D♮   316  6/5      5 B♮ G♮   386  5/4      6 D♮ G♮   498  4/3  
+250:  595 1049  209  595	F♯ A♯ D♮ F♯	93.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 F♯ A♯   454 13/10     2 F♯ D♮   386  5/4      3 F♯ F♯     0  1/1  
+ 4 A♯ D♮   360 16/13     5 A♯ F♯   454 13/10     6 D♮ F♯   386  5/4  
+252:  400 1102   84  666	E♮ B♮ C♯ G♮	78.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 E♮ B♮   498  4/3      2 E♮ C♯   316  6/5      3 E♮ G♮   266  7/6  
+ 4 B♮ C♯   182  10/9     5 B♮ G♮   436  9/7      6 C♯ G♮   582  7/5  
+254:  400   84   84  400	E♮ C♯ C♯ E♮	44.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 E♮ C♯   316  6/5      2 E♮ C♯   316  6/5      3 E♮ E♮     0  1/1  
+ 4 C♯ C♯     0  1/1      5 C♯ E♮   316  6/5      6 C♯ E♮   316  6/5  
+256:  399 1017   84  582	E♮ A♯ C♯ F♯	78.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 E♮ A♯   582  7/5      2 E♮ C♯   315  6/5      3 E♮ F♯   183  10/9 
+ 4 A♯ C♯   267  7/6      5 A♯ F♯   435  9/7      6 C♯ F♯   498  4/3  
+260:  194 1078 1078  692	D♮ B♮ B♮ G♮	47.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 D♮ B♮   316  6/5      2 D♮ B♮   316  6/5      3 D♮ G♮   498  4/3  
+ 4 B♮ B♮     0  1/1      5 B♮ G♮   386  5/4      6 B♮ G♮   386  5/4  
+262:  194  896 1078  580	D♮ A♮ B♮ F♯	64.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 D♮ A♮   498  4/3      2 D♮ B♮   316  6/5      3 D♮ F♯   386  5/4  
+ 4 A♮ B♮   182  10/9     5 A♮ F♯   316  6/5      6 B♮ F♯   498  4/3  
+264:  110  692 1078  376	C♯ G♮ B♮ E♮	67.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 C♯ G♮   582  7/5      2 C♯ B♮   232  8/7      3 C♯ E♮   266  7/6  
+ 4 G♮ B♮   386  5/4      5 G♮ E♮   316  6/5      6 B♮ E♮   498  4/3  
+268:  110  608  994  608	C♯ F♯ A♯ F♯	43.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 C♯ F♯   498  4/3      2 C♯ A♯   316  6/5      3 C♯ F♯   498  4/3  
+ 4 F♯ A♯   386  5/4      5 F♯ F♯     0  1/1      6 A♯ F♯   386  5/4  
+270:  109  376  994  608	C♯ E♮ A♯ F♯	67.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 C♯ E♮   267  7/6      2 C♯ A♯   315  6/5      3 C♯ F♯   499  4/3  
+ 4 E♮ A♯   582  7/5      5 E♮ F♯   232  8/7      6 A♯ F♯   386  5/4  
+272: 1102  288 1102 1102	B♮ D♯ B♮ B♮	27.0
+ # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+ 1 B♮ D♯   386  5/4      2 B♮ B♮     0  1/1      3 B♮ B♮     0  1/1  
+ 4 D♯ B♮   386  5/4      5 D♯ B♮   386  5/4      6 B♮ B♮     0  1/1  
+
+Selected source file(s):
+  bwv261     /home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/viterbi-tunings-5-31/bwv261_t1_r1.750_lm17-trans-sa-opt.npy
+

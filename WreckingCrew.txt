@@ -18314,10 +18314,62 @@ ls -1Sr /home/prent/Dropbox/Uploads/$dirname/*.mp3 > /home/prent/Dropbox/Uploads
 
       3. Write another post for substack that describes the latest ideas in action. Done.
     
-      Trouble pushing to github. Expired token. Try this one:
-            
-            git remote set-url origin https://<PAT-from-1Password>@github.com/prentrodgers/One-footed-bride-tuning.git
+      Trouble pushing to github. Expired token. Try this one, but be prepared with the 1Password password (tou...)
 
-            git remote set-url origin https://ghp_...Et@github.com/prentrodgers/One-footed-bride-tuning.git
+      This works if you are on a workstation, but not with the pod deployment:            
+            eval $(op signin) 
+            GIT_PAT=$(op item get "GitHub PAT" --fields credential --reveal) 
+            git remote set-url origin https://$GIT_PAT@github.com/prentrodgers/One-footed-bride-tuning.git
 
             git push
+
+      But in the pod you don't have access to 1Password CLI op.
+
+      On the host run this to do a git push inside the pod:
+      Start on the host, then exec into the pod to issue the git command.
+            eval $(op signin)
+TOKEN=$(op item get "GitHub PAT" --fields credential --reveal)
+#POD=one-footed-bride-7cb974768c-pmqtf
+POD='deploy/one-footed-bride'
+kubectl exec $POD -- bash -c "echo echo $TOKEN > /tmp/askpass.sh && chmod +x /tmp/askpass.sh && GIT_ASKPASS=/tmp/askpass.sh git -C /home/prent/Repos/One-footed-bride-tuning -c credential.helper= push"
+
+
+      That worked perfectly
+
+      --------------------------
+      Next, work on a short marimba part that we can start our video with:
+            python WreckingCrew.py --numpy_dir Archive/straw-man/viterbi-tunings-6-29 --chorale_list bwv261 --deep_bass_backoff 0.25 --back_off_clicks 0.25 --album 7 --mod d --include_slice 0 32 
+      This worked once, but never again. I need some way to specify a single instrument without short_repeats. But I don't want to ask for it yet. 
+
+      Prompt:
+      I'd like to start a new project. I am intrigued by the videos produced by Animusic and their copycats. They create an animation of instruments and robots performing on them that are highly fantastical and very science fiction in style. I'd like to try to make some short videos to go with the music created by WreckingCrew.py. A proof of concept woult start with mallets striking marimbas to go with the Uploads/marimba_example_POC.mp3. We will need to save some intermediate files while it processes inputs.
+
+      Good — ffmpeg is available. Here's my recommendation for the POC:
+
+      Approach: Python + librosa + matplotlib → ffmpeg
+
+      librosa detects note onsets and pitches from the MP3
+      matplotlib renders frames: a top-down view of marimba bars with animated mallets dropping on impact, glow/color effects
+      ffmpeg muxes the rendered frames with the original audio into an MP4
+      This is 2D but can look polished — a lit overhead view with glowing impact rings is very achievable. Blender 3D would look better long-term but adds weeks of complexity; this gets to a watchable demo in one session.
+
+      Pipeline / intermediate files:
+
+            poc_onsets.npy — detected note onset times
+            poc_pitches.npy — pitch estimate per onset (maps to marimba bar)
+            poc_frames/ — rendered PNG frames
+            poc_video_silent.mp4 — frames assembled
+            poc_marimba_POC.mp4 — final with audio
+
+-------
+7/4/26 I worked with Claude to improve the marimba video.
+      It's now pretty good. It's played by an invisible man, and supported by invisible supports. It pulls pitches out of mp3 using librosa, so I've asked it to start pulling actual cent data from numpy arrays, or create new ones as needed. It stores the video here: poc_marimba_POC.mp4  
+      Pull it from the pod with this: 
+            k cp one-footed-bride-7cb974768c-pmqtf:/home/prent/Repos/One-footed-bride-tuning/poc_marimba_POC.mp4 poc_marimba_POC.mp4 
+      Then play with this:
+            cvlc poc_marimba_PUC.mp4 # the cvlc bypasses menus and just plays the video and closes when it finished. 
+      I asked it to pull from the numpy files:
+            python marimba_poc.py --npy bwv261_features_array.npy --tempo 110 --voice 5
+      A good start. One instrument down, 7 more sections to go. 
+
+      

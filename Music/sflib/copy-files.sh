@@ -1,0 +1,12 @@
+sox -- ball9-t64c_lm17_r1.12_sf0.00_df4_sp07_t3_d07_08_t114.wav -b 16 CD/cball9-t64c_lm17_r1.12_sf0.00_df4_sp07_t3_d07_08_t114.wav
+sox -- ball9-t63c_lm19_r1.25_sf0.00_df0_sp07_t3_d05_47_t084.wav -b 16 CD/cball9-t63c_lm19_r1.25_sf0.00_df0_sp07_t3_d05_47_t084.wav
+sox -- ball9-t62c_lm17_r1.12_sf0.00_df3_sp07_t3_d07_24_t114.wav -b 16 CD/cball9-t62c_lm17_r1.12_sf0.00_df3_sp07_t3_d07_24_t114.wav
+sox -- ball9-t61c_lm19_r1.25_sf0.00_df0_sp07_t3_d04_38_t104.wav -b 16 CD/cball9-t61c_lm19_r1.25_sf0.00_df0_sp07_t3_d04_38_t104.wav
+sox -- ball9-t60c_lm19_r1.75_sf0.00_df4_sp07_t3_d08_47_t114.wav -b 16 CD/cball9-t60c_lm19_r1.75_sf0.00_df4_sp07_t3_d08_47_t114.wav
+sox -- ball9-t59c_lm19_r1.12_sf0.00_df1_sp07_t3_d04_03_t092.wav -b 16 CD/cball9-t59c_lm19_r1.12_sf0.00_df1_sp07_t3_d04_03_t092.wav
+sox -- ball9-t58c_lm17_r1.75_sf0.00_df2_sp07_t3_d03_51_t084.wav -b 16 CD/cball9-t58c_lm17_r1.75_sf0.00_df2_sp07_t3_d03_51_t084.wav
+sox -- ball9-t57c_lm19_r1.12_sf0.00_df1_sp07_t3_d03_18_t100.wav -b 16 CD/cball9-t57c_lm19_r1.12_sf0.00_df1_sp07_t3_d03_18_t100.wav
+sox -- ball9-t56c_lm19_r1.12_sf0.00_df5_sp07_t3_d06_10_t122.wav -b 16 CD/cball9-t56c_lm19_r1.12_sf0.00_df5_sp07_t3_d06_10_t122.wav
+sox -- ball9-t55c_lm17_r1.25_sf0.00_df2_sp07_t1_d07_13_t110.wav -b 16 CD/cball9-t55c_lm17_r1.25_sf0.00_df2_sp07_t1_d07_13_t110.wav
+sox -- ball9-t54c_lm17_r1.12_sf0.00_df5_sp07_t3_d08_53_t114.wav -b 16 CD/cball9-t54c_lm17_r1.12_sf0.00_df5_sp07_t3_d08_53_t114.wav
+sox -- ball9-t53c_lm17_r1.12_sf0.00_df3_sp07_t1_d06_04_t122.wav -b 16 CD/cball9-t53c_lm17_r1.12_sf0.00_df3_sp07_t1_d06_04_t122.wav

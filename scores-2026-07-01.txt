@@ -1,0 +1,288 @@
+Archive/straw-man/t1_r1.125_lm17_tmp3.0/bwv253-opt.txt:last_improved: 2026-06-27 12:38:20
+Archive/straw-man/t1_r1.125_lm17_tmp3.0/bwv254-opt.txt:last_improved: 2026-06-27 13:02:49
+Archive/straw-man/t1_r1.125_lm17_tmp3.0/bwv255-opt.txt:last_improved: 2026-06-27 08:02:06
+Archive/straw-man/t1_r1.125_lm17_tmp3.0/bwv256-opt.txt:last_improved: 2026-06-27 08:11:32
+Archive/straw-man/t1_r1.125_lm17_tmp3.0/bwv257-opt.txt:last_improved: 2026-06-27 08:21:30
+Archive/straw-man/t1_r1.125_lm17_tmp3.0/bwv258-opt.txt:last_improved: 2026-06-29 13:20:58
+Archive/straw-man/t1_r1.125_lm17_tmp3.0/bwv259-opt.txt:last_improved: unknown
+Archive/straw-man/t1_r1.125_lm17_tmp3.0/bwv260-opt.txt:last_improved: unknown
+Archive/straw-man/t1_r1.125_lm17_tmp3.0/bwv261-opt.txt:last_improved: unknown
+Archive/straw-man/t1_r1.125_lm17_tmp3.0/bwv262-opt.txt:last_improved: unknown
+Archive/straw-man/t1_r1.125_lm17_tmp3.0/bwv263-opt.txt:last_improved: 2026-06-29 13:52:31
+Archive/straw-man/t1_r1.125_lm17_tmp3.0/bwv264-opt.txt:last_improved: unknown
+Archive/straw-man/t1_r1.125_lm19_tmp3.0/bwv253-opt.txt:last_improved: unknown
+Archive/straw-man/t1_r1.125_lm19_tmp3.0/bwv254-opt.txt:last_improved: unknown
+Archive/straw-man/t1_r1.125_lm19_tmp3.0/bwv255-opt.txt:last_improved: unknown
+Archive/straw-man/t1_r1.125_lm19_tmp3.0/bwv256-opt.txt:last_improved: unknown
+Archive/straw-man/t1_r1.125_lm19_tmp3.0/bwv257-opt.txt:last_improved: unknown
+Archive/straw-man/t1_r1.125_lm19_tmp3.0/bwv258-opt.txt:last_improved: unknown
+Archive/straw-man/t1_r1.125_lm19_tmp3.0/bwv259-opt.txt:last_improved: unknown
+Archive/straw-man/t1_r1.125_lm19_tmp3.0/bwv260-opt.txt:last_improved: unknown
+Archive/straw-man/t1_r1.125_lm19_tmp3.0/bwv261-opt.txt:last_improved: unknown
+Archive/straw-man/t1_r1.125_lm19_tmp3.0/bwv262-opt.txt:last_improved: unknown
+Archive/straw-man/t1_r1.125_lm19_tmp3.0/bwv263-opt.txt:last_improved: unknown
+Archive/straw-man/t1_r1.125_lm19_tmp3.0/bwv264-opt.txt:last_improved: unknown
+Archive/straw-man/t1_r1.25_lm17_tmp3.0/bwv253-opt.txt:last_improved: 2026-06-27 13:00:04
+Archive/straw-man/t1_r1.25_lm17_tmp3.0/bwv254-opt.txt:last_improved: 2026-06-28 08:09:25
+Archive/straw-man/t1_r1.25_lm17_tmp3.0/bwv255-opt.txt:last_improved: 2026-06-28 07:19:42
+Archive/straw-man/t1_r1.25_lm17_tmp3.0/bwv256-opt.txt:last_improved: 2026-06-28 08:16:12
+Archive/straw-man/t1_r1.25_lm17_tmp3.0/bwv257-opt.txt:last_improved: 2026-06-28 07:37:54
+Archive/straw-man/t1_r1.25_lm17_tmp3.0/bwv258-opt.txt:last_improved: 2026-06-29 13:20:17
+Archive/straw-man/t1_r1.25_lm17_tmp3.0/bwv259-opt.txt:last_improved: unknown
+Archive/straw-man/t1_r1.25_lm17_tmp3.0/bwv260-opt.txt:last_improved: unknown
+Archive/straw-man/t1_r1.25_lm17_tmp3.0/bwv261-opt.txt:last_improved: unknown
+Archive/straw-man/t1_r1.25_lm17_tmp3.0/bwv262-opt.txt:last_improved: 2026-06-29 13:45:24
+Archive/straw-man/t1_r1.25_lm17_tmp3.0/bwv263-opt.txt:last_improved: unknown
+Archive/straw-man/t1_r1.25_lm17_tmp3.0/bwv264-opt.txt:last_improved: unknown
+Archive/straw-man/t1_r1.25_lm19_tmp3.0/bwv253-opt.txt:last_improved: unknown
+Archive/straw-man/t1_r1.25_lm19_tmp3.0/bwv254-opt.txt:last_improved: 2026-06-27 14:18:47
+Archive/straw-man/t1_r1.25_lm19_tmp3.0/bwv255-opt.txt:last_improved: unknown
+Archive/straw-man/t1_r1.25_lm19_tmp3.0/bwv256-opt.txt:last_improved: unknown
+Archive/straw-man/t1_r1.25_lm19_tmp3.0/bwv257-opt.txt:last_improved: 2026-06-27 08:19:15
+Archive/straw-man/t1_r1.25_lm19_tmp3.0/bwv258-opt.txt:last_improved: unknown
+Archive/straw-man/t1_r1.25_lm19_tmp3.0/bwv259-opt.txt:last_improved: 2026-06-27 08:36:26
+Archive/straw-man/t1_r1.25_lm19_tmp3.0/bwv260-opt.txt:last_improved: 2026-06-27 08:43:46
+Archive/straw-man/t1_r1.25_lm19_tmp3.0/bwv261-opt.txt:last_improved: 2026-06-27 08:57:44
+Archive/straw-man/t1_r1.25_lm19_tmp3.0/bwv262-opt.txt:last_improved: unknown
+Archive/straw-man/t1_r1.25_lm19_tmp3.0/bwv263-opt.txt:last_improved: unknown
+Archive/straw-man/t1_r1.25_lm19_tmp3.0/bwv264-opt.txt:last_improved: unknown
+Archive/straw-man/t1_r1.5_lm17_tmp3.0/bwv253-opt.txt:last_improved: 2026-06-28 06:57:23
+Archive/straw-man/t1_r1.5_lm17_tmp3.0/bwv254-opt.txt:last_improved: 2026-06-29 13:02:04
+Archive/straw-man/t1_r1.5_lm17_tmp3.0/bwv255-opt.txt:last_improved: 2026-06-27 07:49:15
+Archive/straw-man/t1_r1.5_lm17_tmp3.0/bwv256-opt.txt:last_improved: 2026-06-28 07:11:51
+Archive/straw-man/t1_r1.5_lm17_tmp3.0/bwv257-opt.txt:last_improved: unknown
+Archive/straw-man/t1_r1.5_lm17_tmp3.0/bwv258-opt.txt:last_improved: 2026-06-29 13:21:34
+Archive/straw-man/t1_r1.5_lm17_tmp3.0/bwv259-opt.txt:last_improved: unknown
+Archive/straw-man/t1_r1.5_lm17_tmp3.0/bwv260-opt.txt:last_improved: 2026-06-27 13:04:55
+Archive/straw-man/t1_r1.5_lm17_tmp3.0/bwv261-opt.txt:last_improved: 2026-06-28 07:39:49
+Archive/straw-man/t1_r1.5_lm17_tmp3.0/bwv262-opt.txt:last_improved: unknown
+Archive/straw-man/t1_r1.5_lm17_tmp3.0/bwv263-opt.txt:last_improved: 2026-06-27 13:23:51
+Archive/straw-man/t1_r1.5_lm17_tmp3.0/bwv264-opt.txt:last_improved: unknown
+Archive/straw-man/t1_r1.5_lm19_tmp3.0/bwv253-opt.txt:last_improved: 2026-06-27 10:17:11
+Archive/straw-man/t1_r1.5_lm19_tmp3.0/bwv254-opt.txt:last_improved: unknown
+Archive/straw-man/t1_r1.5_lm19_tmp3.0/bwv255-opt.txt:last_improved: unknown
+Archive/straw-man/t1_r1.5_lm19_tmp3.0/bwv256-opt.txt:last_improved: unknown
+Archive/straw-man/t1_r1.5_lm19_tmp3.0/bwv257-opt.txt:last_improved: unknown
+Archive/straw-man/t1_r1.5_lm19_tmp3.0/bwv258-opt.txt:last_improved: unknown
+Archive/straw-man/t1_r1.5_lm19_tmp3.0/bwv259-opt.txt:last_improved: 2026-06-27 08:13:13
+Archive/straw-man/t1_r1.5_lm19_tmp3.0/bwv260-opt.txt:last_improved: unknown
+Archive/straw-man/t1_r1.5_lm19_tmp3.0/bwv261-opt.txt:last_improved: unknown
+Archive/straw-man/t1_r1.5_lm19_tmp3.0/bwv262-opt.txt:last_improved: unknown
+Archive/straw-man/t1_r1.5_lm19_tmp3.0/bwv263-opt.txt:last_improved: unknown
+Archive/straw-man/t1_r1.5_lm19_tmp3.0/bwv264-opt.txt:last_improved: unknown
+Archive/straw-man/t1_r1.75_lm17_tmp3.0/bwv253-opt.txt:last_improved: 2026-06-29 12:56:06
+Archive/straw-man/t1_r1.75_lm17_tmp3.0/bwv254-opt.txt:last_improved: 2026-06-29 13:00:38
+Archive/straw-man/t1_r1.75_lm17_tmp3.0/bwv255-opt.txt:last_improved: 2026-06-27 08:06:05
+Archive/straw-man/t1_r1.75_lm17_tmp3.0/bwv256-opt.txt:last_improved: 2026-06-27 11:00:15
+Archive/straw-man/t1_r1.75_lm17_tmp3.0/bwv257-opt.txt:last_improved: 2026-06-28 07:12:19
+Archive/straw-man/t1_r1.75_lm17_tmp3.0/bwv258-opt.txt:last_improved: 2026-06-27 08:33:30
+Archive/straw-man/t1_r1.75_lm17_tmp3.0/bwv259-opt.txt:last_improved: unknown
+Archive/straw-man/t1_r1.75_lm17_tmp3.0/bwv260-opt.txt:last_improved: unknown
+Archive/straw-man/t1_r1.75_lm17_tmp3.0/bwv261-opt.txt:last_improved: 2026-06-27 09:08:45
+Archive/straw-man/t1_r1.75_lm17_tmp3.0/bwv262-opt.txt:last_improved: unknown
+Archive/straw-man/t1_r1.75_lm17_tmp3.0/bwv263-opt.txt:last_improved: unknown
+Archive/straw-man/t1_r1.75_lm17_tmp3.0/bwv264-opt.txt:last_improved: unknown
+Archive/straw-man/t1_r1.75_lm19_tmp3.0/bwv253-opt.txt:last_improved: 2026-06-27 13:00:16
+Archive/straw-man/t1_r1.75_lm19_tmp3.0/bwv254-opt.txt:last_improved: unknown
+Archive/straw-man/t1_r1.75_lm19_tmp3.0/bwv255-opt.txt:last_improved: unknown
+Archive/straw-man/t1_r1.75_lm19_tmp3.0/bwv256-opt.txt:last_improved: unknown
+Archive/straw-man/t1_r1.75_lm19_tmp3.0/bwv257-opt.txt:last_improved: unknown
+Archive/straw-man/t1_r1.75_lm19_tmp3.0/bwv258-opt.txt:last_improved: unknown
+Archive/straw-man/t1_r1.75_lm19_tmp3.0/bwv259-opt.txt:last_improved: unknown
+Archive/straw-man/t1_r1.75_lm19_tmp3.0/bwv260-opt.txt:last_improved: unknown
+Archive/straw-man/t1_r1.75_lm19_tmp3.0/bwv261-opt.txt:last_improved: unknown
+Archive/straw-man/t1_r1.75_lm19_tmp3.0/bwv262-opt.txt:last_improved: unknown
+Archive/straw-man/t1_r1.75_lm19_tmp3.0/bwv263-opt.txt:last_improved: unknown
+Archive/straw-man/t1_r1.75_lm19_tmp3.0/bwv264-opt.txt:last_improved: unknown
+Archive/straw-man/t2_r1.125_lm17_tmp3.0/bwv253-opt.txt:last_improved: 2026-06-29 12:56:51
+Archive/straw-man/t2_r1.125_lm17_tmp3.0/bwv254-opt.txt:last_improved: 2026-06-27 12:37:34
+Archive/straw-man/t2_r1.125_lm17_tmp3.0/bwv255-opt.txt:last_improved: 2026-06-29 13:06:20
+Archive/straw-man/t2_r1.125_lm17_tmp3.0/bwv256-opt.txt:last_improved: unknown
+Archive/straw-man/t2_r1.125_lm17_tmp3.0/bwv257-opt.txt:last_improved: 2026-06-27 12:48:43
+Archive/straw-man/t2_r1.125_lm17_tmp3.0/bwv258-opt.txt:last_improved: unknown
+Archive/straw-man/t2_r1.125_lm17_tmp3.0/bwv259-opt.txt:last_improved: unknown
+Archive/straw-man/t2_r1.125_lm17_tmp3.0/bwv260-opt.txt:last_improved: unknown
+Archive/straw-man/t2_r1.125_lm17_tmp3.0/bwv261-opt.txt:last_improved: 2026-06-27 13:08:51
+Archive/straw-man/t2_r1.125_lm17_tmp3.0/bwv262-opt.txt:last_improved: 2026-06-27 08:34:33
+Archive/straw-man/t2_r1.125_lm17_tmp3.0/bwv263-opt.txt:last_improved: unknown
+Archive/straw-man/t2_r1.125_lm17_tmp3.0/bwv264-opt.txt:last_improved: unknown
+Archive/straw-man/t2_r1.125_lm19_tmp3.0/bwv253-opt.txt:last_improved: 2026-06-27 12:39:05
+Archive/straw-man/t2_r1.125_lm19_tmp3.0/bwv254-opt.txt:last_improved: unknown
+Archive/straw-man/t2_r1.125_lm19_tmp3.0/bwv255-opt.txt:last_improved: unknown
+Archive/straw-man/t2_r1.125_lm19_tmp3.0/bwv256-opt.txt:last_improved: unknown
+Archive/straw-man/t2_r1.125_lm19_tmp3.0/bwv257-opt.txt:last_improved: unknown
+Archive/straw-man/t2_r1.125_lm19_tmp3.0/bwv258-opt.txt:last_improved: unknown
+Archive/straw-man/t2_r1.125_lm19_tmp3.0/bwv259-opt.txt:last_improved: unknown
+Archive/straw-man/t2_r1.125_lm19_tmp3.0/bwv260-opt.txt:last_improved: unknown
+Archive/straw-man/t2_r1.125_lm19_tmp3.0/bwv261-opt.txt:last_improved: 2026-06-27 08:34:58
+Archive/straw-man/t2_r1.125_lm19_tmp3.0/bwv262-opt.txt:last_improved: unknown
+Archive/straw-man/t2_r1.125_lm19_tmp3.0/bwv263-opt.txt:last_improved: unknown
+Archive/straw-man/t2_r1.125_lm19_tmp3.0/bwv264-opt.txt:last_improved: unknown
+Archive/straw-man/t2_r1.25_lm17_tmp3.0/bwv253-opt.txt:last_improved: 2026-06-27 13:38:33
+Archive/straw-man/t2_r1.25_lm17_tmp3.0/bwv254-opt.txt:last_improved: 2026-06-27 07:47:22
+Archive/straw-man/t2_r1.25_lm17_tmp3.0/bwv255-opt.txt:last_improved: 2026-06-27 14:21:37
+Archive/straw-man/t2_r1.25_lm17_tmp3.0/bwv256-opt.txt:last_improved: unknown
+Archive/straw-man/t2_r1.25_lm17_tmp3.0/bwv257-opt.txt:last_improved: unknown
+Archive/straw-man/t2_r1.25_lm17_tmp3.0/bwv258-opt.txt:last_improved: 2026-06-29 13:22:30
+Archive/straw-man/t2_r1.25_lm17_tmp3.0/bwv259-opt.txt:last_improved: unknown
+Archive/straw-man/t2_r1.25_lm17_tmp3.0/bwv260-opt.txt:last_improved: 2026-06-27 14:40:48
+Archive/straw-man/t2_r1.25_lm17_tmp3.0/bwv261-opt.txt:last_improved: 2026-06-28 07:43:20
+Archive/straw-man/t2_r1.25_lm17_tmp3.0/bwv262-opt.txt:last_improved: unknown
+Archive/straw-man/t2_r1.25_lm17_tmp3.0/bwv263-opt.txt:last_improved: 2026-06-27 08:40:47
+Archive/straw-man/t2_r1.25_lm17_tmp3.0/bwv264-opt.txt:last_improved: unknown
+Archive/straw-man/t2_r1.25_lm19_tmp3.0/bwv253-opt.txt:last_improved: 2026-06-27 14:02:12
+Archive/straw-man/t2_r1.25_lm19_tmp3.0/bwv254-opt.txt:last_improved: unknown
+Archive/straw-man/t2_r1.25_lm19_tmp3.0/bwv255-opt.txt:last_improved: unknown
+Archive/straw-man/t2_r1.25_lm19_tmp3.0/bwv256-opt.txt:last_improved: unknown
+Archive/straw-man/t2_r1.25_lm19_tmp3.0/bwv257-opt.txt:last_improved: unknown
+Archive/straw-man/t2_r1.25_lm19_tmp3.0/bwv258-opt.txt:last_improved: unknown
+Archive/straw-man/t2_r1.25_lm19_tmp3.0/bwv259-opt.txt:last_improved: unknown
+Archive/straw-man/t2_r1.25_lm19_tmp3.0/bwv260-opt.txt:last_improved: unknown
+Archive/straw-man/t2_r1.25_lm19_tmp3.0/bwv261-opt.txt:last_improved: 2026-06-27 14:35:12
+Archive/straw-man/t2_r1.25_lm19_tmp3.0/bwv262-opt.txt:last_improved: 2026-06-27 08:43:16
+Archive/straw-man/t2_r1.25_lm19_tmp3.0/bwv263-opt.txt:last_improved: unknown
+Archive/straw-man/t2_r1.25_lm19_tmp3.0/bwv264-opt.txt:last_improved: unknown
+Archive/straw-man/t2_r1.5_lm17_tmp3.0/bwv253-opt.txt:last_improved: 2026-06-28 06:57:27
+Archive/straw-man/t2_r1.5_lm17_tmp3.0/bwv254-opt.txt:last_improved: 2026-06-27 10:52:56
+Archive/straw-man/t2_r1.5_lm17_tmp3.0/bwv255-opt.txt:last_improved: 2026-06-27 10:56:53
+Archive/straw-man/t2_r1.5_lm17_tmp3.0/bwv256-opt.txt:last_improved: 2026-06-27 08:16:47
+Archive/straw-man/t2_r1.5_lm17_tmp3.0/bwv257-opt.txt:last_improved: 2026-06-27 12:52:12
+Archive/straw-man/t2_r1.5_lm17_tmp3.0/bwv258-opt.txt:last_improved: unknown
+Archive/straw-man/t2_r1.5_lm17_tmp3.0/bwv259-opt.txt:last_improved: 2026-06-29 13:21:46
+Archive/straw-man/t2_r1.5_lm17_tmp3.0/bwv260-opt.txt:last_improved: 2026-06-29 13:25:41
+Archive/straw-man/t2_r1.5_lm17_tmp3.0/bwv261-opt.txt:last_improved: unknown
+Archive/straw-man/t2_r1.5_lm17_tmp3.0/bwv262-opt.txt:last_improved: unknown
+Archive/straw-man/t2_r1.5_lm17_tmp3.0/bwv263-opt.txt:last_improved: unknown
+Archive/straw-man/t2_r1.5_lm17_tmp3.0/bwv264-opt.txt:last_improved: unknown
+Archive/straw-man/t2_r1.5_lm19_tmp3.0/bwv253-opt.txt:last_improved: 2026-06-27 10:20:45
+Archive/straw-man/t2_r1.5_lm19_tmp3.0/bwv254-opt.txt:last_improved: unknown
+Archive/straw-man/t2_r1.5_lm19_tmp3.0/bwv255-opt.txt:last_improved: unknown
+Archive/straw-man/t2_r1.5_lm19_tmp3.0/bwv256-opt.txt:last_improved: unknown
+Archive/straw-man/t2_r1.5_lm19_tmp3.0/bwv257-opt.txt:last_improved: 2026-06-27 12:56:55
+Archive/straw-man/t2_r1.5_lm19_tmp3.0/bwv258-opt.txt:last_improved: unknown
+Archive/straw-man/t2_r1.5_lm19_tmp3.0/bwv259-opt.txt:last_improved: unknown
+Archive/straw-man/t2_r1.5_lm19_tmp3.0/bwv260-opt.txt:last_improved: unknown
+Archive/straw-man/t2_r1.5_lm19_tmp3.0/bwv261-opt.txt:last_improved: unknown
+Archive/straw-man/t2_r1.5_lm19_tmp3.0/bwv262-opt.txt:last_improved: unknown
+Archive/straw-man/t2_r1.5_lm19_tmp3.0/bwv263-opt.txt:last_improved: 2026-06-27 13:27:59
+Archive/straw-man/t2_r1.5_lm19_tmp3.0/bwv264-opt.txt:last_improved: 2026-06-27 09:50:52
+Archive/straw-man/t2_r1.75_lm17_tmp3.0/bwv253-opt.txt:last_improved: 2026-06-28 07:02:36
+Archive/straw-man/t2_r1.75_lm17_tmp3.0/bwv254-opt.txt:last_improved: 2026-06-28 07:12:14
+Archive/straw-man/t2_r1.75_lm17_tmp3.0/bwv255-opt.txt:last_improved: 2026-06-27 14:23:34
+Archive/straw-man/t2_r1.75_lm17_tmp3.0/bwv256-opt.txt:last_improved: unknown
+Archive/straw-man/t2_r1.75_lm17_tmp3.0/bwv257-opt.txt:last_improved: 2026-06-28 07:35:22
+Archive/straw-man/t2_r1.75_lm17_tmp3.0/bwv258-opt.txt:last_improved: unknown
+Archive/straw-man/t2_r1.75_lm17_tmp3.0/bwv259-opt.txt:last_improved: unknown
+Archive/straw-man/t2_r1.75_lm17_tmp3.0/bwv260-opt.txt:last_improved: 2026-06-29 13:32:53
+Archive/straw-man/t2_r1.75_lm17_tmp3.0/bwv261-opt.txt:last_improved: 2026-06-29 13:41:50
+Archive/straw-man/t2_r1.75_lm17_tmp3.0/bwv262-opt.txt:last_improved: unknown
+Archive/straw-man/t2_r1.75_lm17_tmp3.0/bwv263-opt.txt:last_improved: unknown
+Archive/straw-man/t2_r1.75_lm17_tmp3.0/bwv264-opt.txt:last_improved: unknown
+Archive/straw-man/t2_r1.75_lm19_tmp3.0/bwv253-opt.txt:last_improved: unknown
+Archive/straw-man/t2_r1.75_lm19_tmp3.0/bwv254-opt.txt:last_improved: unknown
+Archive/straw-man/t2_r1.75_lm19_tmp3.0/bwv255-opt.txt:last_improved: unknown
+Archive/straw-man/t2_r1.75_lm19_tmp3.0/bwv256-opt.txt:last_improved: unknown
+Archive/straw-man/t2_r1.75_lm19_tmp3.0/bwv257-opt.txt:last_improved: unknown
+Archive/straw-man/t2_r1.75_lm19_tmp3.0/bwv258-opt.txt:last_improved: 2026-06-27 08:29:14
+Archive/straw-man/t2_r1.75_lm19_tmp3.0/bwv259-opt.txt:last_improved: unknown
+Archive/straw-man/t2_r1.75_lm19_tmp3.0/bwv260-opt.txt:last_improved: unknown
+Archive/straw-man/t2_r1.75_lm19_tmp3.0/bwv261-opt.txt:last_improved: 2026-06-27 08:58:45
+Archive/straw-man/t2_r1.75_lm19_tmp3.0/bwv262-opt.txt:last_improved: unknown
+Archive/straw-man/t2_r1.75_lm19_tmp3.0/bwv263-opt.txt:last_improved: unknown
+Archive/straw-man/t2_r1.75_lm19_tmp3.0/bwv264-opt.txt:last_improved: unknown
+Archive/straw-man/t3_r1.125_lm17_tmp3.0/bwv253-opt.txt:last_improved: 2026-06-27 07:42:36
+Archive/straw-man/t3_r1.125_lm17_tmp3.0/bwv254-opt.txt:last_improved: unknown
+Archive/straw-man/t3_r1.125_lm17_tmp3.0/bwv255-opt.txt:last_improved: unknown
+Archive/straw-man/t3_r1.125_lm17_tmp3.0/bwv256-opt.txt:last_improved: unknown
+Archive/straw-man/t3_r1.125_lm17_tmp3.0/bwv257-opt.txt:last_improved: 2026-06-27 08:01:24
+Archive/straw-man/t3_r1.125_lm17_tmp3.0/bwv258-opt.txt:last_improved: 2026-06-27 08:05:54
+Archive/straw-man/t3_r1.125_lm17_tmp3.0/bwv259-opt.txt:last_improved: 2026-06-29 13:29:08
+Archive/straw-man/t3_r1.125_lm17_tmp3.0/bwv260-opt.txt:last_improved: unknown
+Archive/straw-man/t3_r1.125_lm17_tmp3.0/bwv261-opt.txt:last_improved: unknown
+Archive/straw-man/t3_r1.125_lm17_tmp3.0/bwv262-opt.txt:last_improved: 2026-06-29 13:48:45
+Archive/straw-man/t3_r1.125_lm17_tmp3.0/bwv263-opt.txt:last_improved: unknown
+Archive/straw-man/t3_r1.125_lm17_tmp3.0/bwv264-opt.txt:last_improved: unknown
+Archive/straw-man/t3_r1.125_lm19_tmp3.0/bwv253-opt.txt:last_improved: 2026-06-27 12:40:50
+Archive/straw-man/t3_r1.125_lm19_tmp3.0/bwv254-opt.txt:last_improved: unknown
+Archive/straw-man/t3_r1.125_lm19_tmp3.0/bwv255-opt.txt:last_improved: unknown
+Archive/straw-man/t3_r1.125_lm19_tmp3.0/bwv256-opt.txt:last_improved: unknown
+Archive/straw-man/t3_r1.125_lm19_tmp3.0/bwv257-opt.txt:last_improved: unknown
+Archive/straw-man/t3_r1.125_lm19_tmp3.0/bwv258-opt.txt:last_improved: unknown
+Archive/straw-man/t3_r1.125_lm19_tmp3.0/bwv259-opt.txt:last_improved: unknown
+Archive/straw-man/t3_r1.125_lm19_tmp3.0/bwv260-opt.txt:last_improved: unknown
+Archive/straw-man/t3_r1.125_lm19_tmp3.0/bwv261-opt.txt:last_improved: unknown
+Archive/straw-man/t3_r1.125_lm19_tmp3.0/bwv262-opt.txt:last_improved: unknown
+Archive/straw-man/t3_r1.125_lm19_tmp3.0/bwv263-opt.txt:last_improved: unknown
+Archive/straw-man/t3_r1.125_lm19_tmp3.0/bwv264-opt.txt:last_improved: unknown
+Archive/straw-man/t3_r1.25_lm17_tmp3.0/bwv253-opt.txt:last_improved: 2026-06-27 12:35:33
+Archive/straw-man/t3_r1.25_lm17_tmp3.0/bwv254-opt.txt:last_improved: unknown
+Archive/straw-man/t3_r1.25_lm17_tmp3.0/bwv255-opt.txt:last_improved: 2026-06-27 08:07:02
+Archive/straw-man/t3_r1.25_lm17_tmp3.0/bwv256-opt.txt:last_improved: 2026-06-29 13:09:41
+Archive/straw-man/t3_r1.25_lm17_tmp3.0/bwv257-opt.txt:last_improved: 2026-06-27 11:07:09
+Archive/straw-man/t3_r1.25_lm17_tmp3.0/bwv258-opt.txt:last_improved: 2026-06-29 13:18:11
+Archive/straw-man/t3_r1.25_lm17_tmp3.0/bwv259-opt.txt:last_improved: unknown
+Archive/straw-man/t3_r1.25_lm17_tmp3.0/bwv260-opt.txt:last_improved: unknown
+Archive/straw-man/t3_r1.25_lm17_tmp3.0/bwv261-opt.txt:last_improved: 2026-06-28 07:32:48
+Archive/straw-man/t3_r1.25_lm17_tmp3.0/bwv262-opt.txt:last_improved: 2026-06-27 09:21:25
+Archive/straw-man/t3_r1.25_lm17_tmp3.0/bwv263-opt.txt:last_improved: 2026-06-29 13:43:00
+Archive/straw-man/t3_r1.25_lm17_tmp3.0/bwv264-opt.txt:last_improved: unknown
+Archive/straw-man/t3_r1.25_lm19_tmp3.0/bwv253-opt.txt:last_improved: unknown
+Archive/straw-man/t3_r1.25_lm19_tmp3.0/bwv254-opt.txt:last_improved: unknown
+Archive/straw-man/t3_r1.25_lm19_tmp3.0/bwv255-opt.txt:last_improved: unknown
+Archive/straw-man/t3_r1.25_lm19_tmp3.0/bwv256-opt.txt:last_improved: unknown
+Archive/straw-man/t3_r1.25_lm19_tmp3.0/bwv257-opt.txt:last_improved: unknown
+Archive/straw-man/t3_r1.25_lm19_tmp3.0/bwv258-opt.txt:last_improved: unknown
+Archive/straw-man/t3_r1.25_lm19_tmp3.0/bwv259-opt.txt:last_improved: unknown
+Archive/straw-man/t3_r1.25_lm19_tmp3.0/bwv260-opt.txt:last_improved: 2026-06-27 15:09:30
+Archive/straw-man/t3_r1.25_lm19_tmp3.0/bwv261-opt.txt:last_improved: 2026-06-27 15:37:28
+Archive/straw-man/t3_r1.25_lm19_tmp3.0/bwv262-opt.txt:last_improved: unknown
+Archive/straw-man/t3_r1.25_lm19_tmp3.0/bwv263-opt.txt:last_improved: unknown
+Archive/straw-man/t3_r1.25_lm19_tmp3.0/bwv264-opt.txt:last_improved: unknown
+Archive/straw-man/t3_r1.5_lm17_tmp3.0/bwv253-opt.txt:last_improved: 2026-06-29 12:58:39
+Archive/straw-man/t3_r1.5_lm17_tmp3.0/bwv254-opt.txt:last_improved: unknown
+Archive/straw-man/t3_r1.5_lm17_tmp3.0/bwv255-opt.txt:last_improved: 2026-06-29 13:08:49
+Archive/straw-man/t3_r1.5_lm17_tmp3.0/bwv256-opt.txt:last_improved: 2026-06-29 13:14:02
+Archive/straw-man/t3_r1.5_lm17_tmp3.0/bwv257-opt.txt:last_improved: 2026-06-29 13:19:06
+Archive/straw-man/t3_r1.5_lm17_tmp3.0/bwv258-opt.txt:last_improved: 2026-06-29 13:24:23
+Archive/straw-man/t3_r1.5_lm17_tmp3.0/bwv259-opt.txt:last_improved: 2026-06-29 13:30:23
+Archive/straw-man/t3_r1.5_lm17_tmp3.0/bwv260-opt.txt:last_improved: 2026-06-29 13:35:25
+Archive/straw-man/t3_r1.5_lm17_tmp3.0/bwv261-opt.txt:last_improved: 2026-06-29 13:32:50
+Archive/straw-man/t3_r1.5_lm17_tmp3.0/bwv262-opt.txt:last_improved: 2026-06-29 13:50:17
+Archive/straw-man/t3_r1.5_lm17_tmp3.0/bwv263-opt.txt:last_improved: 2026-06-29 13:55:46
+Archive/straw-man/t3_r1.5_lm17_tmp3.0/bwv264-opt.txt:last_improved: 2026-06-29 13:46:03
+Archive/straw-man/t3_r1.5_lm19_tmp3.0/bwv253-opt.txt:last_improved: unknown
+Archive/straw-man/t3_r1.5_lm19_tmp3.0/bwv254-opt.txt:last_improved: unknown
+Archive/straw-man/t3_r1.5_lm19_tmp3.0/bwv255-opt.txt:last_improved: unknown
+Archive/straw-man/t3_r1.5_lm19_tmp3.0/bwv256-opt.txt:last_improved: unknown
+Archive/straw-man/t3_r1.5_lm19_tmp3.0/bwv257-opt.txt:last_improved: 2026-06-27 11:14:04
+Archive/straw-man/t3_r1.5_lm19_tmp3.0/bwv258-opt.txt:last_improved: 2026-06-27 08:16:12
+Archive/straw-man/t3_r1.5_lm19_tmp3.0/bwv259-opt.txt:last_improved: unknown
+Archive/straw-man/t3_r1.5_lm19_tmp3.0/bwv260-opt.txt:last_improved: unknown
+Archive/straw-man/t3_r1.5_lm19_tmp3.0/bwv261-opt.txt:last_improved: unknown
+Archive/straw-man/t3_r1.5_lm19_tmp3.0/bwv262-opt.txt:last_improved: unknown
+Archive/straw-man/t3_r1.5_lm19_tmp3.0/bwv263-opt.txt:last_improved: 2026-06-27 08:47:34
+Archive/straw-man/t3_r1.5_lm19_tmp3.0/bwv264-opt.txt:last_improved: 2026-06-27 14:37:43
+Archive/straw-man/t3_r1.75_lm17_tmp3.0/bwv253-opt.txt:last_improved: 2026-06-27 10:49:41
+Archive/straw-man/t3_r1.75_lm17_tmp3.0/bwv254-opt.txt:last_improved: unknown
+Archive/straw-man/t3_r1.75_lm17_tmp3.0/bwv255-opt.txt:last_improved: unknown
+Archive/straw-man/t3_r1.75_lm17_tmp3.0/bwv256-opt.txt:last_improved: 2026-06-27 12:48:03
+Archive/straw-man/t3_r1.75_lm17_tmp3.0/bwv257-opt.txt:last_improved: 2026-06-28 07:19:17
+Archive/straw-man/t3_r1.75_lm17_tmp3.0/bwv258-opt.txt:last_improved: 2026-06-29 13:23:46
+Archive/straw-man/t3_r1.75_lm17_tmp3.0/bwv259-opt.txt:last_improved: unknown
+Archive/straw-man/t3_r1.75_lm17_tmp3.0/bwv260-opt.txt:last_improved: unknown
+Archive/straw-man/t3_r1.75_lm17_tmp3.0/bwv261-opt.txt:last_improved: 2026-06-29 13:43:18
+Archive/straw-man/t3_r1.75_lm17_tmp3.0/bwv262-opt.txt:last_improved: 2026-06-27 08:36:12
+Archive/straw-man/t3_r1.75_lm17_tmp3.0/bwv263-opt.txt:last_improved: unknown
+Archive/straw-man/t3_r1.75_lm17_tmp3.0/bwv264-opt.txt:last_improved: unknown
+Archive/straw-man/t3_r1.75_lm19_tmp3.0/bwv253-opt.txt:last_improved: 2026-06-27 12:42:27
+Archive/straw-man/t3_r1.75_lm19_tmp3.0/bwv254-opt.txt:last_improved: 2026-06-27 11:08:34
+Archive/straw-man/t3_r1.75_lm19_tmp3.0/bwv255-opt.txt:last_improved: unknown
+Archive/straw-man/t3_r1.75_lm19_tmp3.0/bwv256-opt.txt:last_improved: unknown
+Archive/straw-man/t3_r1.75_lm19_tmp3.0/bwv257-opt.txt:last_improved: unknown
+Archive/straw-man/t3_r1.75_lm19_tmp3.0/bwv258-opt.txt:last_improved: 2026-06-27 08:17:23
+Archive/straw-man/t3_r1.75_lm19_tmp3.0/bwv259-opt.txt:last_improved: unknown
+Archive/straw-man/t3_r1.75_lm19_tmp3.0/bwv260-opt.txt:last_improved: unknown
+Archive/straw-man/t3_r1.75_lm19_tmp3.0/bwv261-opt.txt:last_improved: 2026-06-27 13:26:42
+Archive/straw-man/t3_r1.75_lm19_tmp3.0/bwv262-opt.txt:last_improved: 2026-06-27 13:32:22
+Archive/straw-man/t3_r1.75_lm19_tmp3.0/bwv263-opt.txt:last_improved: unknown
+Archive/straw-man/t3_r1.75_lm19_tmp3.0/bwv264-opt.txt:last_improved: unknown
