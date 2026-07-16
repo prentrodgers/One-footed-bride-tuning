@@ -2394,13 +2394,13 @@ def mainline(chorale_override=None, short_repeats=False, just_triangle=False, in
             # Neither flag: Full mode with all McGill instruments and complex arpeggio patterns
             include_sections = {
                   # section --      play or not --    instruments in the section
-                  'finger_pianos': [False, np.array(['fing1', 'fing2', 'fing3', 'bfin1', 'fing4', 'fing5', 'fing6', 'bfin2'])],
-                  'wood_winds':    [False, np.array(['flut1', 'clar1', 'oboe1', 'oboe2', 'frnh1', 'frnh2', 'basn1', 'basn2'])],
-                  'pizz_strings':  [False, np.array(['vlip1', 'vlip2', 'vlap1', 'celp1', 'vlim1', 'vlim2', 'vlap2', 'celp2',])],
+                  'finger_pianos': [True, np.array(['fing1', 'fing2', 'fing3', 'bfin1', 'fing4', 'fing5', 'fing6', 'bfin2'])],
+                  'wood_winds':    [True, np.array(['flut1', 'clar1', 'oboe1', 'oboe2', 'frnh1', 'frnh2', 'basn1', 'basn2'])],
+                  'pizz_strings':  [True, np.array(['vlip1', 'vlip2', 'vlap1', 'celp1', 'vlim1', 'vlim2', 'vlap2', 'celp2',])],
                   'bowed_strings': [False, np.array(['vliv1', 'vliv2', 'vliv3', 'vliv4', 'vlav1', 'vlav2', 'celv1', 'celv2'])],
                   'brass_section': [False, np.array(['trmp1', 'trmp2', 'trmp3', 'trmp4', 'trmb1', 'trmb2', 'tuba1', 'tuba2'])],
                   'marimbas':   [True, np.array(['mari1', 'mari2', 'mari3', 'mari4', 'mari5', 'mari6', 'mari7', 'mari8'])],
-                  'bass_section':  [False, np.array(['bgui1', 'bgui2', 'bgui3', 'bfin3', 'bfin4', 'bgui4', 'bfin5', 'bgui5'])],
+                  'bass_section':  [True, np.array(['bgui1', 'bgui2', 'bgui3', 'bfin3', 'bfin4', 'bgui4', 'bfin5', 'bfin6'])],
                   'melody_section':[False, np.array(['flut2', 'flut3', 'clar2', 'vibp1', 'oboe3', 'basn4', 'trmp5', 'vibp2'])]}
       
       limit = 0 # how many seconds to produce. 0 means no limit.

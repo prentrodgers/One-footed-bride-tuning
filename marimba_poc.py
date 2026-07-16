@@ -236,28 +236,60 @@ def _pitch_label(pitch_cents):
     return librosa.hz_to_note(hz, octave=True)
 
 
-def build_layout(notes):
+BASE_SLOT_W = 25.8   # px/bar at scale=1.0 — matches the original 43-bar layout
+
+
+def build_layout(notes, base_x=None, base_y=None, avail=None, scale=1.0,
+                  player_x=None, player_y=None, idx_offset=0):
     """Return bar dicts (with oblique geometry) and pitch→bar_index map.
 
     notes col 1 is pitch_cents (features-array path) or MIDI int (audio path).
     Both are treated as a monotone pitch key; bars are sorted low→high.
+
+    base_x/base_y: where this instrument's bar rack sits (front-left corner
+      of the lowest bar / front-bottom edge). Defaults reproduce the
+      original single, full-width marimba.
+    avail: total width for the bar rack. Defaults to a full-width layout;
+      pass an explicit value to fit N bars into a small on-stage seat.
+    scale: linear scale applied to bar thickness/depth/mallet arm, so a
+      seat's instrument and gesture are proportioned like the full-size one.
+    player_x/player_y: the invisible player's position this seat's mallet
+      stems point toward. Defaults to the module-level PLAYER_X/PLAYER_Y.
+    idx_offset: starting bar index, so multiple seats can be merged into
+      one combined bars list / pitch_to_idx map with distinct indices.
     """
+    if base_x is None:
+        base_x = MARGIN_L
+    if base_y is None:
+        base_y = BAR_FRONT_Y
+    if player_x is None:
+        player_x = PLAYER_X
+    if player_y is None:
+        player_y = PLAYER_Y
+
     pitch_vals = np.sort(np.unique(np.round(notes[:, 1]).astype(int)))
     n = len(pitch_vals)
-    pitch_to_idx = {p: i for i, p in enumerate(pitch_vals)}
+    pitch_to_idx = {p: i + idx_offset for i, p in enumerate(pitch_vals)}
 
-    avail  = W - MARGIN_L - MARGIN_R
+    if avail is None:
+        avail = W - MARGIN_L - MARGIN_R
     slot_w = avail / n
+
+    bar_thickness = BAR_THICKNESS * scale
+    depth_low     = DEPTH_LOW * scale
+    depth_high    = DEPTH_HIGH * scale
+    mallet_arm    = MALLET_ARM * scale
+
     bars = []
     for i, pitch in enumerate(pitch_vals):
         t   = i / max(n - 1, 1)           # 0 = lowest note, 1 = highest
         bw  = slot_w * (0.82 - t * 0.20)  # lower bars slightly wider
-        cx  = MARGIN_L + slot_w * (i + 0.5)
-        depth = DEPTH_LOW + (DEPTH_HIGH - DEPTH_LOW) * t  # lower notes longer
+        cx  = base_x + slot_w * (i + 0.5)
+        depth = depth_low + (depth_high - depth_low) * t  # lower notes longer
 
         # Oblique projection: compute corners of top face (parallelogram)
-        # Front edge at y = BAR_FRONT_Y + BAR_THICKNESS (top of front face)
-        front_top_y = BAR_FRONT_Y + BAR_THICKNESS
+        # Front edge at y = base_y + bar_thickness (top of front face)
+        front_top_y = base_y + bar_thickness
         # Back edge shifts right and up by the depth vector
         back_top_y  = front_top_y + depth * DEPTH_AY
         back_x_off  = depth * DEPTH_AX    # x-shift for back corners
@@ -269,8 +301,8 @@ def build_layout(notes):
             [cx - bw/2 + back_x_off, back_top_y],  # back-left
         ])
         front_face_pts = np.array([
-            [cx - bw/2, BAR_FRONT_Y],
-            [cx + bw/2, BAR_FRONT_Y],
+            [cx - bw/2, base_y],
+            [cx + bw/2, base_y],
             [cx + bw/2, front_top_y],
             [cx - bw/2, front_top_y],
         ])
@@ -279,14 +311,14 @@ def build_layout(notes):
         cx_top = cx + back_x_off / 2
         cy_top = front_top_y + depth * DEPTH_AY / 2
 
-        # Pivot: ARM pixels behind bar top-centre in the depth direction.
+        # Pivot: mallet_arm px behind bar top-centre in the depth direction.
         # The invisible player's hand is at this point; the head reaches
         # (cx_top, cy_top) when theta = 0 (strike position).
-        pivot_x = cx_top + MALLET_ARM * BACK_DX
-        pivot_y = cy_top + MALLET_ARM * BACK_DY
+        pivot_x = cx_top + mallet_arm * BACK_DX
+        pivot_y = cy_top + mallet_arm * BACK_DY
         # Strike arm vector (pivot → bar centre)
-        vsx = cx_top - pivot_x   # = -MALLET_ARM * BACK_DX
-        vsy = cy_top - pivot_y   # = -MALLET_ARM * BACK_DY
+        vsx = cx_top - pivot_x   # = -mallet_arm * BACK_DX
+        vsy = cy_top - pivot_y   # = -mallet_arm * BACK_DY
 
         # Rest head position: rotate strike arm by THETA_REST (clockwise)
         tr = np.radians(THETA_REST)
@@ -302,7 +334,7 @@ def build_layout(notes):
             label = _pitch_label(float(pitch))
 
         bars.append(dict(
-            pitch=pitch, idx=i, cx=cx, width=bw, depth=depth,
+            pitch=pitch, idx=i + idx_offset, cx=cx, width=bw, depth=depth,
             cx_top=cx_top, cy_top=cy_top,
             vsx=vsx, vsy=vsy,
             pivot_x=pivot_x, pivot_y=pivot_y,
@@ -311,14 +343,53 @@ def build_layout(notes):
             front_pts=front_face_pts,
             note=label,
             base=bar_base_color(i, n),
+            base_y=base_y, scale=scale, mallet_arm=mallet_arm,
+            player_x=player_x, player_y=player_y,
         ))
     return bars, pitch_to_idx
+
+
+def build_multi_layout(notes, seats):
+    """Combine per-seat build_layout() calls into one bars list / pitch map.
+
+    seats: list of dicts, each with a 'p_lo'/'p_hi' pitch_cents band (like
+      string_section_poc's PLAYERS) plus base_x/base_y/scale/player_x/
+      player_y for that seat's on-stage instrument. avail is computed from
+      the seat's own bar count so bar width stays consistent across seats.
+    """
+    all_bars = []
+    pitch_to_idx = {}
+    idx = 0
+    for seat in seats:
+        lo, hi = seat.get('p_lo'), seat.get('p_hi')
+        mask = np.ones(len(notes), dtype=bool)
+        if lo is not None:
+            mask &= notes[:, 1] >= lo
+        if hi is not None:
+            mask &= notes[:, 1] < hi
+        sub = notes[mask]
+        if len(sub) == 0:
+            continue
+        n_bars = len(np.unique(np.round(sub[:, 1]).astype(int)))
+        avail = n_bars * BASE_SLOT_W * seat['scale']
+        base_x = seat['cx'] - avail / 2
+        bars, p2i = build_layout(
+            sub, base_x=base_x, base_y=seat['base_y'], avail=avail,
+            scale=seat['scale'], player_x=seat['player_x'],
+            player_y=seat['player_y'], idx_offset=idx,
+        )
+        for b in bars:
+            b['seat_name'] = seat['name']
+        all_bars.extend(bars)
+        pitch_to_idx.update(p2i)
+        idx += len(bars)
+    return all_bars, pitch_to_idx
 
 
 class Scene:
     """Pre-allocated artists updated each frame (avoids full redraw cost)."""
 
-    def __init__(self, fig, ax, bars):
+    def __init__(self, fig, ax, bars, show_title=True, show_labels=True):
         self.ax   = ax
         self.bars = bars
         self._top_polys   = []
@@ -353,41 +424,48 @@ class Scene:
             ax.add_patch(halo)
             self._halos.append(halo)
 
-            # Mallet stem — MALLET_ARM px from head toward the fixed player
-            # position, so the handle always points back toward the centre.
-            dhx = PLAYER_X - b['rest_hx']
-            dhy = PLAYER_Y - b['rest_hy']
+            # Mallet stem — mallet_arm px from head toward this seat's
+            # player position, so the handle always points back toward
+            # the (possibly per-seat) invisible player.
+            sc = b.get('scale', 1.0)
+            arm = b.get('mallet_arm', MALLET_ARM)
+            px  = b.get('player_x', PLAYER_X)
+            py  = b.get('player_y', PLAYER_Y)
+            dhx = px - b['rest_hx']
+            dhy = py - b['rest_hy']
             dd  = max((dhx*dhx + dhy*dhy)**0.5, 1.0)
-            hend_x = b['rest_hx'] + MALLET_ARM * dhx / dd
-            hend_y = b['rest_hy'] + MALLET_ARM * dhy / dd
+            hend_x = b['rest_hx'] + arm * dhx / dd
+            hend_y = b['rest_hy'] + arm * dhy / dd
             (stem,) = ax.plot(
                 [hend_x, b['rest_hx']],
                 [hend_y, b['rest_hy']],
-                color=STEM_CLR, lw=2.2, solid_capstyle='round', zorder=7,
+                color=STEM_CLR, lw=2.2 * sc, solid_capstyle='round', zorder=7,
             )
             self._stems.append(stem)
 
             # Mallet head
             head = Ellipse(
-                (b['rest_hx'], b['rest_hy']), width=16, height=13,
+                (b['rest_hx'], b['rest_hy']), width=16 * sc, height=13 * sc,
                 fc=MALLET_CLR, ec=(0.55, 0.65, 0.78), lw=1.0, zorder=8,
             )
             ax.add_patch(head)
             self._heads.append(head)
 
             # Note label below bar front edge
-            ax.text(
-                b['cx'], BAR_FRONT_Y - 12, b['note'],
-                ha='center', va='top', fontsize=7,
-                color=LABEL_CLR, zorder=9,
-            )
+            if show_labels:
+                ax.text(
+                    b['cx'], BAR_FRONT_Y - 12, b['note'],
+                    ha='center', va='top', fontsize=7,
+                    color=LABEL_CLR, zorder=9,
+                )
 
         # Title
-        ax.text(
-            W / 2, H - 20, "J.S. Bach · Just Intonation Marimba",
-            ha='center', va='top', fontsize=11,
-            color=(0.30, 0.46, 0.64), zorder=9,
-        )
+        if show_title:
+            ax.text(
+                W / 2, H - 20, "J.S. Bach · Just Intonation Marimba",
+                ha='center', va='top', fontsize=11,
+                color=(0.30, 0.46, 0.64), zorder=9,
+            )
 
     def update(self, bar_glow, mallet_heads, mallet_visible):
         for b in self.bars:
@@ -404,11 +482,12 @@ class Scene:
 
             # Glow halo — rendered above bar faces; brighter alpha so the
             # centred impact flash is unmistakeable.
+            sc = b.get('scale', 1.0)
             if g > 0.04:
                 self._halos[i].set_alpha(g * 0.55)
                 self._halos[i].set_facecolor(tc)
                 self._halos[i].set_width(b['width'] * (2.0 + g * 1.2))
-                self._halos[i].set_height(40 + g * 55)
+                self._halos[i].set_height((40 + g * 55) * sc)
             else:
                 self._halos[i].set_alpha(0.0)
 
@@ -416,18 +495,22 @@ class Scene:
             self._stems[i].set_visible(visible)
             self._heads[i].set_visible(visible)
             if visible:
-                # Stem: fixed length MALLET_ARM from head toward player centre
-                dhx = PLAYER_X - hx
-                dhy = PLAYER_Y - hy
+                # Stem: fixed length (this seat's mallet_arm) from head
+                # toward this seat's player position.
+                arm = b.get('mallet_arm', MALLET_ARM)
+                px  = b.get('player_x', PLAYER_X)
+                py  = b.get('player_y', PLAYER_Y)
+                dhx = px - hx
+                dhy = py - hy
                 dd  = max((dhx*dhx + dhy*dhy)**0.5, 1.0)
-                hend_x = hx + MALLET_ARM * dhx / dd
-                hend_y = hy + MALLET_ARM * dhy / dd
+                hend_x = hx + arm * dhx / dd
+                hend_y = hy + arm * dhy / dd
                 self._stems[i].set_data(
                     [hend_x, hx], [hend_y, hy]
                 )
                 self._stems[i].set_color((0.75, 0.85, 1.0) if g > 0.25 else STEM_CLR)
                 self._heads[i].set_center((hx, hy))
-                hw = 14 + g * 5
+                hw = (14 + g * 5) * sc
                 self._heads[i].set_width(hw * 1.3)
                 self._heads[i].set_height(hw)
                 self._heads[i].set_facecolor(
@@ -491,7 +574,7 @@ def compute_state(t, notes, pitch_to_idx, n_bars, bars):
     return bar_glow, mallet_heads, mallet_visible
 
 
-def render_frames(notes, duration):
+def render_frames(notes, duration, transparent=False):
     print(f"\n[Stage 2] Rendering {FRAMES_DIR}/")
     Path(FRAMES_DIR).mkdir(exist_ok=True)
 
@@ -501,22 +584,31 @@ def render_frames(notes, duration):
     print(f"  {n_bars} bars, {n_frames} frames ({duration:.1f}s @ {FPS}fps)")
 
     fig, ax = plt.subplots(figsize=(W / DPI, H / DPI), dpi=DPI)
-    fig.patch.set_facecolor(BG_COLOR)
     plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
-    ax.set_facecolor(BG_COLOR)
     ax.set_xlim(0, W)
     ax.set_ylim(0, H)
     ax.set_aspect('equal')
     ax.axis('off')
+    if transparent:
+        fig.patch.set_alpha(0.0)
+        ax.patch.set_alpha(0.0)
+    else:
+        fig.patch.set_facecolor(BG_COLOR)
+        ax.set_facecolor(BG_COLOR)
 
-    scene = Scene(fig, ax, bars)
+    scene = Scene(fig, ax, bars, show_title=not transparent, show_labels=not transparent)
+
+    savefig_kwargs = dict(dpi=DPI, bbox_inches=None)
+    if transparent:
+        savefig_kwargs.update(transparent=True)
+    else:
+        savefig_kwargs.update(facecolor=BG_COLOR)
 
     for fi in range(n_frames):
         t = fi / FPS
         bar_glow, mallet_heads, mallet_visible = compute_state(t, notes, pitch_to_idx, n_bars, bars)
         scene.update(bar_glow, mallet_heads, mallet_visible)
-        fig.savefig(f"{FRAMES_DIR}/frame_{fi:06d}.png", dpi=DPI,
-                    facecolor=BG_COLOR, bbox_inches=None)
+        fig.savefig(f"{FRAMES_DIR}/frame_{fi:06d}.png", **savefig_kwargs)
         if fi % 60 == 0:
             print(f"  {fi}/{n_frames}  t={t:.1f}s", flush=True)
 
@@ -557,6 +649,12 @@ def main():
     parser.add_argument('--voice', type=int, default=DEFAULT_VOICE,
                         help='Csound voice number to filter (required with --npy)')
     parser.add_argument('--stage', choices=['1', '2', '3', 'all'], default='all')
+    parser.add_argument('--duration', type=float, default=None,
+                        help='Override computed duration (seconds), e.g. to '
+                             'match a shared timeline with another sequence')
+    parser.add_argument('--transparent', action='store_true',
+                        help='Render frames with a transparent background '
+                             'and no title/note labels, for compositing')
     args = parser.parse_args()
 
     if args.stage in ('1', 'all'):
@@ -572,8 +670,11 @@ def main():
             y, sr = librosa.load(args.mp3, sr=None, mono=True)
             duration = librosa.get_duration(y=y, sr=sr)
 
+    if args.duration is not None:
+        duration = args.duration
+
     if args.stage in ('2', 'all'):
-        render_frames(notes, duration)
+        render_frames(notes, duration, transparent=args.transparent)
 
     if args.stage in ('3', 'all'):
         assemble_video(args.mp3)

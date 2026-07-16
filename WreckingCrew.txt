@@ -18372,4 +18372,123 @@ kubectl exec $POD -- bash -c "echo echo $TOKEN > /tmp/askpass.sh && chmod +x /tm
             python marimba_poc.py --npy bwv261_features_array.npy --tempo 110 --voice 5
       A good start. One instrument down, 7 more sections to go. 
 
-      
+---------------------
+7/11/26 Keep working on the video architecture.
+      https://claude.ai/code/artifact/35cb6ce0-87f3-48c3-8ec2-c02d88419894?org=865a5366-beec-4dd7-8aca-fbfa363e2e5b
+      During our last session, you created an architecture that would enable us to create an orchestra of sections performing on their instruments in a video. You saved it in an HTML file in claude.ai in my artifacts folder. and available here: https://claude.ai/code/artifact/35cb6ce0-87f3-48c3-8ec2-c02d88419894?org=865a5366-beec-4dd7-8aca-fbfa363e2e5b We have the proof of concept for marimbas. I will create a new features array that will include just violin pizzicato and martele section next. 
+
+            python WreckingCrew.py --numpy_dir Archive/straw-man/viterbi-tunings-6-29 --chorale_list bwv261 --deep_bass_backoff 0.25 --back_off_clicks 0.25 --album 7 --mod d --include_slice 0 32 
+      It created this:
+            bwv261_features_array.npy
+      Claude has figured out what I want pretty well: 
+      Now I have the complete picture: bwv261_features_array.npy already contains exactly the right data — voices 2 (vlip/violin pizz), 3 (vlap/viola pizz), 4 (celp/cello pizz), and 9 (vlim/violin martelé). No new features array needed; just filter by those four voices.
+
+      Let me write the string section visualizer:
+      Both gestures are working:
+
+      Gold A5 string (martelé, voice 9): vibrating with a horizontal bow bar crossing it mid-string
+      Blue D6 and D7 strings (violin pizz, voice 2): pluck circles retracting rightward after contact
+      The visualizer is ready to run. To render the full 71-second animation:
+
+            python string_section_poc.py --npy bwv261_features_array.npy --tempo 110 --stage 2
+      # then to add audio:
+            python string_section_poc.py --stage 3 --mp3 Uploads/ball9-t61d_lm19_r1.25_df5_t3_d01_09_t118.mp3
+
+      Or all stages at once (skip --stage to run all):
+
+
+            python string_section_poc.py --npy bwv261_features_array.npy --tempo 110 --mp3 Uploads/ball9-t61d_lm19_r1.25_df5_t3_d01_09_t118.mp3
+      A few things to know about the current state:
+
+      47 strings span A♯3→D7, arranged left-to-right by pitch (cello amber on left, violin blue on right, martelé gold scattered throughout)
+      Vibration: pitch-dependent — cello strings swing wide and slowly, violin strings narrow and fast
+      Pizzicato (voices 2/3/4): fingertip circles approach, contact, retract
+      Martelé (voice 9): horizontal bow bar sweeps quickly across the string then lifts off
+      Pitch labels at the bottom crowd a bit with 47 strings — can thin them out later
+      To also render just a single voice type (e.g., martelé only to check it in isolation):
+
+            python string_section_poc.py --npy bwv261_features_array.npy --tempo 110 --voices 9 --stage 2
+
+-------------
+7/13/26 I've asked Claude to combine the Strings with the Marimbas.
+      The videos display this error when they run in Dragon Player:
+                  I need a realization of WreckingCrew.py.             
+                  Could not locate full support for the H.264 video codec; video playback support may be less reliable than expected. 
+
+                  Please contact the Fedora Linux developers about this issue, or to find out how to install the missing video codecs.
+      Run it on vlc and it works fine. 
+      This is getting good. Very time consuming, but improving with every iteration.
+
+------------------
+7/14/26 Adding the bass_section to the strings, finger piano, and marimba. 
+      python WreckingCrew.py --numpy_dir Archive/straw-man/viterbi-tunings-6-29 --chorale_list bwv261 --deep_bass_backoff 0.25 --back_off_clicks 0.25 --album 7 --mod d --include_slice 0 16 --density_level 5
+
+--------------
+7/16/26 Ask bob to critique the work of Claude on videos:
+      I have been working on a wy to convert numpy arrays of notes into videos. It works by reading @bwv261_features_array.npy and other chorale outputs from @WreckingCrew.py which turns midi files into beautiful fantasias on the Back Chorales using cent tuning that optimizes low number ratios. There are many instruments in the numpy array, in sections. I have python programs that read those feature arrays and eventually use matpolot live to generate frames of videos. Here are the latest python programs in a list: bass_section_poc.py
+      finger_piano_section_poc.py
+      compose_stage_merge.py
+      marimba_section_poc.py
+      string_section_poc.py
+      marimba_poc.py # I'd like to determine if this is the right strategy to create videos of music. The current plan is to show instruments being played by invisible musicians holding string instruments, guitars, marimbas, finger pianos, baritone guitars, and soon to be horns, woodsinds, and bowed string instrumtns for a total of 8 instrument sections with 8 instruments each. I'm wondering if game engines or more sophisitated video tools might be a better approach that matplotlib. What do you think?
+
+      He provided a nice summary of the alternatives: 
+      matplotlib vs. game engines for this project
+      Short answer: stay with matplotlib for now, and it's not even close given your constraints.
+
+      What you've actually built
+      Your pipeline is architecturally sound and more sophisticated than it first appears:
+
+      Data → geometry is deterministic. marimba_poc.build_layout(), string_section_poc.Scene, GuitarScene, TineScene — all compute exact pixel positions from the JI cent data. The coordinate math (oblique projection, standing-wave shapes, cantilever physics) is tightly coupled to your note representation.
+      The render model is pre-allocated artists + per-frame .set_*() updates. This is actually the right pattern for offline rendering — it's what animation studios use internally (pre-allocate, mutate, capture), just without a GPU.
+      The compositing stage (compose_stage_merge.py's full-frame alpha_composite) is clean and scales linearly with section count.
+      Where matplotlib genuinely hurts
+      Problem	Real-world impact
+      Frame render speed	~0.5–2s per frame at 1280×720 with 4 sections live. For a 75s piece at 30fps = 2250 frames × 4 sections = ~4–18 hours total render time
+      No GPU at all	Every polygon, ellipse, and sine-curve standing wave is CPU rasterized
+      Memory per figure	Keeping 4 figures alive simultaneously in a render farm isn't trivial
+      No Z-depth / 3D	Your oblique projection is hand-rolled; adding true perspective later means rewriting geometry
+      Why game engines don't actually help here
+      Unity / Godot / Unreal would give you real-time 3D — but to use them you'd need to:
+
+      Export your note data into a format their scripting runtime can consume at playback time (JSON/OSC/a custom asset). Your numpy-to-feature-array pipeline doesn't exist in those ecosystems.
+      Rebuild every instrument as a 3D mesh with materials, rigging, and shaders. Your current geometry — the oblique bar projection, the tine cantilever physics, the standing-wave string shape — is all custom analytical math that maps directly to 2D matplotlib coordinates. Porting that to a shader or a rigged mesh is weeks of work per instrument type.
+      Drive animation from data at render time. Godot's AnimationPlayer and Unity's Animator are keyframe-based tools, not "execute arbitrary Python logic per frame" tools. You'd be writing a custom plugin/extension to replay your feature-array timing data anyway.
+      Lose portability. Your whole pipeline runs headless on any machine with a Python venv. A game engine project is a 2–5 GB install with a project-specific build step.
+      Game engines shine when you want interactive real-time 3D with physics simulation. Your use case is deterministic offline rendering of data-driven animation — that's closer to a scientific visualization or a demoscene production than a game.
+
+      The better alternatives, actually ordered by payoff
+      1. Blender Python API (most direct upgrade path)
+
+      Blender has a full Python scripting environment (bpy) with a headless render mode (blender --background --python script.py). You can:
+
+      Build instruments as actual 3D meshes with wood materials/subsurface scattering
+      Drive animation from your feature arrays via keyframes set in Python
+      Render at 1280×720 with Cycles (GPU path tracing) or EEVEE (real-time rasterizer) — both much faster than matplotlib for complex scenes
+      Still write plain Python scripts that look structurally similar to what you have now
+      The key cost: your coordinate geometry would need to become 3D object placement + bone animation. But the data pipeline (.npy → note events → per-frame state) maps cleanly onto Blender's animation system.
+
+      2. Manim (3Blue1Brown's library)
+
+      Purpose-built for animated math/music visualizations, fully Python, renders via Cairo+ffmpeg. It has better text rendering than matplotlib and a cleaner animation compositing model. But it's still CPU-bound and the 2D constraint is the same.
+
+      3. Pygame / moderngl (direct OpenGL from Python)
+
+      moderngl gives you a Python API over OpenGL — you keep your numpy geometry arrays, write simple GLSL shaders for the glow/color effects, and render frames to an offscreen framebuffer with a GPU. This would be a near-1:1 port of your current math but 10–50× faster per frame. The standing-wave strings and tine cantilever shapes are just GL line-strip draws.
+
+      4. ffmpeg-python with raw pixel buffers
+
+      Skip matplotlib entirely: compute your geometry → numpy RGBA arrays → pipe directly into ffmpeg stdin as raw video. No figure/axes overhead, no PDF/SVG rasterization. This is how demoscene tools work. Fastest pure-Python approach.
+
+      My actual recommendation
+      Don't switch tools until matplotlib becomes the bottleneck. You're 4 of 8 sections in and the pipeline is working. The right move is:
+
+      Parallelize the existing render — the 4 section scripts are already fully independent. Run them simultaneously with subprocess or make -j4. If each takes 2 hours, parallelizing gets you back to 2 hours total.
+      Add a --frame-range argument to each section script so you can split the render across machines or restarts.
+      When you hit 8 sections and render time is genuinely painful, that's the moment to port the geometry to moderngl — your existing Scene.update() logic maps almost 1:1 onto a vertex-buffer update in OpenGL.
+      The architecture you've built — pre-allocated artists, per-frame state compute, transparent-layer compositing — is actually the right mental model for any renderer. The switch to a faster backend is a rendering layer change, not a redesign.
+
+      ----------------------
+      To run the video creation:
+            ./gen-video.sh bwv261 # this does a lot of work to get the result in 25 seconds, since it parallelizes calling each python program. Very nice, Dr. Bob. 
+      Just as we were nearly done, Bob decided that I'd blown my wad. Budget Exceeded
