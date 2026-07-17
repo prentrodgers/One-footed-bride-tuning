@@ -18492,3 +18492,7 @@ kubectl exec $POD -- bash -c "echo echo $TOKEN > /tmp/askpass.sh && chmod +x /tm
       To run the video creation:
             ./gen-video.sh bwv261 # this does a lot of work to get the result in 25 seconds, since it parallelizes calling each python program. Very nice, Dr. Bob. 
       Just as we were nearly done, Bob decided that I'd blown my wad. Budget Exceeded
+
+      Tried out Cline CLI, but the prompt caused it to crash. I was trying to copy with Shift-Ctrl-c but that's thats the kill signal. 
+      ❯
+      THe finger piano section should have wider and shorter tines. They are based on samples that were recorded on tines that were only 1-3" long and wider than those in the finger piano section. And the woodwinds need to move up ahd to the left a bit. I'm thinking we need to have three sections in the back, three in the middle and two in the front, leaving room for a conductor. The string pizzicato section should be srhunk down by 30%.
