@@ -25,6 +25,11 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 import marimba_poc as mp
+import stage_layout as stage
+
+import logging
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s", datefmt="%d %H:%M")
+log = logging.getLogger(__name__)
 
 FRAMES_DIR = "marimba8_frames"
 FPS = 30
@@ -33,13 +38,24 @@ FPS = 30
 # Front row: larger/closer, matches string section's violin row height.
 # Scaled 1.5x from the original 0.20/0.25 — same ROW_X0/ROW_DX below, so
 # the instruments got bigger without spreading the seats apart (tighter).
-BACK_SCALE, FRONT_SCALE = 0.30, 0.375
-# Moved up 1/3 of the canvas height to free more room below (y-up data
-# space here, so "up" = larger base_y).
-MARIMBA_Y_SHIFT = mp.H // 3
-BACK_BASE_Y, FRONT_BASE_Y = 430 + MARIMBA_Y_SHIFT, 358 + MARIMBA_Y_SHIFT
-ROW_X0 = dict(back=400, front=425)
-ROW_DX = 62
+BACK_SCALE, FRONT_SCALE = 0.36, 0.45   # +20% from 0.30/0.375 — bigger marimbas (seat spacing unchanged)
+# Row elevations come from stage_layout (shared with bass/strings so the back
+# row lines up across sections).  y-up data space here, so data-y = H - screen.
+# The +20% scale-up above made the back-row mallets reach the top edge (their
+# stems clipped at y=0), so nudge the whole marimba down 12 px to keep the
+# mallets fully in frame.  Per-section offset (NOT via ROW_BACK_Y) so the bass
+# and string sections keep their requested elevations unchanged.
+MARIMBA_Y_NUDGE = 12   # px down, to clear the top edge after the +20% scale-up
+BACK_BASE_Y  = stage.yup(stage.ROW_BACK_Y_FAR  + MARIMBA_Y_NUDGE)   # back row
+FRONT_BASE_Y = stage.yup(stage.ROW_BACK_Y_NEAR + MARIMBA_Y_NUDGE)   # front row
+# Seat spacing widened (ROW_DX 62→118) and the whole section shifted left
+# (ROW_X0 547/572→343/384) so the denser voicings from the longer chorale
+# render (many more marimba notes → up to 9 bars/seat) no longer overlap.
+# MAX_SEAT_AVAIL caps each seat's bar-rack width so seats never overlap no
+# matter how many notes land in one seat — extra bars just get thinner.
+MAX_SEAT_AVAIL = 108   # px cap on per-seat rack width (front-row 9 bars ≈ 104.5)
+ROW_X0 = dict(back=343, front=384)
+ROW_DX = 118
 
 # Target bar count per seat — how many unique pitches land in one seat's
 # instrument.  Splitting the full pitch range into 8 equal-count bands
@@ -55,19 +71,17 @@ SEAT_LABEL_CLR = (0.34, 0.47, 0.60, 1.0)
 
 def build_players(notes):
     pitch_vals = np.sort(np.unique(np.round(notes[:, 1]).astype(int)))
-    p_min, p_max = int(pitch_vals[0]), int(pitch_vals[-1])
-    total_range  = p_max - p_min
 
-    # Divide the full cents range into 8 equal slices so each seat covers
-    # one musical span (roughly one octave = 1200 cents) rather than the
-    # same *count* of pitches.  This means a seat with many distinct pitches
-    # in its range gets more bars automatically.
+    # Equal-COUNT bands (not equal-cents-width): pitch density is uneven
+    # across the range, so an equal-width cents split left the lowest seat
+    # with ~5 bars while others got 50-60 (one seat's slice just happened to
+    # span a sparse stretch of the melody).  Splitting by pitch count instead
+    # gives every seat roughly the same number of bars, and still scales up
+    # naturally as a denser chorale uses more distinct pitches overall — same
+    # approach as finger_piano_section_poc.py / bass_section_poc.py.
     n_seats = 8
-    slice_w = total_range / n_seats
-    edges = [None]
-    for i in range(1, n_seats):
-        edges.append(int(p_min + i * slice_w))
-    edges.append(None)
+    bands = np.array_split(pitch_vals, n_seats)
+    edges = [None] + [int(b[0]) for b in bands[1:]] + [None]
 
     players = []
     for i in range(n_seats):
@@ -78,7 +92,7 @@ def build_players(notes):
         cx = ROW_X0['back' if is_back else 'front'] + row_i * ROW_DX
         players.append(dict(
             id=i, name=f"Mb.{i + 1}", p_lo=edges[i], p_hi=edges[i + 1],
-            cx=cx, base_y=base_y, scale=scale,
+            cx=cx, base_y=base_y, scale=scale, max_avail=MAX_SEAT_AVAIL,
             player_x=cx, player_y=base_y + 150 * scale,
         ))
     return players
@@ -89,14 +103,14 @@ def render(npy_file, tempo, duration):
     players = build_players(notes)
     bars, pitch_to_idx = mp.build_multi_layout(notes, players)
     n_bars = len(bars)
-    print(f"[marimba section] {n_bars} bars across {len(players)} seats")
+    log.info(f"[marimba section] {n_bars} bars across {len(players)} seats")
     for pl in players:
         n = sum(1 for b in bars if b['seat_name'] == pl['name'])
-        print(f"  {pl['name']}: {n} bars @ (cx={pl['cx']}, base_y={pl['base_y']}, scale={pl['scale']})")
+        log.info(f"  {pl['name']}: {n} bars @ (cx={pl['cx']}, base_y={pl['base_y']}, scale={pl['scale']})")
 
     Path(FRAMES_DIR).mkdir(exist_ok=True)
     n_frames = int(np.ceil(duration * FPS))
-    print(f"  {n_frames} frames ({duration:.1f}s @ {FPS}fps)")
+    log.info(f"  {n_frames} frames ({duration:.1f}s @ {FPS}fps)")
 
     fig, ax = plt.subplots(figsize=(mp.W / mp.DPI, mp.H / mp.DPI), dpi=mp.DPI)
     plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
@@ -123,10 +137,10 @@ def render(npy_file, tempo, duration):
         fig.savefig(f"{FRAMES_DIR}/frame_{fi:06d}.png", dpi=mp.DPI,
                     transparent=True)
         if fi % 200 == 0:
-            print(f"  {fi}/{n_frames}  t={t:.1f}s", flush=True)
+            log.info(f"  {fi}/{n_frames}  t={t:.1f}s")
 
     plt.close(fig)
-    print(f"  Done — {n_frames} frames written.")
+    log.info(f"  Done — {n_frames} frames written.")
 
 
 def main():

@@ -5,10 +5,12 @@
 #   ./gen-video.sh bwv261
 #
 # The script:
-#   1. Locates the most-recently-modified MP3 in Uploads/ whose name
-#      contains the chorale name (e.g. bwv261).
+#   1. Locates the most-recently-modified MP3 in Uploads/ whose name matches
+#      the chorale (ball9-t<NN><letter>_*.mp3, NN = last two BWV digits), via
+#      uploads_lookup.py — the same helper compose_stage_merge.py and
+#      string_section_poc.py use, so all three agree on the file.
 #   2. Extracts the tempo (BPM) from the _t<N> token at the end of the
-#      filename, e.g. "ball9-t61d_lm19_r1.25_df5_t3_d00_29_t118.mp3" → 118.
+#      filename, e.g. "ball9-t61d_lm19_r1.25_df5_t3_d00_43_t106.mp3" → 106.
 #   3. Computes the render duration from the features array + tempo via
 #      Python (last note end + 2 s reverb tail), then rounds up to one
 #      decimal place.
@@ -49,23 +51,21 @@ fi
 echo "Features array : $NPY"
 
 # ── 4. Find newest MP3 for this chorale ───────────────────────────────────────
-# Pick the file with the most recent modification time (WreckingCrew always
-# writes a fresh mp3 after each run; the newest is the one that matches the
-# current npy on disk).
-MP3="$(ls -t Uploads/*.mp3 2>/dev/null | head -1)"
-if [[ -z "$MP3" ]]; then
-    echo "ERROR: no MP3 files found in Uploads/" >&2
+# Use the shared uploads_lookup helper so gen-video.sh, compose_stage_merge.py,
+# and string_section_poc.py all agree on "the MP3 for this chorale": the
+# most-recently-modified Uploads/*.mp3 whose name matches the chorale
+# (ball9-t<NN><letter>_*.mp3, where NN = last two digits of the BWV number).
+# Exits with a clear message if WreckingCrew hasn't rendered one yet.
+if ! MP3="$(python3 uploads_lookup.py "$CHORALE")"; then
+    # helper already printed a readable "no MP3 matching chorale ..." message
     exit 1
 fi
 echo "MP3 (newest)   : $MP3"
 
 # ── 5. Extract tempo from _t<N> suffix ───────────────────────────────────────
-# Filename pattern: ..._t<TEMPO>.mp3  (the LAST _t<digits> before the extension)
-BASENAME="$(basename "$MP3" .mp3)"
-TEMPO="$(echo "$BASENAME" | grep -oP '_t\K[0-9]+(?=[^_]*$)')"
-if [[ -z "$TEMPO" ]]; then
-    echo "ERROR: could not extract tempo from filename: $BASENAME" >&2
-    echo "  Expected a trailing _t<BPM> token, e.g. _t118.mp3" >&2
+# Tempo is the trailing _t<BPM>.mp3 token (zero-padded to 3 digits by
+# WreckingCrew).  Read it from the same helper so the parse lives in one place.
+if ! TEMPO="$(python3 uploads_lookup.py "$CHORALE" --tempo)"; then
     exit 1
 fi
 echo "Tempo          : ${TEMPO} BPM"
@@ -92,11 +92,17 @@ PYEOF
 )"
 echo "Render duration: ${DURATION}s"
 
+# Output filename encodes chorale, tempo, and duration, e.g.
+# merged_bwv261_t056_289s.mp4 — makes renders from different takes/tempos
+# distinguishable instead of all overwriting merged_poc.mp4.
+OUT_MP4="merged_${CHORALE}_t$(printf '%03d' "$TEMPO")_${DURATION%.*}s.mp4"
+echo "Output file    : ${OUT_MP4}"
+
 # ── 7. Wipe old frame directories ────────────────────────────────────────────
 echo ""
 echo "Clearing old frames..."
-rm -rf str_frames marimba8_frames finger8_frames bass8_frames ww8_frames merged_frames
-mkdir -p str_frames
+rm -rf str_frames marimba8_frames finger8_frames bass8_frames ww8_frames brass8_frames bowed8_frames melody8_frames conductor_frames merged_frames
+mkdir -p str_frames logs
 rm -f str_notes.npy poc_notes.npy str_poc.mp4
 
 # ── 8. Render sections ────────────────────────────────────────────────────────
@@ -104,39 +110,71 @@ rm -f str_notes.npy poc_notes.npy str_poc.mp4
 # produces the opaque background frames.  The other three render
 # transparent overlay layers and are fully independent of each other —
 # run them in parallel with the string render to save time.
+#
+# Each renderer's own per-frame progress logging is verbose (one line every
+# ~200 frames, so thousands of lines over a full-length render) — send it to
+# logs/<section>.log instead of the console; only the high-level "=== ... ==="
+# status below stays on screen.  `time`'s own output goes to the same file.
 
 echo ""
 echo "=== Rendering string section (background + audio) ==="
-python3 string_section_poc.py \
+{ time python3 string_section_poc.py \
     --npy "$NPY" --tempo "$TEMPO" --duration "$DURATION" \
-    --stage all --mp3 "$MP3" &
+    --stage all --mp3 "$MP3" --chorale "$CHORALE" ; } > logs/string.log 2>&1 &
 STR_PID=$!
 
 echo "=== Rendering marimba section (transparent, parallel) ==="
-python3 marimba_section_poc.py \
-    --npy "$NPY" --tempo "$TEMPO" --duration "$DURATION" &
+{ time python3 marimba_section_poc.py \
+    --npy "$NPY" --tempo "$TEMPO" --duration "$DURATION" ; } > logs/marimba.log 2>&1 &
 MARIMBA_PID=$!
 
 echo "=== Rendering finger piano section (transparent, parallel) ==="
-python3 finger_piano_section_poc.py \
-    --npy "$NPY" --tempo "$TEMPO" --duration "$DURATION" &
+{ time python3 finger_piano_section_poc.py \
+    --npy "$NPY" --tempo "$TEMPO" --duration "$DURATION" ; } > logs/finger_piano.log 2>&1 &
 FP_PID=$!
 
 echo "=== Rendering bass section (transparent, parallel) ==="
-python3 bass_section_poc.py \
-    --npy "$NPY" --tempo "$TEMPO" --duration "$DURATION" &
+{ time python3 bass_section_poc.py \
+    --npy "$NPY" --tempo "$TEMPO" --duration "$DURATION" ; } > logs/bass.log 2>&1 &
 BASS_PID=$!
 
 echo "=== Rendering woodwind section (transparent, parallel) ==="
-python3 woodwind_section_poc.py \
-    --npy "$NPY" --tempo "$TEMPO" --duration "$DURATION" &
+{ time python3 woodwind_section_poc.py \
+    --npy "$NPY" --tempo "$TEMPO" --duration "$DURATION" ; } > logs/woodwind.log 2>&1 &
 WW_PID=$!
 
-# Wait for all five to finish, propagating any failure
+echo "=== Rendering brass section (transparent, parallel) ==="
+{ time python3 brass_section_poc.py \
+    --npy "$NPY" --tempo "$TEMPO" --duration "$DURATION" ; } > logs/brass.log 2>&1 &
+BRASS_PID=$!
+
+echo "=== Rendering bowed strings section (transparent, parallel) ==="
+{ time python3 bowed_strings_section_poc.py \
+    --npy "$NPY" --tempo "$TEMPO" --duration "$DURATION" ; } > logs/bowed_strings.log 2>&1 &
+BOWED_PID=$!
+
+echo "=== Rendering melody section (transparent, parallel) ==="
+{ time python3 melody_section_poc.py \
+    --npy "$NPY" --tempo "$TEMPO" --duration "$DURATION" ; } > logs/melody.log 2>&1 &
+MELODY_PID=$!
+
+echo "=== Rendering conductor (baton, parallel) ==="
+{ time python3 conductor_section_poc.py \
+    --npy "$NPY" --tempo "$TEMPO" --duration "$DURATION" ; } > logs/conductor.log 2>&1 &
+CONDUCTOR_PID=$!
+
+# Wait for all nine to finish, propagating any failure
 FAILED=0
-for PID in $STR_PID $MARIMBA_PID $FP_PID $BASS_PID $WW_PID; do
+declare -A PID_LOG=(
+    [$STR_PID]=logs/string.log [$MARIMBA_PID]=logs/marimba.log
+    [$FP_PID]=logs/finger_piano.log [$BASS_PID]=logs/bass.log
+    [$WW_PID]=logs/woodwind.log [$BRASS_PID]=logs/brass.log
+    [$BOWED_PID]=logs/bowed_strings.log [$MELODY_PID]=logs/melody.log
+    [$CONDUCTOR_PID]=logs/conductor.log
+)
+for PID in $STR_PID $MARIMBA_PID $FP_PID $BASS_PID $WW_PID $BRASS_PID $BOWED_PID $MELODY_PID $CONDUCTOR_PID; do
     if ! wait "$PID"; then
-        echo "ERROR: a section renderer exited with an error (pid=$PID)" >&2
+        echo "ERROR: a section renderer exited with an error (pid=$PID) — see ${PID_LOG[$PID]}" >&2
         FAILED=1
     fi
 done
@@ -147,13 +185,14 @@ fi
 
 # ── 9. Composite and assemble final video ─────────────────────────────────────
 echo ""
-echo "=== Compositing layers and assembling merged_poc.mp4 ==="
-python3 compose_stage_merge.py
+echo "=== Compositing layers and assembling ${OUT_MP4} ==="
+{ time python3 compose_stage_merge.py --mp3 "$MP3" --out "$OUT_MP4" ; } > logs/compose.log 2>&1 \
+    || { echo "ERROR: compositing failed — see logs/compose.log" >&2; exit 1; }
 
 echo ""
-echo "Done.  Output: merged_poc.mp4"
+echo "Done.  Output: ${OUT_MP4}"
 if command -v ffprobe &>/dev/null; then
     ACTUAL_DUR="$(ffprobe -v quiet -show_entries format=duration \
-        -of csv=p=0 merged_poc.mp4 2>/dev/null || echo '?')"
+        -of csv=p=0 "$OUT_MP4" 2>/dev/null || echo '?')"
     echo "       Duration: ${ACTUAL_DUR}s"
 fi

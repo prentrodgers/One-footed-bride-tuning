@@ -15,12 +15,15 @@ Voice map (from adaptive_tuning_util.init_voice_time):
 Usage:
   python string_section_poc.py --npy bwv261_features_array.npy --tempo 110
   python string_section_poc.py --stage 2           # re-render frames only
-  python string_section_poc.py --stage 3 --mp3 …  # re-assemble with audio
+  python string_section_poc.py --stage 3 --mp3 …            # explicit audio
+  python string_section_poc.py --stage 3 --chorale bwv261   # newest Uploads mp3
 """
 
 import argparse
 import os
+import re
 import subprocess
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -30,6 +33,13 @@ import matplotlib.pyplot as plt
 import matplotlib.transforms as mtransforms
 from matplotlib.patches import Polygon as MplPolygon, Ellipse, Circle, Rectangle
 import librosa
+
+import uploads_lookup
+import stage_layout as stage
+
+import logging
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s", datefmt="%d %H:%M")
+log = logging.getLogger(__name__)
 
 # ── Constants ─────────────────────────────────────────────────────────────────
 DEFAULT_NPY   = "bwv261_features_array.npy"
@@ -83,6 +93,32 @@ STRING_Y_SHIFT = -H // 6
 for _pl in PLAYERS:
     _pl['cy'] += STRING_Y_SHIFT
 
+# Shrink the whole string section by 30%: each instrument's scale (sc) and
+# every seat's (cx, cy) contract about the section's centroid, so the group
+# stays centred on the stage but reads as smaller / set farther back.  All
+# instrument geometry and gestures scale with sc, so the pluck/bow/strings
+# shrink proportionally.
+STRING_SHRINK = 0.70
+_cxs = np.array([_pl['cx'] for _pl in PLAYERS])
+_cys = np.array([_pl['cy'] for _pl in PLAYERS])
+_cx0, _cy0 = float(_cxs.mean()), float(_cys.mean())
+for _pl in PLAYERS:
+    _pl['cx'] = _cx0 + (_pl['cx'] - _cx0) * STRING_SHRINK
+    _pl['cy'] = _cy0 + (_pl['cy'] - _cy0) * STRING_SHRINK
+    _pl['sc'] = _pl['sc'] * STRING_SHRINK
+
+# Align the string rows to the shared back-row elevation (stage_layout) so the
+# pizz strings sit at the same height as the marimbas and bass.  Shift each
+# row's mean cy to the target screen row, preserving the intra-row perspective
+# tilt.  (y-down here, so data-y == screen row.)  PLAYERS[:4] = back row
+# (cellos/violas), PLAYERS[4:] = front row (martelé + violins).
+_back_mean  = float(np.mean([_pl['cy'] for _pl in PLAYERS[:4]]))
+_front_mean = float(np.mean([_pl['cy'] for _pl in PLAYERS[4:]]))
+for _pl in PLAYERS[:4]:
+    _pl['cy'] += stage.ROW_BACK_Y_FAR  - _back_mean
+for _pl in PLAYERS[4:]:
+    _pl['cy'] += stage.ROW_BACK_Y_NEAR - _front_mean
+
 # ── Instrument specs (at scale=1.0) ──────────────────────────────────────────
 # bw/bh = half body width/height; neck_w/h = half-width/height of neck
 # str_s = spacing between adjacent strings
@@ -133,7 +169,7 @@ def load_string_voices(npy_file, tempo, voices=None):
     """
     if voices is None:
         voices = ALL_VOICES
-    print(f"\n[Stage 1] Loading {npy_file}")
+    log.info(f"\n[Stage 1] Loading {npy_file}")
     arr = np.load(npy_file)
 
     # Audibility + voice filter
@@ -144,7 +180,10 @@ def load_string_voices(npy_file, tempo, voices=None):
     mask &= vm
     arr = arr[mask]
     if not len(arr):
-        raise ValueError(f"No audible notes for voices {voices}")
+        log.warning(f"  no notes found for voices {voices} — section will render empty")
+        notes = np.zeros((0, 6))
+        np.save(NOTES_FILE, notes)
+        return notes, 2.0
 
     bps = tempo / 60.0
     notes = np.column_stack([
@@ -162,8 +201,8 @@ def load_string_voices(npy_file, tempo, voices=None):
     voice_names = {2:'Vl.Pizz', 3:'Va.Pizz', 4:'Vc.Pizz', 9:'Martelé'}
     for v in sorted(voices):
         n = (notes[:, 5].astype(int) == v).sum()
-        print(f"  voice {v} ({voice_names.get(v,'?')}): {n} notes")
-    print(f"  total {len(notes)} notes,  duration {duration:.1f}s")
+        log.info(f"  voice {v} ({voice_names.get(v,'?')}): {n} notes")
+    log.info(f"  total {len(notes)} notes,  duration {duration:.1f}s")
     return notes, duration
 
 
@@ -305,10 +344,20 @@ def compute_state(t, player_notes_sets, players):
 
 # ── Scene ─────────────────────────────────────────────────────────────────────
 
+def _title_for_chorale(chorale):
+    if chorale:
+        m = re.match(r'bwv(\d+)', chorale, re.IGNORECASE)
+        if m:
+            return f"J.S. Bach BWV {m.group(1)}"
+        return f"J.S. Bach {chorale}"
+    return "J.S. Bach"
+
+
 class Scene:
-    def __init__(self, fig, ax, players):
+    def __init__(self, fig, ax, players, chorale=None):
         self.ax      = ax
         self.players = players
+        self.chorale = chorale
 
         # Per-player dynamic objects
         self._strings  = {}   # pid → list of 4 Line2D
@@ -443,11 +492,13 @@ class Scene:
                                fc=BG_COLOR, ec='none', zorder=0))
 
         # ── Subtle back-wall and floor suggestion ────────────────────────────
-        ax.axhline(330 + STRING_Y_SHIFT, color=(0.16, 0.18, 0.22), lw=0.6, alpha=0.6, zorder=1)
+        # Horizon line midway between the back row's far/near sub-rows.
+        ax.axhline((stage.ROW_BACK_Y_FAR + stage.ROW_BACK_Y_NEAR) / 2,
+                   color=(0.16, 0.18, 0.22), lw=0.6, alpha=0.6, zorder=1)
 
         # ── Title ────────────────────────────────────────────────────────────
         ax.text(W / 2, H - 16,
-                "J.S. Bach BWV 261",
+                _title_for_chorale(self.chorale),
                 ha='center', va='bottom', fontsize=10.5,
                 color=(0.50, 0.60, 0.80), zorder=11)
 
@@ -586,17 +637,17 @@ VIB_FREQ = 8.0  # visual vibration frequency for all strings
 
 # ── Stage 2: render frames ────────────────────────────────────────────────────
 
-def render_frames(notes, duration):
-    print(f"\n[Stage 2] Rendering {FRAMES_DIR}/")
+def render_frames(notes, duration, chorale=None):
+    log.info(f"\n[Stage 2] Rendering {FRAMES_DIR}/")
     Path(FRAMES_DIR).mkdir(exist_ok=True)
 
     player_note_sets = build_player_note_sets(notes, PLAYERS)
     for pl in PLAYERS:
         n = len(player_note_sets[pl['id']])
-        print(f"  {pl['name']:6s}  {n:4d} notes")
+        log.info(f"  {pl['name']:6s}  {n:4d} notes")
 
     n_frames = int(np.ceil(duration * FPS))
-    print(f"  {n_frames} frames ({duration:.1f}s @ {FPS}fps)")
+    log.info(f"  {n_frames} frames ({duration:.1f}s @ {FPS}fps)")
 
     fig, ax = plt.subplots(figsize=(W / DPI, H / DPI), dpi=DPI)
     fig.patch.set_facecolor(BG_COLOR)
@@ -607,7 +658,7 @@ def render_frames(notes, duration):
     ax.set_aspect('equal')
     ax.axis('off')
 
-    scene = Scene(fig, ax, PLAYERS)
+    scene = Scene(fig, ax, PLAYERS, chorale=chorale)
 
     for fi in range(n_frames):
         t = fi / FPS
@@ -616,16 +667,16 @@ def render_frames(notes, duration):
         fig.savefig(f"{FRAMES_DIR}/frame_{fi:06d}.png", dpi=DPI,
                     facecolor=BG_COLOR, bbox_inches=None)
         if fi % 60 == 0:
-            print(f"  {fi}/{n_frames}  t={t:.1f}s", flush=True)
+            log.info(f"  {fi}/{n_frames}  t={t:.1f}s")
 
     plt.close(fig)
-    print(f"  Done — {n_frames} frames written.")
+    log.info(f"  Done — {n_frames} frames written.")
 
 
 # ── Stage 3: video assembly ───────────────────────────────────────────────────
 
 def assemble_video(mp3_file):
-    print(f"\n[Stage 3] Assembling → {VIDEO_OUT}")
+    log.info(f"\n[Stage 3] Assembling → {VIDEO_OUT}")
     if mp3_file:
         cmd = ['ffmpeg', '-y',
                '-framerate', str(FPS),
@@ -641,10 +692,10 @@ def assemble_video(mp3_file):
                '-i', f'{FRAMES_DIR}/frame_%06d.png',
                '-c:v', 'libx264', '-preset', 'fast', '-crf', '18',
                '-pix_fmt', 'yuv420p', VIDEO_OUT]
-    print(' '.join(cmd))
+    log.info(' '.join(cmd))
     subprocess.run(cmd, check=True)
     size_mb = os.path.getsize(VIDEO_OUT) / 1024 / 1024
-    print(f"  Done — {VIDEO_OUT} ({size_mb:.1f} MB)")
+    log.info(f"  Done — {VIDEO_OUT} ({size_mb:.1f} MB)")
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
@@ -655,6 +706,10 @@ def main():
     parser.add_argument('--tempo', type=float, default=DEFAULT_TEMPO)
     parser.add_argument('--mp3',   default=DEFAULT_MP3,
                         help='Audio file for Stage 3 (optional)')
+    parser.add_argument('--chorale', default=None,
+                        help='Chorale name (e.g. bwv261).  When --mp3 is not '
+                             'given, the newest Uploads/*.mp3 matching this '
+                             'chorale is used for Stage 3 audio.')
     parser.add_argument('--stage', choices=['1', '2', '3', 'all'], default='all')
     parser.add_argument('--duration', type=float, default=None,
                         help='Override computed duration (seconds), e.g. to '
@@ -673,10 +728,20 @@ def main():
         duration = args.duration
 
     if args.stage in ('2', 'all'):
-        render_frames(notes, duration)
+        render_frames(notes, duration, chorale=args.chorale)
 
     if args.stage in ('3', 'all'):
-        assemble_video(args.mp3)
+        # Resolve the audio track: an explicit --mp3 wins; otherwise look up
+        # the newest Uploads MP3 for --chorale.  Neither is required — if no
+        # track is found, Stage 3 simply produces a silent video.
+        mp3 = uploads_lookup.resolve_mp3(
+            mp3=args.mp3, chorale=args.chorale, required=False)
+        if mp3:
+            log.info(f"Audio track    : {mp3}")
+        else:
+            log.warning("No audio track (--mp3 not given and no matching Uploads MP3 "
+                        "found); Stage 3 will produce a silent video.")
+        assemble_video(mp3)
 
 
 if __name__ == '__main__':

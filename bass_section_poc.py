@@ -36,6 +36,11 @@ from matplotlib.patches import Rectangle, Circle, Ellipse
 
 import marimba_poc as mp
 import finger_piano_section_poc as fp
+import stage_layout as stage
+
+import logging
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s", datefmt="%d %H:%M")
+log = logging.getLogger(__name__)
 
 FRAMES_DIR = "bass8_frames"
 FPS = 30
@@ -54,11 +59,18 @@ GUITAR_VOICE = 20
 # include_sections (line ~2395) lists the bass_section instrument roster;
 # the bass-finger-piano sub-voices there (bfin3/bfin4/bfin5/bfin6) are the
 # ones that belong here, matched 1:1 with 4 seats.
-BASS_Y_SHIFT = mp.H // 3
-BACK_SCALE, FRONT_SCALE = 0.345, 0.27   # back row larger (longer tines), matches finger-piano
-BACK_NODE_Y, FRONT_NODE_Y = 430 + BASS_Y_SHIFT, 358 + BASS_Y_SHIFT   # = marimba's rows
-ROW_X0 = dict(back=700, front=725)
-ROW_DX = 62
+BACK_SCALE, FRONT_SCALE = 0.345, 0.345   # front row enlarged to match back row
+BACK_NODE_Y  = stage.yup(stage.ROW_BACK_Y_FAR)   # back row  (screen 50) — = marimba's rows
+FRONT_NODE_Y = stage.yup(stage.ROW_BACK_Y_NEAR)  # front row (screen 122)
+# Seat spacing widened (ROW_DX 62→104) and the tine seats shifted left
+# (ROW_X0 910/935→855/870) so the denser voicings from the longer chorale
+# render (many more bass-finger-piano notes → up to 11 tines/seat) no longer
+# overlap.  MAX_TINE_AVAIL caps each seat's tine-rack width so seats never
+# overlap no matter how many notes land in one seat.  The baritone guitars
+# (GUITAR_REGION_X0 below) stay put at the right.
+MAX_TINE_AVAIL = 94    # px cap on per-seat tine-rack width (11 tines ≈ 98.7)
+ROW_X0 = dict(back=855, front=870)
+ROW_DX = 104
 N_TINE_SEATS = 4
 
 BASE_SLOT_W = 26.0
@@ -86,7 +98,7 @@ N_GUITARS = 4
 # heights (GUITAR_ROW_DY = BACK_NODE_Y - FRONT_NODE_Y exactly, so the two
 # guitar rows land precisely on the marimba/bass-tine row heights).
 GUITAR_SCALE = 0.30
-GUITAR_REGION_X0 = 830
+GUITAR_REGION_X0 = 1040   # −65 px to match the tine shift; right edge ~1230 (was ~1295, clipped at 1280)
 GUITAR_REGION_CY = (BACK_NODE_Y + FRONT_NODE_Y) / 2
 GUITAR_COL_DX = 98
 GUITAR_ROW_DY = BACK_NODE_Y - FRONT_NODE_Y
@@ -95,7 +107,7 @@ GUITAR_ROW_DY = BACK_NODE_Y - FRONT_NODE_Y
 HEAD_LEN, HEAD_H = 22, 30
 NECK_LEN, NECK_H = 150, 20
 BODY_W, BODY_H   = 120, 92
-STRING_SPACING = 13
+STRING_SPACING = 9      # tightened (was 13) so the 6 strings sit closer on the body
 PLUCK_X_FRAC = 0.80      # fraction along nut->bridge where the pick hits
 
 GUITAR_WOOD = (0.42, 0.20, 0.14)     # deep sunburst red-brown
@@ -122,13 +134,14 @@ def bass_color(i, n):
 
 
 def load_bass_voices(npy_file, tempo, voices):
-    print(f"\n[Stage 1] Loading bass voices {voices} from {npy_file}")
+    log.info(f"\n[Stage 1] Loading bass voices {voices} from {npy_file}")
     arr = np.load(npy_file)
     mask = (arr[:, 5] > 0) & (arr[:, 2] > 0) & (arr[:, 14] > 0) & (arr[:, 3] > 0)
     mask &= np.isin(arr[:, 6].astype(int), voices)
     arr = arr[mask]
     if not len(arr):
-        raise ValueError(f"No audible notes for voices {voices}")
+        log.warning(f"  no notes found for voices {voices} — that part of the bass section will be empty")
+        return np.zeros((0, 5))
 
     bps = tempo / 60.0
     start_s    = arr[:, 1] / bps
@@ -137,8 +150,8 @@ def load_bass_voices(npy_file, tempo, voices):
     notes = np.column_stack([start_s, pitch_cents, duration_s, arr[:, 3], arr[:, 14]])
     notes = notes[notes[:, 0].argsort()]
     n_unique = len(np.unique(np.round(pitch_cents).astype(int)))
-    print(f"  {len(notes)} events, {n_unique} unique pitches, "
-          f"pitch range {pitch_cents.min():.0f}-{pitch_cents.max():.0f} cents")
+    log.info(f"  {len(notes)} events, {n_unique} unique pitches, "
+             f"pitch range {pitch_cents.min():.0f}-{pitch_cents.max():.0f} cents")
     return notes
 
 
@@ -207,6 +220,9 @@ def build_guitars(notes):
     """Split voice-20 notes into N_GUITARS pitch bands (low->high) and
     build a positioned 6-string instance for each, packed into the same
     on-stage footprint the original single guitar used."""
+    if not len(notes):
+        return []
+
     pitch_vals = np.sort(np.unique(np.round(notes[:, 1]).astype(int)))
     bands = np.array_split(pitch_vals, N_GUITARS)
     edges_g = [None] + [int(b[0]) for b in bands[1:]] + [None]
@@ -374,25 +390,25 @@ def render(npy_file, tempo, duration):
         tine_notes, seats, base_slot_w=BASE_SLOT_W,
         len_range=(MAX_TINE_LEN, MIN_TINE_LEN),
         width_range=(TINE_WIDTH_LOW, TINE_WIDTH_HIGH),
-        color_fn=bass_color,
+        color_fn=bass_color, max_avail=MAX_TINE_AVAIL,
     )
     n_tines = len(tines)
-    print(f"[bass section] {n_tines} tines across {len(seats)} seats")
+    log.info(f"[bass section] {n_tines} tines across {len(seats)} seats")
     for seat in seats:
         n = sum(1 for tn in tines if tn['seat_name'] == seat['name'])
-        print(f"  {seat['name']}: {n} tines @ (cx={seat['cx']}, node_y={seat['node_y']}, scale={seat['scale']})")
+        log.info(f"  {seat['name']}: {n} tines @ (cx={seat['cx']}, node_y={seat['node_y']}, scale={seat['scale']})")
 
     guitar_notes = load_bass_voices(npy_file, tempo, (GUITAR_VOICE,))
     guitars = build_guitars(guitar_notes)
-    print(f"[baritone guitars] {len(guitars)} instruments x {N_STRINGS} strings each")
+    log.info(f"[baritone guitars] {len(guitars)} instruments x {N_STRINGS} strings each")
     for gt in guitars:
-        print(f"  {gt['name']}: {len(gt['notes'])} notes @ (x0={gt['x0']:.0f}, "
-              f"cy={gt['cy']:.0f}, scale={gt['scale']}), edges="
-              f"{', '.join(f'{e:.0f}' for e in gt['edges'])}")
+        log.info(f"  {gt['name']}: {len(gt['notes'])} notes @ (x0={gt['x0']:.0f}, "
+                 f"cy={gt['cy']:.0f}, scale={gt['scale']}), edges="
+                 f"{', '.join(f'{e:.0f}' for e in gt['edges'])}")
 
     Path(FRAMES_DIR).mkdir(exist_ok=True)
     n_frames = int(np.ceil(duration * FPS))
-    print(f"  {n_frames} frames ({duration:.1f}s @ {FPS}fps)")
+    log.info(f"  {n_frames} frames ({duration:.1f}s @ {FPS}fps)")
 
     fig, ax = plt.subplots(figsize=(mp.W / mp.DPI, mp.H / mp.DPI), dpi=mp.DPI)
     plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
@@ -429,10 +445,10 @@ def render(npy_file, tempo, duration):
             gscene.update(t, g_glow, g_vib_amp, g_vib_onset, g_last_gest)
         fig.savefig(f"{FRAMES_DIR}/frame_{fi:06d}.png", dpi=mp.DPI, transparent=True)
         if fi % 200 == 0:
-            print(f"  {fi}/{n_frames}  t={t:.1f}s", flush=True)
+            log.info(f"  {fi}/{n_frames}  t={t:.1f}s")
 
     plt.close(fig)
-    print(f"  Done — {n_frames} frames written.")
+    log.info(f"  Done — {n_frames} frames written.")
 
 
 def main():

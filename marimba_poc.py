@@ -35,6 +35,10 @@ import matplotlib.patches as mpatches
 from matplotlib.patches import Ellipse, Polygon as MplPolygon
 import librosa
 
+import logging
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s", datefmt="%d %H:%M")
+log = logging.getLogger(__name__)
+
 # ── Config ────────────────────────────────────────────────────────────────────
 DEFAULT_MP3   = "Uploads/marimba_example_POC.mp3"
 DEFAULT_NPY   = None          # e.g. "bwv261_features_array.npy"
@@ -140,17 +144,17 @@ def load_features_array(npy_file, tempo, voice=None):
     Returns (notes, duration) where notes is N×5:
       [start_s, pitch_cents, duration_s, velocity, volume]
     """
-    print(f"\n[Stage 1] Loading features array: {npy_file}")
+    log.info(f"\n[Stage 1] Loading features array: {npy_file}")
     arr = np.load(npy_file)
-    print(f"  Raw shape: {arr.shape}")
+    log.info(f"  Raw shape: {arr.shape}")
 
     # Apply the same audibility filters as send_to_csound_file
     mask = (arr[:, 5] > 0) & (arr[:, 2] > 0) & (arr[:, 14] > 0) & (arr[:, 3] > 0)
     if voice is not None:
         mask &= (arr[:, 6].astype(int) == int(voice))
     arr = arr[mask]
-    print(f"  After filter (oct>0, hold>0, vol>0, vel>0"
-          + (f", voice={voice}" if voice else "") + f"): {arr.shape[0]} rows")
+    log.info(f"  After filter (oct>0, hold>0, vol>0, vel>0"
+             + (f", voice={voice}" if voice else "") + f"): {arr.shape[0]} rows")
 
     beats_per_sec = tempo / 60.0
     start_s    = arr[:, 1] / beats_per_sec
@@ -164,11 +168,11 @@ def load_features_array(npy_file, tempo, voice=None):
     notes = notes[notes[:, 0].argsort()]   # sort by start time
 
     n_unique = len(np.unique(np.round(pitch_cents).astype(int)))
-    print(f"  {len(notes)} events, {n_unique} unique pitches, "
-          f"pitch range {pitch_cents.min():.0f}–{pitch_cents.max():.0f} cents")
+    log.info(f"  {len(notes)} events, {n_unique} unique pitches, "
+             f"pitch range {pitch_cents.min():.0f}–{pitch_cents.max():.0f} cents")
 
     np.save(NOTES_FILE, notes)
-    print(f"  Saved {NOTES_FILE}")
+    log.info(f"  Saved {NOTES_FILE}")
 
     duration = float(notes[:, 0].max() + notes[:, 2].max()) + 2.0  # +2s reverb tail
     return notes, duration
@@ -177,10 +181,10 @@ def load_features_array(npy_file, tempo, voice=None):
 # ── Stage 1b: Audio analysis fallback ─────────────────────────────────────────
 
 def analyze_audio(mp3_file):
-    print(f"\n[Stage 1] Analyzing: {mp3_file}")
+    log.info(f"\n[Stage 1] Analyzing: {mp3_file}")
     y, sr = librosa.load(mp3_file, sr=None, mono=True)
     duration = librosa.get_duration(y=y, sr=sr)
-    print(f"  Duration {duration:.2f}s  sr={sr}")
+    log.info(f"  Duration {duration:.2f}s  sr={sr}")
 
     onset_env = librosa.onset.onset_strength(y=y, sr=sr)
     onset_frames = librosa.onset.onset_detect(
@@ -211,9 +215,9 @@ def analyze_audio(mp3_file):
     onset_times, pitches = onset_times[mask], pitches[mask]
 
     midi = np.round(librosa.hz_to_midi(pitches)).astype(int)
-    print(f"  {len(onset_times)} pitched onsets  "
-          f"MIDI {midi.min()}–{midi.max()} "
-          f"({len(np.unique(midi))} unique notes)")
+    log.info(f"  {len(onset_times)} pitched onsets  "
+             f"MIDI {midi.min()}–{midi.max()} "
+             f"({len(np.unique(midi))} unique notes)")
 
     # Save in the same N×5 format as load_features_array for downstream compatibility.
     # Audio analysis has no duration/velocity/volume info, so use placeholder values.
@@ -223,7 +227,7 @@ def analyze_audio(mp3_file):
     notes = np.column_stack([onset_times, midi.astype(float),
                              dur_placeholder, vel_placeholder, vol_placeholder])
     np.save(NOTES_FILE, notes)
-    print(f"  Saved {NOTES_FILE}")
+    log.info(f"  Saved {NOTES_FILE}")
     return notes, duration
 
 
@@ -372,6 +376,7 @@ def build_multi_layout(notes, seats):
             continue
         n_bars = len(np.unique(np.round(sub[:, 1]).astype(int)))
         avail = n_bars * BASE_SLOT_W * seat['scale']
+        avail = min(avail, seat.get('max_avail', float('inf')))
         base_x = seat['cx'] - avail / 2
         bars, p2i = build_layout(
             sub, base_x=base_x, base_y=seat['base_y'], avail=avail,
@@ -491,7 +496,11 @@ class Scene:
             else:
                 self._halos[i].set_alpha(0.0)
 
-            # Mallet — only shown during approach/strike/rebound
+            # Mallet — only shown during approach/strike/rebound.  (Tried
+            # always-visible/dimmed-at-rest to match the vibraphone, but with
+            # 30+ bars per seat the resting mallets' stems lined up into a
+            # solid-looking bar across the top of the instrument, so back to
+            # hiding it at rest.)
             self._stems[i].set_visible(visible)
             self._heads[i].set_visible(visible)
             if visible:
@@ -575,13 +584,13 @@ def compute_state(t, notes, pitch_to_idx, n_bars, bars):
 
 
 def render_frames(notes, duration, transparent=False):
-    print(f"\n[Stage 2] Rendering {FRAMES_DIR}/")
+    log.info(f"\n[Stage 2] Rendering {FRAMES_DIR}/")
     Path(FRAMES_DIR).mkdir(exist_ok=True)
 
     bars, pitch_to_idx = build_layout(notes)
     n_bars   = len(bars)
     n_frames = int(np.ceil(duration * FPS))
-    print(f"  {n_bars} bars, {n_frames} frames ({duration:.1f}s @ {FPS}fps)")
+    log.info(f"  {n_bars} bars, {n_frames} frames ({duration:.1f}s @ {FPS}fps)")
 
     fig, ax = plt.subplots(figsize=(W / DPI, H / DPI), dpi=DPI)
     plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
@@ -610,16 +619,16 @@ def render_frames(notes, duration, transparent=False):
         scene.update(bar_glow, mallet_heads, mallet_visible)
         fig.savefig(f"{FRAMES_DIR}/frame_{fi:06d}.png", **savefig_kwargs)
         if fi % 60 == 0:
-            print(f"  {fi}/{n_frames}  t={t:.1f}s", flush=True)
+            log.info(f"  {fi}/{n_frames}  t={t:.1f}s")
 
     plt.close(fig)
-    print(f"  Done — {n_frames} frames written.")
+    log.info(f"  Done — {n_frames} frames written.")
 
 
 # ── Stage 3: Video assembly ───────────────────────────────────────────────────
 
 def assemble_video(mp3_file):
-    print(f"\n[Stage 3] Assembling → {VIDEO_OUT}")
+    log.info(f"\n[Stage 3] Assembling → {VIDEO_OUT}")
     cmd = [
         'ffmpeg', '-y',
         '-framerate', str(FPS),
@@ -631,10 +640,10 @@ def assemble_video(mp3_file):
         '-shortest',
         VIDEO_OUT,
     ]
-    print(' '.join(cmd))
+    log.info(' '.join(cmd))
     subprocess.run(cmd, check=True)
     size_mb = os.path.getsize(VIDEO_OUT) / 1024 / 1024
-    print(f"  Done — {VIDEO_OUT} ({size_mb:.1f} MB)")
+    log.info(f"  Done — {VIDEO_OUT} ({size_mb:.1f} MB)")
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────

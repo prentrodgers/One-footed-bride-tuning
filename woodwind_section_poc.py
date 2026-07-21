@@ -46,6 +46,11 @@ from matplotlib.patches import (
 )
 
 import marimba_poc as mp   # W, H, DPI, blended
+import stage_layout as stage
+
+import logging
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s", datefmt="%d %H:%M")
+log = logging.getLogger(__name__)
 
 # ── Constants ──────────────────────────────────────────────────────────────────
 FRAMES_DIR = "ww8_frames"
@@ -64,18 +69,22 @@ ALL_WW_VOICES  = (VOICE_BASSOON, VOICE_CLARINET, VOICE_FLUTE,
 W, H, DPI = mp.W, mp.H, mp.DPI
 
 # ── Layout ─────────────────────────────────────────────────────────────────────
-# Woodwinds occupy x:960-1280 (the open right strip noted in session notes),
-# arranged in two rows of 4, y-down convention (matches string_section_poc).
-# Back row (smaller/farther): y ~ 210.  Front row (larger/closer): y ~ 360.
-# Within each row instruments are spaced 80 px apart.
-WW_Y_BACK  = 210
-WW_Y_FRONT = 370
-WW_X_START = 970
+# Woodwinds occupy the centre of the middle row (stage.MID_X[1] = 480), in
+# two rows of 4 (back + front).  y-up data space (ax.set_ylim(0, H)), so
+# data-y = H - screen; the back row (farther) is the larger data-y / higher
+# on screen.  Row elevations are shared with the finger pianos via
+# stage_layout so the middle row lines up across sections.  Within a row
+# instruments are spaced WW_X_STEP apart.
+WW_Y_BACK  = stage.yup(stage.ROW_MID_Y_FAR)   # back row  (screen 190)
+WW_Y_FRONT = stage.yup(stage.ROW_MID_Y_NEAR)  # front row (screen 290)
+WW_X_START = 520   # centres the 4-wide row at MID_X[1] = 640 (canvas centre)
 WW_X_STEP  = 80
 
-# scale factors — back row slightly smaller (perspective)
-SCALE_BACK  = 0.85
-SCALE_FRONT = 1.00
+# scale factors — back row smaller (farther), front row larger (closer).
+# Reduced 20 % from 0.85/1.00 so the section's vertical height is close to
+# the finger pianos' on the same row.
+SCALE_BACK  = 0.68
+SCALE_FRONT = 0.80
 
 # ── Timing ────────────────────────────────────────────────────────────────────
 GLOW_DECAY   = 0.55    # sustained notes glow longer than struck ones
@@ -83,17 +92,18 @@ PLAY_LEAN_T  = 0.06    # seconds to reach full lean on note-on
 PLAY_RELAX_T = 0.50    # seconds to relax back after note-off
 
 # Idle sway: slow sinusoidal rock, each seat has its own frequency + phase
-SWAY_AMP_DEG = 2.8     # ± degrees
+SWAY_AMP_DEG = 5.6     # ± degrees — doubled so players sway ~2× more
 SWAY_FREQS   = [0.18, 0.21, 0.19, 0.23, 0.17, 0.22, 0.20, 0.24]  # Hz per seat
 SWAY_PHASES  = [0.0,  1.1,  2.3,  0.7,  3.5,  1.8,  4.2,  2.9]   # radians
 
-# Playing lean: extra tilt toward mouthpiece when a note is held
+# Playing lean: extra tilt toward mouthpiece when a note is held.
+# Doubled (≈2×) so the players move more while enjoying the music.
 PLAY_LEAN_DEG = {
-    'flute':   4.0,   # leans left (transverse, held horizontal)
-    'clarinet':3.5,
-    'oboe':    3.5,
-    'horn':    5.0,   # bell-right horns tip their bell up
-    'bassoon': 3.0,
+    'flute':   8.0,   # leans left (transverse, held horizontal)
+    'clarinet':7.0,
+    'oboe':    7.0,
+    'horn':    10.0,   # bell-right horns tip their bell up
+    'bassoon': 6.0,
 }
 
 # ── Colour palette ─────────────────────────────────────────────────────────────
@@ -105,8 +115,8 @@ CLR_FLUTE_DK   = (0.55, 0.58, 0.65)
 CLR_CLARINET   = (0.14, 0.12, 0.10)       # ebony black
 CLR_CLARINET_DK= (0.06, 0.05, 0.04)
 CLR_CLARINET_SILVER = (0.70, 0.72, 0.76)  # keywork
-CLR_OBOE       = (0.45, 0.28, 0.12)       # grenadilla wood
-CLR_OBOE_DK    = (0.28, 0.17, 0.07)
+CLR_OBOE       = (0.12, 0.10, 0.08)       # African blackwood (grenadilla) — black
+CLR_OBOE_DK    = (0.05, 0.04, 0.03)
 CLR_HORN       = (0.82, 0.68, 0.22)       # unlacquered brass
 CLR_HORN_DK    = (0.55, 0.42, 0.10)
 CLR_HORN_BELL  = (0.88, 0.74, 0.28)
@@ -121,7 +131,7 @@ LABEL_CLR = (0.50, 0.55, 0.65, 1.0)
 GLOW_CLR = {
     'flute':    (0.92, 0.96, 1.00),
     'clarinet': (0.55, 0.65, 0.90),
-    'oboe':     (0.80, 0.65, 0.40),
+    'oboe':     (0.55, 0.65, 0.90),         # cool glow (black body)
     'horn':     (1.00, 0.88, 0.40),
     'bassoon':  (0.85, 0.70, 0.45),
 }
@@ -129,19 +139,23 @@ GLOW_CLR = {
 
 # ── Seat definitions ──────────────────────────────────────────────────────────
 def make_seats():
-    """Return list of 8 seat dicts ordered back-left → back-right,
-    front-left → front-right, matching the include_sections instrument order:
-    flute, clarinet, oboe×2, horn×2, bassoon×2."""
+    """Return list of 8 seat dicts in two rows of 4 (back + front).
+    Low woodwinds (horn, bassoon) are at the BACK; high woodwinds
+    (flute, clarinet, oboe) are at the FRONT — matching orchestral layout
+    where lower voices sit farther back.  Row elevations come from
+    stage_layout (shared middle-row level with the finger pianos)."""
     specs = [
-        # name,      kind,       voice,          cx,                          cy,         scale
-        ('Fl.',  'flute',    VOICE_FLUTE,    WW_X_START + 0*WW_X_STEP, WW_Y_BACK,  SCALE_BACK),
-        ('Cl.',  'clarinet', VOICE_CLARINET, WW_X_START + 1*WW_X_STEP, WW_Y_BACK,  SCALE_BACK),
-        ('Ob.I', 'oboe',     VOICE_OBOE,     WW_X_START + 2*WW_X_STEP, WW_Y_BACK,  SCALE_BACK),
-        ('Ob.II','oboe',     VOICE_OBOE,     WW_X_START + 3*WW_X_STEP, WW_Y_BACK,  SCALE_BACK),
-        ('Hr.I', 'horn',     VOICE_HORN,     WW_X_START + 0*WW_X_STEP, WW_Y_FRONT, SCALE_FRONT),
-        ('Hr.II','horn',     VOICE_HORN,     WW_X_START + 1*WW_X_STEP, WW_Y_FRONT, SCALE_FRONT),
-        ('Bn.I', 'bassoon',  VOICE_BASSOON,  WW_X_START + 2*WW_X_STEP, WW_Y_FRONT, SCALE_FRONT),
-        ('Bn.II','bassoon',  VOICE_BASSOON,  WW_X_START + 3*WW_X_STEP, WW_Y_FRONT, SCALE_FRONT),
+        # name,    kind,       voice,          cx,                          cy,         scale
+        # Back row (low): horn, bassoon
+        ('Hr.I', 'horn',     VOICE_HORN,     WW_X_START + 0*WW_X_STEP, WW_Y_BACK,  SCALE_BACK),
+        ('Hr.II','horn',     VOICE_HORN,     WW_X_START + 1*WW_X_STEP, WW_Y_BACK,  SCALE_BACK),
+        ('Bn.I', 'bassoon',  VOICE_BASSOON,  WW_X_START + 2*WW_X_STEP, WW_Y_BACK,  SCALE_BACK),
+        ('Bn.II','bassoon',  VOICE_BASSOON,  WW_X_START + 3*WW_X_STEP, WW_Y_BACK,  SCALE_BACK),
+        # Front row (high): flute, clarinet, oboe
+        ('Fl.',  'flute',    VOICE_FLUTE,    WW_X_START + 0*WW_X_STEP, WW_Y_FRONT, SCALE_FRONT),
+        ('Cl.',  'clarinet', VOICE_CLARINET, WW_X_START + 1*WW_X_STEP, WW_Y_FRONT, SCALE_FRONT),
+        ('Ob.I', 'oboe',     VOICE_OBOE,     WW_X_START + 2*WW_X_STEP, WW_Y_FRONT, SCALE_FRONT),
+        ('Ob.II','oboe',     VOICE_OBOE,     WW_X_START + 3*WW_X_STEP, WW_Y_FRONT, SCALE_FRONT),
     ]
     seats = []
     for i, (name, kind, voice, cx, cy, sc) in enumerate(specs):
@@ -155,13 +169,13 @@ def make_seats():
 
 # ── Data loading ──────────────────────────────────────────────────────────────
 def load_ww_voices(npy_file, tempo):
-    print(f"\n[woodwinds] Loading {npy_file}")
+    log.info(f"\n[woodwinds] Loading {npy_file}")
     arr = np.load(npy_file)
     mask = (arr[:, 5] > 0) & (arr[:, 2] > 0) & (arr[:, 14] > 0) & (arr[:, 3] > 0)
     mask &= np.isin(arr[:, 6].astype(int), ALL_WW_VOICES)
     arr  = arr[mask]
     if not len(arr):
-        print("  WARNING: no woodwind notes found — section will render silent")
+        log.warning("  no woodwind notes found — section will render silent")
         return np.zeros((0, 6))
     bps = tempo / 60.0
     notes = np.column_stack([
@@ -176,8 +190,8 @@ def load_ww_voices(npy_file, tempo):
     for v in ALL_WW_VOICES:
         n = int((notes[:, 5].astype(int) == v).sum())
         name = {12:'bassoon',13:'clarinet',14:'flute',15:'oboe',16:'horn'}[v]
-        print(f"  voice {v} ({name}): {n} notes")
-    print(f"  total {len(notes)} notes")
+        log.info(f"  voice {v} ({name}): {n} notes")
+    log.info(f"  total {len(notes)} notes")
     return notes
 
 
@@ -251,47 +265,50 @@ def _lighten(c, f=0.25):
 
 
 def draw_flute(ax, cx, cy, sc):
-    """Silver transverse tube held horizontally.  Left end = embouchure,
-    right end = open end.  Key cups along the body."""
+    """Silver transverse tube held vertically.  TOP end = embouchure
+    (where the player's lips are), BOTTOM end = open end.  Key cups along
+    the body on both sides."""
     patches = []
-    tube_w  = 130 * sc
-    tube_h  =  11 * sc
-    # Main tube body
+    tube_h  = 120 * sc   # vertical length
+    tube_w  =  11 * sc   # horizontal width
+    # Main tube body — vertical, centred at cy
     body = Rectangle((cx - tube_w / 2, cy - tube_h / 2), tube_w, tube_h,
                       fc=CLR_FLUTE, ec=CLR_FLUTE_DK, lw=1.0, zorder=5)
     ax.add_patch(body)
     patches.append(body)
-    # Left crown cap — rounded end
-    cap_l = Ellipse((cx - tube_w / 2, cy), tube_h * 1.15, tube_h * 1.15,
+    # Top crown cap — rounded end (embouchure end)
+    cap_t = Ellipse((cx, cy + tube_h / 2), tube_w * 1.15, tube_w * 1.15,
                     fc=CLR_FLUTE_DK, ec='none', zorder=6)
-    ax.add_patch(cap_l)
-    patches.append(cap_l)
-    # Right open end
-    cap_r = Ellipse((cx + tube_w / 2, cy), tube_h * 0.9, tube_h,
+    ax.add_patch(cap_t)
+    patches.append(cap_t)
+    # Bottom open end
+    cap_b = Ellipse((cx, cy - tube_h / 2), tube_w * 0.9, tube_w,
                     fc=CLR_FLUTE_DK, ec='none', zorder=6)
-    ax.add_patch(cap_r)
-    patches.append(cap_r)
-    # Embouchure plate — oval hole on top, left-of-centre
-    emb_x = cx - tube_w * 0.28
-    emb = Ellipse((emb_x, cy - tube_h * 0.48), 11 * sc, 7 * sc,
+    ax.add_patch(cap_b)
+    patches.append(cap_b)
+    # Embouchure plate — oval hole near the top, front of tube
+    emb_y = cy + tube_h * 0.28
+    emb = Ellipse((cx - tube_w * 0.48, emb_y), 7 * sc, 11 * sc,
                   fc=CLR_FLUTE_DK, ec=CLR_FLUTE_DK, lw=0.7, zorder=7)
     ax.add_patch(emb)
     patches.append(emb)
-    # Key cups — four groups of two pads, top and bottom of tube
-    for kx_frac in (-0.02, 0.14, 0.28, 0.42):
-        kx = cx + kx_frac * tube_w
-        for ky_sign in (-1, 1):
-            k = Ellipse((kx, cy + ky_sign * tube_h * 0.52),
-                        8 * sc, 5 * sc,
+    # Key cups — four groups of two pads, left and right of tube
+    for ky_frac in (-0.02, 0.14, 0.28, 0.42):
+        ky = cy - tube_h * 0.48 + ky_frac * tube_h
+        for kx_sign in (-1, 1):
+            k = Ellipse((cx + kx_sign * tube_w * 0.52, ky),
+                        5 * sc, 8 * sc,
                         fc=CLR_SILVER_KEY, ec=CLR_FLUTE_DK, lw=0.5, zorder=7)
             ax.add_patch(k)
             patches.append(k)
-    # Pivot is body centre; lean is CCW (embouchure toward player's left face)
+    # Pivot is body centre; lean is CCW (embouchure toward player's left)
     return patches, (cx, cy), -15.0
 
 
 def draw_clarinet(ax, cx, cy, sc):
-    """Black cylindrical body, mouthpiece + barrel at top, bell at bottom."""
+    """Black cylindrical body, mouthpiece + barrel at TOP, bell at BOTTOM.
+    (Mouthpiece at top = where the invisible player's lips are, behind the
+    instrument, facing the conductor.)"""
     patches = []
     body_h  = 100 * sc
     body_w  =  10 * sc
@@ -299,48 +316,55 @@ def draw_clarinet(ax, cx, cy, sc):
     barrel_h=  12 * sc
     mpc_h   =  10 * sc
 
-    # Main body
+    # Main body — centred at cy
     body = Rectangle((cx - body_w / 2, cy - body_h / 2),
                       body_w, body_h,
                       fc=CLR_CLARINET, ec=CLR_CLARINET_DK, lw=0.7, zorder=5)
     ax.add_patch(body)
     patches.append(body)
 
-    # Barrel (lighter ring between mouthpiece and upper joint)
-    barrel_y = cy - body_h / 2 - barrel_h
+    # Barrel — silver ring ABOVE the body (top)
+    barrel_y = cy + body_h / 2
     barrel = Rectangle((cx - body_w * 0.55, barrel_y),
                         body_w * 1.1, barrel_h,
-                        fc=_darken(CLR_CLARINET, 0.2),
+                        fc=CLR_CLARINET_SILVER,
                         ec=CLR_CLARINET_DK, lw=0.6, zorder=6)
     ax.add_patch(barrel)
     patches.append(barrel)
+    # Thin dark rings at barrel joints (top + bottom of the silver barrel)
+    for ring_y in (barrel_y, barrel_y + barrel_h - 1.5 * sc):
+        jring = Rectangle((cx - body_w * 0.6, ring_y),
+                          body_w * 1.2, 1.5 * sc,
+                          fc=CLR_CLARINET_DK, ec='none', zorder=7)
+        ax.add_patch(jring)
+        patches.append(jring)
 
-    # Mouthpiece + reed
-    mpc_y = barrel_y - mpc_h
+    # Mouthpiece + reed — ABOVE the barrel (top)
+    mpc_y = barrel_y + barrel_h
     mpc = Rectangle((cx - body_w * 0.45, mpc_y),
                      body_w * 0.9, mpc_h,
                      fc=CLR_CLARINET_DK, ec='none', zorder=7)
     ax.add_patch(mpc)
     patches.append(mpc)
-    reed = Rectangle((cx - body_w * 0.20, mpc_y + mpc_h * 0.15),
+    reed = Rectangle((cx - body_w * 0.20, mpc_y + mpc_h * 0.0),
                       body_w * 0.4, mpc_h * 0.85,
                       fc=CLR_REED, ec='none', zorder=8)
     ax.add_patch(reed)
     patches.append(reed)
 
-    # Bell — flared bottom, wider than body
+    # Bell — flared bottom, wider than body (BELOW)
     bell_pts = np.array([
-        [cx - body_w / 2, cy + body_h / 2],
-        [cx + body_w / 2, cy + body_h / 2],
-        [cx + body_w * 1.0, cy + body_h / 2 + bell_h],
-        [cx - body_w * 1.0, cy + body_h / 2 + bell_h],
+        [cx - body_w / 2, cy - body_h / 2],
+        [cx + body_w / 2, cy - body_h / 2],
+        [cx + body_w * 1.0, cy - body_h / 2 - bell_h],
+        [cx - body_w * 1.0, cy - body_h / 2 - bell_h],
     ])
     bell = MplPolygon(bell_pts, closed=True,
                       fc=CLR_CLARINET, ec=CLR_CLARINET_DK, lw=0.7, zorder=5)
     ax.add_patch(bell)
     patches.append(bell)
 
-    # Key rings — thin silver bands at intervals
+    # Key rings — thin silver bands at intervals down the body
     for frac in (0.25, 0.45, 0.65):
         ky = cy - body_h / 2 + frac * body_h
         ring = Rectangle((cx - body_w * 0.6, ky - 1.5 * sc),
@@ -357,23 +381,24 @@ def draw_clarinet(ax, cx, cy, sc):
         ax.add_patch(pad)
         patches.append(pad)
 
-    return patches, (cx, cy - body_h * 0.1), 4.0   # slight lean forward
+    return patches, (cx, cy + body_h * 0.1), 4.0   # slight lean forward
 
 
 def draw_oboe(ax, cx, cy, sc):
-    """Grenadilla-wood conical bore; narrower than clarinet, same vertical
-    orientation.  Double reed at top (two small flat strips side by side)."""
+    """African blackwood conical bore; narrower than clarinet, same vertical
+    orientation.  Double reed at TOP (where the player's lips are), bell at
+    BOTTOM.  Conical bore widens downward."""
     patches = []
     body_h  =  90 * sc
-    w_top   =   7 * sc    # narrow top (conical)
-    w_bot   =  11 * sc    # wider bottom
+    w_top   =   7 * sc    # narrow top (conical, near reed)
+    w_bot   =  11 * sc    # wider bottom (near bell)
 
-    # Tapered body using a trapezoid polygon
+    # Tapered body — narrow at top (cy + body_h/2), wide at bottom (cy - body_h/2)
     body_pts = np.array([
-        [cx - w_top / 2, cy - body_h / 2],
-        [cx + w_top / 2, cy - body_h / 2],
-        [cx + w_bot / 2, cy + body_h / 2],
-        [cx - w_bot / 2, cy + body_h / 2],
+        [cx - w_top / 2, cy + body_h / 2],
+        [cx + w_top / 2, cy + body_h / 2],
+        [cx + w_bot / 2, cy - body_h / 2],
+        [cx - w_bot / 2, cy - body_h / 2],
     ])
     body = MplPolygon(body_pts, closed=True,
                       fc=CLR_OBOE, ec=CLR_OBOE_DK, lw=0.7, zorder=5)
@@ -381,27 +406,27 @@ def draw_oboe(ax, cx, cy, sc):
     patches.append(body)
 
     # Bell rim at bottom
-    bell_rim = Ellipse((cx, cy + body_h / 2), w_bot * 1.3, 6 * sc,
+    bell_rim = Ellipse((cx, cy - body_h / 2), w_bot * 1.3, 6 * sc,
                        fc=CLR_OBOE_DK, ec='none', zorder=6)
     ax.add_patch(bell_rim)
     patches.append(bell_rim)
 
-    # Bocal / staple — short curved tube above the body
-    bocal_y = cy - body_h / 2 - 6 * sc
+    # Bocal / staple — short tube ABOVE the body (top)
+    bocal_y = cy + body_h / 2
     bocal = Rectangle((cx - 2 * sc, bocal_y), 4 * sc, 6 * sc,
                       fc=CLR_SILVER_KEY, ec=CLR_OBOE_DK, lw=0.4, zorder=6)
     ax.add_patch(bocal)
     patches.append(bocal)
 
     # Double reed — two thin overlapping strips at the very top
-    reed_y = bocal_y - 8 * sc
+    reed_y = bocal_y + 6 * sc
     for dx in (-1.2 * sc, 1.2 * sc):
         r = Rectangle((cx + dx - 1.5 * sc, reed_y), 3 * sc, 8 * sc,
                        fc=CLR_REED, ec=CLR_OBOE_DK, lw=0.3, zorder=8)
         ax.add_patch(r)
         patches.append(r)
 
-    # Key rings + pads
+    # Key rings + pads — positioned from bottom (frac=0) to top (frac=1)
     for frac in (0.20, 0.42, 0.62):
         w = w_top + (w_bot - w_top) * frac
         ky = cy - body_h / 2 + frac * body_h
@@ -483,30 +508,32 @@ def draw_horn(ax, cx, cy, sc):
 
 def draw_bassoon(ax, cx, cy, sc):
     """Bassoon — tall doubled-over wooden tube.  Left tube (wing + butt)
-    descends from the top; right tube (long + bell joint) rises from the
-    bottom U-bend; bocal curves up-left from the top of the left tube."""
+    descends from the TOP; right tube (long + bell joint) rises from the
+    bottom U-bend; bocal curves up-left from the top of the left tube
+    (where the player's lips are).  Bell is at the top of the right tube,
+    lower than the bocal."""
     patches = []
 
     tube_w  = 10 * sc
-    h_down  = 85 * sc   # descending (left) tube length
-    h_up    = 80 * sc   # ascending (right) tube length
+    h_down  = 85 * sc   # descending (left) tube length — from top to U-bend
+    h_up    = 80 * sc   # ascending (right) tube length — from U-bend back up
     sep     = 16 * sc   # horizontal gap between the two tubes
     u_r     = sep / 2   # U-bend radius
 
-    # Left tube (wing + butt joint) — descends from cy - h_down/2 downward
+    # Left tube (wing + butt joint) — descends from top (cy + h_down/2) downward
     lx = cx - sep / 2
     rx = cx + sep / 2
-    top_y  = cy - h_down / 2
-    bend_y = top_y + h_down      # bottom of left tube = top of U
+    top_y  = cy + h_down / 2    # TOP of left tube
+    bend_y = top_y - h_down      # BOTTOM = U-bend
 
-    ltube = Rectangle((lx - tube_w / 2, top_y), tube_w, h_down,
+    ltube = Rectangle((lx - tube_w / 2, bend_y), tube_w, h_down,
                        fc=CLR_BASSOON, ec=CLR_BASSOON_DK, lw=0.7, zorder=5)
     ax.add_patch(ltube)
     patches.append(ltube)
 
-    # Right tube (long + bell joint) — ascends from bend_y upward
-    rtube_top = bend_y - h_up
-    rtube = Rectangle((rx - tube_w / 2, rtube_top), tube_w, h_up,
+    # Right tube (long + bell joint) — ascends from U-bend upward
+    rtube_top = bend_y + h_up
+    rtube = Rectangle((rx - tube_w / 2, bend_y), tube_w, h_up,
                        fc=CLR_BASSOON, ec=CLR_BASSOON_DK, lw=0.7, zorder=5)
     ax.add_patch(rtube)
     patches.append(rtube)
@@ -518,20 +545,19 @@ def draw_bassoon(ax, cx, cy, sc):
     ax.add_patch(ubend)
     patches.append(ubend)
 
-    # Bell at top of right tube — slightly flared
+    # Bell at top of right tube — slightly flared (lower than the bocal)
     bell = Ellipse((rx, rtube_top), tube_w * 1.6, 8 * sc,
                    fc=CLR_BASSOON_DK, ec=CLR_BASSOON_DK, lw=0.5, zorder=6)
     ax.add_patch(bell)
     patches.append(bell)
 
-    # Bocal — thin curved metal crook at top of left tube, bends left.
-    # Drawn as a filled polygon strip (not ax.plot) so it joins the
-    # patches list and receives the per-frame affine sway transform.
+    # Bocal — thin curved metal crook at top of left tube, curves up-left.
+    # Drawn as a filled polygon strip so it receives the per-frame transform.
     bocal_base_y = top_y
     boc_hw = 2.2 * sc   # half-width of the bocal strip
-    # Three centreline control points approximating a gentle J-curve
+    # Three centreline control points approximating a gentle J-curve upward
     boc_cx = np.array([lx,          lx - 5 * sc,   lx - 12 * sc])
-    boc_cy = np.array([bocal_base_y, bocal_base_y - 9 * sc, bocal_base_y - 14 * sc])
+    boc_cy = np.array([bocal_base_y, bocal_base_y + 9 * sc, bocal_base_y + 14 * sc])
     # Build a thick polyline polygon: left edge forward, right edge back
     boc_left  = np.column_stack([boc_cx - boc_hw, boc_cy])
     boc_right = np.column_stack([boc_cx + boc_hw, boc_cy])
@@ -550,7 +576,7 @@ def draw_bassoon(ax, cx, cy, sc):
 
     # Key rings on both tubes
     for frac in (0.25, 0.55, 0.75):
-        ky = top_y + frac * h_down
+        ky = top_y - frac * h_down
         ring = Rectangle((lx - tube_w * 0.65, ky - 1.5 * sc),
                           tube_w * 1.3, 3 * sc,
                           fc=CLR_SILVER_KEY, ec='none', zorder=6)
@@ -558,7 +584,7 @@ def draw_bassoon(ax, cx, cy, sc):
         patches.append(ring)
 
     for frac in (0.20, 0.50, 0.72):
-        ky = rtube_top + frac * h_up
+        ky = rtube_top - frac * h_up
         ring = Rectangle((rx - tube_w * 0.65, ky - 1.5 * sc),
                           tube_w * 1.3, 3 * sc,
                           fc=CLR_SILVER_KEY, ec='none', zorder=6)
@@ -688,7 +714,7 @@ def render(npy_file, tempo, duration):
 
     Path(FRAMES_DIR).mkdir(exist_ok=True)
     n_frames = int(math.ceil(duration * FPS))
-    print(f"[woodwinds] {n_frames} frames ({duration:.1f}s @ {FPS}fps)")
+    log.info(f"[woodwinds] {n_frames} frames ({duration:.1f}s @ {FPS}fps)")
 
     fig, ax = plt.subplots(figsize=(W / DPI, H / DPI), dpi=DPI)
     plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
@@ -708,10 +734,10 @@ def render(npy_file, tempo, duration):
         fig.savefig(f"{FRAMES_DIR}/frame_{fi:06d}.png",
                     dpi=DPI, transparent=True)
         if fi % 200 == 0:
-            print(f"  {fi}/{n_frames}  t={t:.1f}s", flush=True)
+            log.info(f"  {fi}/{n_frames}  t={t:.1f}s")
 
     plt.close(fig)
-    print(f"  Done — {n_frames} frames written to {FRAMES_DIR}/")
+    log.info(f"  Done — {n_frames} frames written to {FRAMES_DIR}/")
 
 
 def main():
