@@ -18654,3 +18654,37 @@ kubectl exec $POD -- bash -c "echo echo $TOKEN > /tmp/askpass.sh && chmod +x /tm
 
       He's coded up the marimba part. So I will create a short version of bwv253:
             python WreckingCrew.py --numpy_dir Archive/straw-man/viterbi-tunings-6-29 --chorale_list bwv253 --deep_bass_backoff 0.25 --back_off_clicks 0.25 --album 7 --mod d --include_slice 0 32 --density_level 5
+      Then shell into one-footed-bride-pod:
+            ssh one-footed-bride-pod
+            pwd
+                  /home/prent
+            cd Repos/One-footed-bride-tuning/
+            ls -1 Uploads/*.mp3
+            k cp bwv253_features_array.npy one-footed-bride-85b7ff55d8-4ch9p:/home/prent/Repos/One-footed-bride-tuning/bwv253_features_array.npy 
+            k cp bwv254_features_array.npy one-footed-bride-85b7ff55d8-4ch9p:/home/prent/Repos/One-footed-bride-tuning/bwv254_features_array.npy 
+            k cp bwv255_features_array.npy one-footed-bride-85b7ff55d8-4ch9p:/home/prent/Repos/One-footed-bride-tuning/bwv255_features_array.npy 
+            k cp bwv256_features_array.npy one-footed-bride-85b7ff55d8-4ch9p:/home/prent/Repos/One-footed-bride-tuning/bwv256_features_array.npy 
+            k cp bwv257_features_array.npy one-footed-bride-85b7ff55d8-4ch9p:/home/prent/Repos/One-footed-bride-tuning/bwv257_features_array.npy 
+            k cp bwv258_features_array.npy one-footed-bride-85b7ff55d8-4ch9p:/home/prent/Repos/One-footed-bride-tuning/bwv258_features_array.npy 
+            k cp bwv259_features_array.npy one-footed-bride-85b7ff55d8-4ch9p:/home/prent/Repos/One-footed-bride-tuning/bwv259_features_array.npy 
+            k cp bwv260_features_array.npy one-footed-bride-85b7ff55d8-4ch9p:/home/prent/Repos/One-footed-bride-tuning/bwv260_features_array.npy 
+            k cp bwv261_features_array.npy one-footed-bride-85b7ff55d8-4ch9p:/home/prent/Repos/One-footed-bride-tuning/bwv261_features_array.npy 
+            k cp bwv262_features_array.npy one-footed-bride-85b7ff55d8-4ch9p:/home/prent/Repos/One-footed-bride-tuning/bwv262_features_array.npy 
+            k cp bwv263_features_array.npy one-footed-bride-85b7ff55d8-4ch9p:/home/prent/Repos/One-footed-bride-tuning/bwv263_features_array.npy 
+            k cp bwv264_features_array.npy one-footed-bride-85b7ff55d8-4ch9p:/home/prent/Repos/One-footed-bride-tuning/bwv264_features_array.npy 
+
+            bwv253_features_array.npy
+            bwv254_features_array.npy
+            bwv255_features_array.npy
+            bwv256_features_array.npy
+            bwv257_features_array.npy
+            bwv258_features_array.npy
+            bwv259_features_array.npy
+            bwv260_features_array.npy
+            bwv261_features_array.npy
+            bwv262_features_array.npy
+            bwv263_features_array.npy
+            bwv264_features_array.npy
+
+            for c in bwv255 bwv259 bwv261 bwv263 ; do echo $c ; time ./gen-video.sh $c ; done
+            
