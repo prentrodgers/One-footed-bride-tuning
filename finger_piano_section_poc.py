@@ -11,7 +11,7 @@ standing wave — so the visual language here is deliberately different from
 marimba_poc.py's bars.
 
 Same consolidation as marimba_section_poc.py: every note folds onto a fixed
-49-tine rack spanning C2..C6 chromatically (see pitch_bucket.py) instead of
+49-tine rack spanning C4..C8 chromatically (see pitch_bucket.py) instead of
 being split across 8 seats. Each of the 49 tines keeps its own pluck
 gesture, just consolidated onto one instrument.
 
@@ -398,7 +398,7 @@ def render(npy_file, tempo, duration):
     tines, pitch_to_idx = build_tine_layout(fake_notes, seat, max_avail=AVAIL)
     n_tines = len(tines)
     n_used = len(set(pitch_to_idx[int(round(p))] for p in notes[:, 1])) if len(notes) else 0
-    log.info(f"[finger piano section] one instrument, {n_tines} tines (C2..C6), "
+    log.info(f"[finger piano section] one instrument, {n_tines} tines (C4..C8), "
              f"{n_used} in use by this chorale")
 
     Path(FRAMES_DIR).mkdir(exist_ok=True)
@@ -416,13 +416,18 @@ def render(npy_file, tempo, duration):
 
     scene = TineScene(ax, tines)
 
-    stand_bottom = stand.add_stand(
+    stand.add_stand(
         ax, CX, NODE_Y - BASE_GAP * SCALE,
         rail_w=AVAIL * (1.0 + BASE_OVERHANG_FRAC), rail_h=BASE_H,
         scale=SCALE, leg_len_ref=AVAIL,
     )
 
-    label_y = stand_bottom - 4.2   # 30% closer to the stand than the old -6 gap
+    # Just below the base/platform surface (NODE_Y - BASE_H*SCALE), not the
+    # full stand's wheel-bottom (stand_bottom) — that put the label most of
+    # the way down toward the bowed strings section below. -19 instead of -6:
+    # nudged down ~13 data units (about one capital letter's cap height at
+    # this fontsize) — sat a bit too high otherwise.
+    label_y = NODE_Y - BASE_H * SCALE - 19
     ax.text(CX, label_y, "Finger Piano", ha='center', va='top',
              fontsize=8, color=LABEL_CLR, zorder=10)
 

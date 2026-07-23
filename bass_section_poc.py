@@ -19,7 +19,7 @@ Bass finger piano reuses finger_piano_section_poc.py's tine/vibration
 geometry (mechanically the same thing, just lower/heavier) and the same
 consolidated "one instrument, 49 fixed positions" pattern as marimba/finger
 piano — but with its own, lower register window (see pitch_bucket.py):
-bass notes skew well below C2, so reusing marimba's C2..C6 window would
+bass notes skew well below C4, so reusing marimba's C4..C8 window would
 bunch almost everything onto the bottom few positions.
 
 Baritone guitar is a separate instrument entirely — a large 6-string
@@ -59,10 +59,10 @@ FPS = 30
 TINE_VOICES = (24,)     # bass finger piano only — bgui (20) is the guitar below
 GUITAR_VOICE = 20
 
-# Bass notes run lower than marimba/finger piano (observed range in this
-# piece: ~1400-5900 cents), so its 49-position window starts an octave
-# lower (C1..C5) rather than reusing C2..C6 — otherwise most notes would
-# fold below the window and bunch onto its bottom few positions.
+# Bass notes run much lower than marimba/finger piano, so its 49-position
+# window (C1..C5) stays independent of marimba/finger piano's C4..C8 —
+# otherwise most notes would fold below the window and bunch onto its
+# bottom few positions.
 TINE_BOTTOM_OCTAVE = 1
 
 # One consolidated instrument each, positioned side by side within the same

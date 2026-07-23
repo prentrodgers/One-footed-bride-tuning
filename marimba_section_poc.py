@@ -5,14 +5,18 @@ scattered instruments, one per pitch band).
 
 Rather than splitting the full pitch range across 8 seats (which spread
 attention thin and gave some seats only a handful of bars), every note is
-now folded onto a fixed 49-bar rack spanning C2..C6 chromatically (4 octaves
+now folded onto a fixed 49-bar rack spanning C4..C8 chromatically (4 octaves
 x 12 pitch classes + one extra top C) — same layout as a 49-key keyboard.
-Notes below C2 or above C6 fold onto the nearest edge octave by pitch class
-(octave clamped to [2, 5]; a note that's exactly C6 gets the extra 49th bar,
-anything else above C6 folds onto C5..B5). This is a many-to-one mapping —
+Notes below C4 or above C8 fold onto the nearest edge octave by pitch class
+(octave clamped to [4, 7]; a note that's exactly C8 gets the extra 49th bar,
+anything else above C8 folds onto C7..B7). This is a many-to-one mapping —
 many performed pitches can land on the same bar — not the old one-bar-per-
 unique-pitch layout. Each of the 49 bars keeps its own mallet, exactly like
 before, just consolidated onto one instrument instead of scattered across 8.
+
+Window bumped from C2..C6 to C4..C8: checked against actual note
+distributions (see pitch_bucket.py), octaves 2-3 were barely used while
+octave 7 carried a real share of notes and was folding down onto octave 5.
 
 Renders transparent frames (no title/background) meant to be composited
 onto string_section_poc.py's frames by compose_stage_merge.py.
@@ -66,7 +70,7 @@ STAND_RAIL_INSET_FRAC = 0.05   # rail is this much narrower than the bars (no ov
 
 
 def build_bars():
-    """The 49 fixed bars (C2..B5 chromatically, plus one extra C6), built
+    """The 49 fixed bars (C4..B7 chromatically, plus one extra C8), built
     via marimba_poc.build_layout so the oblique geometry/mallet-pivot math
     is identical to the old per-seat instruments — just fed a fixed
     representative pitch per bar instead of whatever pitches were observed."""
@@ -88,7 +92,7 @@ def render(npy_file, tempo, duration):
     bars, pitch_to_idx = build_bars()
     n_bars = len(bars)
     n_used = len(set(pitch_to_idx[int(round(p))] for p in notes[:, 1]))
-    log.info(f"[marimba section] one instrument, {n_bars} bars (C2..C6), "
+    log.info(f"[marimba section] one instrument, {n_bars} bars (C4..C8), "
              f"{n_used} in use by this chorale")
 
     Path(FRAMES_DIR).mkdir(exist_ok=True)

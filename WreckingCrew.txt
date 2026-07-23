@@ -18673,18 +18673,12 @@ kubectl exec $POD -- bash -c "echo echo $TOKEN > /tmp/askpass.sh && chmod +x /tm
             k cp bwv263_features_array.npy one-footed-bride-85b7ff55d8-4ch9p:/home/prent/Repos/One-footed-bride-tuning/bwv263_features_array.npy 
             k cp bwv264_features_array.npy one-footed-bride-85b7ff55d8-4ch9p:/home/prent/Repos/One-footed-bride-tuning/bwv264_features_array.npy 
 
-            bwv253_features_array.npy
-            bwv254_features_array.npy
-            bwv255_features_array.npy
-            bwv256_features_array.npy
-            bwv257_features_array.npy
-            bwv258_features_array.npy
-            bwv259_features_array.npy
-            bwv260_features_array.npy
-            bwv261_features_array.npy
-            bwv262_features_array.npy
-            bwv263_features_array.npy
-            bwv264_features_array.npy
-
             for c in bwv255 bwv259 bwv261 bwv263 ; do echo $c ; time ./gen-video.sh $c ; done
             
+      Get the result copied to the fs3 machine:
+            k cp one-footed-bride-85b7ff55d8-4ch9p:/home/prent/Repos/One-footed-bride-tuning/Uploads/merged_bwv259_t106_431s.mp4 Uploads/merged_bwv259_t106_431s.mp4
+      Git push command:
+            eval $(op signin) 
+            GIT_PAT=$(op item get "GitHub PAT" --fields credential --reveal) 
+            git remote set-url origin https://$GIT_PAT@github.com/prentrodgers/One-footed-bride-tuning.git
+            git push
