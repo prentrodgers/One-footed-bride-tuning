@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """
-woodwind_section_poc.py — 8 invisible woodwind players on the same stage.
+woodwind_section_poc.py — 4 invisible woodwind players on the same stage
+(was 8 — one seat per instrument now instead of two).
 
-Instruments (matching WreckingCrew's full-mode wood_winds section):
-  Seat 0  flute          csound_voice 14  — silver transverse tube
-  Seat 1  clarinet       csound_voice 13  — black cylindrical, single reed
-  Seat 2  oboe           csound_voice 15  — brown conical, double reed
-  Seat 3  oboe           csound_voice 15  — second oboe
-  Seat 4  french horn    csound_voice 16  — coiled brass, bell right
-  Seat 5  french horn    csound_voice 16  — second horn
-  Seat 6  bassoon        csound_voice 12  — tall doubled-over brown tube
-  Seat 7  bassoon        csound_voice 12  — second bassoon
+Instruments:
+  Seat 0  french horn    csound_voice 16  — coiled brass, bell right
+  Seat 1  bassoon        csound_voice 12  — tall doubled-over brown tube
+  Seat 2  clarinet       csound_voice 13, 14 (+ flute)  — black cylindrical,
+                         single reed; absorbs the flute's notes too (the
+                         flute silhouette no longer renders, just this one
+                         instrument taking both voices' parts)
+  Seat 3  oboe           csound_voice 15  — brown conical, double reed
 
 Each instrument has:
   • A static silhouette drawn once at setup (polygons / lines / ellipses)
@@ -67,24 +67,33 @@ ALL_WW_VOICES  = (VOICE_BASSOON, VOICE_CLARINET, VOICE_FLUTE,
 
 # Canvas (inherited from marimba_poc)
 W, H, DPI = mp.W, mp.H, mp.DPI
+SAVE_DPI  = mp.SAVE_DPI
 
 # ── Layout ─────────────────────────────────────────────────────────────────────
 # Woodwinds occupy the centre of the middle row (stage.MID_X[1] = 480), in
-# two rows of 4 (back + front).  y-up data space (ax.set_ylim(0, H)), so
+# two rows of 2 (back + front).  y-up data space (ax.set_ylim(0, H)), so
 # data-y = H - screen; the back row (farther) is the larger data-y / higher
 # on screen.  Row elevations are shared with the finger pianos via
-# stage_layout so the middle row lines up across sections.  Within a row
-# instruments are spaced WW_X_STEP apart.
-WW_Y_BACK  = stage.yup(stage.ROW_MID_Y_FAR)   # back row  (screen 190)
-WW_Y_FRONT = stage.yup(stage.ROW_MID_Y_NEAR)  # front row (screen 290)
-WW_X_START = 520   # centres the 4-wide row at MID_X[1] = 640 (canvas centre)
-WW_X_STEP  = 80
+# stage_layout so the middle row lines up across sections.
+# WW_Y_BACK_PAD pulls the back row down a bit from the shared stage row
+# (marimba's own label sits right above this row at x~560/y~536, and the
+# horn/bassoon back row — bigger now — needs clearance from it); kept
+# smaller than before so the back row can also move up a bit, away from
+# the front row's clarinet/oboe (which sway+lean into the gap between rows
+# at this bigger scale). WW_Y_FRONT_PAD pushes the front row down the rest
+# of the way to open up that gap — plenty of clearance above the conductor
+# (CONDUCTOR_Y, data-y ~130) even after this.
+WW_Y_BACK_PAD  = 20
+WW_Y_FRONT_PAD = 40
+WW_Y_BACK  = stage.yup(stage.ROW_MID_Y_FAR) - WW_Y_BACK_PAD    # back row  (screen 190)
+WW_Y_FRONT = stage.yup(stage.ROW_MID_Y_NEAR) - WW_Y_FRONT_PAD  # front row (screen 290)
+WW_X_LEFT  = 600   # two columns, widened now that only 2 seats/row remain;
+WW_X_RIGHT = 740   # shifted right of centre to clear marimba's label at x=560
 
 # scale factors — back row smaller (farther), front row larger (closer).
-# Reduced 20 % from 0.85/1.00 so the section's vertical height is close to
-# the finger pianos' on the same row.
-SCALE_BACK  = 0.68
-SCALE_FRONT = 0.80
+# Bumped up (~40%) now that each row holds 2 seats instead of 4.
+SCALE_BACK  = 0.95
+SCALE_FRONT = 1.10
 
 # ── Timing ────────────────────────────────────────────────────────────────────
 GLOW_DECAY   = 0.55    # sustained notes glow longer than struck ones
@@ -93,13 +102,12 @@ PLAY_RELAX_T = 0.50    # seconds to relax back after note-off
 
 # Idle sway: slow sinusoidal rock, each seat has its own frequency + phase
 SWAY_AMP_DEG = 5.6     # ± degrees — doubled so players sway ~2× more
-SWAY_FREQS   = [0.18, 0.21, 0.19, 0.23, 0.17, 0.22, 0.20, 0.24]  # Hz per seat
-SWAY_PHASES  = [0.0,  1.1,  2.3,  0.7,  3.5,  1.8,  4.2,  2.9]   # radians
+SWAY_FREQS   = [0.225, 0.2625, 0.2375, 0.2875]  # Hz per seat — 25% faster
+SWAY_PHASES  = [0.0,  1.1,  2.3,  0.7]          # radians
 
 # Playing lean: extra tilt toward mouthpiece when a note is held.
 # Doubled (≈2×) so the players move more while enjoying the music.
 PLAY_LEAN_DEG = {
-    'flute':   8.0,   # leans left (transverse, held horizontal)
     'clarinet':7.0,
     'oboe':    7.0,
     'horn':    10.0,   # bell-right horns tip their bell up
@@ -110,8 +118,8 @@ PLAY_LEAN_DEG = {
 BG_ALPHA       = 0.0                       # transparent layer
 
 # instrument body colours at rest
-CLR_FLUTE      = (0.82, 0.84, 0.88)       # silver
-CLR_FLUTE_DK   = (0.55, 0.58, 0.65)
+CLR_FLUTE      = (0.82, 0.84, 0.88)       # silver — kept for melody_section_poc, which
+CLR_FLUTE_DK   = (0.55, 0.58, 0.65)       # still has its own flute seat and reuses this draw fn
 CLR_CLARINET   = (0.14, 0.12, 0.10)       # ebony black
 CLR_CLARINET_DK= (0.06, 0.05, 0.04)
 CLR_CLARINET_SILVER = (0.70, 0.72, 0.76)  # keywork
@@ -129,7 +137,6 @@ LABEL_CLR = (0.50, 0.55, 0.65, 1.0)
 
 # glow targets per instrument family
 GLOW_CLR = {
-    'flute':    (0.92, 0.96, 1.00),
     'clarinet': (0.55, 0.65, 0.90),
     'oboe':     (0.55, 0.65, 0.90),         # cool glow (black body)
     'horn':     (1.00, 0.88, 0.40),
@@ -139,29 +146,28 @@ GLOW_CLR = {
 
 # ── Seat definitions ──────────────────────────────────────────────────────────
 def make_seats():
-    """Return list of 8 seat dicts in two rows of 4 (back + front).
-    Low woodwinds (horn, bassoon) are at the BACK; high woodwinds
-    (flute, clarinet, oboe) are at the FRONT — matching orchestral layout
-    where lower voices sit farther back.  Row elevations come from
-    stage_layout (shared middle-row level with the finger pianos)."""
+    """Return list of 4 seat dicts in two rows of 2 (back + front) — one
+    instrument per family instead of two. Low woodwinds (horn, bassoon) are
+    at the BACK; high woodwinds (clarinet, oboe) are at the FRONT — matching
+    orchestral layout where lower voices sit farther back. The clarinet seat
+    absorbs the flute voice too (no separate flute instrument any more)."""
+    # The oboe's bell (a plain rim, per draw_oboe) sits higher than the
+    # clarinet's flared bell at the same cy/scale — OBOE_Y_DROP (measured
+    # from the two draw_*() functions' actual geometry) pulls the oboe seat
+    # down so the two bells line up at the bottom of the section.
+    OBOE_Y_DROP = 20.0 * SCALE_FRONT
     specs = [
-        # name,    kind,       voice,          cx,                          cy,         scale
-        # Back row (low): horn, bassoon
-        ('Hr.I', 'horn',     VOICE_HORN,     WW_X_START + 0*WW_X_STEP, WW_Y_BACK,  SCALE_BACK),
-        ('Hr.II','horn',     VOICE_HORN,     WW_X_START + 1*WW_X_STEP, WW_Y_BACK,  SCALE_BACK),
-        ('Bn.I', 'bassoon',  VOICE_BASSOON,  WW_X_START + 2*WW_X_STEP, WW_Y_BACK,  SCALE_BACK),
-        ('Bn.II','bassoon',  VOICE_BASSOON,  WW_X_START + 3*WW_X_STEP, WW_Y_BACK,  SCALE_BACK),
-        # Front row (high): flute, clarinet, oboe
-        ('Fl.',  'flute',    VOICE_FLUTE,    WW_X_START + 0*WW_X_STEP, WW_Y_FRONT, SCALE_FRONT),
-        ('Cl.',  'clarinet', VOICE_CLARINET, WW_X_START + 1*WW_X_STEP, WW_Y_FRONT, SCALE_FRONT),
-        ('Ob.I', 'oboe',     VOICE_OBOE,     WW_X_START + 2*WW_X_STEP, WW_Y_FRONT, SCALE_FRONT),
-        ('Ob.II','oboe',     VOICE_OBOE,     WW_X_START + 3*WW_X_STEP, WW_Y_FRONT, SCALE_FRONT),
+        # name,        kind,       voices,                       cx,          cy,                    scale,       row
+        ('French Horn','horn',     (VOICE_HORN,),                WW_X_LEFT,  WW_Y_BACK,              SCALE_BACK,  'back'),
+        ('Bassoon',    'bassoon',  (VOICE_BASSOON,),              WW_X_RIGHT, WW_Y_BACK,              SCALE_BACK,  'back'),
+        ('Clarinet',   'clarinet', (VOICE_CLARINET, VOICE_FLUTE), WW_X_LEFT,  WW_Y_FRONT,             SCALE_FRONT, 'front'),
+        ('Oboe',       'oboe',     (VOICE_OBOE,),                 WW_X_RIGHT, WW_Y_FRONT - OBOE_Y_DROP, SCALE_FRONT, 'front'),
     ]
     seats = []
-    for i, (name, kind, voice, cx, cy, sc) in enumerate(specs):
+    for i, (name, kind, voices, cx, cy, sc, row) in enumerate(specs):
         seats.append(dict(
-            id=i, name=name, kind=kind, voice=voice,
-            cx=cx, cy=cy, sc=sc,
+            id=i, name=name, kind=kind, voices=voices,
+            cx=cx, cy=cy, sc=sc, row=row,
             sway_freq=SWAY_FREQS[i], sway_phase=SWAY_PHASES[i],
         ))
     return seats
@@ -196,26 +202,16 @@ def load_ww_voices(npy_file, tempo):
 
 
 def route_notes(notes, seats):
-    """Split notes to seats: each seat owns its voice; for voices with
-    multiple seats (oboe×2, horn×2, bassoon×2), alternate by onset time
-    so consecutive notes interleave across the two seats — simulates
-    independent players sharing parts."""
+    """Each seat owns one or more voices (the clarinet seat owns both the
+    clarinet and flute voices); every note goes straight to the seat that
+    owns its voice."""
     sets = {s['id']: [] for s in seats}
-    # Count seats per voice
-    voice_seats = {}
-    for s in seats:
-        voice_seats.setdefault(s['voice'], []).append(s['id'])
-
-    voice_turn = {v: 0 for v in voice_seats}  # round-robin counter per voice
+    voice_to_seat = {v: s['id'] for s in seats for v in s['voices']}
 
     for row in notes:
-        v = int(row[5])
-        seat_ids = voice_seats.get(v, [])
-        if not seat_ids:
-            continue
-        turn = voice_turn[v] % len(seat_ids)
-        sets[seat_ids[turn]].append(row)
-        voice_turn[v] += 1
+        sid = voice_to_seat.get(int(row[5]))
+        if sid is not None:
+            sets[sid].append(row)
 
     return {k: (np.array(v) if v else np.zeros((0, 6))) for k, v in sets.items()}
 
@@ -267,7 +263,9 @@ def _lighten(c, f=0.25):
 def draw_flute(ax, cx, cy, sc):
     """Silver transverse tube held vertically.  TOP end = embouchure
     (where the player's lips are), BOTTOM end = open end.  Key cups along
-    the body on both sides."""
+    the body on both sides.  No longer used by this section's own seats
+    (consolidated into the clarinet) — kept for melody_section_poc, which
+    still has its own flute seat and reuses this draw fn."""
     patches = []
     tube_h  = 120 * sc   # vertical length
     tube_w  =  11 * sc   # horizontal width
@@ -612,7 +610,6 @@ class WoodwindScene:
         self._body_patches  = {}   # sid → the main body patch (for glow colour)
 
         draw_fn = {
-            'flute':    draw_flute,
             'clarinet': draw_clarinet,
             'oboe':     draw_oboe,
             'horn':     draw_horn,
@@ -634,9 +631,25 @@ class WoodwindScene:
                 p.set_transform(xf)
             self._seat_xforms[s['id']] = xf
 
-            # Seat label below instrument
-            ax.text(s['cx'], s['cy'] + 55 * s['sc'], s['name'],
-                    ha='center', va='top', fontsize=7.5,
+            # Seat label: above the instrument for the back row (clears the
+            # shorter horns/bassoons there); below it for the front row,
+            # where the taller flutes/clarinets/oboes reach up far enough
+            # that a same-side label used to overlap the body/keywork.
+            # Raised from -90 to -75: at beat 3 the conductor's baton
+            # (CONDUCTOR_Y=130, BATON_LEN=60) points straight up to data-y
+            # 190, which came within a few units of the old label text.
+            if s['row'] == 'front':
+                # Anchored to WW_Y_FRONT (not s['cy']) so the oboe's label —
+                # dropped along with its seat for the bell-alignment fix
+                # above — still lines up with the clarinet's.
+                label_y = WW_Y_FRONT - 75 * s['sc']
+            else:
+                # Nudged up ~13 data units (about one capital letter's cap
+                # height at this fontsize) — still overlapped the horns/
+                # bassoons there otherwise.
+                label_y = s['cy'] + 55 * s['sc'] + 13
+            ax.text(s['cx'], label_y, s['name'],
+                    ha='center', va='top', fontsize=8,
                     color=LABEL_CLR, zorder=12)
 
     def update(self, t, states):
@@ -697,7 +710,6 @@ class WoodwindScene:
     @staticmethod
     def _get_base_color(kind):
         return {
-            'flute':    CLR_FLUTE,
             'clarinet': CLR_CLARINET,
             'oboe':     CLR_OBOE,
             'horn':     CLR_HORN,
@@ -732,7 +744,7 @@ def render(npy_file, tempo, duration):
         states = compute_state(t, seat_notes, seats)
         scene.update(t, states)
         fig.savefig(f"{FRAMES_DIR}/frame_{fi:06d}.png",
-                    dpi=DPI, transparent=True)
+                    dpi=SAVE_DPI, transparent=True)
         if fi % 200 == 0:
             log.info(f"  {fi}/{n_frames}  t={t:.1f}s")
 

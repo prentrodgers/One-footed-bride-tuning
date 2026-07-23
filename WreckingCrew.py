@@ -1926,20 +1926,23 @@ def expand_chorale(repeats, chorale_in_cents_slides, glides, stored_gliss, voice
         start, end = section_slices[section]
         _save_section_npy(section, notes_features_15[start:end])
 
-    # Rondo / leitmotif splice — must happen before fix_start_times so timing accumulates correctly
-    if rondo_sections and rondo_insertions:
-        # Build boundaries from repeats rather than diff-detecting from chorale_in_cents_slides.
-        # build_glides_array modifies cents in-place (copies chord-A value into chord-B for glide
-        # pairs), so np.diff misses those steps and the boundary count comes out too small,
-        # shifting every rondo insert point by the number of glides that precede it.
-        if len(repeats) == 1:
-            # short_repeats path: choral_octaves_repeated was NOT expanded; one step per chord.
-            _boundaries = np.arange(chorale_in_cents_slides.shape[1] + 1, dtype=float)
-        else:
-            # standard path: each entry in repeats is how many steps that chord occupies.
-            _boundaries = np.concatenate(([0.0], np.cumsum(repeats, dtype=float)))
-        _tpq = tpq if tpq != 0 else 0.25
+    # Rondo / leitmotif splice — must happen before fix_start_times so timing accumulates correctly.
+    # Also: always compute chord_idx (col 15) so every note in the saved features array
+    # carries the index of the original chorale chord it was derived from.  This lets the
+    # conductor and other downstream tools know which chord is playing at any moment,
+    # accounting for the variable repeat counts (the 1:n expansion via primes).
+    if len(repeats) == 1:
+        # short_repeats path: choral_octaves_repeated was NOT expanded; one step per chord.
+        _boundaries = np.arange(chorale_in_cents_slides.shape[1] + 1, dtype=float)
+    else:
+        # standard path: each entry in repeats is how many steps that chord occupies.
+        _boundaries = np.concatenate(([0.0], np.cumsum(repeats, dtype=float)))
+    _tpq = tpq if tpq != 0 else 0.25
 
+    # Always attach chord_idx as column 15 (the 16th column).
+    notes_16 = _chord_idx_from_boundaries(notes_features_15, _boundaries, _tpq)
+
+    if rondo_sections and rondo_insertions:
         # Reject insertions inside the last measure: voices commonly taper off
         # (fewer notes) heading into the final cadence, so a chunk ending there
         # doesn't reach its nominal boundary time for every voice. That desyncs
@@ -1954,14 +1957,17 @@ def expand_chorale(repeats, chorale_in_cents_slides, glides, stored_gliss, voice
             logging.warning(f'Skipping rondo insertions within {_min_margin_chords} chords of the ending ({_last_chord_idx}): {_skipped_insertions}')
 
         if rondo_insertions:
-            notes_16 = _chord_idx_from_boundaries(notes_features_15, _boundaries, _tpq)
             notes_16 = apply_rondo(notes_16, rondo_sections, rondo_insertions, _boundaries, _tpq)
-            notes_features_15 = notes_16[:, :15]
-            logging.info(f'rondo applied: {notes_features_15.shape[0]} rows after splice')
+            logging.info(f'rondo applied: {notes_16.shape[0]} rows after splice')
+
+    # Keep all 16 columns (including chord_idx at col 15) — downstream functions
+    # (fix_start_times, send_to_csound_file, audibility filter) all access columns
+    # by index, so the extra column is transparent to them.
+    notes_features_15 = notes_16  # name kept for compatibility; now (N, 16)
 
     # now that you have the voices, assign note start times from durations of notes in a voice
     notes_features_final, voice_time = dmu.fix_start_times(notes_features_15, voice_time)
-    print(f'{notes_features_final.shape = }') # notes_features_final.shape = (16495, 15)
+    print(f'{notes_features_final.shape = }')  # now (N, 16) — includes chord_idx at col 15
 
     # 7/1/26 pm: the hold_scale/thin_ratio/sparse_range knobs above still left density_level 0-2
     # too busy, so directly drop a random fraction of notes for those levels only. Safe to do here
@@ -2397,11 +2403,11 @@ def mainline(chorale_override=None, short_repeats=False, just_triangle=False, in
                   'finger_pianos': [True, np.array(['fing1', 'fing2', 'fing3', 'bfin1', 'fing4', 'fing5', 'fing6', 'bfin2'])],
                   'wood_winds':    [True, np.array(['flut1', 'clar1', 'oboe1', 'oboe2', 'frnh1', 'frnh2', 'basn1', 'basn2'])],
                   'pizz_strings':  [True, np.array(['vlip1', 'vlip2', 'vlap1', 'celp1', 'vlim1', 'vlim2', 'vlap2', 'celp2',])],
-                  'bowed_strings': [False, np.array(['vliv1', 'vliv2', 'vliv3', 'vliv4', 'vlav1', 'vlav2', 'celv1', 'celv2'])],
-                  'brass_section': [False, np.array(['trmp1', 'trmp2', 'trmp3', 'trmp4', 'trmb1', 'trmb2', 'tuba1', 'tuba2'])],
+                  'bowed_strings': [True, np.array(['vliv1', 'vliv2', 'vliv3', 'vliv4', 'vlav1', 'vlav2', 'celv1', 'celv2'])],
+                  'brass_section': [True, np.array(['trmp1', 'trmp2', 'trmp3', 'trmp4', 'trmb1', 'trmb2', 'tuba1', 'tuba2'])],
                   'marimbas':   [True, np.array(['mari1', 'mari2', 'mari3', 'mari4', 'mari5', 'mari6', 'mari7', 'mari8'])],
                   'bass_section':  [True, np.array(['bgui1', 'bgui2', 'bgui3', 'bfin3', 'bfin4', 'bgui4', 'bfin5', 'bfin6'])],
-                  'melody_section':[False, np.array(['flut2', 'flut3', 'clar2', 'vibp1', 'oboe3', 'basn4', 'trmp5', 'vibp2'])]}
+                  'melody_section':[True, np.array(['flut2', 'flut3', 'clar2', 'vibp1', 'oboe3', 'basn4', 'trmp5', 'vibp2'])]}
       
       limit = 0 # how many seconds to produce. 0 means no limit.
       penalize_7_11 = False # if true then double the value of all the intervals in the atu.build_tonal_diamond function which calls _find_limit to do the deed

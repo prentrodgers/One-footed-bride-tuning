@@ -1,19 +1,12 @@
 #!/usr/bin/env python3
 """
-bowed_strings_section_poc.py — 8 invisible bowed-string players on the
-same stage (front row, left).
+bowed_strings_section_poc.py — 4 invisible bowed-string players on the
+same stage (front row, left) (was 8 — one viola and one cello now instead
+of two each, and two violins instead of four).
 
-Instruments (matching WreckingCrew's bowed_strings section):
-  Back row (4, csound_voice 17 — violin with vibrato):
-    Seat 0  violin  Vl.I
-    Seat 1  violin  Vl.II
-    Seat 2  violin  Vl.III
-    Seat 3  violin  Vl.IV
-  Front row (2 violas + 2 cellos):
-    Seat 4  viola  Va.I   csound_voice 18
-    Seat 5  viola  Va.II  csound_voice 18
-    Seat 6  cello  Vc.I   csound_voice 19
-    Seat 7  cello  Vc.II  csound_voice 19
+Instruments:
+  Back row (lower): viola (csound_voice 18), cello (csound_voice 19)
+  Front row (higher): 2 violins (csound_voice 17, with vibrato)
 
 Unlike the pizzicato string section (string_section_poc.py), every instrument
 here is bowed — a bow sweeps across the strings for the duration of each
@@ -58,18 +51,29 @@ ALL_BOW_VOICES = (VOICE_VIOLIN, VOICE_VIOLA, VOICE_CELLO)
 
 # Canvas (inherited from marimba_poc)
 W, H, DPI = mp.W, mp.H, mp.DPI
+SAVE_DPI  = mp.SAVE_DPI
 
 # ── Layout ─────────────────────────────────────────────────────────────────────
 # Bowed strings occupy the LEFT of the front row (stage.FRONT_X[0] = 280).
 # y-up data space (ax.set_ylim(0, H)), so data-y = H - screen.
-BOW_Y_BACK  = stage.yup(stage.ROW_FRONT_Y_FAR)   # back row  (screen 517)
-BOW_Y_FRONT = stage.yup(stage.ROW_FRONT_Y_NEAR)  # front row (screen 617)
-BOW_X_STEP  = 62
-BOW_X_START = int(stage.FRONT_X[0] - 1.5 * BOW_X_STEP)  # centres at 280
+# Extra padding beyond the shared stage rows: the bigger instruments (see
+# SCALE_VIOLA/CELLO/FRONT below) reach further toward each other than the
+# old smaller ones did, so the row gap needs a bit more room to keep the
+# front row's scroll label clear of the back row's body.
+BOW_Y_PAD   = 20
+BOW_Y_BACK  = stage.yup(stage.ROW_FRONT_Y_FAR) + BOW_Y_PAD    # back row  (screen 517)
+BOW_Y_FRONT = stage.yup(stage.ROW_FRONT_Y_NEAR) - BOW_Y_PAD   # front row (screen 617)
+BOW_X_STEP  = 150   # widened now that only 2 seats/row need to span the section
+BOW_X_START = int(stage.FRONT_X[0] - 0.5 * BOW_X_STEP)  # 2 columns, centred at 280
 
-# scale factors — back row smaller (farther), front row larger (closer)
-SCALE_BACK  = 0.55
-SCALE_FRONT = 0.70
+# scale factors. SCALE_FRONT (violin) bumped up (~40%) now that each row
+# holds 2 seats instead of 4, then another ~10% on top of that. Viola and
+# cello no longer share a "back row" scale — the family's real proportions
+# (viola noticeably bigger-bodied than violin, cello bigger still) now win
+# over the old back-row-is-farther-so-smaller perspective logic.
+SCALE_FRONT = 1.10
+SCALE_VIOLA = SCALE_FRONT * 1.15   # ~15% bigger than the violins
+SCALE_CELLO = SCALE_FRONT * 1.35   # comfortably bigger than the viola
 
 # Instrument specs (at scale=1.0) — reused from string_section_poc
 INST_SPEC = {
@@ -120,21 +124,22 @@ TAU_BOW    = 0.40    # glow decay after note ends
 LABEL_CLR  = (0.44, 0.48, 0.58)
 BG_COLOR   = (0.06, 0.07, 0.09)   # not used (transparent), kept for compat
 
-# Player seats: back row = 2 violas + 2 cellos (lower), front row = 4 violins
+# Player seats: back row = 1 viola + 1 cello (lower), front row = 2 violins
 # (higher).  Lower voices sit farther back — matching standard orchestral
-# layout.  Pitch ranges (p_lo/p_hi in cents) split each voice across its
-# seats by register, matching the actual pitch ranges in the features arrays.
+# layout.  No more pitch-range splitting — each voice's notes route to its
+# seat(s) directly (round-robin across the 2 violin seats; see
+# build_player_note_sets).
+# Back row nudged left a bit, opening some room for the now-~10%-bigger
+# viola/cello without crowding the front-row violins to their right.
+BOW_BACK_X_SHIFT = -30
+
 PLAYERS = [
-    # Back row: violas + cellos (lower)
-    dict(id=0, name='Va.I',   voice=VOICE_VIOLA,  inst='viola',  cx=BOW_X_START + 0*BOW_X_STEP, cy=BOW_Y_BACK,  sc=SCALE_BACK, p_lo=6000, p_hi=None),
-    dict(id=1, name='Va.II',  voice=VOICE_VIOLA,  inst='viola',  cx=BOW_X_START + 1*BOW_X_STEP, cy=BOW_Y_BACK,  sc=SCALE_BACK, p_lo=None, p_hi=6000),
-    dict(id=2, name='Vc.I',   voice=VOICE_CELLO,  inst='cello',  cx=BOW_X_START + 2*BOW_X_STEP, cy=BOW_Y_BACK,  sc=SCALE_BACK, p_lo=5300, p_hi=None),
-    dict(id=3, name='Vc.II',  voice=VOICE_CELLO,  inst='cello',  cx=BOW_X_START + 3*BOW_X_STEP, cy=BOW_Y_BACK,  sc=SCALE_BACK, p_lo=None, p_hi=5300),
-    # Front row: violins (higher)
-    dict(id=4, name='Vl.I',   voice=VOICE_VIOLIN, inst='violin', cx=BOW_X_START + 0*BOW_X_STEP, cy=BOW_Y_FRONT, sc=SCALE_FRONT, p_lo=8200, p_hi=None),
-    dict(id=5, name='Vl.II',  voice=VOICE_VIOLIN, inst='violin', cx=BOW_X_START + 1*BOW_X_STEP, cy=BOW_Y_FRONT, sc=SCALE_FRONT, p_lo=7600, p_hi=8200),
-    dict(id=6, name='Vl.III', voice=VOICE_VIOLIN, inst='violin', cx=BOW_X_START + 2*BOW_X_STEP, cy=BOW_Y_FRONT, sc=SCALE_FRONT, p_lo=7000, p_hi=7600),
-    dict(id=7, name='Vl.IV',  voice=VOICE_VIOLIN, inst='violin', cx=BOW_X_START + 3*BOW_X_STEP, cy=BOW_Y_FRONT, sc=SCALE_FRONT, p_lo=None, p_hi=7000),
+    # Back row: viola + cello (lower)
+    dict(id=0, name='Viola',    voice=VOICE_VIOLA,  inst='viola',  cx=BOW_X_START + 0*BOW_X_STEP + BOW_BACK_X_SHIFT, cy=BOW_Y_BACK,  sc=SCALE_VIOLA),
+    dict(id=1, name='Cello',    voice=VOICE_CELLO,  inst='cello',  cx=BOW_X_START + 1*BOW_X_STEP + BOW_BACK_X_SHIFT, cy=BOW_Y_BACK,  sc=SCALE_CELLO),
+    # Front row: 2 violins (higher)
+    dict(id=2, name='Violin I',  voice=VOICE_VIOLIN, inst='violin', cx=BOW_X_START + 0*BOW_X_STEP, cy=BOW_Y_FRONT, sc=SCALE_FRONT),
+    dict(id=3, name='Violin II', voice=VOICE_VIOLIN, inst='violin', cx=BOW_X_START + 1*BOW_X_STEP, cy=BOW_Y_FRONT, sc=SCALE_FRONT),
 ]
 
 
@@ -172,10 +177,12 @@ def _body_outline(cx, cy, bw, bh, waist):
 
 
 def _make_tilt_xform(cx, cy, ax):
-    """Tilt transform: 30° back + 20° left, pivoting at (cx, cy)."""
+    """Tilt transform: 30° back + 20° left, pivoting at (cx, cy). The extra
+    180° turns the instrument end-for-end so the scroll/pegbox reads at the
+    top right and the body's base (chin rest end) reads at the bottom left."""
     return (mtransforms.Affine2D()
             .translate(-cx, -cy)
-            .rotate_deg(-LEFT_TILT)
+            .rotate_deg(180 - LEFT_TILT)
             .scale(1.0, np.cos(np.radians(BACK_TILT)))
             .translate(cx, cy)
             + ax.transData)
@@ -210,26 +217,25 @@ def load_bowed_voices(npy_file, tempo):
 
 
 def build_player_note_sets(notes, players):
-    """Route each note to the player whose voice + pitch range matches."""
+    """Route each note to a player owning its voice; when a voice has
+    multiple players (2 violins), alternate by onset order — simulates
+    independent players sharing a part."""
     sets = {p['id']: [] for p in players}
+    voice_players = {}
+    for p in players:
+        voice_players.setdefault(p['voice'], []).append(p['id'])
+    voice_turn = {v: 0 for v in voice_players}
+
     for row in notes:
-        pitch = row[1]
-        voice = int(row[5])
-        for p in players:
-            if p['voice'] != voice:
-                continue
-            lo = p.get('p_lo')
-            hi = p.get('p_hi')
-            if (lo is None or pitch >= lo) and (hi is None or pitch < hi):
-                sets[p['id']].append(row)
-                break
-        else:
-            # No pitch-range match → assign to first player of that voice
-            for p in players:
-                if p['voice'] == voice:
-                    sets[p['id']].append(row)
-                    break
-    return {k: np.array(v) if v else np.zeros((0, 6)) for k, v in sets.items()}
+        v = int(row[5])
+        pids = voice_players.get(v, [])
+        if not pids:
+            continue
+        turn = voice_turn[v] % len(pids)
+        sets[pids[turn]].append(row)
+        voice_turn[v] += 1
+
+    return {k: (np.array(v) if v else np.zeros((0, 6))) for k, v in sets.items()}
 
 
 # ── State computation ─────────────────────────────────────────────────────────
@@ -381,11 +387,15 @@ class BowedScene:
                 halo.set_transform(tilt)
             bow.set_transform(tilt)
 
-            # Player label
-            label_x = cx + bh * _TILT_SX
-            label_y = cy + bh * _TILT_SY + 13
+            # Player label — sits beyond the scroll/pegbox end (now the
+            # top-right end, since the 180° flip), which reaches further
+            # out than the body itself (bh alone). va='bottom' so the text
+            # grows away from the instrument instead of back over the scroll.
+            scroll_reach = bh + nh + scroll_r * 2.5
+            label_x = cx + scroll_reach * _TILT_SX
+            label_y = cy + scroll_reach * _TILT_SY
             ax.text(label_x, label_y, pl['name'],
-                    ha='center', va='top', fontsize=8, color=LABEL_CLR, zorder=10)
+                    ha='center', va='bottom', fontsize=8, color=LABEL_CLR, zorder=10)
 
     def update(self, t, states):
         for pl in self.players:
@@ -501,7 +511,7 @@ def render(npy_file, tempo, duration):
         states = compute_state(t, player_note_sets, PLAYERS)
         scene.update(t, states)
         fig.savefig(f"{FRAMES_DIR}/frame_{fi:06d}.png",
-                    dpi=DPI, transparent=True)
+                    dpi=SAVE_DPI, transparent=True)
         if fi % 200 == 0:
             log.info(f"  {fi}/{n_frames}  t={t:.1f}s")
 

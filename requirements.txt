@@ -1,15 +1,22 @@
-# Minimal environment for the project using mamba
+# Minimal environment for the project using uv # sudo dnf install uv # sudo apt install uv
 # To create and activate the environment run:
 #   mamba create -n csound python jupyterlab matplotlib numpy scipy music21
 #   mamba activate csound
 
 jupyterlab
 matplotlib
-numpy
+numpy>=2.4
 scipy
 music21
 mido
 pandas
 sox
+
+# librosa 0.11.0 requires numba, but its pinned version is incompatible with Python 3.14.
+# Override the pins explicitly:
+numba>=0.66
+llvmlite>=0.48
+
+librosa
 # Note: Csound is a system package and should be installed separately if you want to render audio with it.
 # Note: SoX requires the system sox package (apt install sox). For MP3 support also install libsox-fmt-mp3.

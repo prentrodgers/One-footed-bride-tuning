@@ -53,6 +53,10 @@ VIDEO_OUT  = "str_poc.mp4"
 FPS = 30
 W, H = 1280, 720
 DPI  = 96
+# Output frames are rasterized at 2x density (2560x1440) for a sharper
+# render — see marimba_poc.SAVE_DPI for why only this (not W/H/DPI/figsize)
+# changes.
+SAVE_DPI = DPI * 2
 
 # Instrument tilt: 30° back (foreshortening) + 20° left (neck leans upper-left)
 BACK_TILT = 30   # degrees — face of instrument tilts away from audience
@@ -71,53 +75,50 @@ MARTEL_VOICES = frozenset([9])
 ALL_VOICES    = PIZZ_VOICES | MARTEL_VOICES
 
 # ── Player seats ──────────────────────────────────────────────────────────────
-# Layout: y=0 at top; back row (cellos/violas) near top, violins near bottom.
-# sc  = perspective scale factor
-# p_lo/p_hi = pitch_cents bounds for note routing (None = no bound)
+# Consolidated from 8 seats (3 violin pizz + 2 viola pizz + 2 cello pizz + 1
+# martelé, each a pitch-band slice of its voice) down to 4 — one per voice.
+# Every instrument's existing per-note string-selection logic (_note_to_str,
+# which favors the lowest string that can reach a note within a realistic
+# fingerboard position) already handles a full pitch range across just 4
+# strings, so one seat per voice needs no p_lo/p_hi pitch-band splitting.
+# Layout: y=0 at top; back row (cello/viola) above the front row
+# (martelé/violin pizz). sc = perspective scale factor, except viola/cello
+# no longer share the violin/martelé's — the string family's real
+# proportions (viola ~15% bigger-bodied than violin, cello bigger still)
+# now win over back-row-is-farther-so-smaller perspective.
+SCALE_VIOLIN = 0.85
+SCALE_VIOLA  = SCALE_VIOLIN * 1.15   # ~15% bigger than the violins
+SCALE_CELLO  = SCALE_VIOLIN * 1.35   # comfortably bigger than the viola
+
+# stage.ROW_BACK_Y_FAR (75) is shared with marimba_section_poc.py, so it's
+# left untouched; the back row here uses its own, much lower, local cy
+# instead — at the old cy the enlarged cello's scroll/neck (~144 units of
+# headroom needed above its centre) was clipped off the top of the canvas
+# (y=0).
+#
+# That doesn't leave room to also push the front row down far enough to
+# clear the (now much taller) back row vertically before running into
+# finger_piano_section_poc.py's tine rack (its topmost content measured at
+# screen_y ~264, right below this section). Instead the front row stays at
+# a modest cy and gets pulled well clear *horizontally* of the back-row
+# instrument in its path instead — the two rows' bounding boxes overlap in
+# y, but never in x, so nothing actually touches regardless. x-ranges below
+# are the actual rendered bounding boxes (post-tilt-transform, measured via
+# get_window_extent — the tilt rotation shifts an instrument's footprint
+# well past its raw cx +/- bw): Cello 80-178, Viola 238-300, Martele 16-63,
+# Violin 184-231 — each with >5px clearance from its neighbours.
+STR_BACK_Y  = 150
+STR_FRONT_Y = 200
+
 PLAYERS = [
-    # Back row — cellos + violas; shifted 38px left so they stagger between violin tops
-    dict(id=0, name='Vc.II', voice=4, inst='cello',  cx=54,  cy=258, sc=0.80, p_lo=None, p_hi=5500),
-    dict(id=1, name='Vc.I',  voice=4, inst='cello',  cx=136, cy=250, sc=0.80, p_lo=5500, p_hi=None),
-    dict(id=2, name='Va.II', voice=3, inst='viola',  cx=222, cy=245, sc=0.82, p_lo=None, p_hi=6040),
-    dict(id=3, name='Va.I',  voice=3, inst='viola',  cx=304, cy=241, sc=0.82, p_lo=6040, p_hi=None),
-    # Front row — violins; 75px between centres, row 110px below back row
-    dict(id=4, name='Mart.', voice=9, inst='violin', cx=52,  cy=368, sc=1.00, p_lo=None, p_hi=None),
-    dict(id=5, name='Vl.III',voice=2, inst='violin', cx=130, cy=358, sc=1.00, p_lo=None, p_hi=7254),
-    dict(id=6, name='Vl.II', voice=2, inst='violin', cx=207, cy=353, sc=1.00, p_lo=7254, p_hi=7927),
-    dict(id=7, name='Vl.I',  voice=2, inst='violin', cx=284, cy=348, sc=1.00, p_lo=7927, p_hi=None),
+    dict(id=0, name='Cello',  voice=4, inst='cello',  cx=130, cy=STR_BACK_Y,  sc=SCALE_CELLO, p_lo=None, p_hi=None),
+    dict(id=1, name='Viola',  voice=3, inst='viola',  cx=270, cy=STR_BACK_Y,  sc=SCALE_VIOLA, p_lo=None, p_hi=None),
+    # Pulled clear of the back row's x-span (see note above) rather than
+    # just nudged off it — the old 40-unit stagger isn't enough at these
+    # bigger sizes.
+    dict(id=2, name='Martele', voice=9, inst='violin', cx=40,  cy=STR_FRONT_Y, sc=SCALE_VIOLIN, p_lo=None, p_hi=None),
+    dict(id=3, name='Violin', voice=2, inst='violin', cx=208, cy=STR_FRONT_Y, sc=SCALE_VIOLIN, p_lo=None, p_hi=None),
 ]
-
-# Move the whole string section up 1/6 of the canvas height, freeing more
-# room below for the other sections (y=0 is top, so "up" = smaller cy).
-STRING_Y_SHIFT = -H // 6
-for _pl in PLAYERS:
-    _pl['cy'] += STRING_Y_SHIFT
-
-# Shrink the whole string section by 30%: each instrument's scale (sc) and
-# every seat's (cx, cy) contract about the section's centroid, so the group
-# stays centred on the stage but reads as smaller / set farther back.  All
-# instrument geometry and gestures scale with sc, so the pluck/bow/strings
-# shrink proportionally.
-STRING_SHRINK = 0.70
-_cxs = np.array([_pl['cx'] for _pl in PLAYERS])
-_cys = np.array([_pl['cy'] for _pl in PLAYERS])
-_cx0, _cy0 = float(_cxs.mean()), float(_cys.mean())
-for _pl in PLAYERS:
-    _pl['cx'] = _cx0 + (_pl['cx'] - _cx0) * STRING_SHRINK
-    _pl['cy'] = _cy0 + (_pl['cy'] - _cy0) * STRING_SHRINK
-    _pl['sc'] = _pl['sc'] * STRING_SHRINK
-
-# Align the string rows to the shared back-row elevation (stage_layout) so the
-# pizz strings sit at the same height as the marimbas and bass.  Shift each
-# row's mean cy to the target screen row, preserving the intra-row perspective
-# tilt.  (y-down here, so data-y == screen row.)  PLAYERS[:4] = back row
-# (cellos/violas), PLAYERS[4:] = front row (martelé + violins).
-_back_mean  = float(np.mean([_pl['cy'] for _pl in PLAYERS[:4]]))
-_front_mean = float(np.mean([_pl['cy'] for _pl in PLAYERS[4:]]))
-for _pl in PLAYERS[:4]:
-    _pl['cy'] += stage.ROW_BACK_Y_FAR  - _back_mean
-for _pl in PLAYERS[4:]:
-    _pl['cy'] += stage.ROW_BACK_Y_NEAR - _front_mean
 
 # ── Instrument specs (at scale=1.0) ──────────────────────────────────────────
 # bw/bh = half body width/height; neck_w/h = half-width/height of neck
@@ -491,11 +492,6 @@ class Scene:
         ax.add_patch(Rectangle((0, 0), W, H,
                                fc=BG_COLOR, ec='none', zorder=0))
 
-        # ── Subtle back-wall and floor suggestion ────────────────────────────
-        # Horizon line midway between the back row's far/near sub-rows.
-        ax.axhline((stage.ROW_BACK_Y_FAR + stage.ROW_BACK_Y_NEAR) / 2,
-                   color=(0.16, 0.18, 0.22), lw=0.6, alpha=0.6, zorder=1)
-
         # ── Title ────────────────────────────────────────────────────────────
         ax.text(W / 2, H - 16,
                 _title_for_chorale(self.chorale),
@@ -664,7 +660,7 @@ def render_frames(notes, duration, chorale=None):
         t = fi / FPS
         states = compute_state(t, player_note_sets, PLAYERS)
         scene.update(t, states)
-        fig.savefig(f"{FRAMES_DIR}/frame_{fi:06d}.png", dpi=DPI,
+        fig.savefig(f"{FRAMES_DIR}/frame_{fi:06d}.png", dpi=SAVE_DPI,
                     facecolor=BG_COLOR, bbox_inches=None)
         if fi % 60 == 0:
             log.info(f"  {fi}/{n_frames}  t={t:.1f}s")
@@ -710,13 +706,17 @@ def main():
                         help='Chorale name (e.g. bwv261).  When --mp3 is not '
                              'given, the newest Uploads/*.mp3 matching this '
                              'chorale is used for Stage 3 audio.')
-    parser.add_argument('--stage', choices=['1', '2', '3', 'all'], default='all')
+    parser.add_argument('--stage', choices=['1', '2', '3', '12', 'all'], default='all',
+                        help="'12' runs Stage 1+2 (notes + frames) without Stage 3's "
+                             "standalone str_poc.mp4 assembly — what gen-video.sh uses, "
+                             "since compose_stage_merge.py builds the real output "
+                             "from these same frames.")
     parser.add_argument('--duration', type=float, default=None,
                         help='Override computed duration (seconds), e.g. to '
                              'match a shared timeline with another sequence')
     args = parser.parse_args()
 
-    if args.stage in ('1', 'all'):
+    if args.stage in ('1', '12', 'all'):
         if not args.npy:
             parser.error("--npy required for Stage 1")
         notes, duration = load_string_voices(args.npy, args.tempo)
@@ -727,7 +727,7 @@ def main():
     if args.duration is not None:
         duration = args.duration
 
-    if args.stage in ('2', 'all'):
+    if args.stage in ('2', '12', 'all'):
         render_frames(notes, duration, chorale=args.chorale)
 
     if args.stage in ('3', 'all'):

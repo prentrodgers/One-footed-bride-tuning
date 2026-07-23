@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-finger_piano_section_poc.py — 8 invisible finger-piano players on the same
-stage as string_section_poc.py and marimba_section_poc.py.
+finger_piano_section_poc.py — one consolidated finger piano (was 8 small
+scattered instruments, one per pitch band).
 
 Unlike the marimba (struck bars + mallets), a finger piano (kalimba/mbira)
 has tines fixed at a shared bridge (the node) at the back, free at the
@@ -10,9 +10,15 @@ vibrating up and down while the node stays still — a cantilever, not a
 standing wave — so the visual language here is deliberately different from
 marimba_poc.py's bars.
 
-Combines csound voices 1 (finger piano) and 24 (bass finger piano) — both
-named "finger piano" in adaptive_tuning_util.init_voice_time, just
-different registers — and splits their pitches into 8 bands, one per seat.
+Same consolidation as marimba_section_poc.py: every note folds onto a fixed
+49-tine rack spanning C2..C6 chromatically (see pitch_bucket.py) instead of
+being split across 8 seats. Each of the 49 tines keeps its own pluck
+gesture, just consolidated onto one instrument.
+
+Combines csound voice 1 (finger piano) only — bass finger piano (24) lives
+in bass_section_poc.py, paired with bgui (20), since both collapse to the
+same csound_voice per-note (no way to split them post-hoc without double-
+counting).
 
 Positioned in the lower/foreground band of the stage, below both the
 string section and the marimba section.
@@ -31,8 +37,10 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Circle, Polygon as MplPolygon
 import matplotlib.transforms as mtransforms
 
-import marimba_poc as mp  # W, H, DPI, BACK_DX, BACK_DY, bar_base_color, blended
+import marimba_poc as mp  # W, H, DPI, bar_base_color, blended
 import stage_layout as stage
+import pitch_bucket as pb
+import stand
 
 import logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s", datefmt="%d %H:%M")
@@ -40,45 +48,24 @@ log = logging.getLogger(__name__)
 
 FRAMES_DIR = "finger8_frames"
 FPS = 30
-VOICES = (1,)   # regular finger piano only — bass finger piano (24) now
-                 # belongs to bass_section_poc.py, paired with bgui (20),
-                 # since both collapse to the same csound_voice per-note
-                 # (no way to split them post-hoc without double-counting)
+VOICES = (1,)   # regular finger piano only — see module docstring
 
-# Back row: farther but LARGER (longer tines) — front row is smaller
-# (shorter tines). Placed lower on the stage (smaller data-y, y-up space)
-# than both the strings and the marimba section, in the previously-empty
-# band above the title text.
-# Scaled 1.5x from the original 0.18/0.23 — same ROW_X0/ROW_DX below, so
-# the instruments got bigger without spreading the seats apart (tighter).
-# Shrunk back down (0.65x) from 0.414/0.324: at the larger size, dense
-# chorales (many unique pitches per seat -> wide tine racks) combined with
-# the 45 degree per-seat tilt below made neighboring seats' tine racks
-# overlap (e.g. FP.3/FP.5, FP.4/FP.6). Verified against all bwv25x-bwv264
-# feature arrays to keep several px of clearance both between seats and
-# between adjacent tines within a seat.
-BACK_SCALE, FRONT_SCALE = 0.27, 0.21
-# Row elevations from stage_layout (middle-row level with the woodwinds),
-# then nudged DOWN and RIGHT.  The 45° per-seat tilt (TILT_DEG below) sends
-# each tine rack up-and-to-the-left of its node, which pushed the section's
-# top tines into the back-row pizzicato strings and the leftmost tines off
-# the left canvas edge.  FP_DOWN_PX lowers the whole section on screen so
-# the tines clear the pizzicato; FP_RIGHT_PX shifts it inboard off the edge.
-# y-up data space here, so data-y = H - screen.
-FP_DOWN_PX  = 45   # extra screen-y downward (clears pizzicato above)
-FP_RIGHT_PX = 60   # extra x rightward (clears left canvas edge)
-BACK_NODE_Y  = stage.yup(stage.ROW_MID_Y_FAR  + FP_DOWN_PX)   # back row  (screen 300)
-FRONT_NODE_Y = stage.yup(stage.ROW_MID_Y_NEAR + FP_DOWN_PX)   # front row (screen 400)
-                                        # node_y = fixed "bridge" y — same for
-                                        # every tine in the row; tines rise up-screen
-                                        # from it (tip upstage/farther, node downstage)
-# Middle-row left column (under the pizz strings), shifted right by
-# FP_RIGHT_PX so the tilted tine racks stay on canvas.  Back-row centre
-# = (67 + FP_RIGHT_PX) + 3*ROW_DX/2 = 127 + 112.5 ≈ 240.
-# Widened from 62 to 75 px so the 4-seat row spans ~225 px, giving the
-# section a total footprint (~285 px) close to the woodwinds/brass width.
-ROW_X0 = dict(back=67 + FP_RIGHT_PX, front=92 + FP_RIGHT_PX)
-ROW_DX = 75
+# One instrument, positioned in the middle row's left column (under the
+# pizzicato strings, a different row so the two don't visually collide even
+# though their x-ranges overlap) — same spot the old 8-seat back row's
+# centre used to sit.
+CX = 270
+NODE_Y = stage.yup(stage.ROW_MID_Y_FAR + 45)   # +45 matches the old FP_DOWN_PX nudge
+SCALE = 0.45
+AVAIL = 380   # fits between the left canvas edge and the woodwinds (cx 520+) to its right
+
+# Rectangular base + legs (see stand.py) — same 3-D leg/wheel design as the
+# marimba's stand, but a real box (tall rail) rather than a thin one, and
+# wider than the tine rack so it visibly extends past the tines on the left
+# and right (and downward, being much taller than marimba's rail).
+BASE_GAP  = 3.0     # gap between the tine nodes and the base top
+BASE_H    = 26.0
+BASE_OVERHANG_FRAC = 0.20   # base is this much wider than the tine rack (10% past each side)
 
 BASE_SLOT_W = 22.0     # px between tine centres at scale=1.0
 # Real tines: low and high tines are close in length because a blob of
@@ -86,44 +73,40 @@ BASE_SLOT_W = 22.0     # px between tine centres at scale=1.0
 # tuning, not tine length — so the visual length spread is intentionally
 # small.  The sampled instrument's tines are only 1-3" long, so the
 # modelled tines are short (and wide, below).
-MAX_TINE_LEN, MIN_TINE_LEN = 52.8, 40.0   # −20% (was 66/50): low note=long, high=short, px at scale=1.0
+# Skewed further apart (+15%/-15%) so the low (left) tines read as visibly
+# longer than the high (right) ones now that they're all on one instrument.
+MAX_TINE_LEN, MIN_TINE_LEN = 62.0 * 1.15, 46.0 * 0.85
 # Real tines are 3/16" spring steel — substantial flat strips, not needles.
 # Modelled as filled rectangles (polygon, not a line) so the width is
 # visually meaningful.  LOW = widest (lowest note, longest tine), HIGH = narrowest.
-# The sampled tines are wider than a needle, so these are wide flat strips.
-TINE_WIDTH_LOW, TINE_WIDTH_HIGH = 11.2, 7.2  # −20% (was 14/9), px at scale=1.0
+TINE_WIDTH_LOW, TINE_WIDTH_HIGH = 11.2, 7.2
 
 # Tines point straight away from the viewer (up-screen/backward), as if
-# plucked by an invisible player standing behind the instrument — not
-# obliquely back like the marimba bars/mallets, and not toward the viewer
-# either. The node (fixed end) is the downstage/closer point; the tip
-# (free, plucked end) is upstage/farther.
+# plucked by an invisible player standing behind the instrument. The node
+# (fixed end) is the downstage/closer point; the tip (free, plucked end)
+# is upstage/farther.
 TINE_DIR = np.array([0.0, -1.0])
 
-# Each instrument is tilted this many degrees (CCW in the y-up data space)
-# around its node-centre so the low tines lean toward the front of the stage
-# and the high tines lean up-and-to-the-right.  The diagonal splay spreads
-# adjacent instruments along a 45° axis so their tine racks no longer overlap
-# horizontally — the denser voicings from the longer chorale render (up to
-# ~22 tines per seat) fit without collision.  Applied per-seat in TineScene.
-TILT_DEG = 45
-
+# More prominent plucks than the old 8-seat version: bigger finger, more
+# travel distance on the approach/retract, and a much larger vibration
+# swing once consolidated onto one instrument gave it room to be seen.
 VIB_FREQ   = 7.0     # visual Hz
+VIB_AMP_PX = 22.0     # px at scale=1 — vibration swing distance (was 9.0)
 TAU        = 0.42    # decay time constant (kalimba tines ring longer than a pluck)
 GLOW_DECAY = 0.22
 
-PLK_APP_T = 0.055
-PLK_DWL_T = 0.025
-PLK_RET_T = 0.150
-PLK_RAD   = 4.4       # −20% (was 5.5) finger circle radius at scale=1.0
+PLK_APP_T   = 0.055
+PLK_DWL_T   = 0.025
+PLK_RET_T   = 0.150
+PLK_RAD     = 8.0     # finger circle radius at scale=1.0 (was 4.4)
+PLK_TRAVEL  = 34.0    # px at scale=1 — approach/retract distance (was 18.0)
 
 # 1/8" drop of solder on every tine tip — same physical size regardless of
 # pitch (it's what lets the shorter/higher tines still ring low), and what
 # tunes the overtones ~2 octaves above the fundamental for that sweet tone.
-# Solder blob: sized to sit visually on top of the (now wider) tine tip.
-SOLDER_RADIUS = 7.2    # −20% (was 9.0) px at scale=1.0 — scales with the narrower tines
+SOLDER_RADIUS = 7.2
 
-SEAT_LABEL_CLR = (0.50, 0.40, 0.60, 1.0)
+LABEL_CLR = (0.50, 0.40, 0.60, 1.0)
 NODE_CLR = (0.35, 0.33, 0.30, 0.9)
 FINGER_CLR = (0.85, 0.78, 0.68)
 SOLDER_CLR = (0.74, 0.75, 0.78)
@@ -151,16 +134,8 @@ def load_finger_piano_voices(npy_file, tempo):
     return notes
 
 
-def build_seats():
-    seats = []
-    for i in range(8):
-        is_back = i < 4
-        row_i = i if is_back else i - 4
-        scale = BACK_SCALE if is_back else FRONT_SCALE
-        node_y = BACK_NODE_Y if is_back else FRONT_NODE_Y
-        cx = ROW_X0['back' if is_back else 'front'] + row_i * ROW_DX
-        seats.append(dict(id=i, name=f"FP.{i + 1}", cx=cx, node_y=node_y, scale=scale))
-    return seats
+def build_seat():
+    return [dict(id=0, name="Finger Piano", cx=CX, node_y=NODE_Y, scale=SCALE)]
 
 
 def build_tine_layout(notes, seats, base_slot_w=BASE_SLOT_W,
@@ -173,7 +148,10 @@ def build_tine_layout(notes, seats, base_slot_w=BASE_SLOT_W,
 
     base_slot_w/len_range/width_range/color_fn let other sections (e.g.
     bass_section_poc.py) reuse this geometry with their own proportions —
-    defaults reproduce the regular finger-piano look.
+    defaults reproduce the regular finger-piano look. Generic over `seats`
+    (any length) — marimba_section_poc.py's build_bars() established the
+    "feed it a fixed set of representative pitches for a single seat"
+    pattern this module's render() now also uses.
     """
     if not len(notes):
         return [], {}
@@ -282,10 +260,9 @@ class TineScene:
         self._fingers = []
 
         # Per-seat tilt transform (optional): rotates each instrument around its
-        # node-centre (cx, node_y) so low tines lean toward the front and high
-        # tines up-right, spreading adjacent instruments along a diagonal so they
-        # don't overlap.  When seats is None (e.g. bass_section_poc reuses this
-        # class) no tilt is applied — backward compatible.
+        # node-centre (cx, node_y).  When seats is None (the consolidated
+        # single-instrument case here, and bass_section_poc.py's reuse of
+        # this class) no tilt is applied.
         self._seat_xform = {}
         if seats is not None and tilt_deg != 0.0:
             for s in seats:
@@ -364,7 +341,7 @@ class TineScene:
             if a > 0.01:
                 dt = t - onset
                 ph = 2.0 * np.pi * VIB_FREQ * dt
-                disp = a * 9.0 * tn['scale'] * shape * np.cos(ph)
+                disp = a * VIB_AMP_PX * tn['scale'] * shape * np.cos(ph)
                 ys = base_pts[:, 1] + disp
             else:
                 ys = base_pts[:, 1]
@@ -393,14 +370,14 @@ class TineScene:
                 approach_vec = -TINE_DIR
                 if dt < 0:
                     ph = ((dt + PLK_APP_T) / PLK_APP_T) ** 1.5
-                    off = (18.0 * tn['scale']) * (1.0 - ph)
+                    off = (PLK_TRAVEL * tn['scale']) * (1.0 - ph)
                     alpha = ph
                 elif dt < PLK_DWL_T:
                     off = 0.0
                     alpha = 1.0
                 else:
                     ph = min(1.0, (dt - PLK_DWL_T) / PLK_RET_T) ** 0.7
-                    off = (18.0 * tn['scale']) * ph
+                    off = (PLK_TRAVEL * tn['scale']) * ph
                     alpha = max(0.0, 1.0 - ph)
                 fx, fy = tip + approach_vec * off
                 self._fingers[i].center = (fx, fy)
@@ -411,13 +388,18 @@ class TineScene:
 
 def render(npy_file, tempo, duration):
     notes = load_finger_piano_voices(npy_file, tempo)
-    seats = build_seats()
-    tines, pitch_to_idx = build_tine_layout(notes, seats)
+    if len(notes):
+        notes[:, 1] = [pb.bucket_cents(p) for p in notes[:, 1]]
+
+    seat = build_seat()
+    reps = pb.representative_cents()
+    fake_notes = np.zeros((len(reps), 5))
+    fake_notes[:, 1] = reps
+    tines, pitch_to_idx = build_tine_layout(fake_notes, seat, max_avail=AVAIL)
     n_tines = len(tines)
-    log.info(f"[finger piano section] {n_tines} tines across {len(seats)} seats")
-    for seat in seats:
-        n = sum(1 for tn in tines if tn['seat_name'] == seat['name'])
-        log.info(f"  {seat['name']}: {n} tines @ (cx={seat['cx']}, node_y={seat['node_y']}, scale={seat['scale']})")
+    n_used = len(set(pitch_to_idx[int(round(p))] for p in notes[:, 1])) if len(notes) else 0
+    log.info(f"[finger piano section] one instrument, {n_tines} tines (C2..C6), "
+             f"{n_used} in use by this chorale")
 
     Path(FRAMES_DIR).mkdir(exist_ok=True)
     n_frames = int(np.ceil(duration * FPS))
@@ -432,20 +414,23 @@ def render(npy_file, tempo, duration):
     fig.patch.set_alpha(0.0)
     ax.patch.set_alpha(0.0)
 
-    scene = TineScene(ax, tines, seats, tilt_deg=TILT_DEG)
+    scene = TineScene(ax, tines)
 
-    for seat in seats:
-        # Node is now the downstage (lowest-image-row) point since tines
-        # point backward/upstage from it — label goes just below the node.
-        label_y = seat['node_y'] - 8 * seat['scale']
-        ax.text(seat['cx'], label_y, seat['name'], ha='center', va='top',
-                 fontsize=8, color=SEAT_LABEL_CLR, zorder=10)
+    stand_bottom = stand.add_stand(
+        ax, CX, NODE_Y - BASE_GAP * SCALE,
+        rail_w=AVAIL * (1.0 + BASE_OVERHANG_FRAC), rail_h=BASE_H,
+        scale=SCALE, leg_len_ref=AVAIL,
+    )
+
+    label_y = stand_bottom - 4.2   # 30% closer to the stand than the old -6 gap
+    ax.text(CX, label_y, "Finger Piano", ha='center', va='top',
+             fontsize=8, color=LABEL_CLR, zorder=10)
 
     for fi in range(n_frames):
         t = fi / FPS
         glow, vib_amp, vib_onset, last_gest = compute_state(t, notes, pitch_to_idx, n_tines)
         scene.update(t, glow, vib_amp, vib_onset, last_gest)
-        fig.savefig(f"{FRAMES_DIR}/frame_{fi:06d}.png", dpi=mp.DPI, transparent=True)
+        fig.savefig(f"{FRAMES_DIR}/frame_{fi:06d}.png", dpi=mp.SAVE_DPI, transparent=True)
         if fi % 200 == 0:
             log.info(f"  {fi}/{n_frames}  t={t:.1f}s")
 

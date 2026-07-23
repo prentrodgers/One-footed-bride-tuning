@@ -51,6 +51,12 @@ VIDEO_OUT     = "poc_marimba_POC.mp4"
 FPS = 30
 W, H = 1280, 720
 DPI  = 96
+# Output frames are rasterized at 2x density (2560x1440) for a sharper
+# render. Only the savefig dpi changes — W/H/DPI (and every layout constant
+# derived from them) stay the same, since figsize = W/DPI, H/DPI in inches
+# is unchanged; matplotlib just rasterizes that same figure at higher
+# density, so line widths/fonts/patches all scale up proportionally for free.
+SAVE_DPI = DPI * 2
 
 # Oblique (cabinet) projection — depth direction in scene maps to screen as:
 #   screen_x += depth * DEPTH_AX   (rightward)
@@ -607,7 +613,7 @@ def render_frames(notes, duration, transparent=False):
 
     scene = Scene(fig, ax, bars, show_title=not transparent, show_labels=not transparent)
 
-    savefig_kwargs = dict(dpi=DPI, bbox_inches=None)
+    savefig_kwargs = dict(dpi=SAVE_DPI, bbox_inches=None)
     if transparent:
         savefig_kwargs.update(transparent=True)
     else:

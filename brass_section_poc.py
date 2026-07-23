@@ -1,18 +1,11 @@
 #!/usr/bin/env python3
 """
-brass_section_poc.py — 8 invisible brass players on the same stage.
+brass_section_poc.py — 4 invisible brass players on the same stage
+(was 8 — one trombone and one tuba now instead of two each).
 
-Instruments (matching WreckingCrew's brass_section):
-  Back row (4 trumpets, csound_voice 25):
-    Seat 0  trumpet  Tr.I
-    Seat 1  trumpet  Tr.II
-    Seat 2  trumpet  Tr.III
-    Seat 3  trumpet  Tr.IV
-  Front row (2 trombones + 2 tubas):
-    Seat 4  trombone  Trb.I   csound_voice 26
-    Seat 5  trombone  Trb.II  csound_voice 26
-    Seat 6  tuba      Tu.I    csound_voice 27
-    Seat 7  tuba      Tu.II   csound_voice 27
+Instruments:
+  Back row (lower): trombone (csound_voice 26), tuba (csound_voice 27)
+  Front row (higher): 2 trumpets (csound_voice 25)
 
 Each instrument has:
   • A static silhouette drawn once at setup (tubes, valves, bell)
@@ -61,20 +54,28 @@ ALL_BRASS_VOICES = (VOICE_TRUMPET, VOICE_TROMBONE, VOICE_TUBA)
 
 # Canvas (inherited from marimba_poc)
 W, H, DPI = mp.W, mp.H, mp.DPI
+SAVE_DPI  = mp.SAVE_DPI
 
 # ── Layout ─────────────────────────────────────────────────────────────────────
 # Brass occupies the right of the middle row (stage.MID_X[2]), in two rows
 # of 4 (back + front).  y-up data space (ax.set_ylim(0, H)), so
 # data-y = H - screen.  Row elevations shared with finger pianos / woodwinds
 # via stage_layout so the middle row lines up across sections.
-BRASS_Y_BACK  = stage.yup(stage.ROW_MID_Y_FAR)   # back row  (screen 255)
-BRASS_Y_FRONT = stage.yup(stage.ROW_MID_Y_NEAR)  # front row (screen 355)
-BRASS_X_STEP  = 70
-BRASS_X_START = int(stage.MID_X[2] - 1.5 * BRASS_X_STEP)  # centres at MID_X[2] (aligned with bass below it)
+# BRASS_Y_PAD pulls the back row down a bit more than the shared stage row:
+# the bass finger piano's label sits at x~905/y~534, close to the trombone's
+# own label above it at x~954 — the bigger trombone/tuba (see SCALE_BACK
+# below) needs the extra clearance.
+BRASS_Y_PAD   = 25
+BRASS_Y_BACK  = stage.yup(stage.ROW_MID_Y_FAR) - BRASS_Y_PAD   # back row  (screen 255)
+BRASS_Y_FRONT = stage.yup(stage.ROW_MID_Y_NEAR)                # front row (screen 355)
+BRASS_X_STEP  = 140   # widened now that only 2 seats/row need to span the section
+BRASS_X_LEFT  = int(stage.MID_X[2] - 0.5 * BRASS_X_STEP)   # two columns, centred at MID_X[2]
+BRASS_X_RIGHT = int(stage.MID_X[2] + 0.5 * BRASS_X_STEP)
 
-# scale factors — back row smaller (farther), front row larger (closer)
-SCALE_BACK  = 0.80
-SCALE_FRONT = 0.95
+# scale factors — back row smaller (farther), front row larger (closer).
+# Bumped up (~35%) now that each row holds 2 seats instead of 4.
+SCALE_BACK  = 1.05
+SCALE_FRONT = 1.25
 
 # ── Colour palette ─────────────────────────────────────────────────────────────
 CLR_BRASS      = (0.82, 0.68, 0.22)       # brass body
@@ -117,8 +118,8 @@ PLAY_RELAX_T = 0.55    # seconds to relax back after note-off
 
 # Idle sway: slow sinusoidal rock, each seat its own frequency + phase
 SWAY_AMP_DEG = 5.0     # ± degrees — doubled so players sway ~2× more
-SWAY_FREQS   = [0.15, 0.19, 0.17, 0.21, 0.14, 0.20, 0.16, 0.22]
-SWAY_PHASES  = [0.0,  1.3,  2.7,  0.5,  3.8,  1.9,  4.5,  3.1]
+SWAY_FREQS   = [0.1875, 0.2375, 0.2125, 0.2625]  # 25% faster
+SWAY_PHASES  = [0.0,  1.3,  2.7,  0.5]
 
 # Playing lean: extra tilt toward mouthpiece when a note is held.
 # Doubled (≈2×) so the players move more while enjoying the music.
@@ -139,22 +140,24 @@ def _lighten(c, f=0.25):
 
 # ── Seat definitions ──────────────────────────────────────────────────────────
 def make_seats():
-    """Return list of 8 seat dicts in two rows of 4 (back + front).
-    Lower instruments (trombones, tubas) are at the BACK; higher
-    instruments (trumpets) are at the FRONT — matching orchestral layout
-    where lower voices sit farther back."""
+    """Return list of 4 seat dicts in two rows of 2 (back + front) — one
+    trombone and one tuba instead of two each; two trumpets instead of four.
+    Lower instruments (trombone, tuba) are at the BACK; higher instruments
+    (trumpets) are at the FRONT — matching orchestral layout where lower
+    voices sit farther back."""
+    # Tuba's coil top sits well below the trombone's bell at the same cy
+    # (measured from the two draw_*() functions' actual bounding boxes:
+    # trombone bell top ~55.0, tuba coil top ~32.7 at SCALE_BACK=1.05) — this
+    # raises the tuba seat so the two tops line up.
+    TUBA_Y_RAISE = 22.35
     specs = [
-        # name,     kind,       voice,            cx,                     cy,            scale
-        # Back row (lower): trombones + tubas
-        ('Trb.I',  'trombone', VOICE_TROMBONE,  BRASS_X_START + 0*BRASS_X_STEP, BRASS_Y_BACK,  SCALE_BACK),
-        ('Trb.II', 'trombone', VOICE_TROMBONE,  BRASS_X_START + 1*BRASS_X_STEP, BRASS_Y_BACK,  SCALE_BACK),
-        ('Tu.I',   'tuba',     VOICE_TUBA,      BRASS_X_START + 2*BRASS_X_STEP, BRASS_Y_BACK,  SCALE_BACK),
-        ('Tu.II',  'tuba',     VOICE_TUBA,      BRASS_X_START + 3*BRASS_X_STEP, BRASS_Y_BACK,  SCALE_BACK),
-        # Front row (higher): trumpets
-        ('Tr.I',   'trumpet',  VOICE_TRUMPET,   BRASS_X_START + 0*BRASS_X_STEP, BRASS_Y_FRONT, SCALE_FRONT),
-        ('Tr.II',  'trumpet',  VOICE_TRUMPET,   BRASS_X_START + 1*BRASS_X_STEP, BRASS_Y_FRONT, SCALE_FRONT),
-        ('Tr.III', 'trumpet',  VOICE_TRUMPET,   BRASS_X_START + 2*BRASS_X_STEP, BRASS_Y_FRONT, SCALE_FRONT),
-        ('Tr.IV',  'trumpet',  VOICE_TRUMPET,   BRASS_X_START + 3*BRASS_X_STEP, BRASS_Y_FRONT, SCALE_FRONT),
+        # name,        kind,       voice,           cx,             cy,                          scale
+        # Back row (lower): trombone, tuba
+        ('Trombone',   'trombone', VOICE_TROMBONE, BRASS_X_LEFT,  BRASS_Y_BACK,                  SCALE_BACK),
+        ('Tuba',       'tuba',     VOICE_TUBA,     BRASS_X_RIGHT, BRASS_Y_BACK + TUBA_Y_RAISE,    SCALE_BACK),
+        # Front row (higher): two trumpets
+        ('Trumpet I',  'trumpet',  VOICE_TRUMPET,  BRASS_X_LEFT,  BRASS_Y_FRONT,                  SCALE_FRONT),
+        ('Trumpet II', 'trumpet',  VOICE_TRUMPET,  BRASS_X_RIGHT, BRASS_Y_FRONT,                  SCALE_FRONT),
     ]
     seats = []
     for i, (name, kind, voice, cx, cy, sc) in enumerate(specs):
@@ -485,8 +488,24 @@ class BrassScene:
                 p.set_transform(xf)
             self._seat_xforms[s['id']] = xf
 
-            ax.text(s['cx'], s['cy'] + 55 * s['sc'], s['name'],
-                    ha='center', va='top', fontsize=7.5,
+            # Back row (trombone/tuba) label sits above the seat; front row
+            # (trumpets) sits below — the trombone's bell (bigger now, after
+            # the size bump) reaches down into where an above-seat front-row
+            # label would otherwise sit.
+            if s['cy'] == BRASS_Y_FRONT:
+                label_y = s['cy'] - 60 * s['sc']
+                va = 'bottom'
+            else:
+                # Anchored to BRASS_Y_BACK (not s['cy']) so the tuba's label
+                # — raised along with its seat to align the tuba's top with
+                # the trombone's bell — still lines up with the trombone's.
+                # Trombone's mouthpiece cone (upper-right after the tilt)
+                # reaches close to a same-x label at this scale; +70 instead
+                # of +55 clears it.
+                label_y = BRASS_Y_BACK + 70 * s['sc']
+                va = 'top'
+            ax.text(s['cx'], label_y, s['name'],
+                    ha='center', va=va, fontsize=8,
                     color=LABEL_CLR, zorder=12)
 
     @staticmethod
@@ -601,7 +620,7 @@ def render(npy_file, tempo, duration):
         states = compute_state(t, seat_notes, seats)
         scene.update(t, states)
         fig.savefig(f"{FRAMES_DIR}/frame_{fi:06d}.png",
-                    dpi=DPI, transparent=True)
+                    dpi=SAVE_DPI, transparent=True)
         if fi % 200 == 0:
             log.info(f"  {fi}/{n_frames}  t={t:.1f}s")
 

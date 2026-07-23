@@ -1,16 +1,11 @@
 #!/usr/bin/env python3
 """
-melody_section_poc.py — 8 invisible players in the front row (right).
+melody_section_poc.py — 6 invisible players in the front row (right)
+(was 8 — one flute and one vibraphone now instead of two each).
 
-A mixed ensemble matching WreckingCrew's melody_section:
-  Seat 0  flute      flut2   csound_voice 14
-  Seat 1  flute      flut3   csound_voice 14
-  Seat 2  clarinet   clar2   csound_voice 13
-  Seat 3  vibraphone vibp1   csound_voice  7
-  Seat 4  oboe       oboe3   csound_voice 15
-  Seat 5  bassoon    basn4   csound_voice 12
-  Seat 6  trumpet    trmp5   csound_voice 25
-  Seat 7  vibraphone vibp2   csound_voice  7
+A mixed ensemble:
+  Back row (higher):  flute (csound_voice 14), clarinet (13), vibraphone (7)
+  Front row (lower):  oboe (15), bassoon (12), trumpet (25)
 
 Each instrument reuses the draw functions from woodwind_section_poc /
 brass_section_poc where possible; the vibraphone is new.  All instruments
@@ -59,17 +54,26 @@ ALL_MELODY_VOICES = (VOICE_FLUTE, VOICE_CLARINET, VOICE_VIBRAPHONE,
                      VOICE_OBOE, VOICE_BASSOON, VOICE_TRUMPET)
 
 W, H, DPI = mp.W, mp.H, mp.DPI
+SAVE_DPI  = mp.SAVE_DPI
 
 # ── Layout ─────────────────────────────────────────────────────────────────────
 # Melody occupies the RIGHT of the front row (stage.FRONT_X[1]),
 # aligned with the brass column (MID_X[2]) in the 2nd row.
 MEL_Y_BACK  = stage.yup(stage.ROW_FRONT_Y_FAR)   # back row  (screen 517)
 MEL_Y_FRONT = stage.yup(stage.ROW_FRONT_Y_NEAR)  # front row (screen 617)
-MEL_X_STEP  = 75
-MEL_X_START = int(stage.FRONT_X[1] - 1.5 * MEL_X_STEP)  # centres at FRONT_X[1] (aligned with bass below it)
+MEL_X_STEP  = 110   # widened now that only 3 seats/row need to span the section
+MEL_X_START = int(stage.FRONT_X[1] - 1.0 * MEL_X_STEP)  # 3 columns, centred at FRONT_X[1]
+# Oboe/bassoon (front row) are staggered this much right of flute/clarinet
+# (back row) — the tall pipe shapes were colliding stacked in the same
+# column; vibraphone/trumpet stay column-aligned (compact shapes, no
+# stacking risk).
+MEL_X_STAGGER = MEL_X_STEP / 2
+# Trumpet nudged further right, clear of the (staggered) bassoon to its left.
+MEL_TRUMPET_X_SHIFT = 30
 
-SCALE_BACK  = 0.72
-SCALE_FRONT = 0.85
+# Scaled back down a bit (from 1.00/1.15) to help the staggered layout fit.
+SCALE_BACK  = 0.85
+SCALE_FRONT = 0.95
 
 # ── Colours ────────────────────────────────────────────────────────────────────
 # Vibraphone colours (new — not in woodwind/brass modules)
@@ -95,8 +99,8 @@ PLAY_LEAN_T  = 0.06
 PLAY_RELAX_T = 0.55
 
 SWAY_AMP_DEG = 5.0   # ± degrees — doubled so players sway ~2× more (vibraphone exempted in update)
-SWAY_FREQS   = [0.16, 0.20, 0.18, 0.22, 0.15, 0.21, 0.17, 0.23]
-SWAY_PHASES  = [0.0,  1.3,  2.7,  0.5,  3.8,  1.9,  4.5,  3.1]
+SWAY_FREQS   = [0.20, 0.25, 0.225, 0.275, 0.1875, 0.2625]  # 25% faster
+SWAY_PHASES  = [0.0,  1.3,  2.7,  0.5,  3.8,  1.9]
 
 # Playing lean: extra tilt toward mouthpiece when a note is held.
 # Doubled (≈2×) so the players move more while enjoying the music.  Vibraphone
@@ -197,18 +201,17 @@ def draw_vibraphone(ax, cx, cy, sc):
 
 # ── Seat definitions ──────────────────────────────────────────────────────────
 def make_seats():
-    """8 seats: back row (flute×2, clarinet, vibraphone), front row (oboe,
-    bassoon, trumpet, vibraphone).  Order matches WreckingCrew's melody_section."""
+    """6 seats: back row (flute, clarinet, vibraphone), front row (oboe,
+    bassoon, trumpet) — one seat per instrument instead of two for flute
+    and vibraphone."""
     specs = [
-        # name,     kind,        voice,             cx,                     cy,            scale
-        ('Fl.I',   'flute',     VOICE_FLUTE,      MEL_X_START + 0*MEL_X_STEP, MEL_Y_BACK,  SCALE_BACK),
-        ('Fl.II',  'flute',     VOICE_FLUTE,      MEL_X_START + 1*MEL_X_STEP, MEL_Y_BACK,  SCALE_BACK),
-        ('Cl.',    'clarinet',  VOICE_CLARINET,   MEL_X_START + 2*MEL_X_STEP, MEL_Y_BACK,  SCALE_BACK),
-        ('Vib.I',  'vibraphone',VOICE_VIBRAPHONE, MEL_X_START + 3*MEL_X_STEP, MEL_Y_BACK,  SCALE_BACK),
-        ('Ob.',    'oboe',      VOICE_OBOE,       MEL_X_START + 0*MEL_X_STEP, MEL_Y_FRONT, SCALE_FRONT),
-        ('Bsn.',   'bassoon',   VOICE_BASSOON,    MEL_X_START + 1*MEL_X_STEP, MEL_Y_FRONT, SCALE_FRONT),
-        ('Tr.',    'trumpet',   VOICE_TRUMPET,    MEL_X_START + 2*MEL_X_STEP, MEL_Y_FRONT, SCALE_FRONT),
-        ('Vib.II', 'vibraphone',VOICE_VIBRAPHONE, MEL_X_START + 3*MEL_X_STEP, MEL_Y_FRONT, SCALE_FRONT),
+        # name,         kind,        voice,             cx,                         cy,            scale
+        ('Flute',      'flute',     VOICE_FLUTE,      MEL_X_START + 0*MEL_X_STEP,                 MEL_Y_BACK,  SCALE_BACK),
+        ('Clarinet',   'clarinet',  VOICE_CLARINET,   MEL_X_START + 1*MEL_X_STEP,                 MEL_Y_BACK,  SCALE_BACK),
+        ('Vibraphone', 'vibraphone',VOICE_VIBRAPHONE, MEL_X_START + 2*MEL_X_STEP,                 MEL_Y_BACK,  SCALE_BACK),
+        ('Oboe',       'oboe',      VOICE_OBOE,       MEL_X_START + 0*MEL_X_STEP + MEL_X_STAGGER, MEL_Y_FRONT, SCALE_FRONT),
+        ('Bassoon',    'bassoon',   VOICE_BASSOON,    MEL_X_START + 1*MEL_X_STEP + MEL_X_STAGGER, MEL_Y_FRONT, SCALE_FRONT),
+        ('Trumpet',    'trumpet',   VOICE_TRUMPET,    MEL_X_START + 2*MEL_X_STEP + MEL_TRUMPET_X_SHIFT, MEL_Y_FRONT, SCALE_FRONT),
     ]
     seats = []
     for i, (name, kind, voice, cx, cy, sc) in enumerate(specs):
@@ -363,8 +366,20 @@ class MelodyScene:
             for p in patches:
                 p.set_transform(xf)
 
-            ax.text(s['cx'], s['cy'] + 55 * s['sc'], s['name'],
-                    ha='center', va='top', fontsize=7.5,
+            # Vibraphone label stays put (short instrument, no overlap risk).
+            # Back row (flute/clarinet) needs more upward clearance than the
+            # old fixed offset gave — labels used to sit right on the tip.
+            # Front row (oboe/bassoon/trumpet) moves below the instrument
+            # instead, since pushing it further up would run into the back
+            # row's own labels/instruments.
+            if s['kind'] == 'vibraphone':
+                label_y = s['cy'] + 55 * s['sc']
+            elif s['cy'] == MEL_Y_BACK:
+                label_y = s['cy'] + 90 * s['sc']
+            else:
+                label_y = s['cy'] - 70 * s['sc']
+            ax.text(s['cx'], label_y, s['name'],
+                    ha='center', va='top', fontsize=8,
                     color=LABEL_CLR, zorder=12)
 
     @staticmethod
@@ -503,7 +518,7 @@ def render(npy_file, tempo, duration):
         states = compute_state(t, seat_notes, seats)
         scene.update(t, states)
         fig.savefig(f"{FRAMES_DIR}/frame_{fi:06d}.png",
-                    dpi=DPI, transparent=True)
+                    dpi=SAVE_DPI, transparent=True)
         if fi % 200 == 0:
             log.info(f"  {fi}/{n_frames}  t={t:.1f}s")
 

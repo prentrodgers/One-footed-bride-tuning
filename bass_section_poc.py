@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """
-bass_section_poc.py — bass finger piano (4 tine seats) + baritone guitar
-(4 instruments) on the same stage as string_section_poc.py,
-marimba_section_poc.py, and finger_piano_section_poc.py.
+bass_section_poc.py — one consolidated bass finger piano + one consolidated
+baritone guitar (was 4 tine seats + 4 guitars), on the same stage as
+string_section_poc.py, marimba_section_poc.py, and
+finger_piano_section_poc.py.
 
 WreckingCrew.py's "bass_section" (see include_sections in WreckingCrew.py,
 around line 2395) combines baritone guitar (csound_voice 20) and bass
@@ -15,11 +16,19 @@ from finger_piano_section_poc.py, avoiding double-counting the same notes
 in two sections.
 
 Bass finger piano reuses finger_piano_section_poc.py's tine/vibration
-geometry (mechanically the same thing, just lower/heavier), with 4 seats
-(2 back + 2 front) rather than 8. Baritone guitar is a separate instrument
-entirely — 4 large 6-string guitars (not tines), body/neck running
-horizontally, plucked strings vibrating as a standing wave (see
-GuitarScene) rather than the tine's cantilever motion.
+geometry (mechanically the same thing, just lower/heavier) and the same
+consolidated "one instrument, 49 fixed positions" pattern as marimba/finger
+piano — but with its own, lower register window (see pitch_bucket.py):
+bass notes skew well below C2, so reusing marimba's C2..C6 window would
+bunch almost everything onto the bottom few positions.
+
+Baritone guitar is a separate instrument entirely — a large 6-string
+guitar (not tines), body/neck running horizontally, plucked strings
+vibrating as a standing wave (see GuitarScene) rather than the tine's
+cantilever motion. Its 6 strings already span the full observed pitch
+range via band-splitting (see build_guitar_strings) rather than a fixed
+bucket scheme, so consolidating it to one instrument is just a matter of
+not splitting its notes across 4 separate instances any more.
 
 Usage:
   python bass_section_poc.py --npy bwv261_features_array.npy \
@@ -36,7 +45,10 @@ from matplotlib.patches import Rectangle, Circle, Ellipse
 
 import marimba_poc as mp
 import finger_piano_section_poc as fp
+import marimba_section_poc as ms   # ms.BASE_Y — keeps the bass stand level-matched to the marimba's
 import stage_layout as stage
+import pitch_bucket as pb
+import stand
 
 import logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s", datefmt="%d %H:%M")
@@ -47,67 +59,49 @@ FPS = 30
 TINE_VOICES = (24,)     # bass finger piano only — bgui (20) is the guitar below
 GUITAR_VOICE = 20
 
-# Positioned right of the marimba/finger-piano column ("to the right as
-# they are now" — x unchanged), but at the SAME row heights as the
-# marimba (not finger-piano's lower band anymore) so the two sections read
-# as one wide top row. Values below are copied exactly from
-# marimba_section_poc.py's BACK_BASE_Y/FRONT_BASE_Y (430/358 + the same
-# H//3 up-shift) for precise alignment.
-# Scaled 1.5x from the original 0.18/0.23 — same ROW_X0/ROW_DX below, so
-# the instruments got bigger without spreading the seats apart (tighter).
-# Only 4 seats now (2 back + 2 front), not 8 — WreckingCrew.py's
-# include_sections (line ~2395) lists the bass_section instrument roster;
-# the bass-finger-piano sub-voices there (bfin3/bfin4/bfin5/bfin6) are the
-# ones that belong here, matched 1:1 with 4 seats.
-BACK_SCALE, FRONT_SCALE = 0.345, 0.345   # front row enlarged to match back row
-BACK_NODE_Y  = stage.yup(stage.ROW_BACK_Y_FAR)   # back row  (screen 50) — = marimba's rows
-FRONT_NODE_Y = stage.yup(stage.ROW_BACK_Y_NEAR)  # front row (screen 122)
-# Seat spacing widened (ROW_DX 62→104) and the tine seats shifted left
-# (ROW_X0 910/935→855/870) so the denser voicings from the longer chorale
-# render (many more bass-finger-piano notes → up to 11 tines/seat) no longer
-# overlap.  MAX_TINE_AVAIL caps each seat's tine-rack width so seats never
-# overlap no matter how many notes land in one seat.  The baritone guitars
-# (GUITAR_REGION_X0 below) stay put at the right.
-MAX_TINE_AVAIL = 94    # px cap on per-seat tine-rack width (11 tines ≈ 98.7)
-ROW_X0 = dict(back=855, front=870)
-ROW_DX = 104
-N_TINE_SEATS = 4
+# Bass notes run lower than marimba/finger piano (observed range in this
+# piece: ~1400-5900 cents), so its 49-position window starts an octave
+# lower (C1..C5) rather than reusing C2..C6 — otherwise most notes would
+# fold below the window and bunch onto its bottom few positions.
+TINE_BOTTOM_OCTAVE = 1
+
+# One consolidated instrument each, positioned side by side within the same
+# overall footprint (roughly x:808-1226, y:573-645) the old 4 tine seats +
+# 4 guitars used to occupy. Shrunk 20% from the initial 0.42/190 — at that
+# size the stands' depth-offset back edges overlapped the marimba to the
+# left and the guitar to the right.
+TINE_CX = 905
+TINE_NODE_Y = ms.BASE_Y   # matches the marimba's stand level (was a lower, separate 609)
+TINE_SCALE = 0.42 * 0.8
+TINE_AVAIL = 190 * 0.8
 
 BASE_SLOT_W = 26.0
-MAX_TINE_LEN, MIN_TINE_LEN = 105.0, 82.0
+# 30% shorter than the initial 105.0/82.0 — sized down along with everything
+# else in this section.
+MAX_TINE_LEN, MIN_TINE_LEN = 105.0 * 0.7, 82.0 * 0.7
 # Bass tines are heavier/wider spring steel than the regular finger piano —
 # model them noticeably wider (wider half-strip) to look like bass instruments.
 TINE_WIDTH_LOW, TINE_WIDTH_HIGH = 12.0, 8.0   # px at scale=1.0, filled-polygon width
 
-SEAT_LABEL_CLR = (0.55, 0.30, 0.32, 1.0)
+LABEL_CLR = (0.55, 0.30, 0.32, 1.0)
 
-# ── Baritone guitars (csound_voice 20) ──────────────────────────────────────
-# Four instruments (matching the bass_section instrument count in
-# WreckingCrew.py's include_sections), not one. Each is still a full
-# 6-string guitar (real baritone guitars have 6 strings) over its own
-# slice of the voice-20 pitch range. Body/neck run left-to-right (strings
-# horizontal) unlike every other instrument on this stage, which all have
-# vertical strings/bars — deliberately distinct. Plucked strings vibrate
-# as a standing wave (fixed at nut AND bridge, unlike the finger-piano's
-# fixed-at-one-end tines) — same math as string_section_poc.py's
-# pizzicato strings, transposed 90 degrees.
+# ── Baritone guitar (csound_voice 20) ───────────────────────────────────────
+# One instrument now (was 4, each a slice of the pitch range) — its 6
+# strings already split the full observed pitch range via
+# build_guitar_strings, so one instance covers everything. Body/neck run
+# left-to-right (strings horizontal) unlike every other instrument on this
+# stage. Plucked strings vibrate as a standing wave (fixed at nut AND
+# bridge, unlike the finger-piano's fixed-at-one-end tines) — same math as
+# string_section_poc.py's pizzicato strings, transposed 90 degrees.
 N_STRINGS = 6
-N_GUITARS = 4
-# Shrunk to roughly the same on-stage footprint as the 4 bass-finger-piano
-# tine seats, and positioned just to their right at the SAME two row
-# heights (GUITAR_ROW_DY = BACK_NODE_Y - FRONT_NODE_Y exactly, so the two
-# guitar rows land precisely on the marimba/bass-tine row heights).
-GUITAR_SCALE = 0.30
-GUITAR_REGION_X0 = 1040   # −65 px to match the tine shift; right edge ~1230 (was ~1295, clipped at 1280)
-GUITAR_REGION_CY = (BACK_NODE_Y + FRONT_NODE_Y) / 2
-GUITAR_COL_DX = 98
-GUITAR_ROW_DY = BACK_NODE_Y - FRONT_NODE_Y
-# at scale=1.0 (the original single-guitar size); each instance below
-# multiplies these by GUITAR_SCALE
+GUITAR_SCALE = 0.62 * 0.8   # one big instrument now (was 0.30 x4 in a 2x2 grid), shrunk 20% to clear the bass finger piano beside it
+GUITAR_X0 = 1015      # nut/head position (left edge)
+GUITAR_CY = 609       # kept independent of TINE_NODE_Y — the guitar didn't need to move
+# at scale=1.0 (the original single-guitar size); multiplied by GUITAR_SCALE
 HEAD_LEN, HEAD_H = 22, 30
 NECK_LEN, NECK_H = 150, 20
 BODY_W, BODY_H   = 120, 92
-STRING_SPACING = 9      # tightened (was 13) so the 6 strings sit closer on the body
+STRING_SPACING = 9      # px between strings at scale=1.0
 PLUCK_X_FRAC = 0.80      # fraction along nut->bridge where the pick hits
 
 GUITAR_WOOD = (0.42, 0.20, 0.14)     # deep sunburst red-brown
@@ -155,35 +149,11 @@ def load_bass_voices(npy_file, tempo, voices):
     return notes
 
 
-def build_seats():
-    seats = []
-    for i in range(N_TINE_SEATS):
-        is_back = i < N_TINE_SEATS // 2
-        row_i = i if is_back else i - N_TINE_SEATS // 2
-        scale = BACK_SCALE if is_back else FRONT_SCALE
-        node_y = BACK_NODE_Y if is_back else FRONT_NODE_Y
-        cx = ROW_X0['back' if is_back else 'front'] + row_i * ROW_DX
-        seats.append(dict(id=i, name=f"Bs.{i + 1}", cx=cx, node_y=node_y, scale=scale))
-    return seats
+def build_seat():
+    return [dict(id=0, name="Bass Finger Piano", cx=TINE_CX, node_y=TINE_NODE_Y, scale=TINE_SCALE)]
 
 
 # ── Baritone guitar geometry/state/scene ─────────────────────────────────────
-
-def build_guitar_grid_positions():
-    """Anchor (x0, cy) for each of the N_GUITARS instances, packed into a
-    2x2 grid roughly the same footprint the original single large guitar
-    occupied. Reading order = ascending pitch: bottom-left -> bottom-right
-    -> top-left -> top-right (matches the low-left/high-right convention
-    used elsewhere on this stage)."""
-    positions = []
-    for i in range(N_GUITARS):
-        col = i % 2
-        row = i // 2
-        x0 = GUITAR_REGION_X0 + col * GUITAR_COL_DX
-        cy = GUITAR_REGION_CY + (row - 0.5) * GUITAR_ROW_DY
-        positions.append((x0, cy))
-    return positions
-
 
 def build_guitar_strings(notes, x0, cy, scale):
     """6 strings spanning the nut->bridge length; each note is assigned to
@@ -206,7 +176,10 @@ def build_guitar_strings(notes, x0, cy, scale):
             color=STRING_CLRS[i], scale=scale,
         ))
 
-    pitch_min, pitch_max = notes[:, 1].min(), notes[:, 1].max()
+    if len(notes):
+        pitch_min, pitch_max = notes[:, 1].min(), notes[:, 1].max()
+    else:
+        pitch_min, pitch_max = 0.0, 1.0
     edges = np.linspace(pitch_min, pitch_max, N_STRINGS + 1)
     return strings, edges
 
@@ -214,38 +187,6 @@ def build_guitar_strings(notes, x0, cy, scale):
 def pitch_to_string_idx(pitch_cents, edges):
     idx = np.searchsorted(edges[1:-1], pitch_cents, side='right')
     return int(np.clip(idx, 0, N_STRINGS - 1))
-
-
-def build_guitars(notes):
-    """Split voice-20 notes into N_GUITARS pitch bands (low->high) and
-    build a positioned 6-string instance for each, packed into the same
-    on-stage footprint the original single guitar used."""
-    if not len(notes):
-        return []
-
-    pitch_vals = np.sort(np.unique(np.round(notes[:, 1]).astype(int)))
-    bands = np.array_split(pitch_vals, N_GUITARS)
-    edges_g = [None] + [int(b[0]) for b in bands[1:]] + [None]
-    positions = build_guitar_grid_positions()
-
-    guitars = []
-    for i in range(N_GUITARS):
-        lo, hi = edges_g[i], edges_g[i + 1]
-        mask = np.ones(len(notes), dtype=bool)
-        if lo is not None:
-            mask &= notes[:, 1] >= lo
-        if hi is not None:
-            mask &= notes[:, 1] < hi
-        sub = notes[mask]
-        if not len(sub):
-            continue
-        x0, cy = positions[i]
-        strings, str_edges = build_guitar_strings(sub, x0, cy, GUITAR_SCALE)
-        guitars.append(dict(
-            name=f"Gtr.{i + 1}", notes=sub, strings=strings, edges=str_edges,
-            x0=x0, cy=cy, scale=GUITAR_SCALE,
-        ))
-    return guitars
 
 
 def compute_guitar_state(t, notes, edges):
@@ -385,26 +326,28 @@ class GuitarScene:
 
 def render(npy_file, tempo, duration):
     tine_notes = load_bass_voices(npy_file, tempo, TINE_VOICES)
-    seats = build_seats()
+    if len(tine_notes):
+        tine_notes[:, 1] = [pb.bucket_cents(p, bottom_octave=TINE_BOTTOM_OCTAVE) for p in tine_notes[:, 1]]
+
+    seat = build_seat()
+    reps = pb.representative_cents(bottom_octave=TINE_BOTTOM_OCTAVE)
+    fake_notes = np.zeros((len(reps), 5))
+    fake_notes[:, 1] = reps
     tines, pitch_to_idx = fp.build_tine_layout(
-        tine_notes, seats, base_slot_w=BASE_SLOT_W,
+        fake_notes, seat, base_slot_w=BASE_SLOT_W,
         len_range=(MAX_TINE_LEN, MIN_TINE_LEN),
         width_range=(TINE_WIDTH_LOW, TINE_WIDTH_HIGH),
-        color_fn=bass_color, max_avail=MAX_TINE_AVAIL,
+        color_fn=bass_color, max_avail=TINE_AVAIL,
     )
     n_tines = len(tines)
-    log.info(f"[bass section] {n_tines} tines across {len(seats)} seats")
-    for seat in seats:
-        n = sum(1 for tn in tines if tn['seat_name'] == seat['name'])
-        log.info(f"  {seat['name']}: {n} tines @ (cx={seat['cx']}, node_y={seat['node_y']}, scale={seat['scale']})")
+    n_used = len(set(pitch_to_idx[int(round(p))] for p in tine_notes[:, 1])) if len(tine_notes) else 0
+    log.info(f"[bass finger piano] one instrument, {n_tines} tines, "
+             f"{n_used} in use by this chorale")
 
     guitar_notes = load_bass_voices(npy_file, tempo, (GUITAR_VOICE,))
-    guitars = build_guitars(guitar_notes)
-    log.info(f"[baritone guitars] {len(guitars)} instruments x {N_STRINGS} strings each")
-    for gt in guitars:
-        log.info(f"  {gt['name']}: {len(gt['notes'])} notes @ (x0={gt['x0']:.0f}, "
-                 f"cy={gt['cy']:.0f}, scale={gt['scale']}), edges="
-                 f"{', '.join(f'{e:.0f}' for e in gt['edges'])}")
+    strings, str_edges = build_guitar_strings(guitar_notes, GUITAR_X0, GUITAR_CY, GUITAR_SCALE)
+    log.info(f"[baritone guitar] one instrument x {N_STRINGS} strings, "
+             f"{len(guitar_notes)} notes, edges={', '.join(f'{e:.0f}' for e in str_edges)}")
 
     Path(FRAMES_DIR).mkdir(exist_ok=True)
     n_frames = int(np.ceil(duration * FPS))
@@ -420,30 +363,32 @@ def render(npy_file, tempo, duration):
     ax.patch.set_alpha(0.0)
 
     tine_scene = fp.TineScene(ax, tines)
-    guitar_scenes = [GuitarScene(ax, gt['strings'], gt['x0'], gt['cy'], gt['scale'])
-                      for gt in guitars]
+    guitar_scene = GuitarScene(ax, strings, GUITAR_X0, GUITAR_CY, GUITAR_SCALE)
 
-    for seat in seats:
-        # Node is now the downstage (lowest-image-row) point since tines
-        # point backward/upstage from it — label goes just below the node.
-        label_y = seat['node_y'] - 6 * seat['scale']
-        ax.text(seat['cx'], label_y, seat['name'], ha='center', va='top',
-                 fontsize=7, color=SEAT_LABEL_CLR, zorder=10)
-    for gt in guitars:
-        total_len = (HEAD_LEN + NECK_LEN + BODY_W) * gt['scale']
-        label_y = gt['cy'] - BODY_H * gt['scale'] * 0.7
-        ax.text(gt['x0'] + total_len / 2, label_y, gt['name'],
-                 ha='center', va='top', fontsize=6.5,
-                 color=SEAT_LABEL_CLR, zorder=10)
+    stand.add_stand(
+        ax, TINE_CX, TINE_NODE_Y - 3.0 * TINE_SCALE,
+        rail_w=TINE_AVAIL * 1.2, rail_h=26.0,
+        scale=TINE_SCALE, leg_len_ref=fp.AVAIL,
+    )
+
+    guitar_total_len = (HEAD_LEN + NECK_LEN + BODY_W) * GUITAR_SCALE
+    guitar_label_y = GUITAR_CY - BODY_H * GUITAR_SCALE * 0.7
+
+    # Bass Finger Piano's label matches the Baritone Guitar's label height
+    # (guitar_label_y) instead of hanging off its own stand_bottom, so the
+    # two sit on the same line.
+    ax.text(TINE_CX, guitar_label_y, "Bass Finger Piano",
+             ha='center', va='top', fontsize=8, color=LABEL_CLR, zorder=10)
+    ax.text(GUITAR_X0 + guitar_total_len / 2, guitar_label_y, "Baritone Guitar",
+             ha='center', va='top', fontsize=8, color=LABEL_CLR, zorder=10)
 
     for fi in range(n_frames):
         t = fi / FPS
         glow, vib_amp, vib_onset, last_gest = fp.compute_state(t, tine_notes, pitch_to_idx, n_tines)
         tine_scene.update(t, glow, vib_amp, vib_onset, last_gest)
-        for gt, gscene in zip(guitars, guitar_scenes):
-            g_glow, g_vib_amp, g_vib_onset, g_last_gest = compute_guitar_state(t, gt['notes'], gt['edges'])
-            gscene.update(t, g_glow, g_vib_amp, g_vib_onset, g_last_gest)
-        fig.savefig(f"{FRAMES_DIR}/frame_{fi:06d}.png", dpi=mp.DPI, transparent=True)
+        g_glow, g_vib_amp, g_vib_onset, g_last_gest = compute_guitar_state(t, guitar_notes, str_edges)
+        guitar_scene.update(t, g_glow, g_vib_amp, g_vib_onset, g_last_gest)
+        fig.savefig(f"{FRAMES_DIR}/frame_{fi:06d}.png", dpi=mp.SAVE_DPI, transparent=True)
         if fi % 200 == 0:
             log.info(f"  {fi}/{n_frames}  t={t:.1f}s")
 

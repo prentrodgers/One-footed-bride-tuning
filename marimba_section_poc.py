@@ -1,13 +1,18 @@
 #!/usr/bin/env python3
 """
-marimba_section_poc.py — 8 invisible marimba players on the same stage as
-string_section_poc.py's 8 string players.
+marimba_section_poc.py — one consolidated marimba on stage (was 8 small
+scattered instruments, one per pitch band).
 
-The 43 pitches played by voice 5 (finger_piano/marimba) in the features
-array are split into 8 pitch bands; each band gets its own small on-stage
-instrument (bars + mallet), positioned/scaled like a seat in the string
-section — 4 "back row" seats (smaller/farther) and 4 "front row" seats
-(larger/closer).
+Rather than splitting the full pitch range across 8 seats (which spread
+attention thin and gave some seats only a handful of bars), every note is
+now folded onto a fixed 49-bar rack spanning C2..C6 chromatically (4 octaves
+x 12 pitch classes + one extra top C) — same layout as a 49-key keyboard.
+Notes below C2 or above C6 fold onto the nearest edge octave by pitch class
+(octave clamped to [2, 5]; a note that's exactly C6 gets the extra 49th bar,
+anything else above C6 folds onto C5..B5). This is a many-to-one mapping —
+many performed pitches can land on the same bar — not the old one-bar-per-
+unique-pitch layout. Each of the 49 bars keeps its own mallet, exactly like
+before, just consolidated onto one instrument instead of scattered across 8.
 
 Renders transparent frames (no title/background) meant to be composited
 onto string_section_poc.py's frames by compose_stage_merge.py.
@@ -26,6 +31,9 @@ import matplotlib.pyplot as plt
 
 import marimba_poc as mp
 import stage_layout as stage
+import pitch_bucket as pb
+import stand
+import finger_piano_section_poc as fp   # fp.AVAIL — shared stand leg-length reference
 
 import logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s", datefmt="%d %H:%M")
@@ -34,79 +42,54 @@ log = logging.getLogger(__name__)
 FRAMES_DIR = "marimba8_frames"
 FPS = 30
 
-# Back row: smaller/farther, matches string section's cello/viola row height.
-# Front row: larger/closer, matches string section's violin row height.
-# Scaled 1.5x from the original 0.20/0.25 — same ROW_X0/ROW_DX below, so
-# the instruments got bigger without spreading the seats apart (tighter).
-BACK_SCALE, FRONT_SCALE = 0.36, 0.45   # +20% from 0.30/0.375 — bigger marimbas (seat spacing unchanged)
-# Row elevations come from stage_layout (shared with bass/strings so the back
-# row lines up across sections).  y-up data space here, so data-y = H - screen.
-# The +20% scale-up above made the back-row mallets reach the top edge (their
-# stems clipped at y=0), so nudge the whole marimba down 12 px to keep the
-# mallets fully in frame.  Per-section offset (NOT via ROW_BACK_Y) so the bass
-# and string sections keep their requested elevations unchanged.
-MARIMBA_Y_NUDGE = 12   # px down, to clear the top edge after the +20% scale-up
-BACK_BASE_Y  = stage.yup(stage.ROW_BACK_Y_FAR  + MARIMBA_Y_NUDGE)   # back row
-FRONT_BASE_Y = stage.yup(stage.ROW_BACK_Y_NEAR + MARIMBA_Y_NUDGE)   # front row
-# Seat spacing widened (ROW_DX 62→118) and the whole section shifted left
-# (ROW_X0 547/572→343/384) so the denser voicings from the longer chorale
-# render (many more marimba notes → up to 9 bars/seat) no longer overlap.
-# MAX_SEAT_AVAIL caps each seat's bar-rack width so seats never overlap no
-# matter how many notes land in one seat — extra bars just get thinner.
-MAX_SEAT_AVAIL = 108   # px cap on per-seat rack width (front-row 9 bars ≈ 104.5)
-ROW_X0 = dict(back=343, front=384)
-ROW_DX = 118
+# One instrument, positioned/scaled where the old 8-seat back row used to
+# sit. avail controls the rack's total on-stage width directly (bar width =
+# avail/49); scale controls depth/mallet proportions (see marimba_poc.
+# build_layout — the two are independent).
+CX = 560
+BASE_Y = stage.yup(stage.ROW_BACK_Y_FAR + 12)   # +12 clears the mallet stems at the top edge, as before
+# 30% smaller than the initial 760/0.85 (that size encroached on the
+# pizzicato strings/bass finger piano), then another 20% smaller — even
+# after the first shrink, the stand's depth-offset back edge still
+# overlapped the bass finger piano's stand to its right.
+AVAIL = 532 * 0.8
+SCALE = 0.6 * 0.8
+PLAYER_Y_OFFSET = 150
 
-# Target bar count per seat — how many unique pitches land in one seat's
-# instrument.  Splitting the full pitch range into 8 equal-count bands
-# (the old approach) gave only 5-6 bars per seat.  Instead we assign each
-# seat one equal-width cents slice of the full range so that as the piece
-# uses more distinct pitches, each seat automatically gets more bars.
-# When the data is sparse (few unique pitches), seats may still end up with
-# 5-6 bars; with denser voicings they can reach 10-15.
-BARS_PER_SEAT_TARGET = 10   # used only to compute cents-slice width
+LABEL_CLR = (0.34, 0.47, 0.60, 1.0)
 
-SEAT_LABEL_CLR = (0.34, 0.47, 0.60, 1.0)
+# Stand (see stand.py): rail is a bit narrower than the bars (no overhang);
+# front/back leg lengths are fractions of avail (the bar rack's own width).
+STAND_GAP        = 3.0    # gap between a bar's underside and the front rail top
+STAND_RAIL_H     = 5.0
+STAND_RAIL_INSET_FRAC = 0.05   # rail is this much narrower than the bars (no overhang)
 
 
-def build_players(notes):
-    pitch_vals = np.sort(np.unique(np.round(notes[:, 1]).astype(int)))
+def build_bars():
+    """The 49 fixed bars (C2..B5 chromatically, plus one extra C6), built
+    via marimba_poc.build_layout so the oblique geometry/mallet-pivot math
+    is identical to the old per-seat instruments — just fed a fixed
+    representative pitch per bar instead of whatever pitches were observed."""
+    reps = pb.representative_cents()
+    fake_notes = np.zeros((len(reps), 5))
+    fake_notes[:, 1] = reps
 
-    # Equal-COUNT bands (not equal-cents-width): pitch density is uneven
-    # across the range, so an equal-width cents split left the lowest seat
-    # with ~5 bars while others got 50-60 (one seat's slice just happened to
-    # span a sparse stretch of the melody).  Splitting by pitch count instead
-    # gives every seat roughly the same number of bars, and still scales up
-    # naturally as a denser chorale uses more distinct pitches overall — same
-    # approach as finger_piano_section_poc.py / bass_section_poc.py.
-    n_seats = 8
-    bands = np.array_split(pitch_vals, n_seats)
-    edges = [None] + [int(b[0]) for b in bands[1:]] + [None]
-
-    players = []
-    for i in range(n_seats):
-        is_back = i < 4
-        row_i = i if is_back else i - 4
-        scale = BACK_SCALE if is_back else FRONT_SCALE
-        base_y = BACK_BASE_Y if is_back else FRONT_BASE_Y
-        cx = ROW_X0['back' if is_back else 'front'] + row_i * ROW_DX
-        players.append(dict(
-            id=i, name=f"Mb.{i + 1}", p_lo=edges[i], p_hi=edges[i + 1],
-            cx=cx, base_y=base_y, scale=scale, max_avail=MAX_SEAT_AVAIL,
-            player_x=cx, player_y=base_y + 150 * scale,
-        ))
-    return players
+    base_x = CX - AVAIL / 2
+    return mp.build_layout(
+        fake_notes, base_x=base_x, base_y=BASE_Y, avail=AVAIL, scale=SCALE,
+        player_x=CX, player_y=BASE_Y + PLAYER_Y_OFFSET * SCALE,
+    )
 
 
 def render(npy_file, tempo, duration):
     notes, _ = mp.load_features_array(npy_file, tempo, voice=5)
-    players = build_players(notes)
-    bars, pitch_to_idx = mp.build_multi_layout(notes, players)
+    notes[:, 1] = [pb.bucket_cents(p) for p in notes[:, 1]]
+
+    bars, pitch_to_idx = build_bars()
     n_bars = len(bars)
-    log.info(f"[marimba section] {n_bars} bars across {len(players)} seats")
-    for pl in players:
-        n = sum(1 for b in bars if b['seat_name'] == pl['name'])
-        log.info(f"  {pl['name']}: {n} bars @ (cx={pl['cx']}, base_y={pl['base_y']}, scale={pl['scale']})")
+    n_used = len(set(pitch_to_idx[int(round(p))] for p in notes[:, 1]))
+    log.info(f"[marimba section] one instrument, {n_bars} bars (C2..C6), "
+             f"{n_used} in use by this chorale")
 
     Path(FRAMES_DIR).mkdir(exist_ok=True)
     n_frames = int(np.ceil(duration * FPS))
@@ -123,18 +106,24 @@ def render(npy_file, tempo, duration):
 
     scene = mp.Scene(fig, ax, bars, show_title=False, show_labels=False)
 
-    for pl in players:
-        # y-up data space: subtract to place the label below the bar rack.
-        label_y = pl['base_y'] - 10 * pl['scale']
-        ax.text(pl['cx'], label_y, pl['name'], ha='center', va='top',
-                 fontsize=8, color=SEAT_LABEL_CLR, zorder=10)
+    stand.add_stand(
+        ax, CX, BASE_Y - STAND_GAP * SCALE,
+        rail_w=AVAIL * (1.0 - STAND_RAIL_INSET_FRAC), rail_h=STAND_RAIL_H,
+        scale=SCALE, leg_len_ref=fp.AVAIL,
+    )
+
+    # Matches Baritone Guitar's label height in bass_section_poc.py
+    # (GUITAR_CY - BODY_H*GUITAR_SCALE*0.7 == 577.06) so the two line up.
+    label_y = 577.06
+    ax.text(CX, label_y, "Marimba", ha='center', va='top',
+             fontsize=8, color=LABEL_CLR, zorder=10)
 
     for fi in range(n_frames):
         t = fi / FPS
         bar_glow, mallet_heads, mallet_visible = mp.compute_state(
             t, notes, pitch_to_idx, n_bars, bars)
         scene.update(bar_glow, mallet_heads, mallet_visible)
-        fig.savefig(f"{FRAMES_DIR}/frame_{fi:06d}.png", dpi=mp.DPI,
+        fig.savefig(f"{FRAMES_DIR}/frame_{fi:06d}.png", dpi=mp.SAVE_DPI,
                     transparent=True)
         if fi % 200 == 0:
             log.info(f"  {fi}/{n_frames}  t={t:.1f}s")

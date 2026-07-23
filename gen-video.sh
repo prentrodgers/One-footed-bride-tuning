@@ -117,10 +117,14 @@ rm -f str_notes.npy poc_notes.npy str_poc.mp4
 # status below stays on screen.  `time`'s own output goes to the same file.
 
 echo ""
-echo "=== Rendering string section (background + audio) ==="
+echo "=== Rendering string section (background) ==="
+# --stage 12: frames only, skips Stage 3's standalone str_poc.mp4 assembly —
+# compose_stage_merge.py builds the real output (with audio) from these same
+# frames a few steps down, so a second, redundant video here is just wasted
+# encode time. --chorale is still needed for the title-card text (Stage 2).
 { time python3 string_section_poc.py \
     --npy "$NPY" --tempo "$TEMPO" --duration "$DURATION" \
-    --stage all --mp3 "$MP3" --chorale "$CHORALE" ; } > logs/string.log 2>&1 &
+    --stage 12 --chorale "$CHORALE" ; } > logs/string.log 2>&1 &
 STR_PID=$!
 
 echo "=== Rendering marimba section (transparent, parallel) ==="
@@ -188,6 +192,11 @@ echo ""
 echo "=== Compositing layers and assembling ${OUT_MP4} ==="
 { time python3 compose_stage_merge.py --mp3 "$MP3" --out "$OUT_MP4" ; } > logs/compose.log 2>&1 \
     || { echo "ERROR: compositing failed — see logs/compose.log" >&2; exit 1; }
+
+# ── 10. Move the finished video alongside the source MP3s ────────────────────
+mkdir -p Uploads
+mv "$OUT_MP4" "Uploads/$OUT_MP4"
+OUT_MP4="Uploads/$OUT_MP4"
 
 echo ""
 echo "Done.  Output: ${OUT_MP4}"

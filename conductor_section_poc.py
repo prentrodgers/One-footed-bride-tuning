@@ -46,6 +46,7 @@ log = logging.getLogger(__name__)
 FRAMES_DIR = "conductor_frames"
 FPS        = 30
 W, H, DPI = mp.W, mp.H, mp.DPI
+SAVE_DPI  = mp.SAVE_DPI
 
 # Conductor position — front centre, between bowed strings and melody
 CONDUCTOR_X = 640
@@ -250,7 +251,7 @@ def render(npy_file, tempo, duration):
                 color=(0.7, 0.7, 0.7), alpha=0.5, zorder=15)
 
         fig.savefig(f"{FRAMES_DIR}/frame_{fi:06d}.png",
-                    dpi=DPI, transparent=True)
+                    dpi=SAVE_DPI, transparent=True)
         if fi % 200 == 0:
             log.info(f"  {fi}/{n_frames}  t={t:.1f}s  beat={beat_in_measure + 1}/4  "
                      f"chord={chord_idx}  angle={angle:.1f}°")

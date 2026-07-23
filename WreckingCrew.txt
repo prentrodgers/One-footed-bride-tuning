@@ -18495,4 +18495,162 @@ kubectl exec $POD -- bash -c "echo echo $TOKEN > /tmp/askpass.sh && chmod +x /tm
 
       Tried out Cline CLI, but the prompt caused it to crash. I was trying to copy with Shift-Ctrl-c but that's thats the kill signal. 
       ❯
-      THe finger piano section should have wider and shorter tines. They are based on samples that were recorded on tines that were only 1-3" long and wider than those in the finger piano section. And the woodwinds need to move up ahd to the left a bit. I'm thinking we need to have three sections in the back, three in the middle and two in the front, leaving room for a conductor. The string pizzicato section should be srhunk down by 30%.
+
+---------------
+7/17/26 I can't find the blue Cline logo in the Cline extension of vscode. It's not blue and it's on the left side not at the top.
+      Where we are: gen-video.sh - run all the instrument sections and combine them in to a video viewable of the instruments being played by invisible musicians. This does a lot of work to get the result in 25 seconds, since it parallelizes calling each python program. It also lists all the programs that we are working on. I would like
+
+      I have to install the virtual python environment first:
+            uv venv
+                  Using CPython 3.14.6 interpreter at: /usr/bin/python
+                  Creating virtual environment at: .venv
+                  Activate with: source .venv/bin/activate
+            source .venv/bin/activate
+            uv pip install -r requirements.txt
+                  Resolved 108 packages in 2.16s
+                        Built sox==1.5.0
+                  Prepared 107 packages in 7.30s
+                  Installed 108 packages in 1.09s
+      And you need an MP3 file to process:
+            python WreckingCrew.py --numpy_dir Archive/straw-man/viterbi-tunings-6-29 --chorale_list bwv261 --deep_bass_backoff 0.25 --back_off_clicks 0.25 --album 7 --mod d --include_slice 0 16 --density_level 5
+      But first you need csound, sox, ffmpeg. You have to build csound7 from sources. See /home/prent/Dropbox/Tutorials/Set-Up-Linux-on-Lenovo-Machines/Set_Up_M70q_linux.txt search for And from here on out is the procedure on fedora 44:
+            sudo dnf install sox sox-devel 
+            sudo dnf install lame libmad
+            sudo dnf install ffmpeg ffmpeg-libs --allowerasing
+            sudo dnf install sox sox-devel lame libmad
+      Then you can generate the video:
+            ./gen-video.sh bwv261
+      Trouble with a mismatched file name in compose_stage_merge.py: 
+                  [in#1 @ 0x561ed0d52fc0] Error opening input: No such file or directory
+                  Error opening input file Uploads/ball9-t61d_lm19_r1.25_df5_t3_d00_29_t118.mp3.
+                  Error opening input files: No such file or directory
+                  Traceback (most recent call last):
+                  File "/home/prent/Repos/One-footed-bride-tuning/compose_stage_merge.py", line 69, in <module>
+                  main()
+      compose_stage_merge.py has a hardcoded file name. The other python programs pull the latest in directory Uploads. Both are wrong. They need to look in the Uploads directory and pull the latest one that matches the chorale name. Scrub all the python programs called from gen-video.sh.
+
+      The cline extension to VScode thought for a while then stopped. I'm using the Cline CLI now instead. I think it might have to do with settings set to API instead of clinepass. Nope. I looked at the Cline extension settings and it says I'm using ClinePass with the gml-5.1 model, reasoning Medium Context length 1M. 
+
+      The finger piano section should have wider and shorter tines. They are based on samples that were recorded on tines that were only 1-3" long and wider than those in the finger piano section. And the woodwinds need to move up ahd to the left a bit. I'm thinking we need to have three sections in the back, three in the middle and two in the front, leaving room for a conductor. The string pizzicato section should be shrunk down by 30%.
+      Next prompt: 
+
+----------
+7/18/26 Add the brass and tidy up the section locations and sizes:
+      Please reduce the size of the woodwinds by 20% so that it's vertical height is nearly the same as the finger pianos on the same row. Change the color of the clarinet to black with silver barrel rings and finger keys used to select notess. Same for the Oboes, black with silver keys. Move the woodwinds to the horizontal center of the row. Then build a new section for the brass instruments. I'm creating a new features_array that includes the brass section.
+
+      Cline's response: Summary
+      Five changes across four files, plus one new file.
+      1. Woodwinds — 20% size reduction (woodwind_section_poc.py)
+      SCALE_BACK 0.85→0.68, SCALE_FRONT 1.00→0.80. The render height dropped from 218px to 193px. Note: the total height didn't shrink a full 20% because the 100px back→front row spacing (set by stage_layout) is fixed — only the instrument bodies shrank. The woodwind is now 193px vs the finger piano's 137px. If you want them closer, either reduce the scale more or tighten the middle-row sub-row gap in stage_layout.py (ROW_MID_Y_FAR/NEAR).
+      2. Clarinet — silver barrel (woodwind_section_poc.py)
+      The body was already black (CLR_CLARINET = (0.14, 0.12, 0.10)) and the keys were already silver. The barrel was the issue — it used _darken(CLR_CLARINET, 0.2) (dark, not silver). Changed it to CLR_CLARINET_SILVER with thin dark junction rings at the top and bottom of the barrel, so it reads as a proper silver barrel ring between the mouthpiece and the upper joint.
+      3. Oboes — black with silver keys (woodwind_section_poc.py)
+      CLR_OBOE changed from brown (0.45, 0.28, 0.12) to black (0.12, 0.10, 0.08) (African blackwood/grenadilla — which is what real oboes are actually made of). CLR_OBOE_DK → (0.05, 0.04, 0.03). Glow changed from warm wood (0.80, 0.65, 0.40) to cool blue-ish (0.55, 0.65, 0.90) to match the clarinet. The silver key rings, bocal, and pads were already in place — no structural changes needed.
+      4. Woodwinds — moved to horizontal center (woodwind_section_poc.py + stage_layout.py)
+      WW_X_START 360→520, centering the 4-wide row at x=640 (canvas center). MID_X in stage_layout.py updated to (180, 640, 1100) — finger piano at 180, woodwinds at 640, brass at 1100. Actual render center is x≈624 (slight offset from asymmetric bells/reeds extending further right than reeds extend left).
+      5. New brass section (brass_section_poc.py — 552 lines)
+      8 seats in 2 rows of 4, reading csound_voices 25 (trumpet), 26 (trombone), 27 (tuba) from the features array:
+      - Back row: 4 trumpets (Tr.I–IV) — horizontal brass tube, 3 silver piston valves, flared bell, mouthpiece, tuning slide, finger hook
+      - Front row: 2 trombones (Trb.I–II) — longer tube with silver slide (U-bend), larger bell + 2 tubas (Tu.I–II) — large coiled brass (concentric arcs like the French horn but bigger), upward bell, 4 rotary valves
+      Modeled on woodwind_section_poc.py: same load/route_notes/compute_state/BrassScene structure with idle sway, playing lean, and brass-color glow. Placed at MID_X[2] = 1100 (right slot of the middle row), centered via stage_layout. Handles empty brass voices gracefully (WARNING + silent render).
+      Integration:
+      - gen-video.sh: added brass8_frames to cleanup, parallel render block, $BRASS_PID to the wait loop (now six sections)
+      - compose_stage_merge.py: added BRASS_DIR = "brass8_frames" to the composite layers
+      Current orchestra layout
+      BACK  row (screen 75/147):  strings(x180)  marimba(x505)  bass(x820)
+      MID   row (screen 255/355): finger piano(x180)  woodwinds(x640)  brass(x1100)
+      FRONT row (screen 445/545): <future>(x450)  <future>(x830)
+      6 of 8 sections built; 2 front-row sections remaining.
+      Validation
+      - All 9 Python files compile; bash -n gen-video.sh clean.
+      - Woodwind colors verified: oboe is black, clarinet barrel is silver, scales reduced.
+      - Brass section smoke-rendered successfully — the current bwv261_features_array.npy already has brass voices (26 trumpet, 6 trombone, 12 tuba notes), though most are placeholders with zero duration/volume (only 3 tuba notes passed the filter). The section renders those 3 notes correctly and handles the rest gracefully.
+      - Brass render bounds: rows 211–386 (175px), cols 952–1248 (centered at x=1100, fits within canvas).
+      Things to note
+      - The brass section extends to col 1248 (32px from the right edge). If your new features array has more brass activity and the tuba at x=1205 has a large bell, it could get close to the edge — easy to fix by reducing BRASS_X_STEP or SCALE_FRONT in brass_section_poc.py.
+      - The tuba's glow is subtle (its body is drawn with Arc patches, which render as lines, so set_facecolor has limited effect — same pre-existing behavior as the French horn in the woodwind section). The trumpet and trombone glow works fully (Rectangle bodies).
+      - ./gen-video.sh bwv261 will now render all six sections in parallel and composite them. Once you create the new features array with full brass parts, the brass section will animate all 8 instruments.
+
+      He proceeded to create the rest of the instrument sections, plus the conductor letting the orchestra know what chord to play. Slower than IBM Bob or Claude, but still very, very good. 
+
+      I hit my first denial of service from ClinePass. It said I had to wait 19 minutes before I could start again. I need to see where I stand so this doesn't happen again. Look here: https://app.cline.bot/dashboard/subscription
+      Usage Limits:
+            5-Hour Limit
+            20%
+            Resets in 4 hours 57 minutes
+
+            Weekly Limit
+            62%
+            Resets in 5 days 16 hours
+
+            Monthly Limit
+            31%
+            Resets in 28 days 16 hours
+      So I've used 31% of my monthly limit in one day. Not a good sign. 
+      I was able to finish working later in the day.
+
+----------------
+7/19/26 The latest run makes me want a longer piece. But first, we need more activity or glow applied to the sustained sections.  
+      It's looking pretty good. Every change takes about five minutes. This is much slower than Claude. There's a huge increase in the text being written to the console, and that could be one of the things that slows down the result. Time to give it more notes to work with:
+            python WreckingCrew.py --numpy_dir Archive/straw-man/viterbi-tunings-6-29 --chorale_list bwv261 --deep_bass_backoff 0.25 --back_off_clicks 0.25 --album 7 --mod d --include_slice 0 32 --density_level 5
+
+---------------
+7/20/26 ClinePass limit reached
+      You have reached your weekly Clinepass limit. The limit resets in 4d, please try again later.
+      Switch to Cline usage-based billing and retry with the Cline provider.
+      He gave up in mid-stream. Set up Ponytail on fs3 and run claude to continue the effort. 
+
+---------------
+7/21/26 Continued to make progress with Claude and Ponytail. I noticed some png files in the home directory of the repo.
+      Can these be replaced by better versions of themselves from photos of actual instruments? It turned out those were just debugging artifacts and can be safely deleted. 
+      I asked claude:  I'm interested in several enhancements. Perhaps you could assess the difficulty of working on each. 1. Double the resolution vertically and horizontally to improve the appearance. 2. Replacing the vector drawn instruments with photo realistic images from some source 3. Switching to Blender to implement a true three dimensional appearance. I'm trying to reach for what Animusic achieved visually but for my music rather than their cheesy synthetic drek. Their visuals are so amazing I wish I could achieve something like that.
+
+      Claude says: I looked at the render pipeline to ground this rather than guess. Here's the assessment:
+
+      1. Double the resolution — Low difficulty, low risk
+      Everything is vector-drawn (matplotlib patches), so this scales cleanly — no re-modeling needed. The trick: W, H, DPI (1280×720×96) are used both to size the figure and as the "1 data-unit = 1 pixel" coordinate system every layout constant is written in. If I just bump DPI, the figure shrinks back to the same pixel output (figsize = W/DPI cancels it out). The clean way is to keep the figure/data coordinates exactly as-is and only raise the DPI passed to fig.savefig() at save time — matplotlib then rasterizes the same scene at higher density, and everything (line widths, fonts, patch sizes) scales proportionally automatically. It's a mechanical change across the 10 fig.savefig(...) call sites plus keeping the duplicated W,H,DPI constants (in marimba_poc.py and stage_layout.py) in sync. Main cost is render time and file size (4× the pixels, so roughly 4× slower renders and bigger PNGs/frames). I'd estimate under an hour of work.
+
+      2. Photo-realistic instrument images — Medium-high difficulty, and I don't think it gets you toward Animusic
+      The animation here depends on independently deforming parts of each instrument — a mallet swinging, a bow sweeping, a trombone slide extending, individual marimba bars glowing. A single flat photo can be rotated/scaled as a whole (easy), but not partially deformed. Getting the current level of detail would mean sourcing (or shooting) separate cutout photos per moving part — body, mallet head, bow, slide — at a consistent oblique angle and lighting, which is a real production effort, plus licensing/copyright considerations if this gets published. And notably: Animusic's look isn't photo-based at all — it's 3D-rendered with stylized materials. Photos would give you a different (collage-like) aesthetic, not the Animusic one.
+
+      3. Blender / true 3D — High difficulty, but it's the actual path to what you're describing
+      This is structurally what Animusic does. The note-timing/data layer (loading the features array, figuring out when each instrument glows/strikes/bows/sways) is reusable almost as-is — that logic just needs to drive Blender object transforms via bpy instead of matplotlib patch properties. But everything visual is a rebuild: 3D models for every instrument (source from a marketplace like Sketchfab/BlendSwap, or model from scratch), rigging for moving parts, materials/lighting/camera setup, and a render engine choice (Eevee for speed, Cycles for photorealism at a steep time cost — a full ~289s/8679-frame render could go from your current few-minutes to many hours). This is a multi-week-plus project, and the limiting factor is 3D modeling/Blender-scripting skill more than coding difficulty per se.
+
+      My recommendation: do #1 now (cheap, safe, immediate visual win), skip #2, and treat #3 as a separate, deliberately-scoped project — maybe prototype with one or two instruments in Blender first before committing to rebuilding all eight sections. Want me to implement the resolution bump now?
+
+      Do one more with the proper naming convention for the output first. 
+            python WreckingCrew.py --numpy_dir Archive/straw-man/viterbi-tunings-6-29 --chorale_list bwv253 --deep_bass_backoff 0.25 --back_off_clicks 0.25 --album 7 --mod d --density_level 5 --rondo_section_a 0 31 --rondo_insert_a_after 63 127
+            ./gen-video.sh bwv253
+      This produces: merged_bwv253_t122_300s.mp4
+      Once more but sparser:
+            python WreckingCrew.py --numpy_dir Archive/straw-man/viterbi-tunings-6-29 --chorale_list bwv254 --deep_bass_backoff 0.25 --back_off_clicks 0.25 --album 7 --mod d --density_level 1 --rondo_section_a 0 31 --rondo_insert_a_after 63 127
+            time ./gen-video.sh bwv254
+                  Done.  Output: merged_bwv254_t118_339s.mp4
+                  Duration: 339.460998s # <-- this is the final step that can't be parallelized. Or can it? 
+
+                  real    11m38.152s # If I double the resolution, this will be 44 minutes plus per chorale. I think that's worth it. 
+                  user    36m45.937s
+                  sys     1m41.706s
+      Had a minor problem with an empty instrument section, but Claude fixed it. I asked him to try to parallelize compose_stage_merge.py to save time. Half the time is spent with 1 core only active during the merge. It doesn't look like this make much difference. Check the log.
+
+      The 2x resolution in 2 dimensions really helped make everything more clear. It increase the duration from 11 minutes to 18 minutes, a trivial increase for such a quality improvement. 
+
+
+-------------
+7/22/26 Run all 12 chorales with the latest changes. Redo some of the early ones with problems.
+            for c in bwv253 bwv254 bwv256 ; do echo $c && python WreckingCrew.py --numpy_dir Archive/straw-man/viterbi-tunings-6-29 --chorale_list $c --deep_bass_backoff 0.25 --back_off_clicks 0.25 --album 7 --mod d --density_level 3 --rondo_section_a 0 31 --rondo_insert_a_after 63 127 ; time ./gen-video.sh $c ; done      
+      Takes a while, 14 to 35 minutes depending on the number of notes.
+
+      I need a good mix of densities, and this made them all the same. 
+            CHORALES=${1:-$(echo bwv{253..264})}
+            python WreckingCrew.py --numpy_dir Archive/straw-man/viterbi-tunings-6-29 --chorale_list $CHORALES --auto_density --shuffle_density --deep_bass_backoff 0.25 --back_off_clicks 0.25 --album 7 --mod d --rondo_section_a 0 31 --rondo_insert_a_after 63 127
+      Then rerun all the renders from the start.
+            for c in $CHORALES ; do echo $c ; time ./gen-video.sh $c ; done
+      Posted the bwv261 from yesterday on YouTube: https://youtu.be/0h6--rnJmmw
+      And substack here: https://open.substack.com/pub/microtonalnotes/p/animicrotonal-music?r=oluns&utm_campaign=post&utm_medium=web&showWelcomeOnShare=true
+
+      New Prompt:
+      I'm thinking of an alternative arrangement that reduces the sections down to one instrument for all the same instruments in a section. In other words, consolidate all the marimbas into one with perhaps 36 or 48 bars each representing a pitch class. Use the same number of mallets, but don't attempt a one-to-one relationship of pitches to bars. Consolidate the pizzicato strings down to one instruments, and the martele to one instrument in the pizzicato_strings section. Do the same for the bass_section: one bass finger piano to 36 or 48 tines like the marimba section. Same for the baritone guitars, but six strings. Same for the finger piano section: One instrument with 36-48 tines that light up and vibrate when plucked. Woodwinds consolidated into five instruments, brass into three instruments, and melody section into six instruments. This way it would increase the attention to the relationship between struck and plucked instruments sound and the visual movement. Make the finger piano plucks more prominent, more movement over greater distance, larger vibrations. What do you think?
+
+      He's coded up the marimba part. So I will create a short version of bwv253:
+            python WreckingCrew.py --numpy_dir Archive/straw-man/viterbi-tunings-6-29 --chorale_list bwv253 --deep_bass_backoff 0.25 --back_off_clicks 0.25 --album 7 --mod d --include_slice 0 32 --density_level 5
