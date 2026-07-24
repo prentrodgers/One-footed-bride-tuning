@@ -101,6 +101,12 @@ PLAY_RELAX_T = 0.55
 SWAY_AMP_DEG = 5.0   # ± degrees — doubled so players sway ~2× more (vibraphone exempted in update)
 SWAY_FREQS   = [0.20, 0.25, 0.225, 0.275, 0.1875, 0.2625]  # 25% faster
 SWAY_PHASES  = [0.0,  1.3,  2.7,  0.5,  3.8,  1.9]
+# Sway fades out after an instrument's been silent for a while
+# (SWAY_ENV_TAU_OUT) and fades back in once it starts playing again
+# (SWAY_ENV_TAU_IN, quicker) — see BrassScene's trombone slide for the same
+# exponential-smoothing technique.
+SWAY_ENV_TAU_IN  = 0.4    # seconds
+SWAY_ENV_TAU_OUT = 3.0    # seconds
 
 # Playing lean: extra tilt toward mouthpiece when a note is held.
 # Doubled (≈2×) so the players move more while enjoying the music.  Vibraphone
@@ -306,6 +312,32 @@ def compute_state(t, seat_note_sets, seats):
     return states
 
 
+# Which of each draw_*()'s returned patches share the base body colour and
+# should join the playing-glow (indices into that patch list) — bassoon's
+# body is two same-coloured tubes and trumpet's is split top/bottom around
+# the valve cluster (leadpipe + v_tube); lighting only index 0 left the
+# other piece looking unlit. See woodwind_section_poc.py/brass_section_poc.py
+# (these draw_fns are imported from there) for the full patch-order notes.
+GLOW_PATCH_IDX = {
+    'flute':      (0,),
+    'clarinet':   (0,),
+    'vibraphone': (0,),
+    'oboe':       (0,),
+    'bassoon':    (0, 1),
+    'trumpet':    (0, 9),
+}
+
+
+def _set_patch_color(patch, color):
+    """Arc never fills (matplotlib forces fill=False on it), so its visible
+    colour is the edge/line colour, not facecolor — set whichever actually
+    renders."""
+    if isinstance(patch, Arc):
+        patch.set_edgecolor(color)
+    else:
+        patch.set_facecolor(color)
+
+
 # ── Scene ─────────────────────────────────────────────────────────────────────
 class MelodyScene:
     """Manages per-seat transforms (sway + lean) and glow for the mixed ensemble."""
@@ -321,6 +353,7 @@ class MelodyScene:
         self._vib_stems     = {}   # sid -> [stem_left, stem_right] (Line2D)
         self._vib_mallets   = {}   # sid -> [head_left, head_right]  (Ellipse)
         self._vib_geom      = {}   # sid -> [per-mallet pivot/arm/rest-theta dict]
+        self._sway_env      = {}   # sid → current sway envelope (0..1, eased toward playing state)
 
         draw_fn = {
             'flute':      ww.draw_flute,
@@ -341,7 +374,8 @@ class MelodyScene:
             self._seat_patches[s['id']]   = patches
             self._seat_pivot[s['id']]     = pivot
             self._seat_lean_dir[s['id']]  = lean_dir
-            self._body_patches[s['id']]   = patches[0]
+            self._body_patches[s['id']]   = [patches[i] for i in GLOW_PATCH_IDX[s['kind']]]
+            self._sway_env[s['id']]       = 0.0   # starts still; fades in on first note
 
             # Vibraphone: keep references to its two mallet rods + heads (the
             # last four patches draw_vibraphone returns: stemL, headL, stemR,
@@ -407,10 +441,19 @@ class MelodyScene:
             lean_dir = self._seat_lean_dir[sid]
 
             is_vib = (s['kind'] == 'vibraphone')
-            # Idle sway — vibraphone stays in place (no sway); others sway ~2× more.
-            sway_angle = (0.0 if is_vib
-                          else SWAY_AMP_DEG * math.sin(
-                              2 * math.pi * s['sway_freq'] * t + s['sway_phase']))
+            # Idle sway — vibraphone stays in place (no sway); others sway
+            # ~2x more, faded by an envelope that eases toward 1 (playing)
+            # or 0 (been silent a while) so they settle to stillness after
+            # resting rather than swaying forever.
+            if is_vib:
+                sway_angle = 0.0
+            else:
+                sway_tau = SWAY_ENV_TAU_IN if playing else SWAY_ENV_TAU_OUT
+                sway_alpha = 1.0 - math.exp(-(1.0 / FPS) / sway_tau)
+                target_env = 1.0 if playing else 0.0
+                self._sway_env[sid] += (target_env - self._sway_env[sid]) * sway_alpha
+                sway_angle = (SWAY_AMP_DEG * self._sway_env[sid]
+                              * math.sin(2 * math.pi * s['sway_freq'] * t + s['sway_phase']))
 
             # Playing lean
             if playing:
@@ -436,10 +479,11 @@ class MelodyScene:
                     base_c[i] + glow * (tint[i] - base_c[i])
                     for i in range(3)
                 )
-                self._body_patches[sid].set_facecolor(blended)
+                color = blended
             else:
-                self._body_patches[sid].set_facecolor(
-                    self._get_base_color(s['kind']))
+                color = self._get_base_color(s['kind'])
+            for p in self._body_patches[sid]:
+                _set_patch_color(p, color)
 
             # Apply transform
             xf = (mtransforms.Affine2D()

@@ -36,6 +36,7 @@ import librosa
 
 import uploads_lookup
 import stage_layout as stage
+import string_length as sl
 
 import logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s", datefmt="%d %H:%M")
@@ -142,9 +143,11 @@ INST_SPEC = {
 # ── Gesture timing ────────────────────────────────────────────────────────────
 GLOW_DECAY   = 0.26   # seconds
 
-# Pizzicato pluck
+# Pizzicato pluck — a small fingertip shape (elongated ellipse), not a
+# plain circle, and smaller than the old fixed radius.
 PLK_ARM      = 46     # px — finger rest distance to right of body edge
-PLK_RAD      = 7      # px — fingertip circle radius
+PLK_FINGER_W = 3.5    # px — fingertip width at scale=1.0
+PLK_FINGER_H = 7.0     # px — fingertip length at scale=1.0
 PLK_APP_T    = 0.055
 PLK_DWL_T    = 0.025
 PLK_RET_T    = 0.130
@@ -303,6 +306,7 @@ def compute_state(t, player_notes_sets, players):
         str_glow  = np.zeros(4)
         str_vib   = np.zeros(4)  # amplitude 0..1
         str_onset = np.full(4, -999.0)  # last onset per string
+        str_pitch = np.full(4, np.nan)  # pitch currently sounding on each string
         last_gest = None           # (onset_t, str_idx, voice_id)
 
         for row in notes:
@@ -327,6 +331,7 @@ def compute_state(t, player_notes_sets, players):
                 if amp > str_vib[si]:
                     str_vib[si] = amp
                     str_onset[si] = onset_t
+                    str_pitch[si] = pitch
 
             # Track most recent onset for gesture
             total_gest = (BOW_APP_T + BOW_DWL_T + BOW_RET_T
@@ -338,7 +343,7 @@ def compute_state(t, player_notes_sets, players):
 
         states[pid] = dict(
             str_glow=str_glow, str_vib=str_vib, str_onset=str_onset,
-            last_gest=last_gest,
+            str_pitch=str_pitch, last_gest=last_gest,
         )
     return states
 
@@ -365,6 +370,7 @@ class Scene:
         self._str_glow = {}   # pid → list of 4 Ellipse halos
         self._bow      = {}   # pid → Rectangle (martelé only)
         self._pluck    = {}   # pid → Circle (pizzicato only)
+        self._stop_dots = {}  # pid → list of 4 Circle (fret/stop position)
         self._body_pch = {}   # pid → body Polygon (to update color on activation)
 
         for pl in players:
@@ -405,9 +411,11 @@ class Scene:
                              lw=0.5, zorder=3)
             ax.add_patch(scroll)
 
-            # Bridge (thin rectangle at mid-body)
+            # Bridge (thin rectangle at mid-body) — positioned so
+            # nut:bridge to bridge:tailpiece is 6:1 (typical violin-family
+            # proportions), not just a fixed fraction of body height.
             bridge_w = (sxs[-1] - sxs[0]) + 4 * sc
-            bridge_y = cy + bh * 0.12
+            bridge_y = str_top + (6.0 / 7.0) * (str_bot - str_top)
             bridge = Rectangle((sxs[0] - 2*sc, bridge_y - 1.5*sc),
                                 bridge_w, 3.0*sc,
                                 fc=_darken(wood, 0.3), ec='none', zorder=6)
@@ -441,13 +449,24 @@ class Scene:
                 ax.add_patch(glow)
                 self._str_glow[pid].append(glow)
 
+            # ── Fingerboard stop dots — mark where the finger presses the
+            # string for a note above its open pitch (invisible otherwise) ──
+            self._stop_dots[pid] = []
+            for si, sx in enumerate(sxs):
+                dot = Circle((sx, cy), radius=2.2 * sc,
+                             fc=(0.90, 0.85, 0.75), ec=(0.30, 0.25, 0.20),
+                             lw=0.4, alpha=0.0, zorder=8)
+                ax.add_patch(dot)
+                self._stop_dots[pid].append(dot)
+
             # ── Gesture: bow (martelé) or pluck circle (pizzicato) ──────────
             is_martel = pl['voice'] in MARTEL_VOICES
 
             if is_martel:
-                # Bow: horizontal rectangle that sweeps across strings
+                # Bow: horizontal rectangle that sweeps across strings, at
+                # bridge height (bowing happens right at the bridge)
                 bow_len = (sxs[-1] - sxs[0]) + BOW_SWEEP + 20 * sc
-                bow_y   = cy + bh * 0.12 - BOW_H / 2
+                bow_y   = bridge_y - BOW_H / 2
                 bow = Rectangle((cx - bow_len / 2, bow_y),
                                  bow_len, BOW_H * sc,
                                  fc=(0.92, 0.90, 0.76), ec=(0.70, 0.68, 0.55),
@@ -456,9 +475,10 @@ class Scene:
                 self._bow[pid]   = bow
                 self._pluck[pid] = None
             else:
-                # Pluck circle: appears to the right of instrument body
-                pluck = Circle((cx + bw + PLK_ARM * sc, cy + bh * 0.12),
-                                radius=PLK_RAD * sc,
+                # Pluck fingertip: appears to the right of instrument body,
+                # at bridge height (plucking happens close to the bridge)
+                pluck = Ellipse((cx + bw + PLK_ARM * sc, bridge_y),
+                                width=PLK_FINGER_W * sc, height=PLK_FINGER_H * sc,
                                 fc=(0.85, 0.82, 0.75), ec='none',
                                 alpha=0.0, zorder=9)
                 ax.add_patch(pluck)
@@ -476,6 +496,8 @@ class Scene:
                 line.set_transform(tilt)
             for halo in self._str_glow[pid]:
                 halo.set_transform(tilt)
+            for dot in self._stop_dots[pid]:
+                dot.set_transform(tilt)
             if self._bow[pid] is not None:
                 self._bow[pid].set_transform(tilt)
             if self._pluck[pid] is not None:
@@ -513,11 +535,17 @@ class Scene:
             sxs   = _str_xs(cx, spec, sc)
             str_top = cy - bh
             str_bot = cy + bh * 0.85
+            # Matches the drawn bridge (6:1 nut:bridge to bridge:tailpiece)
+            # — the true fixed end of the *vibrating* length; str_bot is
+            # the tailpiece, past the bridge, which never vibrates.
+            bridge_y = str_top + (6.0 / 7.0) * (str_bot - str_top)
             state = states[pid]
             glow  = state['str_glow']
             vib   = state['str_vib']
             st_on = state['str_onset']
+            st_pitch = state['str_pitch']
             gest  = state['last_gest']
+            open_cents = spec['open_cents']
 
             # ── Update each string ───────────────────────────────────────────
             for si, sx in enumerate(sxs):
@@ -525,18 +553,49 @@ class Scene:
                 a = vib[si]
                 line = self._strings[pid][si]
                 halo = self._str_glow[pid][si]
+                dot = self._stop_dots[pid][si]
 
                 if a > 0.005:
-                    # Vibrating: compute standing-wave x-offsets
+                    # Vibrating: compute standing-wave x-offsets. A note
+                    # stopped above the string's open pitch only vibrates
+                    # over the fraction of the string between the finger
+                    # and the bridge — length ∝ 1/frequency. The fixed end
+                    # is the bridge (bridge_y), not the tailpiece (str_bot):
+                    # the afterlength past the bridge never vibrates, and
+                    # anchoring to str_bot let the "stopped" segment (and
+                    # the stop dot) render past the bridge for short lengths.
                     onset_t = st_on[si]
                     dt  = t - onset_t
                     ph  = 2.0 * np.pi * VIB_FREQ * dt
+
+                    pitch = st_pitch[si]
+                    length_frac = (sl.vibrating_length_fraction(pitch, open_cents[si])
+                                   if not np.isnan(pitch) else 1.0)
+                    vib_top = bridge_y - length_frac * (bridge_y - str_top)
+
                     ys  = np.linspace(str_top, str_bot, 30)
-                    L   = str_bot - str_top
-                    xs  = sx + a * 9 * sc * np.sin(np.pi * (ys - str_top) / L) * np.cos(ph)
+                    rel = np.clip((ys - vib_top) / max(bridge_y - vib_top, 1e-6), 0.0, 1.0)
+                    wave_shape = np.where(ys >= vib_top, np.sin(np.pi * rel), 0.0)
+                    xs  = sx + a * 9 * sc * wave_shape * np.cos(ph)
                     line.set_data(xs, ys)
+
+                    # Glow halo follows the shortened vibrating segment
+                    # (finger stop -> bridge, not down to the tailpiece)
+                    halo.set_center((sx, (vib_top + bridge_y) / 2))
+                    halo.set_height((bridge_y - vib_top) + 12)
+
+                    # Stop dot: only shown for an actually-stopped note
+                    # (length_frac < 1 — an open string has no finger down)
+                    if length_frac < 0.98:
+                        dot.set_center((sx, vib_top))
+                        dot.set_alpha(g if g > 0.05 else 0.0)
+                    else:
+                        dot.set_alpha(0.0)
                 else:
                     line.set_data([sx, sx], [str_top, str_bot])
+                    halo.set_center((sx, cy))
+                    halo.set_height((str_bot - str_top) + 12)
+                    dot.set_alpha(0.0)
 
                 # String brightness on glow
                 lw_base = 0.9 * sc
@@ -566,7 +625,7 @@ class Scene:
                 bow = self._bow[pid]
                 total = BOW_APP_T + BOW_DWL_T + BOW_RET_T
                 if -BOW_APP_T <= dt <= total:
-                    bow_y = cy + bh * 0.12 - (BOW_H * sc) / 2
+                    bow_y = bridge_y - (BOW_H * sc) / 2
                     bow.set_y(bow_y)
                     # Sweep: bow moves rightward starting left of strings
                     sweep_lo = sx_active - BOW_SWEEP * 0.45
@@ -602,7 +661,7 @@ class Scene:
                     else:             # retracting
                         ph = min(1.0, (dt - PLK_DWL_T) / PLK_RET_T) ** 0.7
                         gx = sx_active + (PLK_ARM + bw) * sc * ph
-                    gy = cy + bh * 0.12   # bridge height
+                    gy = bridge_y
                     pluck.center = (gx, gy)
                     pluck.set_facecolor(VOICE_CLR.get(voice_id, (0.8, 0.8, 0.7)))
                     pluck.set_alpha(1.0)

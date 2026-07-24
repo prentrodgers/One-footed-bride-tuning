@@ -18661,17 +18661,7 @@ kubectl exec $POD -- bash -c "echo echo $TOKEN > /tmp/askpass.sh && chmod +x /tm
             cd Repos/One-footed-bride-tuning/
             ls -1 Uploads/*.mp3
             k cp bwv253_features_array.npy one-footed-bride-85b7ff55d8-4ch9p:/home/prent/Repos/One-footed-bride-tuning/bwv253_features_array.npy 
-            k cp bwv254_features_array.npy one-footed-bride-85b7ff55d8-4ch9p:/home/prent/Repos/One-footed-bride-tuning/bwv254_features_array.npy 
-            k cp bwv255_features_array.npy one-footed-bride-85b7ff55d8-4ch9p:/home/prent/Repos/One-footed-bride-tuning/bwv255_features_array.npy 
-            k cp bwv256_features_array.npy one-footed-bride-85b7ff55d8-4ch9p:/home/prent/Repos/One-footed-bride-tuning/bwv256_features_array.npy 
-            k cp bwv257_features_array.npy one-footed-bride-85b7ff55d8-4ch9p:/home/prent/Repos/One-footed-bride-tuning/bwv257_features_array.npy 
-            k cp bwv258_features_array.npy one-footed-bride-85b7ff55d8-4ch9p:/home/prent/Repos/One-footed-bride-tuning/bwv258_features_array.npy 
-            k cp bwv259_features_array.npy one-footed-bride-85b7ff55d8-4ch9p:/home/prent/Repos/One-footed-bride-tuning/bwv259_features_array.npy 
-            k cp bwv260_features_array.npy one-footed-bride-85b7ff55d8-4ch9p:/home/prent/Repos/One-footed-bride-tuning/bwv260_features_array.npy 
-            k cp bwv261_features_array.npy one-footed-bride-85b7ff55d8-4ch9p:/home/prent/Repos/One-footed-bride-tuning/bwv261_features_array.npy 
-            k cp bwv262_features_array.npy one-footed-bride-85b7ff55d8-4ch9p:/home/prent/Repos/One-footed-bride-tuning/bwv262_features_array.npy 
-            k cp bwv263_features_array.npy one-footed-bride-85b7ff55d8-4ch9p:/home/prent/Repos/One-footed-bride-tuning/bwv263_features_array.npy 
-            k cp bwv264_features_array.npy one-footed-bride-85b7ff55d8-4ch9p:/home/prent/Repos/One-footed-bride-tuning/bwv264_features_array.npy 
+            k cp bwv254_features_array.npy o
 
             for c in bwv255 bwv259 bwv261 bwv263 ; do echo $c ; time ./gen-video.sh $c ; done
             
@@ -18682,3 +18672,9 @@ kubectl exec $POD -- bash -c "echo echo $TOKEN > /tmp/askpass.sh && chmod +x /tm
             GIT_PAT=$(op item get "GitHub PAT" --fields credential --reveal) 
             git remote set-url origin https://$GIT_PAT@github.com/prentrodgers/One-footed-bride-tuning.git
             git push
+
+------------------
+7/24/26 Get the generated videos out of one-footed-bride-pod:
+            scp one-footed-bride-pod:/home/prent/Repos/One-footed-bride-tuning/Uploads/*.mp4 Uploads/.
+      Much simpler than the "k cp" syntax, supports wild cards and dot target. Neat. 
+      Now move up the fingerboard on the string instruments: Excellent. I want to tackle a challenging task next. The strings should not always be full length when plucked or bowed. Imagine a finger pressing down on the fingerboard. It moves towards the bridge to make higher notes, so the vibration is across a shorter length. Each string has a note it makes on the unblocked length. It's different for each instrument. The particular string is already being chosen by the python codes for each string instrument. Now I want to add the diminsished length if the tone is higher than the open string, proportional to how much higher the tone is. Does that make sense? Ask questions if you are unsure.

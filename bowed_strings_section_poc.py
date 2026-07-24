@@ -34,6 +34,7 @@ from matplotlib.patches import Polygon as MplPolygon, Circle, Rectangle, Ellipse
 
 import marimba_poc as mp
 import stage_layout as stage
+import string_length as sl
 
 import logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s", datefmt="%d %H:%M")
@@ -252,6 +253,7 @@ def compute_state(t, player_note_sets, players):
         str_glow = np.zeros(n_str)
         str_vib = np.zeros(n_str)
         str_onset = np.full(n_str, -999.0)
+        str_pitch = np.full(n_str, np.nan)   # pitch currently sounding on each string
         last_gest = None
 
         for row in notes:
@@ -265,6 +267,7 @@ def compute_state(t, player_note_sets, players):
                 str_glow[si] = max(str_glow[si], 1.0)
                 str_vib[si] = max(str_vib[si], 1.0)
                 str_onset[si] = onset
+                str_pitch[si] = pitch
                 last_gest = (onset, si, int(row[5]), float(dur))
             elif t > note_end:
                 decay = (t - note_end) / TAU_BOW
@@ -276,7 +279,8 @@ def compute_state(t, player_note_sets, players):
                     last_gest = (onset, si, int(row[5]), float(dur))
 
         states[pid] = dict(str_glow=str_glow, str_vib=str_vib,
-                           str_onset=str_onset, last_gest=last_gest)
+                           str_onset=str_onset, str_pitch=str_pitch,
+                           last_gest=last_gest)
     return states
 
 
@@ -292,6 +296,7 @@ class BowedScene:
         self._strings = {}
         self._str_glow = {}
         self._bow = {}
+        self._stop_dots = {}   # pid → list of Circle, one per string (fret/stop position)
 
         for pl in players:
             pid = pl['id']
@@ -330,9 +335,11 @@ class BowedScene:
                             lw=0.5, zorder=3)
             ax.add_patch(scroll)
 
-            # Bridge
+            # Bridge — positioned so nut:bridge to bridge:tailpiece is 6:1
+            # (typical violin-family proportions), not just a fixed fraction
+            # of body height.
             bridge_w = (sxs[-1] - sxs[0]) + 4 * sc
-            bridge_y = cy + bh * 0.12
+            bridge_y = str_top + (6.0 / 7.0) * (str_bot - str_top)
             bridge = Rectangle((sxs[0] - 2*sc, bridge_y - 1.5*sc),
                                bridge_w, 3.0*sc,
                                fc=_darken(wood, 0.3), ec='none', zorder=6)
@@ -364,9 +371,21 @@ class BowedScene:
                 ax.add_patch(glow)
                 self._str_glow[pid].append(glow)
 
-            # Bow — horizontal rectangle that sweeps across strings
+            # Fingerboard stop dot — marks where the finger presses the
+            # string for a note above its open pitch (invisible until a
+            # stopped note is sounding).
+            self._stop_dots[pid] = []
+            for si, sx in enumerate(sxs):
+                dot = Circle((sx, cy), radius=2.2 * sc,
+                             fc=(0.90, 0.85, 0.75), ec=(0.30, 0.25, 0.20),
+                             lw=0.4, alpha=0.0, zorder=8)
+                ax.add_patch(dot)
+                self._stop_dots[pid].append(dot)
+
+            # Bow — horizontal rectangle that sweeps across strings, at
+            # bridge height (bowing happens right at the bridge)
             bow_len = (sxs[-1] - sxs[0]) + BOW_SWEEP + 20 * sc
-            bow_y = cy + bh * 0.12 - BOW_H * sc / 2
+            bow_y = bridge_y - BOW_H * sc / 2
             bow = Rectangle((cx - bow_len / 2, bow_y),
                             bow_len, BOW_H * sc,
                             fc=(0.92, 0.90, 0.76), ec=(0.70, 0.68, 0.55),
@@ -385,6 +404,8 @@ class BowedScene:
                 line.set_transform(tilt)
             for halo in self._str_glow[pid]:
                 halo.set_transform(tilt)
+            for dot in self._stop_dots[pid]:
+                dot.set_transform(tilt)
             bow.set_transform(tilt)
 
             # Player label — sits beyond the scroll/pegbox end (now the
@@ -409,28 +430,67 @@ class BowedScene:
             sxs = [cx - str_s * (n_str - 1) / 2 + i * str_s for i in range(n_str)]
             str_top = cy - bh
             str_bot = cy + bh * 0.85
+            # Matches the drawn bridge (6:1 nut:bridge to bridge:tailpiece)
+            # — the true fixed end of the *vibrating* length; str_bot is
+            # the tailpiece, past the bridge, which never vibrates.
+            bridge_y = str_top + (6.0 / 7.0) * (str_bot - str_top)
             state = states[pid]
             glow = state['str_glow']
             vib = state['str_vib']
             st_on = state['str_onset']
+            st_pitch = state['str_pitch']
             gest = state['last_gest']
+            open_cents = spec['open_cents']
 
             for si, sx in enumerate(sxs):
                 g = glow[si]
                 a = vib[si]
                 line = self._strings[pid][si]
                 halo = self._str_glow[pid][si]
+                dot = self._stop_dots[pid][si]
 
                 if a > 0.005:
                     onset_t = st_on[si]
                     dt = t - onset_t
                     ph = 2.0 * np.pi * VIB_FREQ * dt
+
+                    # A note stopped above the string's open pitch only
+                    # vibrates over the fraction of the string between the
+                    # finger and the bridge — the rest is damped. The fixed
+                    # end is the bridge (bridge_y), not the tailpiece
+                    # (str_bot): the afterlength past the bridge never
+                    # vibrates, and anchoring to str_bot let the "stopped"
+                    # segment (and the stop dot) render past the bridge for
+                    # short lengths. vib_top moves from str_top (open
+                    # string, full length) toward bridge_y as pitch rises.
+                    pitch = st_pitch[si]
+                    length_frac = (sl.vibrating_length_fraction(pitch, open_cents[si])
+                                   if not np.isnan(pitch) else 1.0)
+                    vib_top = bridge_y - length_frac * (bridge_y - str_top)
+
                     ys = np.linspace(str_top, str_bot, 30)
-                    L = str_bot - str_top
-                    xs = sx + a * 9 * sc * np.sin(np.pi * (ys - str_top) / L) * np.cos(ph)
+                    rel = np.clip((ys - vib_top) / max(bridge_y - vib_top, 1e-6), 0.0, 1.0)
+                    wave_shape = np.where(ys >= vib_top, np.sin(np.pi * rel), 0.0)
+                    xs = sx + a * 9 * sc * wave_shape * np.cos(ph)
                     line.set_data(xs, ys)
+
+                    # Glow halo follows the shortened vibrating segment
+                    # (finger stop -> bridge, not down to the tailpiece)
+                    halo.set_center((sx, (vib_top + bridge_y) / 2))
+                    halo.set_height((bridge_y - vib_top) + 12)
+
+                    # Stop dot: only shown for an actually-stopped note
+                    # (length_frac < 1 — an open string has no finger down)
+                    if length_frac < 0.98:
+                        dot.set_center((sx, vib_top))
+                        dot.set_alpha(g if g > 0.05 else 0.0)
+                    else:
+                        dot.set_alpha(0.0)
                 else:
                     line.set_data([sx, sx], [str_top, str_bot])
+                    halo.set_center((sx, cy))
+                    halo.set_height((str_bot - str_top) + 12)
+                    dot.set_alpha(0.0)
 
                 lw_base = 0.9 * sc
                 line.set_linewidth(lw_base + g * 1.8)
@@ -447,7 +507,7 @@ class BowedScene:
             sx_active = sxs[str_idx]
 
             if glow[str_idx] > 0.02:
-                bow_y = cy + bh * 0.12 - (BOW_H * sc) / 2
+                bow_y = bridge_y - (BOW_H * sc) / 2
                 bow.set_y(bow_y)
                 sweep_lo = sx_active - BOW_SWEEP * 0.45
                 sweep_hi = sx_active + BOW_SWEEP * 0.55

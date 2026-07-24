@@ -116,10 +116,17 @@ GLOW_DECAY   = 0.65    # sustained notes glow longer than struck ones
 PLAY_LEAN_T  = 0.06    # seconds to reach full lean on note-on
 PLAY_RELAX_T = 0.55    # seconds to relax back after note-off
 
-# Idle sway: slow sinusoidal rock, each seat its own frequency + phase
+# Idle sway: slow sinusoidal rock, each seat its own frequency + phase.
+# The sway itself fades out after an instrument's been silent for a while
+# (SWAY_ENV_TAU_OUT) and fades back in once it starts playing again
+# (SWAY_ENV_TAU_IN, quicker) — an exponentially-smoothed envelope on the
+# sway amplitude (same technique as the trombone slide below), rather than
+# an instant on/off.
 SWAY_AMP_DEG = 5.0     # ± degrees — doubled so players sway ~2× more
 SWAY_FREQS   = [0.1875, 0.2375, 0.2125, 0.2625]  # 25% faster
 SWAY_PHASES  = [0.0,  1.3,  2.7,  0.5]
+SWAY_ENV_TAU_IN  = 0.4    # seconds — fades in fairly quickly once playing resumes
+SWAY_ENV_TAU_OUT = 3.0    # seconds — fades out slowly after falling silent
 
 # Playing lean: extra tilt toward mouthpiece when a note is held.
 # Doubled (≈2×) so the players move more while enjoying the music.
@@ -136,6 +143,28 @@ def _darken(c, f=0.35):
 
 def _lighten(c, f=0.25):
     return tuple(min(1.0, x + f * (1 - x)) for x in c)
+
+
+# Which of each draw_*()'s returned patches share CLR_BRASS and should join
+# the playing-glow (indices into that patch list) — trombone's single main
+# tube is one patch, but trumpet's tube is split top/bottom around the valve
+# cluster (leadpipe + v_tube) and tuba's coil has two same-coloured rings
+# (outer + middle); lighting only one piece left the rest looking unlit.
+GLOW_PATCH_IDX = {
+    'trumpet':  (0, 9),   # leadpipe + v_tube
+    'trombone': (0,),     # main tube
+    'tuba':     (0, 1),   # outer + middle coil
+}
+
+
+def _set_patch_color(patch, color):
+    """Arc never fills (matplotlib forces fill=False on it), so its visible
+    colour is the edge/line colour, not facecolor — set whichever actually
+    renders."""
+    if isinstance(patch, Arc):
+        patch.set_edgecolor(color)
+    else:
+        patch.set_facecolor(color)
 
 
 # ── Seat definitions ──────────────────────────────────────────────────────────
@@ -464,6 +493,7 @@ class BrassScene:
         self._body_patches  = {}
         self._seat_extra    = {}
         self._slide_frac    = {}
+        self._sway_env      = {}   # sid → current sway envelope (0..1, eased toward playing state)
         self._trb_lo, self._trb_hi = trombone_pitch_range
 
         draw_fn = {
@@ -479,9 +509,10 @@ class BrassScene:
             self._seat_patches[s['id']]   = patches
             self._seat_pivot[s['id']]     = pivot
             self._seat_lean_dir[s['id']]  = lean_dir
-            self._body_patches[s['id']]   = patches[0]
+            self._body_patches[s['id']]   = [patches[i] for i in GLOW_PATCH_IDX[s['kind']]]
             self._seat_extra[s['id']]     = extra
             self._slide_frac[s['id']]     = 0.0   # retracted at rest
+            self._sway_env[s['id']]       = 0.0   # starts still; fades in on first note
 
             xf = mtransforms.Affine2D() + ax.transData
             for p in patches:
@@ -524,8 +555,15 @@ class BrassScene:
             lean_max = PLAY_LEAN_DEG[s['kind']]
             lean_dir = self._seat_lean_dir[sid]
 
-            # Idle sway
-            sway_angle = SWAY_AMP_DEG * math.sin(
+            # Idle sway, faded by an envelope that eases toward 1 (playing)
+            # or 0 (been silent a while) — settles to stillness after
+            # resting rather than swaying forever.
+            sway_tau = SWAY_ENV_TAU_IN if playing else SWAY_ENV_TAU_OUT
+            sway_alpha = 1.0 - math.exp(-(1.0 / FPS) / sway_tau)
+            target_env = 1.0 if playing else 0.0
+            self._sway_env[sid] += (target_env - self._sway_env[sid]) * sway_alpha
+
+            sway_angle = SWAY_AMP_DEG * self._sway_env[sid] * math.sin(
                 2 * math.pi * s['sway_freq'] * t + s['sway_phase'])
 
             # Playing lean
@@ -575,10 +613,11 @@ class BrassScene:
                     base_c[i] + glow * (tint[i] - base_c[i])
                     for i in range(3)
                 )
-                self._body_patches[sid].set_facecolor(blended)
+                color = blended
             else:
-                self._body_patches[sid].set_facecolor(
-                    self._get_base_color(s['kind']))
+                color = self._get_base_color(s['kind'])
+            for p in self._body_patches[sid]:
+                _set_patch_color(p, color)
 
             # Apply combined affine transform
             xf = (mtransforms.Affine2D()

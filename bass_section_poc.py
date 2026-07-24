@@ -41,7 +41,7 @@ import numpy as np
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-from matplotlib.patches import Rectangle, Circle, Ellipse
+from matplotlib.patches import Rectangle, Circle, Ellipse, Polygon as MplPolygon
 
 import marimba_poc as mp
 import finger_piano_section_poc as fp
@@ -49,6 +49,7 @@ import marimba_section_poc as ms   # ms.BASE_Y — keeps the bass stand level-ma
 import stage_layout as stage
 import pitch_bucket as pb
 import stand
+import string_length as sl
 
 import logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s", datefmt="%d %H:%M")
@@ -87,16 +88,33 @@ LABEL_CLR = (0.55, 0.30, 0.32, 1.0)
 
 # ── Baritone guitar (csound_voice 20) ───────────────────────────────────────
 # One instrument now (was 4, each a slice of the pitch range) — its 6
-# strings already split the full observed pitch range via
-# build_guitar_strings, so one instance covers everything. Body/neck run
-# left-to-right (strings horizontal) unlike every other instrument on this
-# stage. Plucked strings vibrate as a standing wave (fixed at nut AND
-# bridge, unlike the finger-piano's fixed-at-one-end tines) — same math as
-# string_section_poc.py's pizzicato strings, transposed 90 degrees.
+# strings cover the full observed pitch range via real string tuning (see
+# GUITAR_OPEN_CENTS) rather than a pitch-range slice, so one instance covers
+# everything. Body/neck run left-to-right (strings horizontal) unlike every
+# other instrument on this stage. Plucked strings vibrate as a standing
+# wave (fixed at nut AND bridge, unlike the finger-piano's fixed-at-one-end
+# tines) — same math as string_section_poc.py's pizzicato strings,
+# transposed 90 degrees.
 N_STRINGS = 6
-GUITAR_SCALE = 0.62 * 0.8   # one big instrument now (was 0.30 x4 in a 2x2 grid), shrunk 20% to clear the bass finger piano beside it
+GUITAR_SCALE = 0.62 * 0.8 * 1.5   # one big instrument now (was 0.30 x4 in a 2x2 grid), shrunk 20% to clear the bass finger piano beside it, then bumped 50% bigger
 GUITAR_X0 = 1015      # nut/head position (left edge)
 GUITAR_CY = 609       # kept independent of TINE_NODE_Y — the guitar didn't need to move
+
+# Baritone guitar standard tuning, low to high string (cents; C4=4800 per
+# marimba_poc._pitch_label, so e.g. B1 = (1*12+11)*100 = 2300).
+# B1  E2  A2  D3  F#3  B3 — a perfect fourth below standard EADGBE.
+GUITAR_OPEN_CENTS = [2300, 2800, 3300, 3800, 4200, 4700]
+GUITAR_STRING_REACH = 2400   # cents — same reach string_section_poc.py uses
+
+
+def _note_to_guitar_string(pitch_cents):
+    """Which of the 6 strings (0=lowest) would actually play this pitch —
+    same "lowest string that can reach it" rule as
+    string_section_poc.py's _note_to_str."""
+    for i, op in enumerate(GUITAR_OPEN_CENTS):
+        if -50 <= pitch_cents - op <= GUITAR_STRING_REACH:
+            return i
+    return int(np.argmin([abs(pitch_cents - op) for op in GUITAR_OPEN_CENTS]))
 # at scale=1.0 (the original single-guitar size); multiplied by GUITAR_SCALE
 HEAD_LEN, HEAD_H = 22, 30
 NECK_LEN, NECK_H = 150, 20
@@ -117,7 +135,23 @@ GTR_GLOW_DECAY = 0.22
 GTR_PLK_APP_T = 0.055
 GTR_PLK_DWL_T = 0.025
 GTR_PLK_RET_T = 0.140
-GTR_PLK_RAD = 6.5
+GTR_PLK_RAD = 2.0   # "radius" (overall scale) of the pick shape — smaller
+                     # than the fretboard stop dot (GTR_STOP_DOT_RAD)
+GTR_STOP_DOT_RAD = 2.6
+GTR_STOP_DOT_CLR = (0.85, 0.65, 0.25)    # warm amber — fretting hand
+GTR_PICK_CLR     = (0.85, 0.90, 0.97)    # pale/cool — plectrum, distinct from the stop dot
+
+# Guitar pick outline (unit shape, tip pointing +y toward the string) —
+# scaled by GTR_PLK_RAD * scale and translated to the current position.
+GTR_PICK_PTS = np.array([
+    [ 0.00,  1.00], [ 0.42,  0.55], [ 0.62,  0.05], [ 0.55, -0.45],
+    [ 0.28, -0.85], [ 0.00, -1.00], [-0.28, -0.85], [-0.55, -0.45],
+    [-0.62,  0.05], [-0.42,  0.55],
+])
+
+
+def _pick_points(cx, cy, r):
+    return GTR_PICK_PTS * r + np.array([cx, cy])
 
 
 def bass_color(i, n):
@@ -155,9 +189,9 @@ def build_seat():
 
 # ── Baritone guitar geometry/state/scene ─────────────────────────────────────
 
-def build_guitar_strings(notes, x0, cy, scale):
-    """6 strings spanning the nut->bridge length; each note is assigned to
-    a string by dividing its pitch range into 6 equal parts."""
+def build_guitar_strings(x0, cy, scale):
+    """6 strings spanning the nut->bridge length, tuned per GUITAR_OPEN_CENTS
+    (each note is assigned to a string by _note_to_guitar_string)."""
     head_len = HEAD_LEN * scale
     neck_len = NECK_LEN * scale
     body_w   = BODY_W * scale
@@ -173,34 +207,25 @@ def build_guitar_strings(notes, x0, cy, scale):
         strings.append(dict(
             idx=i, y=y0 + i * spacing,
             x_nut=x_nut, x_bridge=x_bridge, pluck_x=pluck_x,
-            color=STRING_CLRS[i], scale=scale,
+            color=STRING_CLRS[i], scale=scale, open_cents=GUITAR_OPEN_CENTS[i],
         ))
-
-    if len(notes):
-        pitch_min, pitch_max = notes[:, 1].min(), notes[:, 1].max()
-    else:
-        pitch_min, pitch_max = 0.0, 1.0
-    edges = np.linspace(pitch_min, pitch_max, N_STRINGS + 1)
-    return strings, edges
+    return strings
 
 
-def pitch_to_string_idx(pitch_cents, edges):
-    idx = np.searchsorted(edges[1:-1], pitch_cents, side='right')
-    return int(np.clip(idx, 0, N_STRINGS - 1))
-
-
-def compute_guitar_state(t, notes, edges):
-    """Per-string glow, vibration amplitude/onset, and pluck-gesture onset —
-    same shape of computation as string_section_poc.py's compute_state."""
+def compute_guitar_state(t, notes):
+    """Per-string glow, vibration amplitude/onset, currently-sounding pitch,
+    and pluck-gesture onset — same shape of computation as
+    string_section_poc.py's compute_state."""
     glow      = np.zeros(N_STRINGS)
     vib_amp   = np.zeros(N_STRINGS)
     vib_onset = np.full(N_STRINGS, -999.0)
+    vib_pitch = np.full(N_STRINGS, np.nan)
     last_gest = {}
 
     total_gest = GTR_PLK_APP_T + GTR_PLK_DWL_T + GTR_PLK_RET_T
     for row in notes:
         onset_t, pitch, dur_s = row[0], row[1], row[2]
-        si = pitch_to_string_idx(pitch, edges)
+        si = _note_to_guitar_string(pitch)
         dt = t - onset_t
 
         if 0.0 <= dt <= GTR_GLOW_DECAY:
@@ -213,12 +238,13 @@ def compute_guitar_state(t, notes, edges):
             if amp > vib_amp[si]:
                 vib_amp[si] = amp
                 vib_onset[si] = onset_t
+                vib_pitch[si] = pitch
 
         if -GTR_PLK_APP_T <= dt <= total_gest:
             if si not in last_gest or onset_t > last_gest[si]:
                 last_gest[si] = onset_t
 
-    return glow, vib_amp, vib_onset, last_gest
+    return glow, vib_amp, vib_onset, vib_pitch, last_gest
 
 
 class GuitarScene:
@@ -231,12 +257,15 @@ class GuitarScene:
         bw, bh = BODY_W * scale, BODY_H * scale
 
         # Body — simplified offset-double-cutaway silhouette, wide end
-        # toward the bridge (right).
+        # toward the bridge (right). Bumped 10% bigger than its footprint
+        # (bw/bh, which still positions the pickups/pegs/bridge) so the
+        # cutaway accent scales up with it.
+        body_bump = 1.1
         bx = x0 + head_len + neck_len
-        body = Ellipse((bx + bw * 0.55, cy), width=bw * 1.15, height=bh,
+        body = Ellipse((bx + bw * 0.55, cy), width=bw * 1.15 * body_bump, height=bh * body_bump,
                        fc=GUITAR_WOOD, ec=GUITAR_WOOD_DK, lw=1.2, zorder=3)
         ax.add_patch(body)
-        cutaway = Ellipse((bx + bw * 0.18, cy - bh * 0.30), width=bw * 0.5, height=bh * 0.5,
+        cutaway = Ellipse((bx + bw * 0.18, cy - bh * 0.30), width=bw * 0.5 * body_bump, height=bh * 0.5 * body_bump,
                           fc=(0.06, 0.07, 0.09), ec='none', zorder=4)
         ax.add_patch(cutaway)
 
@@ -248,15 +277,36 @@ class GuitarScene:
                           fc=GUITAR_WOOD_DK, ec=GUITAR_WOOD_DK, lw=1.0, zorder=3)
         ax.add_patch(head)
 
-        # Pickups (bridge area detail)
+        # Pickups
         for pu_x in (bx + bw * 0.42, bx + bw * 0.62):
             ax.add_patch(Rectangle((pu_x, cy - bh * 0.28), bw * 0.10, bh * 0.56,
                                     fc=(0.08, 0.08, 0.09), ec=(0.35, 0.35, 0.38),
                                     lw=0.6, zorder=5))
 
+        # Tuning pegs — small knobs at the headstock's left (far) edge, one
+        # per string.
+        y_lo, y_hi = strings[0]['y'], strings[-1]['y']
+        peg_r = 3.0 * scale
+        for s in strings:
+            ax.add_patch(Circle((x0 - peg_r * 0.8, s['y']), radius=peg_r,
+                                 fc=(0.75, 0.75, 0.78), ec=GUITAR_WOOD_DK,
+                                 lw=0.5, zorder=4))
+
+        # Bridge — raised bar where the strings terminate at the body,
+        # spanning the full string width.
+        bridge_w = 5.0 * scale
+        bridge_pad = 8.0 * scale
+        x_bridge = strings[0]['x_bridge']
+        bridge = Rectangle((x_bridge - bridge_w / 2, y_lo - bridge_pad),
+                            bridge_w, (y_hi - y_lo) + 2 * bridge_pad,
+                            fc=GUITAR_WOOD_DK, ec=(0.05, 0.03, 0.02),
+                            lw=0.6, zorder=6)
+        ax.add_patch(bridge)
+
         self._strings = []
         self._halos = []
         self._fingers = []
+        self._stop_dots = []
         for s in strings:
             (line,) = ax.plot([s['x_nut'], s['x_bridge']], [s['y'], s['y']],
                                color=s['color'], lw=2.0 * scale, solid_capstyle='round', zorder=6)
@@ -267,27 +317,64 @@ class GuitarScene:
             ax.add_patch(halo)
             self._halos.append(halo)
 
-            finger = Circle((s['pluck_x'], s['y']), radius=GTR_PLK_RAD * scale,
-                             fc=(0.85, 0.78, 0.68), ec='none', alpha=0.0, zorder=9)
-            ax.add_patch(finger)
-            self._fingers.append(finger)
+            # Pick — small guitar-pick-shaped marker for the plucking hand,
+            # smaller than the fretboard stop dot and a distinct (cool/pale)
+            # colour from it (warm amber).
+            pick = MplPolygon(_pick_points(s['pluck_x'], s['y'], GTR_PLK_RAD * scale),
+                               closed=True, fc=GTR_PICK_CLR, ec=(0.4, 0.45, 0.5),
+                               lw=0.4, alpha=0.0, zorder=9)
+            ax.add_patch(pick)
+            self._fingers.append(pick)
 
-    def update(self, t, glow, vib_amp, vib_onset, last_gest):
+            # Fretboard stop dot — marks where the fretting hand stops the
+            # string for a note above its open pitch (invisible otherwise);
+            # held at full opacity for as long as the string keeps vibrating.
+            dot = Circle((s['x_nut'], s['y']), radius=GTR_STOP_DOT_RAD * scale,
+                         fc=GTR_STOP_DOT_CLR, ec=(0.30, 0.25, 0.20),
+                         lw=0.4, alpha=0.0, zorder=8)
+            ax.add_patch(dot)
+            self._stop_dots.append(dot)
+
+    def update(self, t, glow, vib_amp, vib_onset, vib_pitch, last_gest):
         n_pts = 30
         for i, s in enumerate(self.strings):
             sc = s['scale']
             g, a, onset = glow[i], vib_amp[i], vib_onset[i]
             xs = np.linspace(s['x_nut'], s['x_bridge'], n_pts)
-            L = s['x_bridge'] - s['x_nut']
 
             if a > 0.005:
                 dt = t - onset
                 ph = 2.0 * np.pi * GTR_VIB_FREQ * dt
-                # Standing wave: zero displacement at nut AND bridge (both
-                # ends fixed), same shape as string_section_poc's strings.
-                ys = s['y'] + a * 10.0 * sc * np.sin(np.pi * (xs - s['x_nut']) / L) * np.cos(ph)
+                # A note fretted above the string's open pitch only
+                # vibrates over the fraction of the string between the
+                # fret and the bridge (x_bridge end) — length ∝ 1/frequency.
+                # vib_nut is that boundary, moving from x_nut (open string,
+                # full length) toward x_bridge as pitch rises.
+                pitch = vib_pitch[i]
+                length_frac = (sl.vibrating_length_fraction(pitch, s['open_cents'])
+                               if not np.isnan(pitch) else 1.0)
+                L_full = s['x_bridge'] - s['x_nut']
+                vib_nut = s['x_nut'] + (1.0 - length_frac) * L_full
+                L_vib = s['x_bridge'] - vib_nut
+
+                # Standing wave: zero displacement at the fret AND bridge
+                # (both ends fixed), same shape as string_section_poc's strings.
+                rel = np.clip((xs - vib_nut) / max(L_vib, 1e-6), 0.0, 1.0)
+                wave_shape = np.where(xs >= vib_nut, np.sin(np.pi * rel), 0.0)
+                ys = s['y'] + a * 10.0 * sc * wave_shape * np.cos(ph)
+
+                # Stop dot: only shown for an actually-fretted note
+                # (length_frac < 1 — an open string has no finger down);
+                # held at full opacity for as long as the string is still
+                # vibrating (a > 0.005), not faded with the glow.
+                if length_frac < 0.98:
+                    self._stop_dots[i].center = (vib_nut, s['y'])
+                    self._stop_dots[i].set_alpha(1.0)
+                else:
+                    self._stop_dots[i].set_alpha(0.0)
             else:
                 ys = np.full(n_pts, s['y'])
+                self._stop_dots[i].set_alpha(0.0)
             self._strings[i].set_data(xs, ys)
 
             lw = (2.0 + g * 2.2) * sc
@@ -318,7 +405,7 @@ class GuitarScene:
                     ph = min(1.0, (dt - GTR_PLK_DWL_T) / GTR_PLK_RET_T) ** 0.7
                     off = 16.0 * sc * ph
                     alpha = max(0.0, 1.0 - ph)
-                self._fingers[i].center = (s['pluck_x'], s['y'] - off)
+                self._fingers[i].set_xy(_pick_points(s['pluck_x'], s['y'] - off, GTR_PLK_RAD * sc))
                 self._fingers[i].set_alpha(alpha)
             else:
                 self._fingers[i].set_alpha(0.0)
@@ -345,9 +432,9 @@ def render(npy_file, tempo, duration):
              f"{n_used} in use by this chorale")
 
     guitar_notes = load_bass_voices(npy_file, tempo, (GUITAR_VOICE,))
-    strings, str_edges = build_guitar_strings(guitar_notes, GUITAR_X0, GUITAR_CY, GUITAR_SCALE)
+    strings = build_guitar_strings(GUITAR_X0, GUITAR_CY, GUITAR_SCALE)
     log.info(f"[baritone guitar] one instrument x {N_STRINGS} strings, "
-             f"{len(guitar_notes)} notes, edges={', '.join(f'{e:.0f}' for e in str_edges)}")
+             f"{len(guitar_notes)} notes, open_cents={GUITAR_OPEN_CENTS}")
 
     Path(FRAMES_DIR).mkdir(exist_ok=True)
     n_frames = int(np.ceil(duration * FPS))
@@ -386,8 +473,8 @@ def render(npy_file, tempo, duration):
         t = fi / FPS
         glow, vib_amp, vib_onset, last_gest = fp.compute_state(t, tine_notes, pitch_to_idx, n_tines)
         tine_scene.update(t, glow, vib_amp, vib_onset, last_gest)
-        g_glow, g_vib_amp, g_vib_onset, g_last_gest = compute_guitar_state(t, guitar_notes, str_edges)
-        guitar_scene.update(t, g_glow, g_vib_amp, g_vib_onset, g_last_gest)
+        g_glow, g_vib_amp, g_vib_onset, g_vib_pitch, g_last_gest = compute_guitar_state(t, guitar_notes)
+        guitar_scene.update(t, g_glow, g_vib_amp, g_vib_onset, g_vib_pitch, g_last_gest)
         fig.savefig(f"{FRAMES_DIR}/frame_{fi:06d}.png", dpi=mp.SAVE_DPI, transparent=True)
         if fi % 200 == 0:
             log.info(f"  {fi}/{n_frames}  t={t:.1f}s")
