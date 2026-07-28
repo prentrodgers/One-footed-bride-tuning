@@ -1,0 +1,356 @@
+<title>Stage Layout Editor</title>
+<style>
+  :root{
+    --bg:#0e1017; --bg2:#151824; --panel:#1b1f2c; --line:#2b3040;
+    --floor:#232838; --floor-line:#31384c;
+    --ink:#e7e9f0; --ink-dim:#9aa2b4; --ink-faint:#697086;
+    --amber:#e6a94a; --amber-dim:#9c7838;
+    --mono:ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,'Segoe UI',sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:
+      radial-gradient(120% 80% at 50% -10%, #1a1f30 0%, var(--bg) 60%);
+    color:var(--ink);font-family:var(--sans);min-height:100vh}
+  .app{max-width:1280px;margin:0 auto;padding:22px 22px 60px}
+  header{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;
+    border-bottom:1px solid var(--line);padding-bottom:14px;margin-bottom:18px}
+  h1{font-size:20px;font-weight:600;letter-spacing:.2px;margin:0}
+  h1 .amp{color:var(--amber)}
+  .sub{color:var(--ink-dim);font-size:13px;line-height:1.5;max-width:60ch}
+  .views{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:840px){.views{grid-template-columns:1fr}}
+  .view{background:var(--bg2);border:1px solid var(--line);border-radius:10px;
+    overflow:hidden}
+  .view-label{font-size:11px;text-transform:uppercase;letter-spacing:.09em;
+    color:var(--ink-faint);padding:9px 12px;border-bottom:1px solid var(--line);
+    display:flex;justify-content:space-between;align-items:center}
+  .view-label b{color:var(--ink-dim);font-weight:600}
+  canvas{display:block;width:100%;touch-action:none}
+  #plan{aspect-ratio:16/11;cursor:grab}
+  #plan.dragging{cursor:grabbing}
+  #preview{aspect-ratio:16/9;background:#20242f}
+  .lower{display:grid;grid-template-columns:1.1fr 1fr;gap:16px;margin-top:16px}
+  @media(max-width:840px){.lower{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;
+    padding:14px 16px}
+  .card h2{font-size:11px;text-transform:uppercase;letter-spacing:.09em;
+    color:var(--ink-faint);margin:0 0 12px;font-weight:600}
+  .seat-row{display:flex;align-items:center;gap:9px;margin-bottom:9px;
+    padding:6px 8px;border-radius:7px;border:1px solid transparent;cursor:pointer}
+  .seat-row:hover{background:#20263400}
+  .seat-row.sel{background:#232a3a;border-color:var(--line)}
+  .swatch{width:13px;height:13px;border-radius:3px;flex:0 0 auto}
+  .seat-name{font-size:13px;flex:1}
+  .seat-vals{font-family:var(--mono);font-size:11px;color:var(--ink-faint);
+    font-variant-numeric:tabular-nums}
+  .ctrls{display:flex;flex-direction:column;gap:13px}
+  .field{display:grid;grid-template-columns:58px 1fr 56px;align-items:center;gap:10px}
+  .field label{font-size:12px;color:var(--ink-dim)}
+  .field input[type=range]{width:100%;accent-color:var(--amber)}
+  .field .num{font-family:var(--mono);font-size:12px;background:#0f1320;
+    border:1px solid var(--line);color:var(--ink);border-radius:5px;
+    padding:3px 6px;text-align:right;font-variant-numeric:tabular-nums}
+  .hint{font-size:12px;color:var(--ink-faint);line-height:1.5}
+  .divider{height:1px;background:var(--line);margin:6px 0 2px}
+  pre{font-family:var(--mono);font-size:11.5px;line-height:1.55;color:#cdd3e2;
+    background:#0c0f19;border:1px solid var(--line);border-radius:8px;
+    padding:12px 14px;overflow-x:auto;margin:0}
+  .out-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+  button.copy{font-family:var(--sans);font-size:12px;font-weight:600;
+    background:var(--amber);color:#1a1206;border:none;border-radius:6px;
+    padding:6px 13px;cursor:pointer;letter-spacing:.02em}
+  button.copy:hover{background:#f0b856}
+  button.copy:active{transform:translateY(1px)}
+  button.copy.done{background:var(--amber-dim);color:#efe6d4}
+  .tag{font-family:var(--mono);font-size:10px;color:var(--ink-faint)}
+  :focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+</style>
+
+<div class="app">
+  <header>
+    <h1>Stage Layout <span class="amp">·</span> Editor</h1>
+    <p class="sub">Drag a section in the top view to position it; use the sliders to
+      scale it. The camera preview shows what the render will actually see — it's
+      fixed, so bigger scale means bigger on screen. Copy the block into
+      <span class="tag">blender_stage.py</span>.</p>
+  </header>
+
+  <div class="views">
+    <div class="view">
+      <div class="view-label"><span>Top view — drag to place</span><b id="planhint">back of stage ↑</b></div>
+      <canvas id="plan"></canvas>
+    </div>
+    <div class="view">
+      <div class="view-label"><span>Camera preview — what the render sees</span><b>fixed camera</b></div>
+      <canvas id="preview"></canvas>
+    </div>
+  </div>
+
+  <div class="lower">
+    <div class="card">
+      <h2>Sections</h2>
+      <div id="seats"></div>
+      <div class="divider"></div>
+      <div id="editor" class="ctrls"></div>
+    </div>
+
+    <div class="card">
+      <div class="out-head">
+        <h2 style="margin:0">Output → blender_stage.py</h2>
+        <button class="copy" id="copy">Copy</button>
+      </div>
+      <pre id="out"></pre>
+      <div class="divider"></div>
+      <h2>Camera</h2>
+      <div id="camctrls" class="ctrls"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+// Authored (unscaled) footprint of each section, measured from the real
+// Blender build: w=X width, d=Y depth, h=Z height, zmin=floor offset.
+const AUTH = {
+  pizz:        {w:2.297, d:0.275, h:1.288, zmin:-0.426},
+  marimba:     {w:14.076,d:2.141, h:1.500, zmin:-1.100},
+  bass:        {w:2.712, d:0.137, h:0.414, zmin:-0.123},
+  finger_piano:{w:1.260, d:0.137, h:0.174, zmin:-0.023},
+  woodwind:    {w:4.511, d:1.472, h:1.747, zmin:-0.090},
+  brass:       {w:4.813, d:2.628, h:1.741, zmin:0.315},
+  bowed_strings:{w:3.105,d:0.273, h:1.288, zmin:-0.426},
+  melody:      {w:4.310, d:1.803, h:1.785, zmin:-0.051},
+  conductor:   {w:0.720, d:1.343, h:1.724, zmin:0.000},
+};
+const sections = [
+  {id:'pizz',        label:'Pizzicato',    color:'#cf9155', cx:-16, cy:15.0, scale:5.5},
+  {id:'marimba',     label:'Marimba',      color:'#5cc0ac', cx:10.5,cy:5.0,  scale:0.90},
+  {id:'bass',        label:'Bass',         color:'#8080e4', cx:0.5, cy:15.5, scale:3.5},
+  {id:'finger_piano',label:'Finger Piano', color:'#e6b04a', cx:-14, cy:4.5,  scale:8.0},
+  {id:'woodwind',    label:'Woodwinds',    color:'#9aa4b8', cx:-2,  cy:-0.5, scale:1.8},
+  {id:'brass',       label:'Brass',        color:'#d8b656', cx:14,  cy:17.5, scale:1.8},
+  {id:'bowed_strings',label:'Bowed Strings',color:'#b5723e',cx:-8,  cy:-7.0, scale:4.0},
+  {id:'melody',      label:'Melody',       color:'#7fc99a', cx:6,   cy:-7.0, scale:1.8},
+  {id:'conductor',   label:'Conductor',    color:'#d6d8de', cx:0,   cy:-8.0, scale:1.5},
+];
+// Fixed camera (matches blender_stage.CAM_*).
+const cam = {px:0, py:-36, pz:18, tx:0, ty:4, tz:3, lens:38, sensor:36};
+const RENDER_ASPECT = 16/9;
+let sel = 0;
+
+// ---- vector helpers ----
+const sub=(a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]];
+const add=(a,b)=>[a[0]+b[0],a[1]+b[1],a[2]+b[2]];
+const mul=(a,s)=>[a[0]*s,a[1]*s,a[2]*s];
+const dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+const cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
+const norm=a=>{const l=Math.hypot(a[0],a[1],a[2])||1;return [a[0]/l,a[1]/l,a[2]/l];};
+
+function basis(){
+  const C=[cam.px,cam.py,cam.pz];
+  const f=norm(sub([cam.tx,cam.ty,cam.tz],C));
+  const r=norm(cross(f,[0,0,1]));
+  const u=cross(r,f);
+  return {C,f,r,u};
+}
+function project(P,b){
+  const v=sub(P,b.C);
+  const zc=dot(v,b.f); if(zc<=0.02) return null;
+  const xc=dot(v,b.r), yc=dot(v,b.u);
+  const tanh=(cam.sensor/2)/cam.lens, tanv=tanh/RENDER_ASPECT;
+  return {x:(xc/zc)/tanh, y:(yc/zc)/tanv, z:zc}; // NDC-ish (-1..1)
+}
+// world box for a section given its placement
+function boxOf(s){
+  const a=AUTH[s.id], hw=a.w*s.scale/2, hd=a.d*s.scale/2, ht=a.h*s.scale;
+  return {x0:s.cx-hw,x1:s.cx+hw, y0:s.cy-hd,y1:s.cy+hd, z0:0, z1:ht};
+}
+
+// ---- top-down plan ----
+const plan=document.getElementById('plan'), pctx=plan.getContext('2d');
+const PX={x0:-26,x1:26,y0:-9,y1:17}; // world range shown
+function planXY(X,Y,W,H){
+  return [ (X-PX.x0)/(PX.x1-PX.x0)*W, (PX.y1-Y)/(PX.y1-PX.y0)*H ];
+}
+function planInv(px,py,W,H){
+  return [ PX.x0+px/W*(PX.x1-PX.x0), PX.y1-py/H*(PX.y1-PX.y0) ];
+}
+function drawPlan(){
+  const dpr=window.devicePixelRatio||1, W=plan.clientWidth, H=plan.clientHeight;
+  plan.width=W*dpr; plan.height=H*dpr; pctx.setTransform(dpr,0,0,dpr,0,0);
+  pctx.clearRect(0,0,W,H);
+  // grid
+  pctx.strokeStyle='#242a3a'; pctx.lineWidth=1; pctx.font='10px '+getComputedStyle(document.body).fontFamily;
+  for(let X=-25;X<=25;X+=5){const[a,b]=planXY(X,PX.y0,W,H),[c,d]=planXY(X,PX.y1,W,H);
+    pctx.beginPath();pctx.moveTo(a,b);pctx.lineTo(c,d);pctx.stroke();}
+  for(let Y=-5;Y<=15;Y+=5){const[a,b]=planXY(PX.x0,Y,W,H),[c,d]=planXY(PX.x1,Y,W,H);
+    pctx.beginPath();pctx.moveTo(a,b);pctx.lineTo(c,d);pctx.stroke();}
+  // visible-floor quad (what the camera frames on the floor)
+  const b=basis(); const corners=[];
+  for(const[sx,sy] of [[-1,-1],[1,-1],[1,1],[-1,1]]){
+    const tanh=(cam.sensor/2)/cam.lens, tanv=tanh/RENDER_ASPECT;
+    const dir=norm(add(add(b.f,mul(b.r,sx*tanh)),mul(b.u,sy*tanv)));
+    if(Math.abs(dir[2])<1e-6){corners.push(null);continue;}
+    const t=-b.C[2]/dir[2];
+    corners.push(t>0?[b.C[0]+dir[0]*t,b.C[1]+dir[1]*t]:null);
+  }
+  if(corners.every(c=>c)){
+    pctx.beginPath();
+    corners.forEach((c,i)=>{const[x,y]=planXY(c[0],c[1],W,H);i?pctx.lineTo(x,y):pctx.moveTo(x,y);});
+    pctx.closePath();
+    pctx.fillStyle='rgba(230,169,74,.06)'; pctx.fill();
+    pctx.strokeStyle='rgba(230,169,74,.35)'; pctx.setLineDash([5,4]); pctx.lineWidth=1.3;
+    pctx.stroke(); pctx.setLineDash([]);
+  }
+  // camera marker
+  const[cxp,cyp]=planXY(cam.px,cam.py,W,H);
+  pctx.fillStyle='var(--amber)'; pctx.fillStyle='#e6a94a';
+  pctx.beginPath();pctx.arc(cxp,cyp,5,0,7);pctx.fill();
+  pctx.fillStyle='#9aa2b4'; pctx.fillText('camera',cxp+9,cyp+3);
+  // sections
+  sections.forEach((s,i)=>{
+    const bx=boxOf(s);
+    const[ax,ay]=planXY(bx.x0,bx.y1,W,H),[bx2,by2]=planXY(bx.x1,bx.y0,W,H);
+    const w=bx2-ax, h=by2-ay;
+    pctx.fillStyle=hex(s.color,i===sel?.34:.20);
+    pctx.strokeStyle=i===sel?s.color:hex(s.color,.7);
+    pctx.lineWidth=i===sel?2.2:1.3;
+    pctx.beginPath();pctx.rect(ax,ay,w,h);pctx.fill();pctx.stroke();
+    pctx.fillStyle=i===sel?'#fff':'#cdd3e2';
+    pctx.font=(i===sel?'600 ':'')+'11px '+getComputedStyle(document.body).fontFamily;
+    pctx.fillText(s.label, ax+5, ay+14);
+  });
+}
+function hex(c,a){const n=parseInt(c.slice(1),16);
+  return `rgba(${n>>16&255},${n>>8&255},${n&255},${a})`;}
+
+// ---- camera preview ----
+const prev=document.getElementById('preview'), vctx=prev.getContext('2d');
+function drawPreview(){
+  const dpr=window.devicePixelRatio||1, W=prev.clientWidth, H=prev.clientHeight;
+  prev.width=W*dpr; prev.height=H*dpr; vctx.setTransform(dpr,0,0,dpr,0,0);
+  vctx.clearRect(0,0,W,H);
+  const b=basis();
+  const S=p=>{const q=project(p,b);return q?{x:(q.x+1)/2*W,y:(1-(q.y+1)/2)*H,z:q.z}:null;};
+  // floor grid
+  vctx.lineWidth=1;
+  for(let X=-25;X<=25;X+=5){const A=S([X,-8,0]),Bp=S([X,16,0]);
+    if(A&&Bp){vctx.strokeStyle='#2b3245';vctx.beginPath();vctx.moveTo(A.x,A.y);vctx.lineTo(Bp.x,Bp.y);vctx.stroke();}}
+  for(let Y=-5;Y<=15;Y+=5){const A=S([-25,Y,0]),Bp=S([25,Y,0]);
+    if(A&&Bp){vctx.strokeStyle='#2b3245';vctx.beginPath();vctx.moveTo(A.x,A.y);vctx.lineTo(Bp.x,Bp.y);vctx.stroke();}}
+  // sections back-to-front (far = high cy first)
+  const order=sections.map((s,i)=>i).sort((a,b2)=>sections[b2].cy-sections[a].cy);
+  for(const i of order){
+    const s=sections[i], bx=boxOf(s);
+    const C=[[bx.x0,bx.y0,bx.z0],[bx.x1,bx.y0,bx.z0],[bx.x1,bx.y1,bx.z0],[bx.x0,bx.y1,bx.z0],
+             [bx.x0,bx.y0,bx.z1],[bx.x1,bx.y0,bx.z1],[bx.x1,bx.y1,bx.z1],[bx.x0,bx.y1,bx.z1]];
+    const P=C.map(S); if(P.some(p=>!p)) continue;
+    // filled silhouette (convex hull of the 8 pts) + edges
+    const hull=convex(P);
+    vctx.fillStyle=hex(s.color,i===sel?.42:.30);
+    vctx.beginPath();hull.forEach((p,k)=>k?vctx.lineTo(p.x,p.y):vctx.moveTo(p.x,p.y));vctx.closePath();vctx.fill();
+    const E=[[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]];
+    vctx.strokeStyle=i===sel?s.color:hex(s.color,.85);vctx.lineWidth=i===sel?1.8:1.1;
+    E.forEach(([a,c])=>{vctx.beginPath();vctx.moveTo(P[a].x,P[a].y);vctx.lineTo(P[c].x,P[c].y);vctx.stroke();});
+    const top=P.reduce((m,p)=>p.y<m.y?p:m,P[0]);
+    vctx.fillStyle=i===sel?'#fff':'#dfe4ef';vctx.font=(i===sel?'600 ':'')+'11px '+getComputedStyle(document.body).fontFamily;
+    vctx.fillText(s.label, top.x-vctx.measureText(s.label).width/2, top.y-6);
+  }
+}
+function convex(pts){ // Andrew's monotone chain
+  const p=pts.map(o=>[o.x,o.y]).sort((a,b)=>a[0]-b[0]||a[1]-b[1]);
+  const cr=(o,a,b)=>(a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0]);
+  const lo=[],hi=[];
+  for(const q of p){while(lo.length>=2&&cr(lo[lo.length-2],lo[lo.length-1],q)<=0)lo.pop();lo.push(q);}
+  for(let i=p.length-1;i>=0;i--){const q=p[i];while(hi.length>=2&&cr(hi[hi.length-2],hi[hi.length-1],q)<=0)hi.pop();hi.push(q);}
+  return lo.slice(0,-1).concat(hi.slice(0,-1)).map(a=>({x:a[0],y:a[1]}));
+}
+
+// ---- UI: section list + editor ----
+const seatsEl=document.getElementById('seats'), editEl=document.getElementById('editor');
+function buildSeats(){
+  seatsEl.innerHTML='';
+  sections.forEach((s,i)=>{
+    const row=document.createElement('div');row.className='seat-row'+(i===sel?' sel':'');
+    row.innerHTML=`<span class="swatch" style="background:${s.color}"></span>
+      <span class="seat-name">${s.label}</span>
+      <span class="seat-vals">${s.cx.toFixed(1)}, ${s.cy.toFixed(1)} · ×${s.scale.toFixed(2)}</span>`;
+    row.onclick=()=>{sel=i;refresh();};
+    seatsEl.appendChild(row);
+  });
+}
+function slider(label,min,max,step,val,onin){
+  const f=document.createElement('div');f.className='field';
+  f.innerHTML=`<label>${label}</label><input type="range" min="${min}" max="${max}" step="${step}" value="${val}">
+    <input class="num" value="${(+val).toFixed(2)}">`;
+  const [r,n]=[f.querySelector('input[type=range]'),f.querySelector('.num')];
+  r.oninput=()=>{n.value=(+r.value).toFixed(2);onin(+r.value);};
+  n.onchange=()=>{let v=parseFloat(n.value);if(!isNaN(v)){r.value=v;onin(v);}};
+  return f;
+}
+function buildEditor(){
+  const s=sections[sel];editEl.innerHTML='';
+  editEl.appendChild(slider('X (cx)',-26,26,0.5,s.cx,v=>{s.cx=v;refresh();}));
+  editEl.appendChild(slider('Depth (cy)',-9,17,0.5,s.cy,v=>{s.cy=v;refresh();}));
+  editEl.appendChild(slider('Scale',0.2,12,0.05,s.scale,v=>{s.scale=v;refresh();}));
+  const h=document.createElement('div');h.className='hint';
+  h.textContent='Depth = how far back on the stage (higher = further back = higher up the frame).';
+  editEl.appendChild(h);
+}
+const camEl=document.getElementById('camctrls');
+function buildCam(){
+  camEl.innerHTML='';
+  camEl.appendChild(slider('Cam height',6,30,0.5,cam.pz,v=>{cam.pz=v;refresh();}));
+  camEl.appendChild(slider('Cam back',-55,-15,0.5,cam.py,v=>{cam.py=v;refresh();}));
+  camEl.appendChild(slider('Aim height',-2,10,0.25,cam.tz,v=>{cam.tz=v;refresh();}));
+  camEl.appendChild(slider('Aim depth',-4,12,0.5,cam.ty,v=>{cam.ty=v;refresh();}));
+  camEl.appendChild(slider('Lens mm',18,70,1,cam.lens,v=>{cam.lens=v;refresh();}));
+}
+
+// ---- output ----
+const out=document.getElementById('out');
+function buildOut(){
+  let t='SECTIONS = {\n';
+  const w=Math.max(...sections.map(s=>s.id.length));
+  for(const s of sections){
+    const k=`"${s.id}":`.padEnd(w+3);
+    t+=`    ${k} dict(cx=${s.cx.toFixed(1)}, cy=${s.cy.toFixed(1)}, scale=${s.scale.toFixed(2)}),\n`;
+  }
+  t+='}\n\n';
+  t+=`CAM_POS = (0.0, ${cam.py.toFixed(1)}, ${cam.pz.toFixed(1)})\n`;
+  t+=`CAM_TARGET = (0.0, ${cam.ty.toFixed(1)}, ${cam.tz.toFixed(1)})\n`;
+  t+=`CAM_LENS = ${cam.lens.toFixed(1)}\n`;
+  out.textContent=t;
+}
+document.getElementById('copy').onclick=e=>{
+  navigator.clipboard.writeText(out.textContent).then(()=>{
+    const b=e.target;b.textContent='Copied';b.classList.add('done');
+    setTimeout(()=>{b.textContent='Copy';b.classList.remove('done');},1200);
+  });
+};
+
+// ---- interaction: drag on plan ----
+let drag=null;
+function planPt(ev){const r=plan.getBoundingClientRect();
+  return planInv(ev.clientX-r.left,ev.clientY-r.top,plan.clientWidth,plan.clientHeight);}
+plan.addEventListener('pointerdown',ev=>{
+  const[wx,wy]=planPt(ev);
+  // hit-test topmost section under cursor
+  for(let i=sections.length-1;i>=0;i--){const bx=boxOf(sections[i]);
+    if(wx>=bx.x0-.3&&wx<=bx.x1+.3&&wy>=bx.y0-.3&&wy<=bx.y1+.3){
+      sel=i;drag={dx:sections[i].cx-wx,dy:sections[i].cy-wy};
+      plan.setPointerCapture(ev.pointerId);plan.classList.add('dragging');refresh();return;}}
+  refresh();
+});
+plan.addEventListener('pointermove',ev=>{
+  if(!drag)return;const[wx,wy]=planPt(ev);const s=sections[sel];
+  s.cx=Math.round((wx+drag.dx)*2)/2; s.cy=Math.round((wy+drag.dy)*2)/2; refresh();
+});
+plan.addEventListener('pointerup',ev=>{drag=null;plan.classList.remove('dragging');});
+
+function refresh(){drawPlan();drawPreview();buildSeats();buildEditor();buildOut();}
+buildCam();
+window.addEventListener('resize',()=>{drawPlan();drawPreview();});
+refresh();
+</script>
