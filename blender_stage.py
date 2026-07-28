@@ -60,13 +60,13 @@ FPS = 30
 # cy is depth: larger = further back = higher up the frame. Tune these with
 # the stage_layout_editor artifact, which writes exactly this block.
 SECTIONS = {
-    "pizz":          dict(cx=-16.0, cy=15.0, scale=5.50),
+    "pizz":          dict(cx=-16.0, cy=15.0, scale=6.60),   # +20%
     "marimba":       dict(cx=11.5,  cy=4.0,  scale=0.90),
-    "bass":          dict(cx=-0.5,  cy=3.5,  scale=3.50),
-    "finger_piano":  dict(cx=-12.0, cy=4.5,  scale=8.00),
+    "bass":          dict(cx=-2.5,  cy=3.5,  scale=4.50),   # bigger, reaching left toward the finger piano
+    "finger_piano":  dict(cx=-14.0, cy=4.5,  scale=8.00),   # nudged left
     "woodwind":      dict(cx=-10.0, cy=-7.0, scale=1.80),
-    "brass":         dict(cx=16.5,  cy=14.5, scale=1.80),
-    "bowed_strings": dict(cx=1.0,   cy=15.0, scale=4.00),
+    "brass":         dict(cx=16.5,  cy=14.5, scale=2.25),   # +25%
+    "bowed_strings": dict(cx=1.0,   cy=15.0, scale=5.60),   # +40%
     "melody":        dict(cx=10.0,  cy=-7.0, scale=1.80),
     "conductor":     dict(cx=0.0,   cy=-6.5, scale=1.50),
 }
@@ -80,6 +80,28 @@ CAM_LENS = 38.0
 CAM_SENSOR = 36.0
 
 
+def _pick_eevee_engine():
+    """Pick a valid EEVEE render-engine enum for whatever Blender is running.
+    The scenes were authored on 5.1.2 (engine 'BLENDER_EEVEE'), but the render
+    pod may run 5.2 LTS or later where EEVEE has been renamed before (4.x used
+    'BLENDER_EEVEE_NEXT'). Try the known names in order and use the first the
+    running build actually offers, so a Blender version bump doesn't break the
+    render with a cryptic enum error."""
+    try:
+        items = bpy.types.RenderSettings.bl_rna.properties['engine'].enum_items
+        available = {e.identifier for e in items}
+    except Exception:
+        available = set()
+    for name in ('BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT'):
+        if name in available:
+            return name
+    # Last resort: whatever EEVEE-ish engine exists, else leave the default.
+    for e in available:
+        if 'EEVEE' in e:
+            return e
+    return bpy.context.scene.render.engine
+
+
 def parse_args():
     argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
     p = argparse.ArgumentParser()
@@ -89,6 +111,10 @@ def parse_args():
     p.add_argument("--tempo", type=float, default=None)
     p.add_argument("--duration", type=float, default=None)
     p.add_argument("--out", default="stage_proto.png")
+    # --mp4 PATH writes an .mp4 directly (Blender's bundled ffmpeg) instead of
+    # a PNG frame directory — handy for quick short previews. Video-only (no
+    # audio); mux the chorale mp3 separately if you want sound.
+    p.add_argument("--mp4", default=None)
     p.add_argument("--res-x", type=int, default=1280)
     p.add_argument("--res-y", type=int, default=720)
     return p.parse_args(argv)
@@ -345,10 +371,16 @@ def setup_melody(npy, tempo):
 
 def setup_conductor(npy, tempo):
     geom = conductor.build_conductor_section(0.0)
-    state = {'dir': [0.0, -0.45, 0.92]}   # smoothed baton direction, persists across frames
+    # The baton follows the ORIGINAL-chorale chord index (features col 15),
+    # not wall-clock tempo — so it marks the source beat the orchestra is
+    # actually on, through all the random chord repetitions.
+    timeline = conductor.load_beat_timeline(npy, tempo) if npy else None
+    # Start already on the downbeat (chord 0 -> beat 0 -> down) so the baton
+    # doesn't swing into place at t=0.
+    state = {'dir': list(conductor.BEAT_DIRS[0])}   # smoothed direction, persists across frames
 
     def update(t):
-        conductor.update_conductor(t, geom, tempo, state)
+        conductor.update_conductor(t, geom, timeline, state)
 
     return update
 
@@ -421,7 +453,7 @@ def main():
     build_stage_env(bounds)
 
     scene = bpy.context.scene
-    scene.render.engine = 'BLENDER_EEVEE'
+    scene.render.engine = _pick_eevee_engine()
     scene.render.resolution_x = args.res_x
     scene.render.resolution_y = args.res_y
     scene.render.fps = FPS
@@ -434,11 +466,18 @@ def main():
         print(f"[stage] wrote still {args.out}")
         return
 
+    n_frames = int(np.ceil(args.duration * FPS))
+    render_t0 = time.time()
+
+    if args.mp4:
+        _render_video(scene, updates, n_frames, args.mp4)
+        print(f"[stage] done: {n_frames} frames -> {args.mp4} "
+              f"in {time.time() - render_t0:.1f}s, total {time.time() - t0:.1f}s")
+        return
+
     out_dir = Path(args.out)
     out_dir.mkdir(parents=True, exist_ok=True)
-    n_frames = int(np.ceil(args.duration * FPS))
     print(f"[stage] animating {n_frames} frames ({args.duration:.1f}s @ {FPS}fps) -> {out_dir}/")
-    render_t0 = time.time()
     for fi in range(n_frames):
         t = fi / FPS
         for update in updates:
@@ -450,6 +489,53 @@ def main():
     total = time.time() - render_t0
     print(f"[stage] done: {n_frames} frames in {total:.1f}s "
           f"({total / max(n_frames, 1):.3f}s/frame), total {time.time() - t0:.1f}s")
+
+
+def _render_video(scene, updates, n_frames, out_path):
+    """Render straight to an .mp4 using Blender's bundled ffmpeg. Because the
+    animation is procedural (each frame is computed in Python, not keyframed),
+    a frame_change_pre handler runs the section updates for the current frame,
+    then Blender's animation render encodes it into the movie. Video-only."""
+    out_path = Path(out_path).resolve()
+    r = scene.render
+    # Some Blender builds ship without ffmpeg (notably Fedora's package, which
+    # strips the patent-encumbered codecs) — 'FFMPEG' won't be in the enum.
+    # Official blender.org builds (e.g. the pod's) have it.
+    fmts = {e.identifier for e in
+            bpy.types.ImageFormatSettings.bl_rna.properties['file_format'].enum_items}
+    if 'FFMPEG' not in fmts:
+        raise SystemExit(
+            "[stage] --mp4 needs a Blender built with ffmpeg; this build has none "
+            "(Fedora's package strips it). Render PNG frames (drop --mp4) and mux "
+            "with external ffmpeg, or use an official blender.org build.")
+    r.image_settings.file_format = 'FFMPEG'
+    r.ffmpeg.format = 'MPEG4'
+    r.ffmpeg.codec = 'H264'
+    r.ffmpeg.constant_rate_factor = 'HIGH'
+    r.ffmpeg.gopsize = 15
+    scene.frame_start, scene.frame_end = 0, n_frames - 1
+    # Blender appends the frame range to movie filenames; write to a temp dir
+    # then rename to the exact path the caller asked for.
+    r.use_file_extension = True
+    r.filepath = str(out_path.with_suffix(""))   # basename; Blender adds NNNN-NNNN.mp4
+    print(f"[stage] animating {n_frames} frames -> {out_path.name} (direct mp4)")
+
+    def _frame_update(scn, *a):
+        t = scn.frame_current / FPS
+        for update in updates:
+            update(t)
+
+    bpy.app.handlers.frame_change_pre.append(_frame_update)
+    try:
+        bpy.ops.render.render(animation=True)
+    finally:
+        bpy.app.handlers.frame_change_pre.remove(_frame_update)
+
+    # Rename Blender's <basename>0000-00NN.mp4 to the requested filename.
+    stem = out_path.with_suffix("").name
+    produced = sorted(out_path.parent.glob(f"{stem}*.mp4"))
+    if produced and produced[-1] != out_path:
+        produced[-1].replace(out_path)
 
 
 def _static_build(name, setup):

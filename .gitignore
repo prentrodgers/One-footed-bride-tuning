@@ -71,3 +71,6 @@ poc_notes.npy
 Uploads/Old Renders/
 /merged_*.mp4
 /Uploads/merged_*.mp4
+
+# Blender portable tarball for the 0.8 image build (COPYied into the container, kept local)
+parallel-jobs/blender-*-linux-x64.tar.xz

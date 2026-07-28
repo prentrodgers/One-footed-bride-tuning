@@ -41,7 +41,7 @@ GLOW_CLR = {
     'tuba':     (1.00, 0.82, 0.35),
 }
 PLAY_LEAN_DEG = {'trumpet': 10.0, 'trombone': 8.0, 'tuba': 5.0}
-SWAY_AMP_DEG = 5.0
+SWAY_AMP_DEG = 0.5   # ~10% of the old ±5° — a faint breath, not a big idle rock
 SWAY_FREQS = [0.24, 0.21, 0.27, 0.255]
 SWAY_PHASES = [0.5, 1.7, 0.0, 2.1]
 
@@ -181,12 +181,12 @@ BUILDERS = {'trumpet': build_trumpet, 'trombone': build_trombone, 'tuba': build_
 # trumpets tucked into the middle-front.
 SEATS_SPEC = [
     # id, kind, voices, x, y (depth), scale
-    # Trumpets pulled to the LEFT and spread apart (they used to overlap each
-    # other and crowd the tuba); tuba gets the whole right side to itself.
-    ('trombone', 'trombone', (VOICE_TROMBONE,), -1.7,  0.9, 1.0),
-    ('tuba',     'tuba',     (VOICE_TUBA,),      2.0,  1.0, 1.0),
-    ('trumpet1', 'trumpet',  (VOICE_TRUMPET,),  -1.7, -1.0, 1.0),
-    ('trumpet2', 'trumpet',  (VOICE_TRUMPET,),  -0.1, -0.8, 1.0),
+    # Spread wider (left/right) and the back row pushed further up so the
+    # section fills more of its corner rather than clustering.
+    ('trombone', 'trombone', (VOICE_TROMBONE,), -2.7,  1.6, 1.0),
+    ('tuba',     'tuba',     (VOICE_TUBA,),      2.9,  1.7, 1.0),
+    ('trumpet1', 'trumpet',  (VOICE_TRUMPET,),  -2.7, -1.1, 1.0),
+    ('trumpet2', 'trumpet',  (VOICE_TRUMPET,),   0.5, -1.0, 1.0),
 ]
 
 

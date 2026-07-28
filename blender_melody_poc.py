@@ -91,34 +91,38 @@ BUILDERS = {
     'oboe': ww.build_oboe, 'bassoon': ww.build_bassoon, 'trumpet': brass.build_trumpet,
 }
 
-# id, kind, voice, x, y (depth), roll
+# id, kind, voice, x, y (depth), roll, scale
 SEATS_SPEC = [
-    ('flute',      'flute',      14, -1.7,  0.6,  0.0),
-    ('clarinet',   'clarinet',   13, -0.5,  0.7,  14.0),
-    ('vibraphone', 'vibraphone', 7,   1.5,  0.7,  0.0),
-    ('oboe',       'oboe',       15, -1.5, -0.7,  14.0),
-    ('bassoon',    'bassoon',    12, -0.2, -0.5,  40.0),
-    ('trumpet',    'trumpet',    25,  1.3, -0.8,  0.0),
+    ('flute',      'flute',      14, -1.7,  0.6,  0.0,  1.0),
+    ('clarinet',   'clarinet',   13, -0.5,  0.7,  14.0, 1.0),
+    ('vibraphone', 'vibraphone', 7,   2.3,  1.1,  0.0,  1.5),  # larger + back + right (clear of the bassoon); no tilt/sway
+    ('oboe',       'oboe',       15, -1.5, -0.7,  14.0, 1.0),
+    ('bassoon',    'bassoon',    12, -0.2, -0.5,  20.0, 1.0),  # tilt halved (40 -> 20)
+    ('trumpet',    'trumpet',    25,  1.3, -1.05, 0.0,  1.0),  # nudged forward (-0.8 -> -1.05)
 ]
 
 
 def build_melody(x0):
     body_mat = ww.make_body_material("MelBody")
     seats = []
-    for i, (sid, kind, voice, sx, sy, roll) in enumerate(SEATS_SPEC):
+    for i, (sid, kind, voice, sx, sy, roll, scale) in enumerate(SEATS_SPEC):
         all_objs, body_objs = BUILDERS[kind](body_mat)
         for o in body_objs:
             o.color = (*BODY_CLR[kind], 1.0)
         empty = bpy.data.objects.new(f"mel_{sid}", None)
         bpy.context.scene.collection.objects.link(empty)
         empty.location = (x0 + sx, sy, 0.0)
+        empty.scale = (scale, scale, scale)
         empty.rotation_euler = (0.0, math.radians(roll), 0.0)
         for o in all_objs:
             if o.parent is None:
                 o.parent = empty
-        seats.append(dict(id=sid, kind=kind, voice=voice, empty=empty, body=body_objs,
-                          sway_freq=SWAY_FREQS[i], sway_phase=SWAY_PHASES[i],
-                          sway_env=0.0, base_roll=roll))
+        seat = dict(id=sid, kind=kind, voice=voice, empty=empty, body=body_objs,
+                    sway_freq=SWAY_FREQS[i], sway_phase=SWAY_PHASES[i],
+                    sway_env=0.0, base_roll=roll)
+        if kind == 'vibraphone':
+            seat['sway_amp'] = 0.0   # struck instrument — no tilt, no rock
+        seats.append(seat)
     return dict(seats=seats)
 
 

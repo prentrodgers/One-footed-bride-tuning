@@ -318,11 +318,11 @@ BOW_TILT_DEG = 12.0   # degrees the stick pitches away from the string plane,
                        # so only the string at the contact point is touched
                        # rather than the hair lying flat across all four
 
-BOW_LEN       = 0.22
-BOW_FROG_LEN  = 0.028
-BOW_TIP_LEN   = 0.018
-BOW_STICK_R   = 0.0022
-BOW_HAIR_W    = 0.0035
+BOW_LEN       = 0.46     # full-length bow — longer than the violin body, as in life
+BOW_FROG_LEN  = 0.048
+BOW_TIP_LEN   = 0.032
+BOW_STICK_R   = 0.0095   # much thicker so the bow clearly reads at stage distance
+BOW_HAIR_W    = 0.015
 BOW_FROG_W    = 0.007
 BOW_FROG_H    = 0.006
 BOW_SCREW_R   = 0.0032
@@ -968,9 +968,10 @@ def build_player(pl, string_mat):
         pluck.data.materials.append(pluck_mat)
         pluck.hide_render = True
 
-    # Bow — martele player only.
+    # Bow — the martele player, plus any player explicitly flagged pl['bow']
+    # (the arco bowed-string section reuses this builder and asks for bows).
     bow_pivot, bow_parts = (None, None)
-    if pl['voice'] in MARTEL_VOICES:
+    if pl.get('bow') or pl['voice'] in MARTEL_VOICES:
         bow_pivot, bow_parts = build_bow(f"{pl['name']}_bow")
 
     return dict(sxs=sxs, bridge_sxs=bridge_sxs, str_top=str_top, str_bot=str_bot, bridge_z=bridge_z,

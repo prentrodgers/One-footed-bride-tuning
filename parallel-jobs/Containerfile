@@ -1,5 +1,18 @@
-# Containerfile — python-music:0.7
-# Adds sox + libsox-fmt-mp3 relative to 0.6.
+# Containerfile — python-music:0.9
+# Adds headless Blender 5.2.0 LTS + Intel Arc (Battlemage B70) GPU rendering,
+# relative to 0.7 (which added sox + libsox-fmt-mp3).
+#
+# GPU rendering uses Blender's Vulkan backend (Intel ANV) against a passed-
+# through DRM render node — no Xvfb (that gives a software/CPU context). Two
+# things beyond this image are required and live in the pod YAML:
+#   1. pass a render node through: /dev/dri/renderD129 (hostPath CharDevice)
+#   2. securityContext.privileged: true on the render container — otherwise
+#      the k8s device cgroup denies open() on the node with EPERM and Blender
+#      silently falls back to llvmpipe (software). This was THE blocker.
+# Then render with the vulkan backend:
+#   blender --background --gpu-backend vulkan --python blender_stage.py -- \
+#       --npy bwv253_features_array.npy --tempo 110 --duration 49.0 \
+#       --res-x 1280 --res-y 720 --out stage_frames
 FROM python:3.12-slim AS runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -19,8 +32,51 @@ RUN apt-get update && \
         libgomp1 \
         libfreetype6 \
         libpng16-16 \
-        fonts-dejavu-core && \
+        fonts-dejavu-core \
+        # --- Blender download/unpack + the X libs it links against even when
+        #     run headless (loaded at startup regardless of the GL backend) ---
+        xz-utils \
+        curl \
+        ca-certificates \
+        libx11-6 libxi6 libxxf86vm1 libxfixes3 libxrender1 \
+        libxkbcommon0 libsm6 libxext6 \
+        # --- Mesa: iris = OpenGL for Intel Arc/Xe (legacy EEVEE); libgbm1 +
+        #     libegl1 are what the headless EGL-surfaceless path needs. This
+        #     is all EEVEE needs on the GPU — no Intel compute runtime. ---
+        libgl1 libglu1-mesa libglx-mesa0 libgl1-mesa-dri \
+        libegl1 libgles2 libgbm1 \
+        mesa-vulkan-drivers && \
     rm -rf /var/lib/apt/lists/*
+
+# Battlemage (Arc Pro B-series, PCI 8086:E223, xe KMD) is newer than Debian
+# trixie's stock Mesa 25.0.7 — pull Mesa 26.x from trixie-backports so ANV/
+# iris recognise and drive the GPU. (Confirmed 26.1.2 available in backports.)
+RUN echo 'deb http://deb.debian.org/debian trixie-backports main' \
+        > /etc/apt/sources.list.d/backports.list && \
+    apt-get update && \
+    apt-get install -y -t trixie-backports \
+        mesa-vulkan-drivers libgl1-mesa-dri libglx-mesa0 libegl-mesa0 libgbm1 && \
+    rm -rf /var/lib/apt/lists/*
+
+# NOTE: Cycles GPU rendering (oneAPI/Level-Zero) is NOT installed — this
+# image targets EEVEE, which only needs Mesa above. If you ever switch a
+# scene to Cycles-on-GPU, enable Debian contrib + non-free and add:
+# intel-opencl-icd intel-level-zero-gpu libze1  (they're not in main).
+
+# Blender 5.2.0 LTS. blender_stage.py picks its EEVEE engine enum at runtime
+# (see _pick_eevee_engine), so it tolerates the 5.1->5.2 version difference.
+#
+# The tarball is COPYied from the build context rather than downloaded during
+# the build: downloading a ~350 MB binary mid-build is fragile (mirror 403s,
+# URL drift) and non-reproducible. Fetch it ONCE onto the build host first
+# (download the Linux x64 .tar.xz from https://www.blender.org/download/ ),
+# leaving it in parallel-jobs/. The *.tar.xz is gitignored — it stays local.
+COPY blender-5.2.0-linux-x64.tar.xz /tmp/blender.tar.xz
+RUN mkdir -p /opt && tar xf /tmp/blender.tar.xz -C /opt && \
+    mv /opt/blender-5.2.0-linux-x64 /opt/blender-5.2.0 && \
+    ln -s /opt/blender-5.2.0/blender /usr/local/bin/blender && \
+    rm -f /tmp/blender.tar.xz && \
+    blender --version
 
 WORKDIR /app
 

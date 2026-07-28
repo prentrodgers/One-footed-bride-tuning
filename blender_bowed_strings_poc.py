@@ -28,14 +28,20 @@ PLAYERS = [
     dict(id=3, name='Violin II', voice=17, inst='violin', x=1.55),
 ]
 
+# Player spacing is compressed toward the section centre so the (now larger)
+# instruments cluster tighter and stop crowding the pizzicato section beside
+# them — they stay big, just closer together.
+SPREAD = 0.62
+
 
 def build_bowed_strings(x0):
     string_mat = pizz.make_string_glow_material()
     geoms = {}
     for pl in PLAYERS:
         p = dict(pl)
-        p['x'] = pl['x'] + x0
+        p['x'] = pl['x'] * SPREAD + x0
         p['_notes'] = np.zeros((0, 5))
+        p['bow'] = True    # arco — every player draws a bow across the sounding string
         geoms[pl['id']] = pizz.build_player(p, string_mat)
     return dict(geoms=geoms)
 

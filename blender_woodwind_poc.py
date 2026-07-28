@@ -57,8 +57,12 @@ REED_CLR = (0.62, 0.55, 0.35)
 GLOW_DECAY = 0.55
 PLAY_LEAN_DEG = {'clarinet': 7.0, 'oboe': 7.0, 'horn': 10.0, 'bassoon': 6.0}
 PLAY_RELAX_T = 0.5
-SWAY_AMP_DEG = 5.6
-SWAY_ENV_TAU_IN, SWAY_ENV_TAU_OUT = 0.4, 3.0
+# Sway is deliberately tiny now (~10% of the old ±5.6°) and fades out fast
+# once a seat stops playing, so instruments are essentially still except for
+# a faint breath while sounding — the big idle rock read as unmotivated.
+SWAY_AMP_DEG = 0.56
+SWAY_ENV_TAU_IN, SWAY_ENV_TAU_OUT = 0.4, 0.5
+LEAN_TAU = 0.12   # s — quick but smooth tip toward/away the mouthpiece (no onset snap)
 
 
 # ── materials ────────────────────────────────────────────────────────────────
@@ -242,7 +246,7 @@ SWAY_PHASES = [0.0, 1.1, 2.3, 0.7]
 # Constant lean (roll) per instrument so tops sit left, bottoms right; the
 # bassoon leans hard, the way a player holds it diagonally across the body.
 BASE_ROLL_DEG = 16.0
-ROLL_BY_KIND = {'clarinet': 16.0, 'oboe': 16.0, 'horn': 10.0, 'bassoon': 52.0}
+ROLL_BY_KIND = {'clarinet': 16.0, 'oboe': 16.0, 'horn': 10.0, 'bassoon': 26.0}
 
 
 def build_woodwinds(x0):
@@ -306,26 +310,29 @@ def update_wind_seats(t, seats, seat_note_sets, body_clr, glow_clr, lean_deg,
     — the two differ only in their colour/lean tables, passed in here."""
     sway_alpha_in = 1.0 - math.exp(-(1.0 / FPS) / SWAY_ENV_TAU_IN)
     sway_alpha_out = 1.0 - math.exp(-(1.0 / FPS) / SWAY_ENV_TAU_OUT)
+    lean_alpha = 1.0 - math.exp(-(1.0 / FPS) / LEAN_TAU)
     for s in seats:
+        s.setdefault('lean_state', 0.0)
         glow, playing, last_off = _seat_state(t, seat_note_sets[s['id']])
 
-        # sway envelope (fade in when playing, out when silent)
+        # sway envelope (fade in when playing, out when silent). A seat can
+        # override the amplitude (e.g. the vibraphone sets it to 0 — a struck
+        # instrument shouldn't rock like a wind player).
         alpha = sway_alpha_in if playing else sway_alpha_out
         s['sway_env'] += ((1.0 if playing else 0.0) - s['sway_env']) * alpha
-        sway = sway_amp * s['sway_env'] * math.sin(
+        amp = s.get('sway_amp', sway_amp)
+        sway = amp * s['sway_env'] * math.sin(
             2 * math.pi * s['sway_freq'] * t + s['sway_phase'])
 
-        # playing lean toward the camera, eased back after note-off
+        # Playing lean toward the camera — eased BOTH ways. Previously it
+        # snapped to lean_max instantly on every note onset (ease-out only),
+        # so fast passages made the instrument jump. Now the lean angle glides
+        # toward its target (lean_max while sounding, 0 when silent) with the
+        # same exponential smoothing as the sway, so onsets tip in smoothly.
         lean_max = lean_deg[s['kind']]
-        if playing:
-            lean = lean_max
-        else:
-            dt = t - last_off
-            if 0.0 <= dt < PLAY_RELAX_T:
-                p = dt / PLAY_RELAX_T
-                lean = lean_max * (1.0 - p * p * (3.0 - 2.0 * p))
-            else:
-                lean = 0.0
+        lean_target = lean_max if playing else 0.0
+        s['lean_state'] += (lean_target - s['lean_state']) * lean_alpha
+        lean = s['lean_state']
 
         # lean tips forward (top toward -Y/camera) around X; sway + a constant
         # base roll both rotate around Y (roll in the camera plane)

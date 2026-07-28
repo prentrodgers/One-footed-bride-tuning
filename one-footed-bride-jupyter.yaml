@@ -1,4 +1,4 @@
-# Jupyter Lab server for One-footed-bride-tuning: tuning → mp3 pipeline.
+ # Jupyter Lab server for One-footed-bride-tuning: tuning → mp3 pipeline.
 # Init container clones or pulls the repo, then the main container starts Jupyter Lab.
 #
 # Usage:
@@ -92,8 +92,12 @@ spec:
         app: one-footed-bride
     spec:
       nodeSelector:
-        # kubernetes.io/hostname: fs6
-        # intel.feature.node.kubernetes.io/gpu: "true"
+        kubernetes.io/hostname: fs5          # Arc Pro B70 node (GPU render)
+      securityContext:
+        supplementalGroups:
+          - 992                              # 'render' group on fs5 (getent group
+                                             # render -> render:x:992) — access to the
+                                             # passed-through GPU render nodes.
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -106,7 +110,7 @@ spec:
             topologyKey: kubernetes.io/hostname
       initContainers:
       - name: git-sync
-        image: quay.io/prentrodgers/python-music:0.7
+        image: quay.io/prentrodgers/python-music:0.9
         imagePullPolicy: IfNotPresent
         command: ["/bin/bash", "-c"]
         args:
@@ -136,9 +140,11 @@ spec:
           value: "/home/prent"
       containers:
       - name: one-footed-bride
-        image: quay.io/prentrodgers/python-music:0.7
+        image: quay.io/prentrodgers/python-music:0.9
         imagePullPolicy: IfNotPresent
         workingDir: /home/prent/Repos/One-footed-bride-tuning
+        securityContext:
+          runAsUser: 1000
         command: ["jupyter", "lab"]
         args:
           - "--ip=0.0.0.0"
@@ -151,6 +157,11 @@ spec:
         volumeMounts:
         - mountPath: /home/prent
           name: ceph-files
+        # Arc B70 render nodes (headless EGL GPU rendering, see draft Containerfile)
+        - name: dri-render129
+          mountPath: /dev/dri/renderD129
+        - name: dri-render130
+          mountPath: /dev/dri/renderD130
         env:
         - name: SFDIR
           value: "/home/prent/Music/sflib"
@@ -163,7 +174,7 @@ spec:
         - name: LOGNAME
           value: "prent"
         - name: IMAGE_VERSION
-          value: "quay.io/prentrodgers/python-music:0.7"
+          value: "quay.io/prentrodgers/python-music:0.8"
         resources:
           requests:
             cpu: "0.5"
@@ -172,9 +183,15 @@ spec:
             cpu: "30"
             memory: "16Gi"
       - name: pod-ssh
-        image: quay.io/prentrodgers/python-music:0.7
+        image: quay.io/prentrodgers/python-music:0.9
         imagePullPolicy: IfNotPresent
         securityContext:
+          # privileged so the container's device cgroup lets processes OPEN
+          # the passed-through GPU render nodes — a hostPath mount only makes
+          # /dev/dri/renderD* visible; without privileged the device cgroup
+          # denies open() with EPERM (even for root), forcing Blender onto the
+          # llvmpipe software fallback. Matches the vLLM deployment's pattern.
+          privileged: true
           capabilities:
             add:
             - SYS_CHROOT
@@ -191,6 +208,12 @@ spec:
             if ! id -u prent >/dev/null 2>&1; then
               useradd -m -d /home/prent -s /bin/bash -u 1000 prent
             fi
+            # Put prent in the render group (GID 992 on fs5) so interactive SSH
+            # sessions can open the passed-through GPU render node — the pod-
+            # level supplementalGroups applies to sshd, but a fresh login shell
+            # rebuilds its groups from /etc/group, so prent must be a member.
+            groupadd -g 992 render 2>/dev/null || true
+            usermod -aG render prent 2>/dev/null || true
             passwd -d prent >/dev/null 2>&1 || true
             mkdir -p /home/prent/.ssh /home/prent/.ssh-hostkeys /run/sshd
             cp /etc/ssh-secrets/authorized_keys /home/prent/.ssh/authorized_keys
@@ -216,6 +239,11 @@ spec:
           mountPath: /etc/ssh/sshd_config
           subPath: sshd_config
           readOnly: true
+        # Arc B70 render nodes — this is the container you SSH into to render
+        - name: dri-render129
+          mountPath: /dev/dri/renderD129
+        - name: dri-render130
+          mountPath: /dev/dri/renderD130
         env:
         - name: HOME
           value: "/home/prent"
@@ -233,6 +261,18 @@ spec:
         persistentVolumeClaim:
           claimName: dropbox-pvc
           readOnly: false
+      # Arc Pro B70 render nodes on fs5 (verified 2026-07-14 in the llm-scaler
+      # deployment): renderD129 -> PCI 0000:04:00.0 (GPU #0),
+      # renderD130 -> 0000:08:00.0 (GPU #1). The iGPU (renderD128) is left out
+      # on purpose so Blender's EGL only ever enumerates the two Arc cards.
+      - name: dri-render129
+        hostPath:
+          path: /dev/dri/renderD129
+          type: CharDevice
+      - name: dri-render130
+        hostPath:
+          path: /dev/dri/renderD130
+          type: CharDevice
       - name: ssh-authorized-keys
         secret:
           secretName: one-footed-bride-ssh-authorized-keys

@@ -11,6 +11,7 @@ from pathlib import Path
 
 import bpy
 import mathutils
+import numpy as np
 
 REPO_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(REPO_DIR))
@@ -80,12 +81,42 @@ BEAT_DIRS = {
 }
 
 
-def update_conductor(t, geom, tempo, state):
-    """Aim the baton at the current beat's direction, easing toward it each
-    frame for a quick preparatory flick (4 chords per beat -> beat = t*bpm/60)."""
-    if tempo is None:
+def load_beat_timeline(npy, tempo):
+    """Timeline of the ORIGINAL-chorale chord number (features column 15)
+    over playback time. The orchestra repeats each source chord a random
+    number of times, so the conductor must follow the actual chord index
+    the ensemble is on — not wall-clock tempo. Returns (onsets, chords),
+    both sorted by onset, with `chords` a running max so a lookup at any t
+    gives the current (non-decreasing) source-chord number."""
+    if not npy:
+        return None
+    arr = np.load(npy)
+    mask = (arr[:, 5] > 0) & (arr[:, 2] > 0) & (arr[:, 14] > 0) & (arr[:, 3] > 0)
+    arr = arr[mask]
+    bps = tempo / 60.0
+    onsets = arr[:, 1] / bps
+    chords = arr[:, 15]
+    order = np.argsort(onsets, kind="stable")
+    onsets = onsets[order]
+    chords = np.maximum.accumulate(chords[order])   # guard against any local dips
+    return onsets, chords
+
+
+def _current_chord(t, timeline):
+    onsets, chords = timeline
+    idx = int(np.searchsorted(onsets, t, side="right")) - 1
+    return int(chords[idx]) if idx >= 0 else 0
+
+
+def update_conductor(t, geom, timeline, state):
+    """Aim the baton at the beat the ORCHESTRA is actually on: read the
+    current source-chord number (features col 15) at time t and map it to a
+    4/4 beat position — beat = (chord // 4) % 4, i.e. chords 0-3 down, 4-7
+    left, 8-11 right, 12-15 up, then repeat. Eases toward the target each
+    frame for a quick preparatory flick between beats."""
+    if timeline is None:
         return
-    beat = int(t * tempo / 60.0) % 4
+    beat = (_current_chord(t, timeline) // 4) % 4
     tgt = mathutils.Vector(BEAT_DIRS[beat]).normalized()
     cur = mathutils.Vector(state['dir']).lerp(tgt, 0.28)
     if cur.length > 1e-6:
