@@ -62,10 +62,10 @@ FPS = 30
 SECTIONS = {
     "pizz":          dict(cx=-16.0, cy=15.0, scale=6.60),   # +20%
     "marimba":       dict(cx=11.5,  cy=4.0,  scale=0.90),
-    "bass":          dict(cx=-2.5,  cy=3.5,  scale=4.50),   # bigger, reaching left toward the finger piano
-    "finger_piano":  dict(cx=-14.0, cy=4.5,  scale=8.00),   # nudged left
+    "bass":          dict(cx=-2.7,  cy=3.7,  scale=4.50),   # guitar side sits just left of the marimba
+    "finger_piano":  dict(cx=-15.3, cy=4.5,  scale=8.00),   # nudged right to follow the bass finger piano
     "woodwind":      dict(cx=-10.0, cy=-7.0, scale=1.80),
-    "brass":         dict(cx=16.5,  cy=14.5, scale=2.25),   # +25%
+    "brass":         dict(cx=14.0,  cy=13.5, scale=2.25),   # back, pulled left off the edge
     "bowed_strings": dict(cx=1.0,   cy=15.0, scale=5.60),   # +40%
     "melody":        dict(cx=10.0,  cy=-7.0, scale=1.80),
     "conductor":     dict(cx=0.0,   cy=-6.5, scale=1.50),
@@ -231,7 +231,10 @@ def _update_string_player(t, pl, geom):
     """One string player's per-frame update (glow, vibration, stop finger,
     pluck/bow) — shared by the pizzicato and bowed-string sections, which
     build identical violin/viola/cello geometry."""
-    state = pizz.compute_player_state(t, pl['_notes'], pl['inst'])
+    # Arco (sustained bowed strings) vs martele/pizzicato: a bowed player has
+    # a bow but isn't a martele voice — it sounds continuously for the note.
+    is_arco = geom['bow_pivot'] is not None and pl['voice'] not in pizz.MARTEL_VOICES
+    state = pizz.compute_player_state(t, pl['_notes'], pl['inst'], arco=is_arco)
     glow, vib = state['str_glow'], state['str_vib']
     st_on, st_pitch = state['str_onset'], state['str_pitch']
 
@@ -269,8 +272,12 @@ def _update_string_player(t, pl, geom):
         pizz.update_pluck_finger(geom['pluck'], state['last_gest'],
                                  geom['contact_sxs'], geom['contact_z'], geom['contact_y'], t)
     if geom['bow_pivot'] is not None:
-        pizz.update_bow(geom['bow_pivot'], geom['bow_parts'], state['last_gest'],
-                        geom['contact_sxs'], geom['contact_z'], geom['contact_y'], t)
+        if is_arco:
+            pizz.update_bow_sustained(geom['bow_pivot'], geom['bow_parts'], state['bow_note'],
+                                      geom['contact_sxs'], geom['contact_z'], geom['contact_y'], t)
+        else:
+            pizz.update_bow(geom['bow_pivot'], geom['bow_parts'], state['last_gest'],
+                            geom['contact_sxs'], geom['contact_z'], geom['contact_y'], t)
 
 
 def setup_pizz(npy, tempo):
@@ -290,15 +297,33 @@ def setup_pizz(npy, tempo):
 
 
 def setup_bass(npy, tempo):
-    # Finger piano on the left, baritone guitar on the right, separated in X
-    # (they were overlapping at a shared x0=0 before). Mirrors the standalone
-    # bass section's own main() layout, with a slightly wider gap.
-    fp_total_w = bass.TINE_RACK_W
+    # Finger piano on the left (enlarged FP_SCALE bigger than the guitar),
+    # baritone guitar on the right, separated in X.
+    FP_SCALE = 1.5
+    fp_total_w = bass.TINE_RACK_W * FP_SCALE
     gtr_total_len = bass.HEAD_LEN + bass.NECK_LEN + bass.BODY_W
-    gap = 0.45
+    gap = 0.3   # narrower gap between the bass finger piano and the guitar
     fp_x0 = -(fp_total_w + gap + gtr_total_len) / 2.0 + fp_total_w / 2.0
     gtr_x0 = fp_x0 + fp_total_w / 2.0 + gap
+
+    # Build the finger piano, then group its objects under an empty and scale
+    # it up in place (pivot at fp_x0, floor level). The animation still
+    # composes through the extra parent transform, exactly as the whole
+    # section's scale does.
+    before_fp = set(bpy.data.objects)
     fp_geom = bass.build_bass_finger_piano(fp_x0)
+    fp_objs = [o for o in bpy.data.objects if o not in before_fp]
+    fp_empty = bpy.data.objects.new("bass_fp_group", None)
+    bpy.context.scene.collection.objects.link(fp_empty)
+    fp_empty.location = (fp_x0, 0.0, 0.0)
+    bpy.context.view_layer.update()
+    pinv = fp_empty.matrix_world.inverted()   # keep objects in place when parenting
+    for o in fp_objs:
+        if o.parent is None:
+            o.parent = fp_empty
+            o.matrix_parent_inverse = pinv
+    fp_empty.scale = (FP_SCALE, FP_SCALE, FP_SCALE)
+
     gtr_geom = bass.build_baritone_guitar(gtr_x0, bass.BASE_HEIGHT / 2.0 + bass.BODY_H * 0.15)
 
     tine_notes = bass.load_voices(npy, tempo, (24,)) if npy else np.zeros((0, 5))

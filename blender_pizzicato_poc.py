@@ -313,9 +313,14 @@ VOICE_CLR = {
 BOW_APP_T = 0.028
 BOW_DWL_T = 0.052
 BOW_RET_T = 0.075
-BOW_SWEEP = 0.015    # m — how far the contact point slides during the stroke
+BOW_SWEEP = 0.015    # m — how far the contact point slides during a martele stroke
 BOW_TILT_DEG = 12.0   # degrees the stick pitches away from the string plane,
                        # so only the string at the contact point is touched
+# Sustained (arco) bowing — the bow stays on the string for the whole note,
+# sliding back and forth in a long continuous stroke (unlike the martele flick).
+BOW_STROKE_T = 1.0        # s per half-stroke (a slow, sustained draw)
+BOW_SUSTAIN_SWEEP = 0.025 # m — sustained bow travels further than a martele flick
+TAU_ARCO_REL = 0.14       # s — string-vibration release after the bow lifts
                        # rather than the hair lying flat across all four
 
 BOW_LEN       = 0.46     # full-length bow — longer than the violin body, as in life
@@ -1025,16 +1030,18 @@ def build_stage(total_w, top_z, bottom_z):
     bpy.context.scene.collection.objects.link(fill)
 
 
-def compute_player_state(t, notes, inst_type):
+def compute_player_state(t, notes, inst_type, arco=False):
     """Per-string glow/vibration-amplitude/onset/pitch, plus the most
-    recent gesture (pluck for pizzicato, bow stroke for martele) —
-    duplicated/adapted from string_section_poc.compute_state (pure numpy,
-    see module note)."""
+    recent gesture. `arco=True` (sustained bowed strings) keeps the string
+    sounding — glow and vibration held at full — for the WHOLE note instead
+    of decaying like a pluck/martele, and reports `bow_note` (the note
+    currently under the bow) so the bow can stay drawn for its full length."""
     str_glow = np.zeros(4)
     str_vib = np.zeros(4)
     str_onset = np.full(4, -999.0)
     str_pitch = np.full(4, np.nan)
     last_gest = None
+    bow_note = None
 
     for row in notes:
         onset_t, pitch, dur_s, voice_id = row[0], row[1], row[2], int(row[5])
@@ -1042,19 +1049,34 @@ def compute_player_state(t, notes, inst_type):
         dt = t - onset_t
         is_martel = voice_id in MARTEL_VOICES
 
-        if 0.0 <= dt <= GLOW_DECAY:
+        if arco:
+            # Glow held while bowed, then a short release fade.
+            if 0.0 <= dt <= dur_s:
+                str_glow[si] = max(str_glow[si], 1.0)
+            elif dt > dur_s and (dt - dur_s) < GLOW_DECAY:
+                str_glow[si] = max(str_glow[si], 1.0 - (dt - dur_s) / GLOW_DECAY)
+        elif 0.0 <= dt <= GLOW_DECAY:
             str_glow[si] = max(str_glow[si], 1.0 - dt / GLOW_DECAY)
 
         if dt > 0.0:
-            tau = TAU_MARTEL if is_martel else TAU_PIZZ
-            amp = math.exp(-dt / tau)
-            if dt > dur_s:
-                cutoff = 0.10 if is_martel else 0.18
-                amp *= max(0.0, 1.0 - (dt - dur_s) / cutoff)
+            if arco:
+                # Continuous vibration while bowed; release after the note ends.
+                amp = 1.0 if dt <= dur_s else math.exp(-(dt - dur_s) / TAU_ARCO_REL)
+            else:
+                tau = TAU_MARTEL if is_martel else TAU_PIZZ
+                amp = math.exp(-dt / tau)
+                if dt > dur_s:
+                    cutoff = 0.10 if is_martel else 0.18
+                    amp *= max(0.0, 1.0 - (dt - dur_s) / cutoff)
             if amp > str_vib[si]:
                 str_vib[si] = amp
                 str_onset[si] = onset_t
                 str_pitch[si] = pitch
+
+        # Note currently under the bow (sustained), latest onset wins.
+        if arco and 0.0 <= dt < dur_s:
+            if bow_note is None or onset_t > bow_note[0]:
+                bow_note = (onset_t, dur_s, si)
 
         app_t = BOW_APP_T if is_martel else PLK_APP_T
         total_gest = ((BOW_APP_T + BOW_DWL_T + BOW_RET_T) if is_martel
@@ -1064,7 +1086,7 @@ def compute_player_state(t, notes, inst_type):
                 last_gest = (onset_t, si, voice_id)
 
     return dict(str_glow=str_glow, str_vib=str_vib, str_onset=str_onset,
-                str_pitch=str_pitch, last_gest=last_gest)
+                str_pitch=str_pitch, last_gest=last_gest, bow_note=bow_note)
 
 
 def update_pluck_finger(pluck_obj, gest, contact_sxs, contact_z, contact_y, t):
@@ -1123,6 +1145,25 @@ def update_bow(bow_pivot, bow_parts, gest, contact_sxs, contact_z, contact_y, t)
     # plane — the rest of the hair's length lifts away in Z, so the bow
     # visibly touches just this one string instead of lying flat across
     # all four.
+    bow_pivot.location = (bx, contact_y - 0.008, contact_z)
+    bow_pivot.rotation_euler = (0.0, math.radians(BOW_TILT_DEG), 0.0)
+    for p in bow_parts:
+        p.hide_render = False
+
+
+def update_bow_sustained(bow_pivot, bow_parts, note, contact_sxs, contact_z, contact_y, t):
+    """Sustained (arco) bow: stays on the sounding string for the whole note,
+    drawing back and forth in a long continuous stroke (triangle wave) — not
+    the quick one-shot flick of update_bow. `note` is (onset, dur, string)."""
+    if note is None:
+        for p in bow_parts:
+            p.hide_render = True
+        return
+    onset, _dur, si = note
+    sx = contact_sxs[si]
+    phase = ((t - onset) / BOW_STROKE_T) % 2.0        # 0..2
+    tri = phase if phase <= 1.0 else 2.0 - phase       # 0..1..0 triangle (down-bow/up-bow)
+    bx = sx - BOW_SUSTAIN_SWEEP * 0.5 + BOW_SUSTAIN_SWEEP * tri
     bow_pivot.location = (bx, contact_y - 0.008, contact_z)
     bow_pivot.rotation_euler = (0.0, math.radians(BOW_TILT_DEG), 0.0)
     for p in bow_parts:

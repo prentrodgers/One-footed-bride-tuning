@@ -181,12 +181,14 @@ BUILDERS = {'trumpet': build_trumpet, 'trombone': build_trombone, 'tuba': build_
 # trumpets tucked into the middle-front.
 SEATS_SPEC = [
     # id, kind, voices, x, y (depth), scale
-    # Spread wider (left/right) and the back row pushed further up so the
-    # section fills more of its corner rather than clustering.
-    ('trombone', 'trombone', (VOICE_TROMBONE,), -2.7,  1.6, 1.0),
-    ('tuba',     'tuba',     (VOICE_TUBA,),      2.9,  1.7, 1.0),
-    ('trumpet1', 'trumpet',  (VOICE_TRUMPET,),  -2.7, -1.1, 1.0),
-    ('trumpet2', 'trumpet',  (VOICE_TRUMPET,),   0.5, -1.0, 1.0),
+    # Trombone / trumpet / trumpet stacked in one vertical column (same x,
+    # back-to-front in y, which reads top-to-bottom in the elevated view);
+    # the tuba stands alone beside the column, scaled up to match the
+    # column's overall height.
+    ('trombone', 'trombone', (VOICE_TROMBONE,), -1.4,  1.6, 1.0),  # top
+    ('trumpet1', 'trumpet',  (VOICE_TRUMPET,),  -1.4,  0.0, 1.0),  # middle
+    ('trumpet2', 'trumpet',  (VOICE_TRUMPET,),  -1.4, -1.6, 1.0),  # bottom
+    ('tuba',     'tuba',     (VOICE_TUBA,),      1.0,  0.0, 1.8),  # beside the column, pulled in closer
 ]
 
 
