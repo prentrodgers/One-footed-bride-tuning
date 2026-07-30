@@ -340,7 +340,8 @@ BOW_TILT_DEG = 12.0   # degrees the stick pitches away from the string plane,
 # Sustained (arco) bowing — the bow stays on the string for the whole note,
 # sliding back and forth in a long continuous stroke (unlike the martele flick).
 BOW_STROKE_T = 1.0        # s per half-stroke (a slow, sustained draw)
-BOW_SUSTAIN_SWEEP = 0.025 # m — sustained bow travels further than a martele flick
+BOW_SUSTAIN_SWEEP = 0.34  # m — frog-to-tip travel of a full sustained stroke,
+                          # just short of the 0.38 m hair so contact stays on it
 TAU_ARCO_REL = 0.14       # s — string-vibration release after the bow lifts
                        # rather than the hair lying flat across all four
 
@@ -538,6 +539,10 @@ def build_bow(name):
     for p in parts:
         p.parent = pivot
         p.matrix_parent_inverse = pivot.matrix_world.inverted()
+        # Where this part sits along the bow at rest. Drawing the bow slides
+        # every part along local X off these bases while the pivot — the point
+        # touching the string — stays put; see update_bow_sustained.
+        p["bow_x0"] = p.location.x
         p.hide_render = True
 
     return pivot, parts
@@ -1206,10 +1211,14 @@ def update_bow_sustained(bow_pivot, bow_parts, note, contact_sxs, contact_z, con
     sx = contact_sxs[si]
     phase = ((t - onset) / BOW_STROKE_T) % 2.0        # 0..2
     tri = phase if phase <= 1.0 else 2.0 - phase       # 0..1..0 triangle (down-bow/up-bow)
-    bx = sx - BOW_SUSTAIN_SWEEP * 0.5 + BOW_SUSTAIN_SWEEP * tri
-    bow_pivot.location = (bx, contact_y - 0.008, contact_z)
+    # The contact point is fixed on the string — a real bow doesn't drag its
+    # contact sideways. What travels is the BOW, sliding along its own length
+    # through that point: tri=0 puts the frog on the string, tri=1 the tip.
+    off = BOW_SUSTAIN_SWEEP * (0.5 - tri)
+    bow_pivot.location = (sx, contact_y - 0.008, contact_z)
     bow_pivot.rotation_euler = (0.0, math.radians(BOW_TILT_DEG), 0.0)
     for p in bow_parts:
+        p.location.x = p["bow_x0"] + off
         p.hide_render = False
 
 
