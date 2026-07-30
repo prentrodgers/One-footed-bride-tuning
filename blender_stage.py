@@ -119,6 +119,12 @@ def parse_args():
     p.add_argument("--mp4", default=None)
     p.add_argument("--res-x", type=int, default=1280)
     p.add_argument("--res-y", type=int, default=720)
+    # Render only part of the clip, so two Blender processes (one per GPU) can
+    # split the work. Frame numbers and the animation clock stay absolute —
+    # frame N is at t = N/FPS whichever process renders it — so both halves
+    # write frame_%06d.png into the SAME --out dir and need no merge step.
+    p.add_argument("--frame-start", type=int, default=0)
+    p.add_argument("--frame-end", type=int, default=None)   # inclusive
     return p.parse_args(argv)
 
 
@@ -497,18 +503,24 @@ def main():
         return
 
     n_frames = int(np.ceil(args.duration * FPS))
+    f0 = max(0, args.frame_start)
+    f1 = n_frames - 1 if args.frame_end is None else min(args.frame_end, n_frames - 1)
+    if f1 < f0:
+        raise SystemExit(f"empty frame range {f0}..{f1}")
+    n_todo = f1 - f0 + 1
     render_t0 = time.time()
 
     if args.mp4:
-        _render_video(scene, updates, n_frames, args.mp4)
-        print(f"[stage] done: {n_frames} frames -> {args.mp4} "
+        _render_video(scene, updates, f0, f1, args.mp4)
+        print(f"[stage] done: {n_todo} frames -> {args.mp4} "
               f"in {time.time() - render_t0:.1f}s, total {time.time() - t0:.1f}s")
         return
 
     out_dir = Path(args.out)
     out_dir.mkdir(parents=True, exist_ok=True)
-    print(f"[stage] animating {n_frames} frames ({args.duration:.1f}s @ {FPS}fps) -> {out_dir}/")
-    for fi in range(n_frames):
+    print(f"[stage] animating frames {f0}..{f1} of {n_frames} "
+          f"({args.duration:.1f}s @ {FPS}fps) -> {out_dir}/")
+    for fi in range(f0, f1 + 1):
         t = fi / FPS
         for update in updates:
             update(t)
@@ -517,11 +529,11 @@ def main():
         if fi % 30 == 0:
             print(f"  frame {fi}/{n_frames}  t={t:.2f}s  elapsed={time.time() - render_t0:.1f}s")
     total = time.time() - render_t0
-    print(f"[stage] done: {n_frames} frames in {total:.1f}s "
-          f"({total / max(n_frames, 1):.3f}s/frame), total {time.time() - t0:.1f}s")
+    print(f"[stage] done: {n_todo} frames in {total:.1f}s "
+          f"({total / max(n_todo, 1):.3f}s/frame), total {time.time() - t0:.1f}s")
 
 
-def _render_video(scene, updates, n_frames, out_path):
+def _render_video(scene, updates, f0, f1, out_path):
     """Render straight to an .mp4 using Blender's bundled ffmpeg. Because the
     animation is procedural (each frame is computed in Python, not keyframed),
     a frame_change_pre handler runs the section updates for the current frame,
@@ -543,12 +555,12 @@ def _render_video(scene, updates, n_frames, out_path):
     r.ffmpeg.codec = 'H264'
     r.ffmpeg.constant_rate_factor = 'HIGH'
     r.ffmpeg.gopsize = 15
-    scene.frame_start, scene.frame_end = 0, n_frames - 1
+    scene.frame_start, scene.frame_end = f0, f1
     # Blender appends the frame range to movie filenames; write to a temp dir
     # then rename to the exact path the caller asked for.
     r.use_file_extension = True
     r.filepath = str(out_path.with_suffix(""))   # basename; Blender adds NNNN-NNNN.mp4
-    print(f"[stage] animating {n_frames} frames -> {out_path.name} (direct mp4)")
+    print(f"[stage] animating frames {f0}..{f1} -> {out_path.name} (direct mp4)")
 
     def _frame_update(scn, *a):
         t = scn.frame_current / FPS
