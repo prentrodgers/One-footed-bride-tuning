@@ -185,10 +185,10 @@ SEATS_SPEC = [
     # back-to-front in y, which reads top-to-bottom in the elevated view);
     # the tuba stands alone beside the column, scaled up to match the
     # column's overall height.
-    ('trombone', 'trombone', (VOICE_TROMBONE,), -1.4,  1.6, 1.0),  # top
-    ('trumpet1', 'trumpet',  (VOICE_TRUMPET,),  -1.4,  0.0, 1.0),  # middle
-    ('trumpet2', 'trumpet',  (VOICE_TRUMPET,),  -1.4, -1.6, 1.0),  # bottom
-    ('tuba',     'tuba',     (VOICE_TUBA,),      1.0,  0.0, 1.8),  # beside the column, pulled in closer
+    ('trombone', 'trombone', (VOICE_TROMBONE,), -1.1,  2.2, 1.56),  # top; a real trombone dwarfs a trumpet
+    ('trumpet1', 'trumpet',  (VOICE_TRUMPET,),  -1.05, 0.0, 1.0),  # middle
+    ('trumpet2', 'trumpet',  (VOICE_TRUMPET,),  -1.05, -1.6, 1.0),  # bottom
+    ('tuba',     'tuba',     (VOICE_TUBA,),     -3.0,  0.0, 1.8),  # left of the column, tucked in beside it
 ]
 
 

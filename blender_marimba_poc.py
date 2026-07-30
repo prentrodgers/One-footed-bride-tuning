@@ -116,6 +116,9 @@ SHARP_RAISE_Z = 0.30
 NODE_FRAC  = 0.2
 SAG_AMOUNT = 0.6
 FRAME_MARGIN = 0.5    # how far past the end bars the frame posts sit
+STAND_H = 1.6         # end posts run this far below the resonators — the legs
+                      # the instrument stands on, so the bars sit at playing
+                      # height instead of near the floor
 
 # Each bar is built with extra cross-section rings at its two node points
 # (plus the centre and the two ends) so a struck bar can visibly flex right
@@ -519,7 +522,7 @@ def build_frame(bar_info, post_x_left, post_x_right):
     each cord's loop point (front/middle/back rails)."""
     frame_mat = make_frame_material()
     string_mat = make_string_material()
-    post_bottom = -SAG_AMOUNT - 0.5
+    post_bottom = -SAG_AMOUNT - 0.5 - STAND_H
     post_top = 0.4
     post_height = post_top - post_bottom
     for post_x in (post_x_left, post_x_right):

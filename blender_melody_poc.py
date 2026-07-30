@@ -94,11 +94,11 @@ BUILDERS = {
 # id, kind, voice, x, y (depth), roll, scale
 SEATS_SPEC = [
     ('flute',      'flute',      14, -1.7,  0.6,  0.0,  1.0),
-    ('clarinet',   'clarinet',   13, -0.5,  0.7,  14.0, 1.0),
-    ('vibraphone', 'vibraphone', 7,   2.3,  1.1,  0.0,  1.5),  # larger + back + right (clear of the bassoon); no tilt/sway
-    ('oboe',       'oboe',       15, -1.5, -0.7,  14.0, 1.0),
+    ('clarinet',   'clarinet',   13, -1.05, 0.7,  14.0, 1.0),  # pulled left, in under the flute
+    ('vibraphone', 'vibraphone', 7,   2.5,  1.1,  0.0,  2.0),  # enlarged 1.5 -> 2.0, shifted right to keep the bassoon clear
+    ('oboe',       'oboe',       15, -2.1, -0.7,  14.0, 1.0),  # under the flute, clear of the clarinet
     ('bassoon',    'bassoon',    12, -0.2, -0.5,  20.0, 1.0),  # tilt halved (40 -> 20)
-    ('trumpet',    'trumpet',    25,  1.3, -1.05, 0.0,  1.0),  # nudged forward (-0.8 -> -1.05)
+    ('trumpet',    'trumpet',    25,  1.3, -1.9,  0.0,  1.0),  # further forward (-1.05 -> -1.9)
 ]
 
 

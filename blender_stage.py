@@ -65,7 +65,9 @@ SECTIONS = {
     "bass":          dict(cx=-2.7,  cy=3.7,  scale=4.50),   # guitar side sits just left of the marimba
     "finger_piano":  dict(cx=-15.3, cy=4.5,  scale=8.00),   # nudged right to follow the bass finger piano
     "woodwind":      dict(cx=-10.0, cy=-7.0, scale=1.80),
-    "brass":         dict(cx=14.0,  cy=13.5, scale=2.25),   # back, pulled left off the edge
+    # cx is larger than the marimba's 11.5 because the brass sits further back:
+    # at that depth it takes more X to land on the same spot on screen.
+    "brass":         dict(cx=14.7,  cy=16.0, scale=2.25),   # back row, directly above the marimba
     "bowed_strings": dict(cx=1.0,   cy=15.0, scale=5.60),   # +40%
     "melody":        dict(cx=10.0,  cy=-7.0, scale=1.80),
     "conductor":     dict(cx=0.0,   cy=-6.5, scale=1.50),
@@ -146,6 +148,9 @@ def place_section(name, before_objs):
     new = [o for o in bpy.data.objects if o not in before_objs]
     if not new:
         raise RuntimeError(f"section {name!r} created no objects")
+    # Sections that re-parent their own pieces (the quartets' seat empties)
+    # leave stale matrix_world values behind; mesh_bounds reads them.
+    bpy.context.view_layer.update()
 
     min_x, max_x, min_y, max_y, min_z, max_z = mesh_bounds(new)
     cfg = SECTIONS[name]

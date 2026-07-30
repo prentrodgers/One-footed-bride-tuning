@@ -37,12 +37,16 @@ SPREAD = 0.62
 def build_bowed_strings(x0):
     string_mat = pizz.make_string_glow_material()
     geoms = {}
+    seated = []
     for pl in PLAYERS:
         p = dict(pl)
         p['x'] = pl['x'] * SPREAD + x0
         p['_notes'] = np.zeros((0, 5))
         p['bow'] = True    # arco — every player draws a bow across the sounding string
-        geoms[pl['id']] = pizz.build_player(p, string_mat)
+        seated.append(p)
+    pizz.quartet_seating(seated)   # viola/cello upstage, everyone angled inward
+    for p in seated:
+        geoms[p['id']] = pizz.build_player(p, string_mat)
     return dict(geoms=geoms)
 
 

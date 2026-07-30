@@ -81,7 +81,10 @@ GAP_SCALE = 0.5
 PLAYERS = [
     dict(id=2, name='Martele', voice=9, inst='violin'),
     dict(id=1, name='Viola',   voice=3, inst='viola'),
-    dict(id=0, name='Cello',   voice=4, inst='cello'),
+    # The pizzicato section is placed at a bigger stage scale than the bowed
+    # section (6.60 vs 5.60), which made this cello visibly larger than the
+    # bowed cello beside it; shrink it by that ratio so the two match.
+    dict(id=0, name='Cello',   voice=4, inst='cello', size=5.60 / 6.60),
     dict(id=3, name='Violin',  voice=2, inst='violin'),
 ]
 
@@ -97,7 +100,25 @@ def layout_players(players, gap_scale=1.0):
         p['x'] = xv - offset
 
 
+def quartet_seating(players, back=0.50, yaw_deg=27.0):
+    """Typical string-quartet seating: the inner viola/cello sit slightly
+    upstage of the outer violins, and each player is turned a little toward
+    the middle of their own quartet (turn grows with distance from centre).
+    Sets pl['y'] / pl['yaw'], which build_player applies to the finished
+    instrument."""
+    xmax = max(abs(p['x']) for p in players) or 1.0
+    for p in players:
+        p['y'] = back if p['inst'] in ('viola', 'cello') else 0.0
+        p['yaw'] = math.radians(-yaw_deg * p['x'] / xmax)
+
+
 layout_players(PLAYERS, gap_scale=GAP_SCALE)
+# The end violin was stranded out on its own — close its gap to the next
+# player by 38% (the other three keep the spacing layout_players gave them).
+# It sits a row forward of the viola, so perspective pushes it further out
+# than the raw spacing suggests; 38% is what evens up the on-screen gaps.
+PLAYERS[0]['x'] += 0.38 * (PLAYERS[1]['x'] - PLAYERS[0]['x'])
+quartet_seating(PLAYERS)
 
 STRING_REACH = 2400   # cents — how far above a string's open pitch it's playable
 
@@ -817,10 +838,29 @@ def build_f_holes(name, x0, front_y, bridge_z, bw, waist, bh, arch_depth, outer_
         slit.data.materials.append(fmat)
 
 
+def _seat_transform(pl, before, x0):
+    """Swing a finished player about its own vertical axis (x=x0) and push it
+    back in Y, by grouping everything the build just made under one Empty.
+    The per-frame updates set object locations in the authored space, so they
+    ride this transform for free — same trick the stage uses per section."""
+    empty = bpy.data.objects.new(f"seat_{pl['name']}", None)
+    bpy.context.scene.collection.objects.link(empty)
+    empty.location = (x0, pl.get('y', 0.0), 0.0)
+    empty.rotation_euler = (0.0, 0.0, pl.get('yaw', 0.0))
+    s = pl.get('size', 1.0)
+    empty.scale = (s, s, s)
+    pinv = mathutils.Matrix.Translation((-x0, 0.0, 0.0))   # pivot on the player, not the origin
+    for o in bpy.data.objects:
+        if o not in before and o.parent is None and o is not empty:
+            o.parent = empty
+            o.matrix_parent_inverse = pinv
+
+
 def build_player(pl, string_mat):
     inst = pl['inst']
     spec = INST_SPEC[inst]
     x0 = pl['x']
+    before = set(bpy.data.objects)
     bw, bh = spec['body_w'] / 2.0, spec['body_len'] / 2.0
     depth = spec['depth']
     arch_depth = depth * ARCH_FRACTION
@@ -978,6 +1018,9 @@ def build_player(pl, string_mat):
     bow_pivot, bow_parts = (None, None)
     if pl.get('bow') or pl['voice'] in MARTEL_VOICES:
         bow_pivot, bow_parts = build_bow(f"{pl['name']}_bow")
+
+    if pl.get('y') or pl.get('yaw') or pl.get('size', 1.0) != 1.0:
+        _seat_transform(pl, before, x0)
 
     return dict(sxs=sxs, bridge_sxs=bridge_sxs, str_top=str_top, str_bot=str_bot, bridge_z=bridge_z,
                 front_y=front_y, bridge_y=bridge_y, bh=bh, arch_depth=arch_depth,
