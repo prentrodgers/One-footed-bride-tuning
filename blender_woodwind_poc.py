@@ -66,7 +66,12 @@ LEAN_TAU = 0.12   # s — quick but smooth tip toward/away the mouthpiece (no on
 
 
 # ── materials ────────────────────────────────────────────────────────────────
-def make_body_material(name):
+# Which instrument bodies are metal. Everything else (grenadilla clarinet and
+# oboe, maple bassoon) is wood and must not get the polished-metal response.
+METAL_KINDS = frozenset({'horn', 'flute', 'trumpet', 'vibraphone'})
+
+
+def make_body_material(name, metallic=0.7, roughness=0.15):
     """Principled body whose Base Color AND Emission Color both come from the
     object's own colour — so setting obj.color per frame both re-tints and
     self-illuminates the body (dark at rest, glowing when the colour is
@@ -80,9 +85,15 @@ def make_body_material(name):
     if "Emission Color" in bsdf.inputs:
         nt.links.new(obj_info.outputs["Color"], bsdf.inputs["Emission Color"])
         bsdf.inputs["Emission Strength"].default_value = 0.45
-    bsdf.inputs["Roughness"].default_value = 0.4
+    # Defaults are polished metal: a tight highlight from the key light is what
+    # reads as brass/silver at stage distance. Reflections are no help here —
+    # the world and floor are near-black, so there is nothing to reflect — but
+    # sun specular is free and needs no raytracing. Wooden bodies (grenadilla
+    # clarinet/oboe, maple bassoon) must pass metallic=0.0 with a duller
+    # roughness, or they come out looking like painted tin.
+    bsdf.inputs["Roughness"].default_value = roughness
     if "Metallic" in bsdf.inputs:
-        bsdf.inputs["Metallic"].default_value = 0.2
+        bsdf.inputs["Metallic"].default_value = metallic
     return mat
 
 
@@ -250,10 +261,12 @@ ROLL_BY_KIND = {'clarinet': 16.0, 'oboe': 16.0, 'horn': 10.0, 'bassoon': 26.0}
 
 
 def build_woodwinds(x0):
-    body_mat = make_body_material("WWBody")
+    metal_mat = make_body_material("WWBodyMetal")
+    wood_mat = make_body_material("WWBodyWood", metallic=0.0, roughness=0.45)
     seats = []
     for i, (sid, kind, voices, sx, sy, sc) in enumerate(SEATS_SPEC):
         before = set(bpy.data.objects)
+        body_mat = metal_mat if kind in METAL_KINDS else wood_mat
         all_objs, body_objs = BUILDERS[kind](body_mat)
         for o in body_objs:
             o.color = (*BODY_CLR[kind], 1.0)

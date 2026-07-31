@@ -29,6 +29,7 @@ still read clearly. Animation wiring comes once the layout is agreed.
 """
 import argparse
 import math
+import random
 import sys
 import time
 from pathlib import Path
@@ -81,6 +82,81 @@ CAM_TARGET = (0.0, 4.0, 3.0)
 CAM_LENS = 38.0
 CAM_SENSOR = 36.0
 
+# ── Camera cue sheet ────────────────────────────────────────────────────────
+# (time_in_seconds, target[, move_seconds]) in ascending time order.
+#
+#   target       "wide", a section key, a player key ("brass.tuba"), or a
+#                tuple of any of those framed together as one shot.
+#   move_seconds 0 (the default) CUTS to the shot; >0 eases to it over that
+#                many seconds, STARTING at the cue time.
+#
+# Run blender_stage.py with --list-targets to print every name available.
+#
+# Times are wall-clock against one specific render. Re-running WreckingCrew
+# re-randomises chord repeats and arpeggiation, so a cue sheet is only valid
+# for the audio it was authored against.
+
+CAMERA_CUES = [
+    (0.0,   "wide"),                              # cuts (default)
+    (17.0,  ("pizz", "finger_piano")),            # tuple = one shot of both
+    (25.0,  "marimba"),
+    (43.0,  "bass", 3.0),                         # 3rd value = ease over 3s
+    (78.0,  "bowed_strings.cello"),               # single player
+]
+
+CAMERA_AUTOGEN = [
+    (90.0, 279.0, 7),      # generator fills 1:30 to the end, seed 7
+]
+
+
+# Time ranges the shot generator fills in around the hand-authored cues:
+# (start_s, end_s, seed). Deterministic per seed, so a render repeats exactly.
+# Hand cues always win — generated shots are dropped near them.
+
+
+# ── Backdrop ────────────────────────────────────────────────────────────────
+# A cyclorama standing behind the orchestra, emissive so it reads as a lit
+# screen rather than a wall we have to light. It fades through these colours,
+# BACKDROP_HOLD seconds each, looping — the slow colour programme is what keeps
+# an hour of the same stage from going stale.
+BACKDROP_Y = 32.0        # depth: well behind the brass, whose bbox ends at 20.9
+BACKDROP_W = 120.0
+BACKDROP_H = 18.0
+BACKDROP_COLORS = [
+    (0.42, 0.02, 0.05),   # deep red
+    (0.78, 0.32, 0.02),   # amber
+    (0.60, 0.48, 0.03),   # yellow
+    (0.30, 0.02, 0.10),   # crimson
+    (0.05, 0.09, 0.32),   # deep blue
+    (0.38, 0.03, 0.22),   # magenta-red
+]
+BACKDROP_HOLD = 150.0    # seconds per colour (2.5 min)
+BACKDROP_STRENGTH = 1.1
+
+# ── Colour wash ─────────────────────────────────────────────────────────────
+# Contrasting coloured spots. These DO cast shadows — two differently coloured
+# sources from different sides is the whole mechanism behind coloured shadows,
+# where one light is blocked and only the other's colour lands.
+# (name, colour, energy W, position, aim point, cone degrees, casts shadow)
+WASH_SPOTS = [
+    ("WashL", (1.00, 0.12, 0.35), 170000.0, (-46.0, -22.0, 30.0), (-8.0, 8.0, 2.0), 55.0, True),
+    ("WashR", (0.10, 0.60, 1.00), 170000.0, (46.0, -22.0, 30.0), (8.0, 8.0, 2.0), 55.0, True),
+    ("WashB", (1.00, 0.62, 0.15), 110000.0, (0.0, 34.0, 26.0), (0.0, 10.0, 2.0), 60.0, False),
+]
+
+# ── Follow spot ─────────────────────────────────────────────────────────────
+# Rides the cue sheet: whatever the camera is on gets picked out of the wash.
+# Snaps on a cut, travels on a move, exactly like the camera.
+FOLLOW_OFFSET = (0.0, -14.0, 18.0)    # position relative to the shot's centre
+FOLLOW_ENERGY = 15000.0
+FOLLOW_COLOR = (1.00, 0.95, 0.88)     # warm white, to read against the wash
+FOLLOW_CONE_MARGIN = 1.4              # cone spread relative to the shot's size
+
+CAMERA_HOLD = (10.0, 15.0)   # generated shot length range, seconds
+CAMERA_MARGIN = 1.25         # framing headroom: 1.0 = target exactly fills frame
+CAMERA_MOVE_CHANCE = 0.25    # fraction of generated transitions that move, not cut
+CAMERA_MOVE_T = 2.5          # seconds for a generated move
+
 
 def _pick_eevee_engine():
     """Pick a valid EEVEE render-engine enum for whatever Blender is running.
@@ -125,6 +201,8 @@ def parse_args():
     # write frame_%06d.png into the SAME --out dir and need no merge step.
     p.add_argument("--frame-start", type=int, default=0)
     p.add_argument("--frame-end", type=int, default=None)   # inclusive
+    # Print every name CAMERA_CUES can target, then exit.
+    p.add_argument("--list-targets", action="store_true")
     return p.parse_args(argv)
 
 
@@ -426,9 +504,312 @@ def point_camera_at(cam, target):
     cam.rotation_euler = d.to_track_quat('-Z', 'Y').to_euler()
 
 
+def _obj_world_bounds(root):
+    """World bounds of every mesh under `root` (inclusive), read AFTER the
+    section transforms are in place — so it's where the player really is on
+    the finished stage."""
+    objs, stack = [], [root]
+    while stack:
+        o = stack.pop()
+        objs.append(o)
+        stack.extend(o.children)
+    return mesh_bounds(objs)
+
+
+def _target_key(section, empty_name):
+    """'seat_Violin I' in bowed_strings -> 'bowed_strings.violin_i'. Blender
+    dedupes duplicate names with a '.001' suffix (both string sections build a
+    'seat_Cello'), so strip that and qualify with the section instead."""
+    n = empty_name.split('.')[0]
+    for prefix in ("seat_", "ww_", "brass_", "mel_", "cond_", "bass_"):
+        if n.startswith(prefix):
+            n = n[len(prefix):]
+            break
+    return f"{section}.{n.lower().replace(' ', '_')}"
+
+
+def _framing(focus, targets, res_x, res_y):
+    """(camera position, look-at target) that frames `focus`.
+
+    Every framing keeps the wide shot's viewing DIRECTION and focal length and
+    only moves along that axis — so a move reads as a push-in toward one
+    section, never as a change of angle, and the layout tuning (which is all
+    relative to this one viewpoint) still holds."""
+    if focus == "wide":
+        return mathutils.Vector(CAM_POS), mathutils.Vector(CAM_TARGET)
+
+    names = (focus,) if isinstance(focus, str) else tuple(focus)
+    boxes = [targets[n] for n in names]
+    min_x = min(b[0] for b in boxes); max_x = max(b[1] for b in boxes)
+    min_y = min(b[2] for b in boxes); max_y = max(b[3] for b in boxes)
+    min_z = min(b[4] for b in boxes); max_z = max(b[5] for b in boxes)
+    target = mathutils.Vector(((min_x + max_x) / 2.0,
+                               (min_y + max_y) / 2.0,
+                               (min_z + max_z) / 2.0))
+
+    # Distance at which the section's width AND height both fit the frame.
+    half_h_fov = math.atan((CAM_SENSOR / 2.0) / CAM_LENS)
+    sensor_y = CAM_SENSOR * res_y / res_x
+    half_v_fov = math.atan((sensor_y / 2.0) / CAM_LENS)
+    half_w = (max_x - min_x) / 2.0 * CAMERA_MARGIN
+    half_t = (max_z - min_z) / 2.0 * CAMERA_MARGIN
+    dist = max(half_w / math.tan(half_h_fov), half_t / math.tan(half_v_fov), 6.0)
+
+    axis = (mathutils.Vector(CAM_POS) - mathutils.Vector(CAM_TARGET)).normalized()
+    pos = target + axis * dist
+    # Never dip below the stage floor, however tight the framing gets.
+    pos.z = max(pos.z, 1.5)
+    return pos, target
+
+
+def _smoothstep(x):
+    x = min(1.0, max(0.0, x))
+    return x * x * (3.0 - 2.0 * x)
+
+
+def _cue_index(t, cues):
+    i = 0
+    while i + 1 < len(cues) and t >= cues[i + 1][0]:
+        i += 1
+    return i
+
+
+def _shot_focus(focus, targets):
+    """(centre, radius) of a shot — the point the follow spot aims at and the
+    half-extent its cone has to cover."""
+    if focus == "wide":
+        boxes = [b for k, b in targets.items() if '.' not in k]
+    else:
+        names = (focus,) if isinstance(focus, str) else tuple(focus)
+        boxes = [targets[n] for n in names]
+    min_x = min(b[0] for b in boxes); max_x = max(b[1] for b in boxes)
+    min_y = min(b[2] for b in boxes); max_y = max(b[3] for b in boxes)
+    min_z = min(b[4] for b in boxes); max_z = max(b[5] for b in boxes)
+    centre = mathutils.Vector(((min_x + max_x) / 2.0,
+                               (min_y + max_y) / 2.0,
+                               (min_z + max_z) / 2.0))
+    return centre, max((max_x - min_x) / 2.0, (max_z - min_z) / 2.0)
+
+
+def update_follow(spot, t, cues, targets):
+    """Aim the follow spot at whatever shot is live, widening its cone to suit
+    the shot's size — tight on a solo player, open on a wide."""
+    i = _cue_index(t, cues)
+    cue_t, focus, move_t = cues[i]
+    centre, radius = _shot_focus(focus, targets)
+    if i > 0 and move_t > 0.0:
+        blend = _smoothstep((t - cue_t) / move_t)
+        if blend < 1.0:
+            c0, r0 = _shot_focus(cues[i - 1][1], targets)
+            centre = c0.lerp(centre, blend)
+            radius = r0 + (radius - r0) * blend
+    offset = mathutils.Vector(FOLLOW_OFFSET)
+    spot.location = centre + offset
+    _aim(spot, centre)
+    # Keep the pool matched to the subject: cone half-angle = atan(r / throw).
+    spot.data.spot_size = min(math.radians(140.0),
+                              2.0 * math.atan(radius * FOLLOW_CONE_MARGIN / offset.length))
+
+
+def build_follow_spot():
+    data = bpy.data.lights.new("FollowSpot", type='SPOT')
+    data.energy = FOLLOW_ENERGY
+    data.color = FOLLOW_COLOR
+    data.spot_blend = 0.55       # soft edge, so the pool doesn't read as a disc
+    data.shadow_soft_size = 1.0
+    # No shadow: it would be a fourth caster for ~5% more render time, and
+    # coming from front-and-above it has little to cast onto that the key
+    # light isn't already shadowing.
+    data.use_shadow = False
+    obj = bpy.data.objects.new("FollowSpot", data)
+    bpy.context.scene.collection.objects.link(obj)
+    return obj
+
+
+def update_camera(cam, t, cues, targets, res_x, res_y):
+    """Place the camera for time t. A cue with move_seconds == 0 cuts; one with
+    a positive value eases from the previous shot over that many seconds, on
+    both position and aim so the move arcs instead of snapping its aim."""
+    i = _cue_index(t, cues)
+    cue_t, focus, move_t = cues[i]
+    pos, target = _framing(focus, targets, res_x, res_y)
+    if i > 0 and move_t > 0.0:
+        blend = _smoothstep((t - cue_t) / move_t)
+        if blend < 1.0:
+            p0, t0 = _framing(cues[i - 1][1], targets, res_x, res_y)
+            pos = p0.lerp(pos, blend)
+            target = t0.lerp(target, blend)
+    cam.location = pos
+    point_camera_at(cam, target)
+
+
+# Sections with no per-player split, so a "solo" shot on them is the section.
+_UNSPLIT = ("marimba", "bass", "finger_piano")
+
+
+def generate_cues(t0, t1, seed, targets):
+    """Invent shots for [t0, t1) in the Reich-video pattern: hold 10-15s, vary
+    the shot size, cut most of the time and occasionally drift. Deterministic
+    for a given seed so a re-render reproduces the edit exactly."""
+    rng = random.Random(seed)
+    # Some registered empties are bare pivots (a mallet, the baton) rather than
+    # players; framing one fills the screen with a stick. They stay addressable
+    # by hand, but the generator skips anything too small to be a shot.
+    def shootable(k):
+        b = targets[k]
+        return (b[1] - b[0]) >= 0.8 or (b[5] - b[4]) >= 2.0
+    players = sorted(k for k in targets if '.' in k and shootable(k))
+    sections = sorted(k for k in targets if '.' not in k)
+    by_section = {}
+    for p in players:
+        by_section.setdefault(p.split('.')[0], []).append(p)
+
+    def solo():
+        return rng.choice(players) if players else rng.choice(sections)
+
+    def pair():
+        sec = rng.choice([s for s in by_section if len(by_section[s]) >= 2])
+        return tuple(rng.sample(by_section[sec], 2))
+
+    def group():
+        return rng.choice(sections)
+
+    def duo_section():
+        return tuple(rng.sample(sections, 2))
+
+    # Drawn from a shuffled bag rather than independently at random: every shot
+    # size appears once per cycle before any repeats, so the edit always works
+    # through one-player / two-player / section / two-section / wide instead of
+    # leaving a size out for two minutes at a stretch.
+    kinds = [solo, pair, group, duo_section, lambda: "wide"]
+
+    cues, t, recent, bag = [], t0, [], []
+    while t < t1:
+        # Reject anything used in the last few shots, not just the previous
+        # one — otherwise the same cello close-up comes round twice a minute.
+        for _ in range(8):
+            if not bag:
+                bag = kinds[:]
+                rng.shuffle(bag)
+            shot = bag.pop()()
+            if shot not in recent:
+                break
+        move = CAMERA_MOVE_T if rng.random() < CAMERA_MOVE_CHANCE else 0.0
+        cues.append((round(t, 2), shot, move))
+        recent = (recent + [shot])[-4:]
+        t += rng.uniform(*CAMERA_HOLD)
+    return cues
+
+
+def build_cue_sheet(targets):
+    """Hand-authored CAMERA_CUES merged with generated shots for each
+    CAMERA_AUTOGEN range. A generated shot landing within one hold of a hand
+    cue is dropped — you asked for that moment, the generator doesn't get to
+    step on it."""
+    hand = [(c[0], c[1], c[2] if len(c) > 2 else 0.0) for c in CAMERA_CUES]
+    generated = []
+    for t0, t1, seed in CAMERA_AUTOGEN:
+        generated += generate_cues(t0, t1, seed, targets)
+    guard = CAMERA_HOLD[0]
+    generated = [g for g in generated
+                 if all(abs(g[0] - h[0]) > guard for h in hand)]
+    cues = sorted(hand + generated, key=lambda c: c[0])
+    if not cues or cues[0][0] > 0.0:
+        cues.insert(0, (0.0, "wide", 0.0))
+    return cues
+
+
+def _sun(name, color, energy, pitch_deg, yaw_deg, angle_deg, shadow):
+    """One directional light. pitch_deg is the tilt off straight-down: positive
+    values throw the light away from the camera (source in FRONT of the stage),
+    negative values throw it toward the camera (source BEHIND). yaw_deg swings
+    that around, negative = source on stage left."""
+    data = bpy.data.lights.new(name, type='SUN')
+    data.energy = energy
+    data.color = color
+    data.angle = math.radians(angle_deg)   # angular diameter: bigger = softer edges
+    data.use_shadow = shadow
+    obj = bpy.data.objects.new(name, data)
+    obj.rotation_euler = (math.radians(pitch_deg), 0.0, math.radians(yaw_deg))
+    bpy.context.scene.collection.objects.link(obj)
+    return obj
+
+
+def build_backdrop():
+    """Emissive cyclorama behind the orchestra. Returns the Emission colour
+    socket so update_backdrop can retint it per frame. EEVEE doesn't bounce
+    light off it, which is what we want — it colours the picture without
+    washing out the instrument lighting we tuned."""
+    bpy.ops.mesh.primitive_plane_add(size=1.0, location=(0.0, BACKDROP_Y, BACKDROP_H / 2.0))
+    bd = bpy.context.object
+    bd.name = "Backdrop"
+    bd.rotation_euler = (math.radians(90.0), 0.0, 0.0)   # stand it up, facing -Y
+    bd.scale = (BACKDROP_W, BACKDROP_H, 1.0)
+    mat = bpy.data.materials.new("BackdropMat")
+    mat.use_nodes = True
+    nt = mat.node_tree
+    nt.nodes.remove(nt.nodes["Principled BSDF"])
+    emis = nt.nodes.new("ShaderNodeEmission")
+    emis.inputs["Strength"].default_value = BACKDROP_STRENGTH
+    nt.links.new(emis.outputs["Emission"], nt.nodes["Material Output"].inputs["Surface"])
+    bd.data.materials.append(mat)
+    return emis.inputs["Color"]
+
+
+def update_backdrop(socket, t):
+    """Cross-fade around BACKDROP_COLORS on a BACKDROP_HOLD cycle."""
+    n = len(BACKDROP_COLORS)
+    pos = (t / BACKDROP_HOLD) % n
+    i = int(pos)
+    blend = _smoothstep(pos - i)
+    a = BACKDROP_COLORS[i]
+    b = BACKDROP_COLORS[(i + 1) % n]
+    socket.default_value = (*(a[k] + (b[k] - a[k]) * blend for k in range(3)), 1.0)
+
+
+def _aim(obj, target):
+    d = mathutils.Vector(target) - obj.location
+    obj.rotation_euler = d.to_track_quat('-Z', 'Y').to_euler()
+
+
+def build_wash():
+    """The contrasting coloured spots."""
+    for name, colour, energy, pos, aim, cone, shadow in WASH_SPOTS:
+        data = bpy.data.lights.new(name, type='SPOT')
+        data.energy = energy
+        data.color = colour
+        data.spot_size = math.radians(cone)
+        data.spot_blend = 0.5
+        data.shadow_soft_size = 1.5
+        data.use_shadow = shadow
+        obj = bpy.data.objects.new(name, data)
+        obj.location = pos
+        bpy.context.scene.collection.objects.link(obj)
+        _aim(obj, aim)
+
+
+def _build_light_rig():
+    """Warm key + cool fill. Suns rather than area lights because the stage is
+    ~44 units wide and only a directional source covers it evenly. Only the KEY
+    casts shadows — two shadow-casting lights would give every instrument two
+    overlapping floor shadows, which reads as mud at this scale.
+
+    No rim light: it was tried from behind at pitch -70/-50/-30 and energies up
+    to 4.5, and contributed nothing visible. A rim reads as a bright edge
+    against a lighter background, but here the camera looks DOWN on mostly
+    flat, camera-facing instruments over a near-black floor — the surfaces a
+    back light reaches are the ones we can't see. Revisit if the camera ever
+    drops toward stage level, or if the materials get more specular."""
+    # Key: warm, high, front-left. Does the modelling and the one shadow.
+    _sun("KeyLight",  (1.00, 0.93, 0.80), 1.1,  50.0, -25.0, 4.0, True)
+    # Fill: cool, low, front-right. Lifts the shadow side so instruments stop
+    # going to black; deliberately dim so it doesn't flatten the key back out.
+    _sun("FillLight", (0.72, 0.80, 1.00), 0.22, 65.0,  35.0, 8.0, False)
+
+
 def build_stage_env(bounds):
-    """Floor + FIXED camera + flat lighting. The camera never re-fits to the
-    content, so section scales map predictably to on-screen size."""
+    """Floor + FIXED camera + three-point lighting. The camera never re-fits to
+    the content, so section scales map predictably to on-screen size."""
     floor_c = (0.0, 3.0, 0.0)
     bpy.ops.mesh.primitive_plane_add(size=140.0, location=floor_c)
     floor = bpy.context.object
@@ -436,7 +817,9 @@ def build_stage_env(bounds):
     mat = bpy.data.materials.new("FloorMat")
     mat.use_nodes = True
     bsdf = mat.node_tree.nodes["Principled BSDF"]
-    bsdf.inputs["Base Color"].default_value = (0.05, 0.05, 0.06, 1.0)
+    # Darker than the old single-sun setup: the rig puts ~2x the light on the
+    # floor, and a mid-grey floor kills the contrast the instruments read by.
+    bsdf.inputs["Base Color"].default_value = (0.028, 0.028, 0.034, 1.0)
     bsdf.inputs["Roughness"].default_value = 0.95
     floor.data.materials.append(mat)
 
@@ -449,17 +832,17 @@ def build_stage_env(bounds):
     point_camera_at(cam, CAM_TARGET)
     bpy.context.scene.camera = cam
 
-    sun_data = bpy.data.lights.new("Sun", type='SUN')
-    sun_data.energy = 2.5
-    sun = bpy.data.objects.new("Sun", sun_data)
-    sun.rotation_euler = (math.radians(52), 0, math.radians(20))
-    bpy.context.scene.collection.objects.link(sun)
+    _build_light_rig()
+    build_wash()
+    follow = build_follow_spot()
+    backdrop = build_backdrop()
 
     world = bpy.context.scene.world or bpy.data.worlds.new("World")
     bpy.context.scene.world = world
     world.use_nodes = True
     world.node_tree.nodes["Background"].inputs["Color"].default_value = (0.02, 0.02, 0.03, 1.0)
     world.node_tree.nodes["Background"].inputs["Strength"].default_value = 0.4
+    return cam, backdrop, follow
 
 
 def main():
@@ -472,6 +855,8 @@ def main():
     clear_scene()
 
     bounds, updates = [], []
+    targets = {}          # shot name -> world bounds
+    player_empties = []   # (target key, empty) resolved to bounds after placement
     setups = (("pizz", setup_pizz), ("marimba", setup_marimba), ("bass", setup_bass),
               ("finger_piano", setup_finger_piano), ("woodwind", setup_woodwind),
               ("brass", setup_brass), ("bowed_strings", setup_bowed_strings),
@@ -481,12 +866,53 @@ def main():
         # Static build (no notes) when just checking layout; otherwise the
         # setup also loads notes and hands back a per-frame update callback.
         update_fn = setup(args.npy, args.tempo) if animate else _static_build(name, setup)
+        # The per-seat empties each section makes are the individual players —
+        # grab them before place_section parents them under the section empty.
+        for o in bpy.data.objects:
+            if o not in before and o.type == 'EMPTY' and o.parent is None:
+                player_empties.append((_target_key(name, o.name), o))
         _, wb = place_section(name, before)
         bounds.append(wb)
+        targets[name] = wb
         if update_fn is not None:
             updates.append(update_fn)
 
-    build_stage_env(bounds)
+    # Player bounds must be read after every section transform is applied.
+    bpy.context.view_layer.update()
+    for key, empty in player_empties:
+        try:
+            targets[key] = _obj_world_bounds(empty)
+        except ValueError:
+            pass          # empty with no meshes under it (a bare pivot)
+
+    cam, backdrop, follow = build_stage_env(bounds)
+
+    if args.list_targets:
+        for k in sorted(targets):
+            b = targets[k]
+            print(f"  {k:28s} {b[1] - b[0]:6.2f} wide x {b[5] - b[4]:5.2f} tall")
+        print(f"[stage] {len(targets)} targets (plus 'wide')")
+        return
+
+    # Backdrop colour runs on wall-clock time, independent of the cue sheet.
+    updates.append(lambda t: update_backdrop(backdrop, t))
+
+    cues = build_cue_sheet(targets)
+    unknown = {n for _, f, _ in cues for n in ((f,) if isinstance(f, str) else f)
+               if n != "wide" and n not in targets}
+    if unknown:
+        raise SystemExit(f"CAMERA_CUES names no such target: {sorted(unknown)}\n"
+                         f"run with --list-targets to see the valid names")
+    if len(cues) > 1:
+        cuts = sum(1 for c in cues if c[2] == 0.0)
+        print(f"[stage] camera: {len(cues)} shots ({cuts} cuts, {len(cues) - cuts} moves)")
+        for c in cues:
+            print(f"    {int(c[0] // 60)}:{c[0] % 60:05.2f}  {c[1]}"
+                  f"{'' if c[2] == 0 else f'  (move {c[2]}s)'}")
+        updates.append(lambda t: update_camera(cam, t, cues, targets,
+                                               args.res_x, args.res_y))
+    # The follow spot rides the cue sheet even when there is only one shot.
+    updates.append(lambda t: update_follow(follow, t, cues, targets))
 
     scene = bpy.context.scene
     scene.render.engine = _pick_eevee_engine()
@@ -497,6 +923,8 @@ def main():
     scene.render.image_settings.file_format = 'PNG'
 
     if not animate:
+        update_backdrop(backdrop, 0.0)
+        update_follow(follow, 0.0, cues, targets)
         scene.render.filepath = str(Path(args.out).resolve())
         bpy.ops.render.render(write_still=True)
         print(f"[stage] wrote still {args.out}")

@@ -103,9 +103,13 @@ SEATS_SPEC = [
 
 
 def build_melody(x0):
-    body_mat = ww.make_body_material("MelBody")
+    metal_mat = ww.make_body_material("MelBodyMetal")
+    wood_mat = ww.make_body_material("MelBodyWood", metallic=0.0, roughness=0.45)
     seats = []
     for i, (sid, kind, voice, sx, sy, roll, scale) in enumerate(SEATS_SPEC):
+        # Silver flute, aluminium vibraphone bars and brass trumpet take the
+        # metal response; the clarinet, oboe and bassoon are wood.
+        body_mat = metal_mat if kind in ww.METAL_KINDS else wood_mat
         all_objs, body_objs = BUILDERS[kind](body_mat)
         for o in body_objs:
             o.color = (*BODY_CLR[kind], 1.0)
