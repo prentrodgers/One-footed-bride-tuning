@@ -96,17 +96,23 @@ CAM_SENSOR = 36.0
 # re-randomises chord repeats and arpeggiation, so a cue sheet is only valid
 # for the audio it was authored against.
 
+# Authored against bwv256 / ball9-t56c_lm19_r1.12_df4_t3_d04_46_t104.mp3
+# (tempo 104, 281.65s, rondo A = chords 0..30). Section A's pedal-note opening
+# runs chords 0..31 = 0:00.0 to 0:43.3.
 CAMERA_CUES = [
-    (0.0,   "wide"),                              # cuts (default)
-    (17.0,  ("pizz", "finger_piano")),            # tuple = one shot of both
-    (25.0,  "marimba"),
-    (43.0,  "bass", 3.0),                         # 3rd value = ease over 3s
-    (78.0,  "bowed_strings.cello"),               # single player
+    (0.0,  "wide"),
+    (6.0,  ("bass", "finger_piano")),   # pedal note under changing chords
+    (30.0, "bass"),
+    (43.5, "wide"),                     # chord 31 ends, section changes
 ]
 
+# Time ranges the shot generator fills in around the hand-authored cues:
+# (start_s, end_s, seed). Deterministic per seed, so a render repeats exactly.
+# Hand cues always win — generated shots are dropped near them.
 CAMERA_AUTOGEN = [
-    (90.0, 279.0, 7),      # generator fills 1:30 to the end, seed 7
+    (50.0, 279.0, 7),
 ]
+
 
 
 # Time ranges the shot generator fills in around the hand-authored cues:
