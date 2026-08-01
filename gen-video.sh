@@ -9,14 +9,19 @@
 #      the chorale (ball9-t<NN><letter>_*.mp3, NN = last two BWV digits), via
 #      uploads_lookup.py — the same helper compose_stage_merge.py and
 #      string_section_poc.py use, so all three agree on the file.
-#   2. Extracts the tempo (BPM) from the _t<N> token at the end of the
+#   2. Takes the features array PAIRED with that mp3 — Uploads/<stem>.npy,
+#      same name but for the extension — so the notes animated are the notes
+#      in the audio. Falls back, loudly, to <chorale>_features_array.npy for
+#      mp3s rendered before WreckingCrew started writing the paired copy.
+#   3. Extracts the tempo (BPM) from the _t<N> token at the end of the
 #      filename, e.g. "ball9-t61d_lm19_r1.25_df5_t3_d00_43_t106.mp3" → 106.
-#   3. Computes the render duration from the features array + tempo via
+#   4. Computes the render duration from the features array + tempo via
 #      Python (last note end + 2 s reverb tail), then rounds up to one
 #      decimal place.
-#   4. Clears the per-section frame directories and re-renders all four
-#      sections (strings, marimba, finger piano, bass) in parallel, then
-#      composites them into merged_poc.mp4.
+#   5. Clears the per-section frame directories and re-renders all nine
+#      sections (strings, marimba, finger piano, bass, woodwind, brass,
+#      bowed strings, melody, conductor) in parallel, then composites them
+#      into merged_<chorale>_t<tempo>_<duration>s.mp4.
 #
 # Prerequisites: .venv must exist in the repo root (created by the project's
 # standard setup).  ffprobe is used only for an informational duration check
@@ -42,15 +47,7 @@ fi
 # shellcheck source=/dev/null
 source .venv/bin/activate
 
-# ── 3. Locate features array ──────────────────────────────────────────────────
-NPY="${CHORALE}_features_array.npy"
-if [[ ! -f "$NPY" ]]; then
-    echo "ERROR: features array not found: $NPY" >&2
-    exit 1
-fi
-echo "Features array : $NPY"
-
-# ── 4. Find newest MP3 for this chorale ───────────────────────────────────────
+# ── 3. Find newest MP3 for this chorale ───────────────────────────────────────
 # Use the shared uploads_lookup helper so gen-video.sh, compose_stage_merge.py,
 # and string_section_poc.py all agree on "the MP3 for this chorale": the
 # most-recently-modified Uploads/*.mp3 whose name matches the chorale
@@ -61,6 +58,29 @@ if ! MP3="$(python3 uploads_lookup.py "$CHORALE")"; then
     exit 1
 fi
 echo "MP3 (newest)   : $MP3"
+
+# ── 4. Features array PAIRED with that mp3 ───────────────────────────────────
+# WreckingCrew writes Uploads/<stem>.npy beside Uploads/<stem>.mp3, so the
+# notes we animate are guaranteed to be the notes you hear. The legacy
+# <chorale>_features_array.npy is overwritten by EVERY run and has no link to
+# any particular mp3 — using it silently animates one take against another's
+# audio, which is only correct when the newest run happens to be the one that
+# made this mp3.
+NPY="${MP3%.mp3}.npy"
+if [[ -f "$NPY" ]]; then
+    echo "Features array : $NPY (paired)"
+else
+    NPY="${CHORALE}_features_array.npy"
+    echo "Features array : $NPY (UNPAIRED FALLBACK)"
+    echo "WARNING: no .npy beside $MP3 — it predates paired output." >&2
+    echo "         Falling back to $NPY, which every WreckingCrew run" >&2
+    echo "         overwrites. If you have re-run WreckingCrew since that mp3" >&2
+    echo "         was made, the animation will not match the audio." >&2
+    if [[ ! -f "$NPY" ]]; then
+        echo "ERROR: features array not found: $NPY" >&2
+        exit 1
+    fi
+fi
 
 # ── 5. Extract tempo from _t<N> suffix ───────────────────────────────────────
 # Tempo is the trailing _t<BPM>.mp3 token (zero-padded to 3 digits by
