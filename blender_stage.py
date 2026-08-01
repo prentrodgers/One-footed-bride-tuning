@@ -561,7 +561,7 @@ def voice_map():
 
 
 def load_activity(npy, tempo):
-    """(start, end, voice) for every audible note, for the shot-selection
+    """(start, end, voice, volume) for every audible note, for the shot-selection
     volume gate. Column 14 is overall volume — a note recorded at volume 0 is
     in the array but silent in the mix, and pointing the camera at it is
     exactly the mistake we're trying to avoid."""
@@ -570,7 +570,7 @@ def load_activity(npy, tempo):
     audible = (arr[:, 14] > 0) & (arr[:, 3] > 0) & (arr[:, 2] > 0)
     arr = arr[audible]
     start = arr[:, 1] / bps
-    return start, start + arr[:, 2] / bps, arr[:, 6].astype(int)
+    return start, start + arr[:, 2] / bps, arr[:, 6].astype(int), arr[:, 14]
 
 
 def is_playing(focus, t0, t1, vmap, activity, min_fraction=0.25):
@@ -581,7 +581,7 @@ def is_playing(focus, t0, t1, vmap, activity, min_fraction=0.25):
     sections."""
     if activity is None or focus == "wide":
         return True
-    start, end, voice = activity
+    start, end, voice, _vol = activity
     span = t1 - t0
     for n in shot_names(focus):
         voices = vmap.get(n)
@@ -1139,29 +1139,35 @@ def _render_video(scene, updates, f0, f1, out_path):
         produced[-1].replace(out_path)
 
 
-def _dump_activity(path, targets, vmap, activity, duration):
-    """Merged sounding intervals per shot target -> JSON. The chart drawn from
-    this is the thing you scrub alongside the mp3 while writing cue times."""
+def _dump_activity(path, targets, vmap, activity, duration, bucket=1.0):
+    """Per-target volume over time -> JSON, for plot_activity.py.
+
+    Not just on/off: most sections sound almost continuously, so a presence
+    chart says little about who is worth cutting to. Each bucket holds the
+    time-weighted volume (column 14 x seconds sounding / bucket), so a target
+    reads loud when it is both playing a lot AND playing loudly."""
     import json
-    start, end, voice = activity
-    out = {}
+    start, end, voice, vol = activity
+    n = int(math.ceil((duration or float(end.max())) / bucket))
+    levels = {}
     for name in sorted(targets):
         voices = vmap.get(name)
         if not voices:
             continue
         m = np.isin(voice, voices)
-        iv = sorted(zip(start[m].tolist(), end[m].tolist()))
-        merged = []
-        for a, b in iv:
-            if merged and a <= merged[-1][1] + 0.25:      # bridge tiny rests
-                merged[-1][1] = max(merged[-1][1], b)
-            else:
-                merged.append([a, b])
-        out[name] = [[round(a, 2), round(b, 2)] for a, b in merged]
-    payload = {"duration": duration, "targets": out,
+        s_, e_, v_ = start[m], end[m], vol[m]
+        row = np.zeros(n)
+        for a, b, vv in zip(s_, e_, v_):
+            lo, hi = int(a // bucket), min(int(b // bucket), n - 1)
+            for k in range(max(lo, 0), hi + 1):
+                overlap = min(b, (k + 1) * bucket) - max(a, k * bucket)
+                if overlap > 0:
+                    row[k] += vv * overlap / bucket
+        levels[name] = [round(float(x), 3) for x in row]
+    payload = {"duration": duration, "bucket": bucket, "levels": levels,
                "cues": [[c[0], str(c[1])] for c in build_cue_sheet(targets, vmap, activity)]}
-    Path(path).write_text(json.dumps(payload, indent=1))
-    print(f"[stage] wrote {path}: {len(out)} targets")
+    Path(path).write_text(json.dumps(payload))
+    print(f"[stage] wrote {path}: {len(levels)} targets, {n} buckets of {bucket}s")
 
 
 def _static_build(name, setup):
