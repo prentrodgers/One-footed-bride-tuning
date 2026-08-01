@@ -96,9 +96,9 @@ CAM_SENSOR = 36.0
 # re-randomises chord repeats and arpeggiation, so a cue sheet is only valid
 # for the audio it was authored against.
 
-# Authored against bwv256 / ball9-t56c_lm19_r1.12_df4_t3_d04_46_t104.mp3
-# (tempo 104, 281.65s, rondo A = chords 0..30). Section A's pedal-note opening
-# runs chords 0..31 = 0:00.0 to 0:43.3.
+# STALE — these were authored against the t104 render (281.65s) and the piece
+# is now ball9-t56c_lm19_r1.12_df4_t3_d07_59_t118 (tempo 118, 474.7s). Replace
+# them before rendering; the times below mean nothing in the new audio.
 CAMERA_CUES = [
     (0.0,  "wide"),
     (6.0,  ("bass", "finger_piano")),   # pedal note under changing chords
@@ -110,7 +110,7 @@ CAMERA_CUES = [
 # (start_s, end_s, seed). Deterministic per seed, so a render repeats exactly.
 # Hand cues always win — generated shots are dropped near them.
 CAMERA_AUTOGEN = [
-    (50.0, 279.0, 7),
+    (50.0, 470.0, 7),
 ]
 
 # ── Backdrop ────────────────────────────────────────────────────────────────
@@ -150,6 +150,22 @@ FOLLOW_OFFSET = (0.0, -14.0, 18.0)    # position relative to the shot's centre
 FOLLOW_ENERGY = 15000.0
 FOLLOW_COLOR = (1.00, 0.95, 0.88)     # warm white, to read against the wash
 FOLLOW_CONE_MARGIN = 1.4              # cone spread relative to the shot's size
+
+# How often the generator should reach for each target. The instruments worth
+# watching are the ones whose MOVEMENT causes the sound — a drawn bow, a
+# plucking finger, a struck bar, a plucked tine. A wind body can only glow and
+# sway, so it says nothing about why you are hearing what you hear. Weights
+# apply to a section and to every player in it; an exact name wins over its
+# section, which is how the vibraphone is singled out of the melody row.
+VISUAL_INTEREST = {
+    "pizz": 3.0,            # plucking and martele bowing
+    "bowed_strings": 3.0,   # sustained bows travelling the string
+    "marimba": 3.0,         # mallets striking, bars flexing
+    "bass": 3.0,            # baritone guitar + finger-piano tines
+    "finger_piano": 3.0,
+    "melody.vibraphone": 3.0,
+}
+DEFAULT_INTEREST = 1.0
 
 CAMERA_HOLD = (10.0, 15.0)   # generated shot length range, seconds
 CAMERA_MARGIN = 1.25         # framing headroom: 1.0 = target exactly fills frame
@@ -530,6 +546,14 @@ def _target_key(section, empty_name):
     return f"{section}.{n.lower().replace(' ', '_')}"
 
 
+def interest(name):
+    """VISUAL_INTEREST for a target: its own entry if it has one, else its
+    section's, else the default."""
+    if name in VISUAL_INTEREST:
+        return VISUAL_INTEREST[name]
+    return VISUAL_INTEREST.get(name.split('.')[0], DEFAULT_INTEREST)
+
+
 def shot_names(focus):
     """The target names a shot actually refers to, with any form marker (the
     leading "overhead") stripped off."""
@@ -766,18 +790,24 @@ def generate_cues(t0, t1, seed, targets, vmap=None, activity=None):
     for p in players:
         by_section.setdefault(p.split('.')[0], []).append(p)
 
+    def weighted(pool):
+        """Pick one, favouring the instruments whose motion shows the sound."""
+        return rng.choices(pool, weights=[interest(n) for n in pool])[0]
+
     def solo():
-        return rng.choice(players) if players else rng.choice(sections)
+        return weighted(players) if players else weighted(sections)
 
     def pair():
-        sec = rng.choice([s for s in by_section if len(by_section[s]) >= 2])
+        sec = weighted([s for s in by_section if len(by_section[s]) >= 2])
         return tuple(rng.sample(by_section[sec], 2))
 
     def group():
-        return rng.choice(sections)
+        return weighted(sections)
 
     def duo_section():
-        return tuple(rng.sample(sections, 2))
+        a = weighted(sections)
+        b = weighted([s for s in sections if s != a])
+        return (a, b)
 
     # Drawn from a shuffled bag rather than independently at random: every shot
     # size appears once per cycle before any repeats, so the edit always works
