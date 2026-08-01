@@ -202,6 +202,9 @@ def parse_args():
     p.add_argument("--frame-end", type=int, default=None)   # inclusive
     # Print every name CAMERA_CUES can target, then exit.
     p.add_argument("--list-targets", action="store_true")
+    # Write who-is-playing-when as JSON, for plot_activity.py to chart while
+    # you author CAMERA_CUES. Needs --npy and --tempo.
+    p.add_argument("--dump-activity", default=None)
     return p.parse_args(argv)
 
 
@@ -1022,6 +1025,9 @@ def main():
     # actually sounding. Hand cues are never gated — they are your call.
     vmap = voice_map()
     activity = load_activity(args.npy, args.tempo) if animate else None
+    if args.dump_activity:
+        _dump_activity(args.dump_activity, targets, vmap, activity, args.duration)
+        return
     cues = build_cue_sheet(targets, vmap, activity)
     unknown = {n for _, f, _ in cues for n in shot_names(f)
                if n != "wide" and n not in targets}
@@ -1131,6 +1137,31 @@ def _render_video(scene, updates, f0, f1, out_path):
     produced = sorted(out_path.parent.glob(f"{stem}*.mp4"))
     if produced and produced[-1] != out_path:
         produced[-1].replace(out_path)
+
+
+def _dump_activity(path, targets, vmap, activity, duration):
+    """Merged sounding intervals per shot target -> JSON. The chart drawn from
+    this is the thing you scrub alongside the mp3 while writing cue times."""
+    import json
+    start, end, voice = activity
+    out = {}
+    for name in sorted(targets):
+        voices = vmap.get(name)
+        if not voices:
+            continue
+        m = np.isin(voice, voices)
+        iv = sorted(zip(start[m].tolist(), end[m].tolist()))
+        merged = []
+        for a, b in iv:
+            if merged and a <= merged[-1][1] + 0.25:      # bridge tiny rests
+                merged[-1][1] = max(merged[-1][1], b)
+            else:
+                merged.append([a, b])
+        out[name] = [[round(a, 2), round(b, 2)] for a, b in merged]
+    payload = {"duration": duration, "targets": out,
+               "cues": [[c[0], str(c[1])] for c in build_cue_sheet(targets, vmap, activity)]}
+    Path(path).write_text(json.dumps(payload, indent=1))
+    print(f"[stage] wrote {path}: {len(out)} targets")
 
 
 def _static_build(name, setup):
