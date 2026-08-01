@@ -113,13 +113,6 @@ CAMERA_AUTOGEN = [
     (50.0, 279.0, 7),
 ]
 
-
-
-# Time ranges the shot generator fills in around the hand-authored cues:
-# (start_s, end_s, seed). Deterministic per seed, so a render repeats exactly.
-# Hand cues always win — generated shots are dropped near them.
-
-
 # ── Backdrop ────────────────────────────────────────────────────────────────
 # A cyclorama standing behind the orchestra, emissive so it reads as a lit
 # screen rather than a wall we have to light. It fades through these colours,
@@ -534,6 +527,88 @@ def _target_key(section, empty_name):
     return f"{section}.{n.lower().replace(' ', '_')}"
 
 
+def shot_names(focus):
+    """The target names a shot actually refers to, with any form marker (the
+    leading "overhead") stripped off."""
+    names = (focus,) if isinstance(focus, str) else tuple(focus)
+    return names[1:] if names and names[0] == "overhead" else names
+
+
+def voice_map():
+    """target name -> the csound voices it shows. Read from each section's own
+    seat tables rather than restated here, so adding a player or moving a voice
+    can't leave this map quietly wrong."""
+    m = {"marimba": (5,), "bass": (24, 20), "conductor": (),
+         "finger_piano": tuple(fingerpiano.VOICES), "bass.fp_group": (24,)}
+    for pl in pizz.PLAYERS:
+        m[f"pizz.{pl['name'].lower().replace(' ', '_')}"] = (pl['voice'],)
+    for pl in bowedstrings.PLAYERS:
+        m[f"bowed_strings.{pl['name'].lower().replace(' ', '_')}"] = (pl['voice'],)
+    for sid, _k, voices, *_ in brass.SEATS_SPEC:
+        m[f"brass.{sid}"] = tuple(voices)
+    for sid, _k, voices, *_ in woodwind.SEATS_SPEC:
+        m[f"woodwind.{sid}"] = tuple(voices)
+    for sid, _k, voice, *_ in melody.SEATS_SPEC:
+        m[f"melody.{sid}"] = (voice,)
+    # A section shows everything its players do.
+    for section in ("pizz", "bowed_strings", "brass", "woodwind", "melody"):
+        m[section] = tuple(sorted({v for k, vs in m.items()
+                                   if k.startswith(section + '.') for v in vs}))
+    return m
+
+
+def load_activity(npy, tempo):
+    """(start, end, voice) for every audible note, for the shot-selection
+    volume gate. Column 14 is overall volume — a note recorded at volume 0 is
+    in the array but silent in the mix, and pointing the camera at it is
+    exactly the mistake we're trying to avoid."""
+    arr = np.load(npy)
+    bps = tempo / 60.0
+    audible = (arr[:, 14] > 0) & (arr[:, 3] > 0) & (arr[:, 2] > 0)
+    arr = arr[audible]
+    start = arr[:, 1] / bps
+    return start, start + arr[:, 2] / bps, arr[:, 6].astype(int)
+
+
+def is_playing(focus, t0, t1, vmap, activity, min_fraction=0.25):
+    """Does everything in this shot actually sound for a decent share of
+    [t0, t1)? Measured as sounding TIME, not note count: a flute holding one
+    long note is as audible as a marimba playing thirty short ones, and a
+    note-count threshold would quietly bias the edit toward the busy
+    sections."""
+    if activity is None or focus == "wide":
+        return True
+    start, end, voice = activity
+    span = t1 - t0
+    for n in shot_names(focus):
+        voices = vmap.get(n)
+        if not voices:            # conductor, or an unmapped pivot: never gates
+            continue
+        m = np.isin(voice, voices)
+        overlap = np.minimum(end[m], t1) - np.maximum(start[m], t0)
+        if float(overlap[overlap > 0].sum()) < min_fraction * span:
+            return False
+    return True
+
+
+def _framing_overhead(name, targets, res_x, res_y):
+    """Looking down on one target from above — a different angle from every
+    other shot, which is the point. Tilted slightly back toward the audience
+    rather than straight down, so the aim never goes degenerate and the
+    instruments keep a little of their own height. A near-vertical look at a
+    thin row of instruments is mostly floor; a high oblique keeps them tall
+    enough to read."""
+    b = targets[name]
+    centre = mathutils.Vector(((b[0] + b[1]) / 2.0, (b[2] + b[3]) / 2.0, (b[4] + b[5]) / 2.0))
+    half_h_fov = math.atan((CAM_SENSOR / 2.0) / CAM_LENS)
+    sensor_y = CAM_SENSOR * res_y / res_x
+    half_v_fov = math.atan((sensor_y / 2.0) / CAM_LENS)
+    half_w = (b[1] - b[0]) / 2.0 * CAMERA_MARGIN
+    half_d = (b[3] - b[2]) / 2.0 * CAMERA_MARGIN
+    height = max(half_w / math.tan(half_h_fov), half_d / math.tan(half_v_fov), 8.0)
+    return centre + mathutils.Vector((0.0, -height * 0.75, height * 0.85)), centre
+
+
 def _framing(focus, targets, res_x, res_y):
     """(camera position, look-at target) that frames `focus`.
 
@@ -544,8 +619,7 @@ def _framing(focus, targets, res_x, res_y):
     if focus == "wide":
         return mathutils.Vector(CAM_POS), mathutils.Vector(CAM_TARGET)
 
-    names = (focus,) if isinstance(focus, str) else tuple(focus)
-    boxes = [targets[n] for n in names]
+    boxes = [targets[n] for n in shot_names(focus)]
     min_x = min(b[0] for b in boxes); max_x = max(b[1] for b in boxes)
     min_y = min(b[2] for b in boxes); max_y = max(b[3] for b in boxes)
     min_z = min(b[4] for b in boxes); max_z = max(b[5] for b in boxes)
@@ -586,8 +660,7 @@ def _shot_focus(focus, targets):
     if focus == "wide":
         boxes = [b for k, b in targets.items() if '.' not in k]
     else:
-        names = (focus,) if isinstance(focus, str) else tuple(focus)
-        boxes = [targets[n] for n in names]
+        boxes = [targets[n] for n in shot_names(focus)]   # both ends of a pan
     min_x = min(b[0] for b in boxes); max_x = max(b[1] for b in boxes)
     min_y = min(b[2] for b in boxes); max_y = max(b[3] for b in boxes)
     min_z = min(b[4] for b in boxes); max_z = max(b[5] for b in boxes)
@@ -632,17 +705,37 @@ def build_follow_spot():
     return obj
 
 
+def _shot_progress(i, t, cues):
+    """How far through its own hold this shot is, 0..1 — only pans use it."""
+    if i + 1 >= len(cues):
+        return _smoothstep((t - cues[i][0]) / sum(CAMERA_HOLD) * 2.0)
+    span = cues[i + 1][0] - cues[i][0]
+    return _smoothstep((t - cues[i][0]) / span) if span > 0 else 0.0
+
+
+def _shot_framing(focus, targets, res_x, res_y, progress=0.0):
+    """Framing for a shot. ("overhead", a, b) looks down from above and travels
+    from over `a` to over `b` across the shot's whole hold — every other shot
+    form is static and ignores progress."""
+    if isinstance(focus, tuple) and focus and focus[0] == "overhead":
+        _, a, b = focus
+        pa, ta = _framing_overhead(a, targets, res_x, res_y)
+        pb, tb = _framing_overhead(b, targets, res_x, res_y)
+        return pa.lerp(pb, progress), ta.lerp(tb, progress)
+    return _framing(focus, targets, res_x, res_y)
+
+
 def update_camera(cam, t, cues, targets, res_x, res_y):
     """Place the camera for time t. A cue with move_seconds == 0 cuts; one with
     a positive value eases from the previous shot over that many seconds, on
     both position and aim so the move arcs instead of snapping its aim."""
     i = _cue_index(t, cues)
     cue_t, focus, move_t = cues[i]
-    pos, target = _framing(focus, targets, res_x, res_y)
+    pos, target = _shot_framing(focus, targets, res_x, res_y, _shot_progress(i, t, cues))
     if i > 0 and move_t > 0.0:
         blend = _smoothstep((t - cue_t) / move_t)
         if blend < 1.0:
-            p0, t0 = _framing(cues[i - 1][1], targets, res_x, res_y)
+            p0, t0 = _shot_framing(cues[i - 1][1], targets, res_x, res_y, 1.0)
             pos = p0.lerp(pos, blend)
             target = t0.lerp(target, blend)
     cam.location = pos
@@ -653,7 +746,7 @@ def update_camera(cam, t, cues, targets, res_x, res_y):
 _UNSPLIT = ("marimba", "bass", "finger_piano")
 
 
-def generate_cues(t0, t1, seed, targets):
+def generate_cues(t0, t1, seed, targets, vmap=None, activity=None):
     """Invent shots for [t0, t1) in the Reich-video pattern: hold 10-15s, vary
     the shot size, cut most of the time and occasionally drift. Deterministic
     for a given seed so a re-render reproduces the edit exactly."""
@@ -689,25 +782,47 @@ def generate_cues(t0, t1, seed, targets):
     # leaving a size out for two minutes at a stretch.
     kinds = [solo, pair, group, duo_section, lambda: "wide"]
 
+    def overhead():
+        # Slow travelling look down the middle row. Ordered, not sampled, so it
+        # always reads as a journey across the stage rather than a jump.
+        row = [s for s in ("marimba", "bass", "finger_piano") if s in targets]
+        if len(row) < 2:
+            return group()
+        a, b = (row[0], row[-1]) if rng.random() < 0.5 else (row[-1], row[0])
+        return ("overhead", a, b)
+
+    kinds = kinds + [overhead]
+
     cues, t, recent, bag = [], t0, [], []
     while t < t1:
-        # Reject anything used in the last few shots, not just the previous
-        # one — otherwise the same cello close-up comes round twice a minute.
-        for _ in range(8):
+        hold = rng.uniform(*CAMERA_HOLD)
+        # Reject anything used in the last few shots, not just the previous one
+        # — otherwise the same cello close-up comes round twice a minute — and
+        # anything that isn't actually sounding during the shot.
+        shot = None
+        for attempt in range(14):
             if not bag:
                 bag = kinds[:]
                 rng.shuffle(bag)
-            shot = bag.pop()()
-            if shot not in recent:
+            cand = bag.pop()()
+            if cand in recent:
+                continue
+            if is_playing(cand, t, t + hold, vmap, activity):
+                shot = cand
                 break
+            shot = shot or cand      # keep the first non-repeat as a fallback
+        # A passage where almost nothing sounds (or every candidate is silent)
+        # falls back to the wide, which is always true to the music.
+        if shot is None or not is_playing(shot, t, t + hold, vmap, activity):
+            shot = "wide"
         move = CAMERA_MOVE_T if rng.random() < CAMERA_MOVE_CHANCE else 0.0
         cues.append((round(t, 2), shot, move))
         recent = (recent + [shot])[-4:]
-        t += rng.uniform(*CAMERA_HOLD)
+        t += hold
     return cues
 
 
-def build_cue_sheet(targets):
+def build_cue_sheet(targets, vmap=None, activity=None):
     """Hand-authored CAMERA_CUES merged with generated shots for each
     CAMERA_AUTOGEN range. A generated shot landing within one hold of a hand
     cue is dropped — you asked for that moment, the generator doesn't get to
@@ -715,7 +830,7 @@ def build_cue_sheet(targets):
     hand = [(c[0], c[1], c[2] if len(c) > 2 else 0.0) for c in CAMERA_CUES]
     generated = []
     for t0, t1, seed in CAMERA_AUTOGEN:
-        generated += generate_cues(t0, t1, seed, targets)
+        generated += generate_cues(t0, t1, seed, targets, vmap, activity)
     guard = CAMERA_HOLD[0]
     generated = [g for g in generated
                  if all(abs(g[0] - h[0]) > guard for h in hand)]
@@ -903,8 +1018,12 @@ def main():
     # Backdrop colour runs on wall-clock time, independent of the cue sheet.
     updates.append(lambda t: update_backdrop(backdrop, t))
 
-    cues = build_cue_sheet(targets)
-    unknown = {n for _, f, _ in cues for n in ((f,) if isinstance(f, str) else f)
+    # Volume gate: the generator only points the camera at players that are
+    # actually sounding. Hand cues are never gated — they are your call.
+    vmap = voice_map()
+    activity = load_activity(args.npy, args.tempo) if animate else None
+    cues = build_cue_sheet(targets, vmap, activity)
+    unknown = {n for _, f, _ in cues for n in shot_names(f)
                if n != "wide" and n not in targets}
     if unknown:
         raise SystemExit(f"CAMERA_CUES names no such target: {sorted(unknown)}\n"

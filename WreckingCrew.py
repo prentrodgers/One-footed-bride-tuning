@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 # all imports in one spot:
-import os, sys
+import os, shutil, sys
 
 # Add directories to path for imports
 # parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  
@@ -2042,6 +2042,21 @@ def expand_chorale(repeats, chorale_in_cents_slides, glides, stored_gliss, voice
     mod = f'{mod}_r{ratio_factor:.2f}{density_tag}_t{tolerance}_d{dur_short}_t{tempo:03}'
     mod = atu.windows_compliant_filename(mod) # get rid of the windows invalid characters in the file name
     print(f'{mod = }')
+    # Provenance: park a copy of the features array beside the mp3 this run is
+    # about to write, same stem, differing only in extension. The
+    # {version}_features_array.npy saved earlier is overwritten by EVERY run
+    # and carries no link to any particular audio file, so re-running silently
+    # invalidates any pairing — which is how a video ends up animating notes
+    # that aren't in the mp3 it was muxed with.
+    if version:
+        _npy_src = f'{version}_features_array.npy'
+        _npy_dst = os.path.join(UPLOADS_DIR, f'ball9-t{mod}.npy')
+        if os.path.exists(_npy_src):
+            os.makedirs(UPLOADS_DIR, exist_ok=True)
+            shutil.copyfile(_npy_src, _npy_dst)
+            print(f'Saved {_npy_dst} (pairs with ball9-t{mod}.mp3)')
+        else:
+            print(f'WARNING: {_npy_src} missing, no paired .npy written for ball9-t{mod}')
     return duration, volume_function, mod
 # end of expand_chorale
 
