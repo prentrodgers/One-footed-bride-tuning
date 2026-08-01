@@ -85,6 +85,8 @@ CAM_SENSOR = 36.0
 # ── Camera cue sheet ────────────────────────────────────────────────────────
 # (time_in_seconds, target[, move_seconds]) in ascending time order.
 #
+#   time         seconds (90) or "m:ss" ("1:30", "1:30.5") — activity.png is
+#                labelled in m:ss, so you can copy times straight off it.
 #   target       "wide", a section key, a player key ("brass.tuba"), or a
 #                tuple of any of those framed together as one shot.
 #   move_seconds 0 (the default) CUTS to the shot; >0 eases to it over that
@@ -96,14 +98,18 @@ CAM_SENSOR = 36.0
 # re-randomises chord repeats and arpeggiation, so a cue sheet is only valid
 # for the audio it was authored against.
 
-# STALE — these were authored against the t104 render (281.65s) and the piece
-# is now ball9-t56c_lm19_r1.12_df4_t3_d07_59_t118 (tempo 118, 474.7s). Replace
-# them before rendering; the times below mean nothing in the new audio.
+# rewritten 8/1/26 based on activity.png on bwv256 mp3 & npy
+# All changes are cuts unless explicitly marked for a pan (eased over t, X, 2.5)
 CAMERA_CUES = [
     (0.0,  "wide"),
-    (6.0,  ("bass", "finger_piano")),   # pedal note under changing chords
-    (30.0, "bass"),
-    (43.5, "wide"),                     # chord 31 ends, section changes
+    (6.0,  ("pizz", "finger_piano")),   
+    (30.0, "marimba", 4),
+    (45.0, "bass", 4),
+    (60.0, "bowed_strings"),
+    (110.0, ("pizz", "finger_piano")),
+    (135.0, 'marimba', 4),
+    (150.0, "bass", 4),
+    (165.0, "bowed_strings")
 ]
 
 # Time ranges the shot generator fills in around the hand-authored cues:
@@ -546,6 +552,20 @@ def _target_key(section, empty_name):
     return f"{section}.{n.lower().replace(' ', '_')}"
 
 
+def cue_seconds(t):
+    """Cue times as seconds, from either a number or a "m:ss" string.
+
+    activity.png is labelled in m:ss, so converting in your head on the way
+    into this file is a reliable way to put a cue in the wrong bar. Accepts
+    90, 90.5, "1:30", "1:30.5" and "1:02:03"."""
+    if isinstance(t, (int, float)):
+        return float(t)
+    total = 0.0
+    for part in str(t).split(':'):
+        total = total * 60.0 + float(part)
+    return total
+
+
 def interest(name):
     """VISUAL_INTEREST for a target: its own entry if it has one, else its
     section's, else the default."""
@@ -860,10 +880,12 @@ def build_cue_sheet(targets, vmap=None, activity=None):
     CAMERA_AUTOGEN range. A generated shot landing within one hold of a hand
     cue is dropped — you asked for that moment, the generator doesn't get to
     step on it."""
-    hand = [(c[0], c[1], c[2] if len(c) > 2 else 0.0) for c in CAMERA_CUES]
+    hand = [(cue_seconds(c[0]), c[1], c[2] if len(c) > 2 else 0.0)
+            for c in CAMERA_CUES]
     generated = []
     for t0, t1, seed in CAMERA_AUTOGEN:
-        generated += generate_cues(t0, t1, seed, targets, vmap, activity)
+        generated += generate_cues(cue_seconds(t0), cue_seconds(t1), seed,
+                                   targets, vmap, activity)
     guard = CAMERA_HOLD[0]
     generated = [g for g in generated
                  if all(abs(g[0] - h[0]) > guard for h in hand)]
