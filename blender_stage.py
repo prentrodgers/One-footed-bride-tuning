@@ -92,6 +92,20 @@ CAM_SENSOR = 36.0
 #   move_seconds 0 (the default) CUTS to the shot; >0 eases to it over that
 #                many seconds, STARTING at the cue time.
 #
+# ("overhead", a, b) is the one target form that breaks the fixed viewing
+# angle: it looks down on `a` from a high oblique and travels to over `b`.
+# Its restrictions:
+#
+#   * exactly two names after the marker — ("overhead", a, b, c) raises, and a
+#     single name has nothing to travel to. Each must be one plain target
+#     name; neither may itself be a tuple.
+#   * move_seconds does NOT drive the travel, only the ease-in from the
+#     previous shot. The travel always spans the shot's whole hold, so the gap
+#     to the NEXT cue sets how slow the move is — put the next cue 20s later
+#     for a slow drift, 4s later and it's a swoop.
+#   * as the last cue in the sheet there is no next cue to measure against, so
+#     it falls back to sum(CAMERA_HOLD) * 2 seconds of travel.
+#
 # Run blender_stage.py with --list-targets to print every name available.
 #
 # Times are wall-clock against one specific render. Re-running WreckingCrew
@@ -100,24 +114,49 @@ CAM_SENSOR = 36.0
 
 # rewritten 8/1/26 based on activity.png on bwv256 mp3 & npy
 # All changes are cuts unless explicitly marked for a pan (eased over t, X, 2.5)
+# times must be in "m:ss" format - with quotes!
+# An overhead, and the cue AFTER it setting how slowly it travels:
+#     ("2:10", ("overhead", "marimba", "bass.guitar")),
+#     ("2:30", "bowed_strings"),
+
 CAMERA_CUES = [
-    (0.0,  "wide"),
-    (6.0,  ("pizz", "finger_piano")),   
-    (30.0, "marimba", 4),
-    (45.0, "bass", 4),
-    (60.0, "bowed_strings"),
-    (110.0, ("pizz", "finger_piano")),
-    (135.0, 'marimba', 4),
-    (150.0, "bass", 4),
-    (165.0, "bowed_strings")
+    ("0:00", "wide"),
+    ("0:06", ("pizz", "finger_piano")),
+    ("0:30", "marimba", 4),
+    ("0:45", "bass", 4),
+    ("1:00", ("pizz", "finger_piano"), 5),
+    ("1:25", 'marimba', 4),
+    ("1:45", "bass", 4),
+    ("2:10", ("overhead", "marimba", "bass.guitar")),
+    ("2:30", "melody"),
+    ("2:45", "pizz"),
+    ("3:00", "marimba"),
+    ("3:15", "pizz"),
+    ("3:30", "melody", 5),
+    ("3:50", "bass", 5),
+    ("4:00", "woodwind"),
+    ("4:15", ("overhead", "marimba", "bass.guitar")),
+    ("4:30", "melody", 5),
+    ("4:45", "woodwind", 4),
+    ("5:00", "brass", 5),
+    ("5:15", ("marimba", "melody")),
+    ("5:30", "brass", 4),
+    ("5:40", "pizz", 4),
+    ("5:50", "bass"),
+    ("6:00", "pizz", 4),
+    ("6:15", "marimba"),
+    ("6:30", "pizz", 5),
+    ("6:45", ("overhead", "woodwind", "finger_piano")),
+    ("7:00", "wide")
 ]
 
 # Time ranges the shot generator fills in around the hand-authored cues:
 # (start_s, end_s, seed). Deterministic per seed, so a render repeats exactly.
 # Hand cues always win — generated shots are dropped near them.
-CAMERA_AUTOGEN = [
-    (50.0, 470.0, 7),
-]
+CAMERA_AUTOGEN = []
+    # CAMERA_AUTOGEN = [
+    # (50.0, 470.0, 7),
+    # ]
 
 # ── Backdrop ────────────────────────────────────────────────────────────────
 # A cyclorama standing behind the orchestra, emissive so it reads as a lit
@@ -437,7 +476,16 @@ def setup_bass(npy, tempo):
             o.matrix_parent_inverse = pinv
     fp_empty.scale = (FP_SCALE, FP_SCALE, FP_SCALE)
 
+    # Group the guitar under its own empty too — not to transform it (the
+    # empty stays at the origin), purely so it registers as the camera target
+    # "bass.guitar" and can be framed apart from the finger piano.
+    before_gtr = set(bpy.data.objects)
     gtr_geom = bass.build_baritone_guitar(gtr_x0, bass.BASE_HEIGHT / 2.0 + bass.BODY_H * 0.15)
+    gtr_empty = bpy.data.objects.new("bass_guitar", None)
+    bpy.context.scene.collection.objects.link(gtr_empty)
+    for o in bpy.data.objects:
+        if o not in before_gtr and o is not gtr_empty and o.parent is None:
+            o.parent = gtr_empty
 
     tine_notes = bass.load_voices(npy, tempo, (24,)) if npy else np.zeros((0, 5))
     if len(tine_notes):
@@ -875,6 +923,34 @@ def generate_cues(t0, t1, seed, targets, vmap=None, activity=None):
     return cues
 
 
+def check_cues(cues, targets):
+    """Everything wrong with a cue sheet that is visible before rendering.
+
+    Name and shape errors are fatal — they would crash mid-render, an hour in.
+    A zero-length shot is only a warning: it renders fine, it just never
+    appears, which is usually a typo but is yours to make."""
+    unknown = {n for _, f, _ in cues for n in shot_names(f)
+               if n != "wide" and n not in targets}
+    if unknown:
+        raise SystemExit(f"CAMERA_CUES names no such target: {sorted(unknown)}\n"
+                         f"run with --list-targets to see the valid names")
+    bad = [f for _, f, _ in cues
+           if isinstance(f, tuple) and f[:1] == ("overhead",) and len(f) != 3]
+    if bad:
+        raise SystemExit(f"overhead shots take exactly two targets: {bad}")
+    for a, b in zip(cues, cues[1:]):
+        if b[0] - a[0] < 0.5:
+            print(f"[stage] WARNING: {a[1]} at {_mmss(a[0])} is on screen for "
+                  f"{b[0] - a[0]:.2f}s before {b[1]} replaces it")
+        if b[2] > b[0] - a[0]:
+            print(f"[stage] WARNING: move onto {b[1]} at {_mmss(b[0])} takes "
+                  f"{b[2]}s but the previous shot is only {b[0] - a[0]:.2f}s long")
+
+
+def _mmss(t):
+    return f"{int(t // 60)}:{t % 60:05.2f}"
+
+
 def build_cue_sheet(targets, vmap=None, activity=None):
     """Hand-authored CAMERA_CUES merged with generated shots for each
     CAMERA_AUTOGEN range. A generated shot landing within one hold of a hand
@@ -1068,6 +1144,15 @@ def main():
             b = targets[k]
             print(f"  {k:28s} {b[1] - b[0]:6.2f} wide x {b[5] - b[4]:5.2f} tall")
         print(f"[stage] {len(targets)} targets (plus 'wide')")
+        # Check the cue sheet here too: this is the one mode that builds every
+        # target without rendering, so it is the cheapest place to find out a
+        # cue names something that does not exist.
+        cues = build_cue_sheet(targets)
+        check_cues(cues, targets)
+        for c in cues:
+            print(f"    {_mmss(c[0])}  {c[1]}"
+                  f"{'' if c[2] == 0 else f'  (move {c[2]}s)'}")
+        print(f"[stage] cue sheet OK: {len(cues)} shots")
         return
 
     # Backdrop colour runs on wall-clock time, independent of the cue sheet.
@@ -1081,11 +1166,7 @@ def main():
         _dump_activity(args.dump_activity, targets, vmap, activity, args.duration)
         return
     cues = build_cue_sheet(targets, vmap, activity)
-    unknown = {n for _, f, _ in cues for n in shot_names(f)
-               if n != "wide" and n not in targets}
-    if unknown:
-        raise SystemExit(f"CAMERA_CUES names no such target: {sorted(unknown)}\n"
-                         f"run with --list-targets to see the valid names")
+    check_cues(cues, targets)
     if len(cues) > 1:
         cuts = sum(1 for c in cues if c[2] == 0.0)
         print(f"[stage] camera: {len(cues)} shots ({cuts} cuts, {len(cues) - cuts} moves)")
