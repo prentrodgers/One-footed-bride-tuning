@@ -27,7 +27,7 @@ BODY_CLR = {
     'clarinet':   (0.14, 0.12, 0.10),   # ebony
     'vibraphone': (0.80, 0.82, 0.86),   # aluminium bars
     'oboe':       (0.12, 0.10, 0.08),   # grenadilla
-    'bassoon':    (0.50, 0.32, 0.14),   # maple
+    'bassoon':    (0.20, 0.11, 0.05),   # dark stained maple, at rest
     'trumpet':    (0.82, 0.68, 0.22),   # brass
 }
 GLOW_CLR = {
@@ -35,7 +35,7 @@ GLOW_CLR = {
     'clarinet':   (0.55, 0.65, 0.90),
     'vibraphone': (0.90, 0.95, 1.00),
     'oboe':       (0.55, 0.65, 0.90),
-    'bassoon':    (0.85, 0.70, 0.45),
+    'bassoon':    (0.76, 0.55, 0.31),   # light brown while playing
     'trumpet':    (1.00, 0.90, 0.50),
 }
 PLAY_LEAN_DEG = {'flute': 8.0, 'clarinet': 8.0, 'vibraphone': 0.0,
@@ -57,32 +57,70 @@ def build_flute(body_mat):
     return [bore] + [crown, lip] + keys, [bore]
 
 
+# Vibraphone bar geometry. Bars are supported only at their vibrational
+# nodes — NODE_FRAC in from each end, where the fundamental bending mode is
+# stationary — so the ends and the middle stay free to ring. Nothing crosses
+# over the top of the bars: a rail there would both damp them and hide them
+# from the overhead shot.
+VIB_N = 13
+VIB_X0, VIB_X1, VIB_Z = -0.52, 0.52, 0.80
+VIB_BAR_LEN_LOW, VIB_BAR_LEN_HIGH = 0.20, 0.14
+VIB_BAR_THICK = 0.014
+VIB_NODE_FRAC = 0.2
+VIB_RAIL_DROP = 0.05     # rails run this far below the bars
+# Quarter-wave tubes go as 1/f while bar length goes as 1/sqrt(f), so tube
+# length tracks the SQUARE of bar length. The absolute lengths are not tuned
+# to anything — the visible ramp from long to short is the whole point.
+VIB_RES_LEN_LOW = 0.46
+
+
 def build_vibraphone(body_mat):
-    """A compact vibraphone: a short row of aluminium bars on a dark frame
-    with resonator tubes hanging below."""
+    """A compact vibraphone: aluminium bars resting on felt pads at their
+    nodes, over a resonator per bar whose length grows with its bar's."""
     frame = ww.make_solid("MelVibeFrame", (0.13, 0.13, 0.15), roughness=0.55)
+    felt = ww.make_solid("MelVibeFelt", (0.32, 0.09, 0.11), roughness=0.9)
     reson = ww.make_solid("MelVibeReson", (0.55, 0.56, 0.60), roughness=0.35, metallic=0.6)
-    n = 13
-    x0, x1, z = -0.52, 0.52, 0.80
-    bars, others = [], []
-    for i in range(n):
-        bx = x0 + (x1 - x0) * i / (n - 1)
-        blen = 0.20 - 0.06 * i / (n - 1)
-        bpy.ops.mesh.primitive_cube_add(size=1.0, location=(bx, 0.0, z))
+    span = VIB_BAR_LEN_LOW - VIB_BAR_LEN_HIGH
+    half_t = VIB_BAR_THICK / 2.0
+    rail_z = VIB_Z - VIB_RAIL_DROP
+    bars, others, rails = [], [], ([], [])
+    for i in range(VIB_N):
+        f = i / (VIB_N - 1)
+        bx = VIB_X0 + (VIB_X1 - VIB_X0) * f
+        blen = VIB_BAR_LEN_LOW - span * f
+        bpy.ops.mesh.primitive_cube_add(size=1.0, location=(bx, 0.0, VIB_Z))
         b = bpy.context.object
-        b.scale = (0.032, blen, 0.014)
+        b.scale = (0.032, blen, VIB_BAR_THICK)
         b.data.materials.append(body_mat)
         bars.append(b)
-        bpy.ops.mesh.primitive_cylinder_add(radius=0.018, depth=0.28,
-                                             location=(bx, 0.0, z - 0.20))
-        t = bpy.context.object; t.data.materials.append(reson); others.append(t)
-    # frame rails + legs
-    for ry in (-0.09, 0.09):
-        others.append(brass._tube((x0 - 0.05, ry, z + 0.01), (x1 + 0.05, ry, z + 0.01),
-                                  0.012, 0.012, frame))
-    for lx in (x0, x1):
-        for ly in (-0.09, 0.09):
-            others.append(brass._tube((lx, ly, 0.0), (lx, ly, z), 0.014, 0.014, frame))
+
+        for k, sign in enumerate((-1, 1)):
+            ny = sign * blen * (0.5 - VIB_NODE_FRAC)
+            rails[k].append((bx, ny, rail_z))
+            bpy.ops.mesh.primitive_cylinder_add(
+                radius=0.011, depth=VIB_RAIL_DROP - half_t,
+                location=(bx, ny, (rail_z + VIB_Z - half_t) / 2.0))
+            pad = bpy.context.object
+            pad.data.materials.append(felt)
+            others.append(pad)
+
+        rlen = VIB_RES_LEN_LOW * (blen / VIB_BAR_LEN_LOW) ** 2
+        rrad = 0.012 + 0.014 * (blen - VIB_BAR_LEN_HIGH) / span
+        bpy.ops.mesh.primitive_cylinder_add(
+            radius=rrad, depth=rlen,
+            location=(bx, 0.0, VIB_Z - half_t - 0.02 - rlen / 2.0))
+        t = bpy.context.object
+        t.data.materials.append(reson)
+        others.append(t)
+
+    # Two rails threaded through the node points — they taper inward as the
+    # bars shorten — each carried on a leg at either end.
+    for pts in rails:
+        run = ([(VIB_X0 - 0.06, pts[0][1], rail_z)] + pts
+               + [(VIB_X1 + 0.06, pts[-1][1], rail_z)])
+        others.append(ww._curve_tube(run, 0.010, frame, name="MelVibeRail"))
+        for lx, ly, _ in (run[0], run[-1]):
+            others.append(brass._tube((lx, ly, 0.0), (lx, ly, rail_z), 0.014, 0.014, frame))
     return bars + others, bars
 
 

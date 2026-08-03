@@ -43,13 +43,13 @@ BODY_CLR = {
     'clarinet': (0.14, 0.12, 0.10),   # ebony black
     'oboe':     (0.12, 0.10, 0.08),   # grenadilla black
     'horn':     (0.82, 0.68, 0.22),   # unlacquered brass
-    'bassoon':  (0.50, 0.32, 0.14),   # maple
+    'bassoon':  (0.20, 0.11, 0.05),   # dark stained maple, at rest
 }
 GLOW_CLR = {
     'clarinet': (0.55, 0.65, 0.90),
     'oboe':     (0.55, 0.65, 0.90),
     'horn':     (1.00, 0.88, 0.40),
-    'bassoon':  (0.85, 0.70, 0.45),
+    'bassoon':  (0.76, 0.55, 0.31),   # light brown while playing
 }
 SILVER = (0.72, 0.74, 0.78)
 REED_CLR = (0.62, 0.55, 0.35)
@@ -165,6 +165,13 @@ def _cone_dir(p0, p1, r0, r1, mat, verts=16):
     return o
 
 
+def _key_zs(top, bottom, n=10, power=1.25):
+    """`n` key heights from `top` down to `bottom`, crowded at the top and
+    spreading slightly toward the bell — real tone holes bunch up where the
+    hand sits and open out down the bore. power=1 would space them evenly."""
+    return [top - (top - bottom) * (i / (n - 1)) ** power for i in range(n)]
+
+
 # ── the four instruments ─────────────────────────────────────────────────────
 # Each returns (all_objs, body_objs): body_objs are the ones whose colour is
 # animated (glow); all_objs get parented to the seat empty for sway/lean.
@@ -178,7 +185,7 @@ def build_clarinet(body_mat):
     mp = _cone(1.60, 1.72, 0.026, 0.014, body_mat)   # mouthpiece
     body.append(mp)
     keys = [_ball(0.035, z, 0.018, silver, y=-0.05, scale=(1, 0.5, 1))
-            for z in (0.45, 0.62, 0.80, 0.98, 1.16)]
+            for z in _key_zs(1.34, 0.30)]
     return body + keys, body
 
 
@@ -191,7 +198,7 @@ def build_oboe(body_mat):
     ]
     r = _cone(1.35, 1.50, 0.018, 0.006, reed)        # double-reed staple
     keys = [_ball(0.032, z, 0.015, silver, y=-0.045, scale=(1, 0.5, 1))
-            for z in (0.40, 0.58, 0.76, 0.94, 1.12)]
+            for z in _key_zs(1.26, 0.26)]
     return body + [r] + keys, body
 
 
@@ -200,11 +207,24 @@ def build_bassoon(body_mat):
     reed = make_solid("WWBsnReed", REED_CLR, roughness=0.6)
     # Doubled bore: the tall bass/bell joint (left) and the shorter wing joint
     # (right), joined at the boot (double joint) U-bend at the bottom.
-    bass = _cone(0.10, 1.90, 0.070, 0.048, body_mat, x=-0.07)
-    bell = _cone(1.90, 2.10, 0.052, 0.078, body_mat, x=-0.07)      # bell joint + flare
-    bell_ring = _torus(-0.07, 2.09, 0.078, 0.010, metal)          # metal bell ring
-    wing = _cone(0.10, 1.68, 0.062, 0.050, body_mat, x=0.07)
-    boot = _ball(0.0, 0.10, 0.11, body_mat, scale=(1.7, 0.85, 0.5))
+    # Both joints stop well clear of the floor, leaving the boot's U room to
+    # be seen — the two bores nearly touch, so a bare semicircle tucked
+    # between them just reads as a rounded blob.
+    foot_z = 0.34
+    bore_x = 0.07
+    bass = _cone(foot_z, 1.90, 0.070, 0.048, body_mat, x=-bore_x)
+    bell = _cone(1.90, 2.10, 0.052, 0.078, body_mat, x=-bore_x)    # bell joint + flare
+    bell_ring = _torus(-bore_x, 2.09, 0.078, 0.010, metal)         # metal bell ring
+    wing = _cone(foot_z, 1.68, 0.062, 0.050, body_mat, x=bore_x)
+    # Boot joint: the two bores really are joined at the bottom, so the air
+    # turns the corner instead of the wing joint dead-ending into a blob. A
+    # narrower tube than either bore, dropping out of each as a visible leg
+    # before the half-circle turn, so the U reads as a U.
+    turn_z = foot_z - 0.18
+    arc = [(bore_x * math.cos(a), 0.0, turn_z + bore_x * math.sin(a))
+           for a in (math.pi + math.pi * k / 12 for k in range(13))]
+    boot = _curve_tube([(-bore_x, 0.0, foot_z + 0.03)] + arc + [(bore_x, 0.0, foot_z + 0.03)],
+                       0.042, body_mat, name="WWBsnBoot")
     body = [bass, bell, wing, boot]
     # Bocal (crook): a slender S-curved metal tube off the top of the wing
     # joint that hooks up and back toward the player's reed.
@@ -218,18 +238,32 @@ def build_horn(body_mat):
     # French horn: concentric coiled tubing, a big flared bell off the
     # lower-left, a curved leadpipe up to a funnel mouthpiece, valve rotors.
     silver = make_solid("WWHornValve", SILVER, roughness=0.3, metallic=0.75)
-    coils = [_torus(0.0, 0.92, r, 0.032, body_mat) for r in (0.36, 0.29, 0.22)]
+    coil_r = (0.36, 0.29, 0.22)
+    cz = 0.92                       # coil centre height
+    coils = [_torus(0.0, cz, r, 0.032, body_mat) for r in coil_r]
     # Big flared bell pointing down and to the left (the horn's signature).
-    bpy.ops.mesh.primitive_cone_add(radius1=0.34, radius2=0.055, depth=0.52,
-                                    vertices=30, location=(-0.52, 0.06, 0.55))
-    bell = bpy.context.object
-    bell.rotation_euler = (math.radians(78), 0, math.radians(38))
-    bell.data.materials.append(body_mat)
-    # Curved leadpipe sweeping up to a funnel mouthpiece at the top-right.
-    lead = _curve_tube([(0.20, 0.0, 1.20), (0.30, -0.03, 1.32),
+    # Its narrow end is placed ON the outer coil rather than near it: put the
+    # throat at a chosen angle round the ring and build the cone outward from
+    # there, so bell and tubing are one connected run instead of the bell
+    # floating free in space.
+    throat_a = math.radians(207.0)   # down and to the left, off the outer coil
+    throat = (coil_r[0] * math.cos(throat_a), 0.0, cz + coil_r[0] * math.sin(throat_a))
+    flare_dir = mathutils.Vector((math.cos(throat_a), -0.30, math.sin(throat_a))).normalized()
+    mouth = mathutils.Vector(throat) + flare_dir * 0.52
+    bell = _cone_dir(throat, tuple(mouth), 0.055, 0.34, body_mat, verts=30)
+    # Curved leadpipe: starts on the outer coil too, sweeping up to the
+    # funnel mouthpiece at the top-right.
+    lead_a = math.radians(34.0)
+    lead0 = (coil_r[0] * math.cos(lead_a), 0.0, cz + coil_r[0] * math.sin(lead_a))
+    lead = _curve_tube([lead0, (0.30, -0.03, 1.32),
                         (0.34, -0.05, 1.44), (0.33, -0.06, 1.54)], 0.018, body_mat)
     mpc = _cone_dir((0.33, -0.06, 1.54), (0.34, -0.07, 1.66), 0.016, 0.032, silver)
-    rotors = [_torus(vx, 0.92, 0.06, 0.03, silver) for vx in (-0.06, 0.06)]
+    # Rotor valves threaded onto the innermost coil's lower arc, where a
+    # player's left hand would sit — not hanging in the middle of the loop.
+    rotors = []
+    for vx in (-0.11, 0.0, 0.11):
+        vz = cz - math.sqrt(max(0.0, coil_r[-1] ** 2 - vx ** 2))
+        rotors.append(_torus(vx, vz, 0.055, 0.030, silver))
     body = coils + [bell, lead]
     return body + [mpc] + rotors, body
 

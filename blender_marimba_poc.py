@@ -162,8 +162,16 @@ VIB_MODE_SHAPE = bar_vibration_mode_shape()
 # decelerating only as it nears the rest position.
 MALLET_STICK_R  = 0.040
 MALLET_HEAD_R   = 0.105   # big enough to read against the bars from the wide stage shot
-MALLET_LEN      = 0.70   # fixed rod length, pivot to head
-MALLET_REST_ANGLE = 55.0  # degrees off vertical at rest (hovering, not yet touching)
+MALLET_LEN      = 1.00   # fixed rod length, pivot to head
+# The player stands BEHIND the instrument (+Y, away from camera) and reaches
+# over it, so a mallet's pivot — her hand — belongs back there, not floating
+# above the bar it is about to hit. Rotation is about X: a NEGATIVE angle
+# swings the head forward, toward the camera and down onto the bar. The
+# strike angle therefore also fixes where the hand has to be, and
+# update_mallet_pool derives the pivot from it rather than repeating the
+# number. More negative = lifted higher and further back.
+MALLET_STRIKE_ANGLE = -45.0   # degrees: the stick at the moment of contact
+MALLET_REST_ANGLE   = -75.0   # degrees: lifted clear, waiting to come down
 MALLET_OVER_REACH = 0.22  # fractional overshoot past vertical on follow-through
 MALLET_APPROACH_POWER = 2.6   # >1: velocity builds through the approach, peaking at contact
 MALLET_REBOUND_POWER  = 2.2   # >1 ease-out: fast off the bar, slows into rest
@@ -172,20 +180,24 @@ DWELL_T    = 0.020
 OVER_T     = 0.018
 REBOUND_T  = 0.085
 
-# Resonator tubes (one per bar, hanging below it) — real marimba resonators
-# are quarter-wave tubes, so length doubles every octave down. Rather than
-# one length per bar, bars are grouped into 5 tiers (the lone extra top C,
-# then the 4 full octaves below it) with lengths 8"/16"/32"/64"/128". Tubes
-# longer than RESON_FOLD_THRESHOLD are folded into a zig-zag (as many legs
-# as it takes to keep each leg under RESON_MAX_LEG_DROP) instead of one
-# long U, so even the 128" bottom-octave tube stays a compact hairpin
-# bundle rather than hanging most of a metre-and-a-half straight down.
+# Resonator tubes, one per bar, hanging below it. The stand gives them the
+# full height under the bars to work with, so they hang straight down as far
+# as they can and only fold back up when they run out of room.
 INCH = 0.0254
-RESON_TIER_LENGTHS_IN = [8, 16, 32, 64, 128]        # tier 0 (top) .. 4 (bottom)
-RESON_TIER_RADII      = [0.020, 0.032, 0.044, 0.056, 0.068]
-RESON_FOLD_THRESHOLD  = 0.3    # metres — longer tubes get folded to fit
+# Length per bar rather than per octave-tier: a quarter-wave tube goes as
+# 1/f and a bar's length as 1/sqrt(f), so tube length tracks the SQUARE of
+# its own bar's length. That gives a smooth ramp across the keyboard instead
+# of four flat steps, and it is the ramp — not any absolute tuning — that
+# reads on screen. RESON_LEN_LOW is the lowest bar's tube.
+RESON_LEN_LOW    = 3.6         # metres, the longest tube (folds into a U)
+RESON_RAD_LOW    = 0.075       # tube radius at the lowest bar ..
+RESON_RAD_HIGH   = 0.022       # .. and at the highest
 RESON_BEND_RADIUS     = 0.05
-RESON_MAX_LEG_DROP    = 0.45   # metres — cap on any one leg of a folded tube
+# A tube may hang until it is level with the bottom of the stand legs, then
+# it has to turn back up. Keeping the fold at exactly the stand bottom means
+# the resonators never become the section's lowest point, so adding all this
+# length does not shift the marimba upward when the stage sits it on z=0.
+RESON_FLOOR_Z         = -SAG_AMOUNT - 0.5 - STAND_H
 
 
 def sag_z(x, half_width):
@@ -385,8 +397,8 @@ def build_mallet_pool(n_slots):
 
 
 def strike_angle(dt):
-    """MALLET_REST_ANGLE (hovering, not yet touching) -> 0 (touching the
-    bar) -> a quick overshoot on follow-through -> back to
+    """MALLET_REST_ANGLE (lifted, not yet touching) -> MALLET_STRIKE_ANGLE
+    (touching the bar) -> a quick overshoot on follow-through -> back to
     MALLET_REST_ANGLE by the end of the rebound (right when the strike
     window closes and the mallet is hidden again).
 
@@ -409,7 +421,7 @@ def strike_angle(dt):
         phase = min(1.0, (dt - DWELL_T - OVER_T) / REBOUND_T)
         eased = 1.0 - (1.0 - phase) ** MALLET_REBOUND_POWER
         frac = (1.0 + MALLET_OVER_REACH) * (1.0 - eased)
-    return MALLET_REST_ANGLE * (1.0 - frac)
+    return MALLET_STRIKE_ANGLE + (MALLET_REST_ANGLE - MALLET_STRIKE_ANGLE) * (1.0 - frac)
 
 
 def update_mallet_pool(t, assignments, n_slots, pivots, sticks, heads, bar_info):
@@ -428,11 +440,14 @@ def update_mallet_pool(t, assignments, n_slots, pivots, sticks, heads, bar_info)
         info = bar_info[idx]
         bar_top = info["z"] + BAR_THICK / 2.0
 
-        # Pivot sits directly above the bar's centre (its own rank's Y) and
-        # does not move for the whole strike — only its rotation changes,
-        # swinging the fixed-length rod's head down to touch dead centre and
-        # back.
-        pivots[s].location = (info["x"], info["y"], bar_top + MALLET_LEN)
+        # Pivot — the player's hand — sits BEHIND and above the bar, placed
+        # so that at MALLET_STRIKE_ANGLE the head lands on the bar's centre.
+        # It does not move for the whole strike; only the rotation changes,
+        # swinging the fixed-length rod forward and down onto the bar.
+        tilt = math.radians(MALLET_STRIKE_ANGLE)
+        pivots[s].location = (info["x"],
+                              info["y"] - MALLET_LEN * math.sin(tilt),
+                              bar_top + MALLET_LEN * math.cos(tilt))
         pivots[s].rotation_euler = (math.radians(strike_angle(t - onset)), 0, 0)
         stick.hide_render = False
         head.hide_render = False
@@ -547,14 +562,13 @@ def build_frame(bar_info, post_x_left, post_x_right):
             ring.data.materials.append(string_mat)
 
 
-def resonator_tier(i, n):
-    """5 tiers, doubling in length every octave down: tier 0 is the lone
-    extra top note (shortest), tiers 1..4 are the 4 full octaves below it
-    (12 bars each), longest at tier 4 (the bottom octave)."""
-    if i == n - 1:
-        return 0
-    octave_idx = i // 12   # 0 = lowest octave .. 3 = highest full octave
-    return 4 - octave_idx
+def resonator_spec(bar_len):
+    """(length, radius) of the tube under a bar of this length. Length goes
+    as the square of bar length (see RESON_LEN_LOW); radius is interpolated
+    so the bottom tubes read as fat pipes and the top ones as thin ones."""
+    f = (bar_len - BAR_LEN_MIN) / (BAR_LEN_MAX - BAR_LEN_MIN)
+    length = RESON_LEN_LOW * (bar_len / BAR_LEN_MAX) ** 2
+    return length, RESON_RAD_HIGH + (RESON_RAD_LOW - RESON_RAD_HIGH) * f
 
 
 def build_straight_resonator(x, bar_y, top_z, length, radius, mat):
@@ -565,37 +579,37 @@ def build_straight_resonator(x, bar_y, top_z, length, radius, mat):
     return tube
 
 
-def resonator_fold_plan(length):
-    """How many legs a folded resonator needs to keep each leg under
-    RESON_MAX_LEG_DROP, and how long each leg ends up. More legs (a tighter
-    zig-zag) rather than one deep U keeps even the 128" bottom-octave tube
-    from hanging metres below its bar."""
+def resonator_fold_plan(length, max_drop):
+    """The legs a tube of `length` is folded into, top to bottom, given it
+    may drop at most `max_drop` before turning.
+
+    Each leg runs the full drop and the LAST one takes whatever is left
+    over, rather than dividing the length evenly. That matters visually:
+    every tube long enough to fold reaches the same floor — the bottom of
+    the stand — so the row of tube bottoms steps down smoothly with pitch
+    instead of jumping back up each time a tube gains a leg."""
     r = RESON_BEND_RADIUS
-    n_legs = 2
-    while True:
-        n_turns = n_legs - 1
-        leg = (length - n_turns * math.pi * r) / n_legs
-        if leg <= RESON_MAX_LEG_DROP or n_legs > 20:
-            break
-        n_legs += 1
-    return n_legs, max(0.02, leg)
+    legs, left = [], length
+    while left > max_drop and len(legs) < 20:
+        legs.append(max_drop)
+        left -= max_drop + math.pi * r / 2.0   # the turn eats tube too
+    legs.append(max(0.02, left))
+    return legs
 
 
-def build_folded_resonator(x, bar_y, top_z, length, radius, mat):
-    """Zig-zag fold a too-long resonator into a compact bundle of legs
-    joined by half-circle turns, so it doesn't hang deeper below the bar
-    than RESON_MAX_LEG_DROP regardless of its total length — matching how
-    real contrabass marimba resonators are bent to fit within a sane
-    cabinet height instead of hanging the full quarter-wavelength straight
-    down."""
+def build_folded_resonator(x, bar_y, top_z, length, radius, mat, max_drop):
+    """Zig-zag fold a too-long resonator into legs joined by half-circle
+    turns, so it drops to the bottom of the stand and turns back up rather
+    than hanging the full quarter-wavelength into the floor — the same
+    reason real contrabass marimba resonators are bent."""
     r = RESON_BEND_RADIUS
-    n_legs, leg = resonator_fold_plan(length)
-    n_turns = n_legs - 1
+    legs = resonator_fold_plan(length, max_drop)
+    n_turns = len(legs) - 1
 
     y0 = bar_y - n_turns * r   # centre the whole zig-zag horizontally on the bar
     pts = [(x, y0, top_z)]
     y, z, direction = y0, top_z, -1.0
-    for leg_i in range(n_legs):
+    for leg_i, leg in enumerate(legs):
         z += direction * leg
         pts.append((x, y, z))
         if leg_i < n_turns:
@@ -625,18 +639,18 @@ def build_folded_resonator(x, bar_y, top_z, length, radius, mat):
 
 
 def build_resonators(bar_info, n):
-    """One resonator tube per bar, hanging below it — length set by
-    resonator_tier() (doubling every octave down), folded into a hairpin
-    once it's too long to hang straight."""
+    """One resonator tube per bar, hanging below it — length proportional to
+    its own bar's (see resonator_spec), hanging straight down until it is
+    level with the bottom of the stand and only then folding back up."""
     mat = make_resonator_material()
     tubes = []
     for i, info in enumerate(bar_info):
-        tier = resonator_tier(i, n)
-        length = RESON_TIER_LENGTHS_IN[tier] * INCH
-        radius = RESON_TIER_RADII[tier]
+        length, radius = resonator_spec(info["length"])
         top_z = info["z"] - BAR_THICK / 2 - 0.05
-        if length > RESON_FOLD_THRESHOLD:
-            tube = build_folded_resonator(info["x"], info["y"], top_z, length, radius, mat)
+        max_drop = top_z - RESON_FLOOR_Z
+        if length > max_drop:
+            tube = build_folded_resonator(info["x"], info["y"], top_z, length,
+                                          radius, mat, max_drop)
         else:
             tube = build_straight_resonator(info["x"], info["y"], top_z, length, radius, mat)
         tube.name = f"resonator_{i:02d}"
@@ -652,12 +666,9 @@ def point_camera_at(cam, target):
 
 
 def build_floor(total_w):
-    # Worst-case resonator drop below its bar: the longest tier's folded
-    # leg length plus its turn radius.
-    longest_in = max(RESON_TIER_LENGTHS_IN) * INCH
-    _, longest_leg = resonator_fold_plan(longest_in)
-    max_drop = longest_leg + RESON_BEND_RADIUS
-    floor_z = -SAG_AMOUNT - max_drop - 0.6
+    # Resonators bottom out at the stand's feet by construction, so the floor
+    # only has to clear those.
+    floor_z = RESON_FLOOR_Z - 0.3
     bpy.ops.mesh.primitive_plane_add(size=total_w * 1.15, location=(0.0, 0.0, floor_z))
     floor = bpy.context.object
     floor.name = "Floor"
