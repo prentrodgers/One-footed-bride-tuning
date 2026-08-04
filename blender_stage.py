@@ -119,6 +119,42 @@ CAM_SENSOR = 36.0
 #     ("2:10", ("overhead", "marimba", "bass.guitar")),
 #     ("2:30", "bowed_strings"),
 
+# this list is from bwv256 from 8/1/26, subsequently lost. 
+
+# CAMERA_CUES = [
+#     ("0:00", "wide"),
+#     ("0:06", ("pizz", "finger_piano")),
+#     ("0:30", "marimba", 4),
+#     ("0:45", "bass", 4),
+#     ("1:00", ("pizz", "finger_piano"), 5),
+#     ("1:25", 'marimba', 4),
+#     ("1:45", "bass", 4),
+#     ("2:10", ("overhead", "marimba", "bass.guitar")),
+#     ("2:30", "melody"),
+#     ("2:45", "pizz"),
+#     ("3:00", "marimba"),
+#     ("3:15", "pizz"),
+#     ("3:30", "melody", 5),
+#     ("3:50", "bass", 5),
+#     ("4:00", "woodwind"),
+#     ("4:15", ("overhead", "marimba", "bass.guitar")),
+#     ("4:30", "melody", 5),
+#     ("4:45", "woodwind", 4),
+#     ("5:00", "brass", 5),
+#     ("5:15", ("marimba", "melody")),
+#     ("5:30", "brass", 4),
+#     ("5:40", "pizz", 4),
+#     ("5:50", "bass"),
+#     ("6:00", "pizz", 4),
+#     ("6:15", "marimba"),
+#     ("6:30", "pizz", 5),
+#     ("6:45", ("overhead", "woodwind", "finger_piano")),
+#     ("7:00", "wide")
+# ]
+
+
+# this is for Uploads/ball9-t61c_lm19_r1.25_df4_t3_d08_04_t118.npy and Uploads/ball9-t61c_lm19_r1.25_df4_t3_d08_04_t118.mp3 dated 8/3/26 at 10:07
+# I used activity_bwv261.png as guidance for the camera cues.
 CAMERA_CUES = [
     ("0:00", "wide"),
     ("0:06", ("pizz", "finger_piano")),
@@ -149,7 +185,6 @@ CAMERA_CUES = [
     ("6:45", ("overhead", "woodwind", "finger_piano")),
     ("7:00", "wide")
 ]
-
 # Time ranges the shot generator fills in around the hand-authored cues:
 # (start_s, end_s, seed). Deterministic per seed, so a render repeats exactly.
 # Hand cues always win — generated shots are dropped near them.
@@ -186,6 +221,20 @@ WASH_SPOTS = [
     ("WashL", (1.00, 0.12, 0.35), 170000.0, (-46.0, -22.0, 30.0), (-8.0, 8.0, 2.0), 55.0, True),
     ("WashR", (0.10, 0.60, 1.00), 170000.0, (46.0, -22.0, 30.0), (8.0, 8.0, 2.0), 55.0, True),
     ("WashB", (1.00, 0.62, 0.15), 110000.0, (0.0, 34.0, 26.0), (0.0, 10.0, 2.0), 60.0, False),
+]
+
+# ── Key / fill ──────────────────────────────────────────────────────────────
+# (name, colour, energy, pitch°, yaw°, angular diameter°, casts shadow).
+# pitch is the tilt off straight-down: positive throws the light away from the
+# camera (source in FRONT of the stage), negative throws it toward the camera
+# (source BEHIND). yaw swings that around; negative = source on stage left.
+#
+#   Key  — warm, high, front-left. Does the modelling and the one shadow.
+#   Fill — cool, low, front-right. Lifts the shadow side so instruments stop
+#          going to black; deliberately dim so it doesn't flatten the key out.
+SUNS = [
+    ("KeyLight",  (1.00, 0.93, 0.80), 1.1,  50.0, -25.0, 4.0, True),
+    ("FillLight", (0.72, 0.80, 1.00), 0.22, 65.0,  35.0, 8.0, False),
 ]
 
 # ── Follow spot ─────────────────────────────────────────────────────────────
@@ -266,6 +315,10 @@ def parse_args():
     # Write who-is-playing-when as JSON, for plot_activity.py to chart while
     # you author CAMERA_CUES. Needs --npy and --tempo.
     p.add_argument("--dump-activity", default=None)
+    # Write the stage — every target's box, the camera and the whole light rig
+    # — for stage_preview.html to draw. Needs no notes, so it runs on a static
+    # build in seconds.
+    p.add_argument("--dump-layout", default=None)
     return p.parse_args(argv)
 
 
@@ -1053,11 +1106,8 @@ def _build_light_rig():
     flat, camera-facing instruments over a near-black floor — the surfaces a
     back light reaches are the ones we can't see. Revisit if the camera ever
     drops toward stage level, or if the materials get more specular."""
-    # Key: warm, high, front-left. Does the modelling and the one shadow.
-    _sun("KeyLight",  (1.00, 0.93, 0.80), 1.1,  50.0, -25.0, 4.0, True)
-    # Fill: cool, low, front-right. Lifts the shadow side so instruments stop
-    # going to black; deliberately dim so it doesn't flatten the key back out.
-    _sun("FillLight", (0.72, 0.80, 1.00), 0.22, 65.0,  35.0, 8.0, False)
+    for spec in SUNS:
+        _sun(*spec)
 
 
 def build_stage_env(bounds):
@@ -1139,6 +1189,10 @@ def main():
             pass          # empty with no meshes under it (a bare pivot)
 
     cam, backdrop, follow = build_stage_env(bounds)
+
+    if args.dump_layout:
+        _dump_layout(args.dump_layout, targets, args.res_x, args.res_y)
+        return
 
     if args.list_targets:
         for k in sorted(targets):
@@ -1302,6 +1356,36 @@ def _dump_activity(path, targets, vmap, activity, duration, bucket=1.0):
                "cues": [[c[0], str(c[1])] for c in build_cue_sheet(targets, vmap, activity)]}
     Path(path).write_text(json.dumps(payload))
     print(f"[stage] wrote {path}: {len(levels)} targets, {n} buckets of {bucket}s")
+
+
+def _dump_layout(path, targets, res_x, res_y):
+    """The stage as numbers, for stage_preview.html: one box per camera
+    target plus the camera and every light. Written from the built scene, so
+    it cannot drift from what actually renders the way a hand-copied table of
+    box sizes does."""
+    import json
+    payload = {
+        "targets": {k: [round(v, 3) for v in b] for k, b in sorted(targets.items())},
+        "sections": {k: dict(v) for k, v in SECTIONS.items()},
+        "aspect": res_x / res_y,
+        "cam": {"pos": list(CAM_POS), "target": list(CAM_TARGET),
+                "lens": CAM_LENS, "sensor": CAM_SENSOR},
+        "wash": [{"name": n, "color": list(c), "energy": e, "pos": list(p),
+                  "aim": list(a), "cone": cone, "shadow": sh}
+                 for n, c, e, p, a, cone, sh in WASH_SPOTS],
+        "suns": [{"name": n, "color": list(c), "energy": e, "pitch": pi,
+                  "yaw": ya, "angle": an, "shadow": sh}
+                 for n, c, e, pi, ya, an, sh in SUNS],
+        "follow": {"offset": list(FOLLOW_OFFSET), "energy": FOLLOW_ENERGY,
+                   "color": list(FOLLOW_COLOR), "margin": FOLLOW_CONE_MARGIN},
+        "backdrop": {"y": BACKDROP_Y, "w": BACKDROP_W, "h": BACKDROP_H,
+                     "colors": [list(c) for c in BACKDROP_COLORS],
+                     "hold": BACKDROP_HOLD, "strength": BACKDROP_STRENGTH},
+        "margin": CAMERA_MARGIN,
+    }
+    Path(path).write_text(json.dumps(payload, indent=1))
+    print(f"[stage] wrote {path}: {len(payload['targets'])} boxes, "
+          f"{len(WASH_SPOTS)} wash spots, {len(SUNS)} suns")
 
 
 def _static_build(name, setup):

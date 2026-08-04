@@ -1,0 +1,396 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Stage preview — camera &amp; lights</title>
+<!--
+  Box stand-in for the stage, for setting the camera and the light rig
+  without waiting on a render.
+
+      blender -b -P blender_stage.py -- --dump-layout stage_layout.json
+      python3 -m http.server 8000      # ES modules will not load from file://
+      open http://localhost:8000/stage_preview.html
+
+  Every box, the camera and every light are read from stage_layout.json,
+  which blender_stage.py writes from the scene it actually built. Re-dump
+  after changing any geometry and this follows. Nothing here is authored by
+  hand, which is the one thing the old stage_layout_editor.html got wrong —
+  its box table drifted out of date and it would then write back a SECTIONS
+  block that moved things that were already where you wanted them.
+
+  What it is honest about: WHERE the camera is, what it frames, where each
+  light sits, which way it points, and what its cone covers on the floor.
+  What it is NOT: an exposure match. three.js and EEVEE do not agree on what
+  a watt is, so treat brightness here as relative between lights, never as a
+  prediction of the render.
+-->
+<style>
+  :root{
+    --bg:#15171c; --panel:#1d2027; --line:#2c313b; --ink:#d7dbe3;
+    --dim:#878fa0; --accent:#6cc4ff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;height:100vh;display:flex;background:var(--bg);color:var(--ink);
+       font:13px/1.45 ui-sans-serif,system-ui,-apple-system,sans-serif;overflow:hidden}
+  #view{flex:1;position:relative;min-width:0}
+  canvas{display:block}
+  #hud{position:absolute;left:12px;top:12px;font:11px/1.5 ui-monospace,monospace;
+       color:var(--dim);background:#0009;padding:6px 9px;border-radius:5px;pointer-events:none}
+  #panel{width:340px;flex:none;background:var(--panel);border-left:1px solid var(--line);
+         overflow-y:auto;padding:14px}
+  h1{font-size:13px;margin:0 0 10px;letter-spacing:.04em;text-transform:uppercase;color:var(--dim)}
+  details{border-top:1px solid var(--line);padding:8px 0}
+  details[open] summary{color:var(--accent)}
+  summary{cursor:pointer;font-weight:600;padding:3px 0;user-select:none}
+  .row{display:grid;grid-template-columns:58px 1fr 54px;gap:7px;align-items:center;margin:5px 0}
+  .row label{color:var(--dim);font:11px ui-monospace,monospace}
+  .row output{font:11px ui-monospace,monospace;text-align:right;color:var(--ink)}
+  input[type=range]{width:100%;accent-color:var(--accent)}
+  input[type=color]{width:100%;height:22px;background:none;border:1px solid var(--line);
+                    border-radius:3px;padding:1px}
+  .chk{display:flex;gap:7px;align-items:center;margin:5px 0;color:var(--dim);font-size:12px}
+  textarea{width:100%;height:210px;background:#000;color:#9fe6a0;border:1px solid var(--line);
+           border-radius:4px;font:10px/1.4 ui-monospace,monospace;padding:7px;resize:vertical}
+  button{background:var(--accent);color:#06263a;border:0;border-radius:4px;padding:6px 11px;
+         font-weight:700;cursor:pointer;margin-top:7px}
+  button.ghost{background:#2c313b;color:var(--ink);font-weight:500}
+  #err{padding:20px;font:13px ui-monospace,monospace;color:#ff9a9a}
+</style>
+</head>
+<body>
+<div id="view"><div id="hud"></div></div>
+<div id="panel">
+  <h1>Stage preview</h1>
+  <div class="chk"><input type="checkbox" id="through"><label for="through">Look through render camera</label></div>
+  <div class="chk"><input type="checkbox" id="players"><label for="players">Show individual instruments</label></div>
+  <div class="chk"><input type="checkbox" id="cones" checked><label for="cones">Show light cones</label></div>
+  <div class="chk"><input type="checkbox" id="labels" checked><label for="labels">Show names</label></div>
+  <div id="controls"></div>
+  <details open><summary>Paste back into blender_stage.py</summary>
+    <textarea id="out" readonly></textarea>
+    <button id="copy">Copy</button>
+    <button id="reset" class="ghost">Reset</button>
+  </details>
+</div>
+
+<script type="importmap">
+{"imports":{"three":"https://unpkg.com/three@0.169.0/build/three.module.js",
+            "three/addons/":"https://unpkg.com/three@0.169.0/examples/jsm/"}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
+
+// Blender is Z-up and so is everything in stage_layout.json. Rather than
+// convert on the way in and back out — which is exactly where sign errors
+// breed — run the whole scene Z-up so a number here IS the number you paste.
+THREE.Object3D.DEFAULT_UP.set(0, 0, 1);
+
+const L = await fetch('stage_layout.json')
+  .then(r => r.ok ? r.json() : Promise.reject(new Error(r.status + ' ' + r.statusText)))
+  .catch(e => {
+    document.body.innerHTML = `<div id="err">Could not load stage_layout.json (${e.message}).<br><br>
+      Generate it:<br>&nbsp;&nbsp;blender -b -P blender_stage.py -- --dump-layout stage_layout.json<br><br>
+      and serve this page (file:// cannot load ES modules):<br>
+      &nbsp;&nbsp;python3 -m http.server 8000</div>`;
+    throw e;
+  });
+
+const START = structuredClone(L);          // for Reset
+const view = document.getElementById('view');
+const SECTION_NAMES = Object.keys(L.targets).filter(n => !n.includes('.'));
+const PLAYER_NAMES  = Object.keys(L.targets).filter(n =>  n.includes('.'));
+
+// ── scene ───────────────────────────────────────────────────────────────────
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x15171c);
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+view.appendChild(renderer.domElement);
+
+const orbit = new THREE.PerspectiveCamera(45, 1, 0.5, 800);
+orbit.position.set(28, -58, 34);
+const controls = new OrbitControls(orbit, renderer.domElement);
+controls.target.set(0, 6, 3);
+controls.enableDamping = true;
+
+// The real render camera, built from the same lens/sensor maths as the
+// Blender one: horizontal FOV from sensor width, vertical from the aspect.
+const shot = new THREE.PerspectiveCamera(30, L.aspect, 0.5, 800);
+function syncShot(){
+  const hFov = 2 * Math.atan((L.cam.sensor / 2) / L.cam.lens);
+  shot.fov = 2 * Math.atan(Math.tan(hFov / 2) / L.aspect) * 180 / Math.PI;
+  shot.aspect = L.aspect;
+  shot.position.set(...L.cam.pos);
+  shot.up.set(0, 0, 1);
+  shot.lookAt(...L.cam.target);
+  shot.updateProjectionMatrix();
+}
+
+// Floor + a grid every 5 units, so distances are readable by eye.
+scene.add(new THREE.Mesh(
+  new THREE.PlaneGeometry(160, 160),
+  new THREE.MeshStandardMaterial({color:0x0d0f13, roughness:1})));
+const grid = new THREE.GridHelper(160, 32, 0x39414f, 0x252a33);
+grid.rotation.x = Math.PI / 2;
+grid.position.z = 0.01;
+scene.add(grid);
+
+// Backdrop, emissive like the real one.
+const bd = new THREE.Mesh(
+  new THREE.PlaneGeometry(L.backdrop.w, L.backdrop.h),
+  new THREE.MeshBasicMaterial({color:new THREE.Color(...L.backdrop.colors[0]), side:THREE.DoubleSide}));
+bd.position.set(0, L.backdrop.y, L.backdrop.h / 2);
+bd.rotation.x = Math.PI / 2;
+scene.add(bd);
+
+// ── boxes ───────────────────────────────────────────────────────────────────
+const HUE = {pizz:0xe06c75, bowed_strings:0xc678dd, bass:0xd19a66, finger_piano:0xe5c07b,
+             marimba:0x98c379, brass:0x61afef, woodwind:0x56b6c2, melody:0xabb2bf,
+             conductor:0x7f848e};
+function makeBoxes(names, opacity){
+  const g = new THREE.Group();
+  for (const n of names){
+    const [x0,x1,y0,y1,z0,z1] = L.targets[n];
+    const m = new THREE.Mesh(
+      new THREE.BoxGeometry(x1-x0, y1-y0, z1-z0),
+      new THREE.MeshStandardMaterial({color:HUE[n.split('.')[0]] ?? 0x888888,
+                                      roughness:0.75, transparent:true, opacity}));
+    m.position.set((x0+x1)/2, (y0+y1)/2, (z0+z1)/2);
+    m.add(new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry),
+          new THREE.LineBasicMaterial({color:0xffffff, transparent:true, opacity:0.28})));
+    m.userData.name = n;
+    g.add(m);
+  }
+  return g;
+}
+const sectionBoxes = makeBoxes(SECTION_NAMES, 0.85);
+const playerBoxes  = makeBoxes(PLAYER_NAMES, 0.95);
+playerBoxes.visible = false;
+scene.add(sectionBoxes, playerBoxes);
+
+// Names, as sprites so they always face you.
+const labels = new THREE.Group();
+for (const n of SECTION_NAMES){
+  const [x0,x1,y0,y1,,z1] = L.targets[n];
+  const c = document.createElement('canvas');
+  c.width = 256; c.height = 40;
+  const g2 = c.getContext('2d');
+  g2.font = 'bold 24px ui-monospace,monospace';
+  g2.fillStyle = '#fff'; g2.textAlign = 'center';
+  g2.fillText(n, 128, 28);
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial(
+    {map:new THREE.CanvasTexture(c), transparent:true, depthTest:false}));
+  sp.position.set((x0+x1)/2, (y0+y1)/2, z1 + 1.6);
+  sp.scale.set(11, 1.7, 1);
+  labels.add(sp);
+}
+scene.add(labels);
+
+// ── lights ──────────────────────────────────────────────────────────────────
+// Energies are Blender watts; three.js has its own idea of intensity, so they
+// are normalised against the brightest spot purely to keep relative weights.
+scene.add(new THREE.AmbientLight(0xffffff, 0.35));
+const maxWash = Math.max(...L.wash.map(w => w.energy));
+const lightGroup = new THREE.Group(), coneGroup = new THREE.Group();
+scene.add(lightGroup, coneGroup);
+
+function sunDir(pitch, yaw){
+  // Matches _sun(): a Blender sun points down -Z, rotated Rz(yaw)·Rx(pitch).
+  const p = pitch * Math.PI/180, y = yaw * Math.PI/180;
+  return new THREE.Vector3(-Math.sin(y)*Math.sin(p), Math.cos(y)*Math.sin(p), -Math.cos(p));
+}
+
+function rebuildLights(){
+  for (const g of [lightGroup, coneGroup]){
+    while (g.children.length) { const c = g.children.pop(); c.geometry?.dispose?.(); }
+  }
+  L.suns.forEach(s => {
+    const d = new THREE.DirectionalLight(new THREE.Color(...s.color), s.energy * 1.6);
+    d.position.copy(sunDir(s.pitch, s.yaw).multiplyScalar(-60));
+    lightGroup.add(d, d.target);
+    coneGroup.add(new THREE.ArrowHelper(sunDir(s.pitch, s.yaw), d.position, 60,
+                                        new THREE.Color(...s.color).getHex(), 4, 2.5));
+  });
+  L.wash.forEach(w => {
+    const col = new THREE.Color(...w.color);
+    const sp = new THREE.SpotLight(col, (w.energy / maxWash) * 2.4,
+                                   0, w.cone * Math.PI/360, 0.45, 0.6);
+    sp.position.set(...w.pos);
+    sp.target.position.set(...w.aim);
+    lightGroup.add(sp, sp.target);
+    // Cone drawn to where the axis meets the floor, so you can see its footprint.
+    const from = new THREE.Vector3(...w.pos), to = new THREE.Vector3(...w.aim);
+    const dir = to.clone().sub(from);
+    const t = dir.z !== 0 ? -from.z / dir.z : 1;
+    const len = dir.length() * Math.max(t, 0.2);
+    const half = w.cone * Math.PI/360;
+    const cone = new THREE.Mesh(
+      new THREE.ConeGeometry(Math.tan(half) * len, len, 28, 1, true),
+      new THREE.MeshBasicMaterial({color:col, transparent:true, opacity:0.09,
+                                   side:THREE.DoubleSide, depthWrite:false}));
+    cone.position.copy(from.clone().add(dir.clone().normalize().multiplyScalar(len/2)));
+    cone.quaternion.setFromUnitVectors(new THREE.Vector3(0,-1,0), dir.clone().normalize());
+    coneGroup.add(cone);
+    const ball = new THREE.Mesh(new THREE.SphereGeometry(0.7, 12, 8),
+                                new THREE.MeshBasicMaterial({color:col}));
+    ball.position.copy(from);
+    coneGroup.add(ball);
+  });
+}
+
+// ── camera gizmo ────────────────────────────────────────────────────────────
+const gizmo = new THREE.Group();
+scene.add(gizmo);
+function rebuildGizmo(){
+  while (gizmo.children.length) { const c = gizmo.children.pop(); c.geometry?.dispose?.(); }
+  syncShot();
+  const h = new THREE.CameraHelper(shot);
+  h.material.depthTest = false;
+  gizmo.add(h);
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.9, 14, 10),
+                              new THREE.MeshBasicMaterial({color:0x6cc4ff}));
+  body.position.set(...L.cam.pos);
+  const aim = new THREE.Mesh(new THREE.SphereGeometry(0.5, 12, 8),
+                             new THREE.MeshBasicMaterial({color:0xffcc55}));
+  aim.position.set(...L.cam.target);
+  gizmo.add(body, aim, new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints(
+      [new THREE.Vector3(...L.cam.pos), new THREE.Vector3(...L.cam.target)]),
+    new THREE.LineBasicMaterial({color:0x6cc4ff, transparent:true, opacity:0.5})));
+}
+
+// ── controls ────────────────────────────────────────────────────────────────
+const panel = document.getElementById('controls');
+function slider(parent, label, min, max, step, get, set){
+  const row = document.createElement('div');
+  row.className = 'row';
+  row.innerHTML = `<label>${label}</label><input type=range min=${min} max=${max} step=${step}><output></output>`;
+  const [inp, out] = [row.querySelector('input'), row.querySelector('output')];
+  const show = () => { inp.value = get(); out.textContent = (+get()).toFixed(step < 1 ? 1 : 0); };
+  inp.oninput = () => { set(+inp.value); show(); refresh(); };
+  parent.appendChild(row);
+  show();
+  return show;
+}
+function colour(parent, get, set){
+  const inp = document.createElement('input');
+  inp.type = 'color';
+  const hex = c => '#' + new THREE.Color(...c).getHexString();
+  inp.value = hex(get());
+  inp.oninput = () => { const c = new THREE.Color(inp.value); set([c.r, c.g, c.b]); refresh(); };
+  parent.appendChild(inp);
+  return () => { inp.value = hex(get()); };
+}
+const redraws = [];
+function group(title, open, build){
+  const d = document.createElement('details');
+  if (open) d.open = true;
+  d.innerHTML = `<summary>${title}</summary>`;
+  panel.appendChild(d);
+  build(d);
+}
+
+group('Camera', true, d => {
+  ['x','y','z'].forEach((ax, i) =>
+    redraws.push(slider(d, 'pos ' + ax, -80, 80, 0.5, () => L.cam.pos[i], v => L.cam.pos[i] = v)));
+  ['x','y','z'].forEach((ax, i) =>
+    redraws.push(slider(d, 'aim ' + ax, -40, 40, 0.5, () => L.cam.target[i], v => L.cam.target[i] = v)));
+  redraws.push(slider(d, 'lens', 12, 120, 1, () => L.cam.lens, v => L.cam.lens = v));
+});
+L.suns.forEach((s, i) => group('Sun — ' + s.name, false, d => {
+  redraws.push(slider(d, 'pitch', -90, 90, 1, () => L.suns[i].pitch, v => L.suns[i].pitch = v));
+  redraws.push(slider(d, 'yaw', -180, 180, 1, () => L.suns[i].yaw, v => L.suns[i].yaw = v));
+  redraws.push(slider(d, 'energy', 0, 5, 0.05, () => L.suns[i].energy, v => L.suns[i].energy = v));
+  redraws.push(colour(d, () => L.suns[i].color, c => L.suns[i].color = c));
+}));
+L.wash.forEach((w, i) => group('Wash — ' + w.name, false, d => {
+  ['x','y','z'].forEach((ax, j) =>
+    redraws.push(slider(d, 'pos ' + ax, -80, 80, 1, () => L.wash[i].pos[j], v => L.wash[i].pos[j] = v)));
+  ['x','y','z'].forEach((ax, j) =>
+    redraws.push(slider(d, 'aim ' + ax, -40, 40, 1, () => L.wash[i].aim[j], v => L.wash[i].aim[j] = v)));
+  redraws.push(slider(d, 'cone', 5, 140, 1, () => L.wash[i].cone, v => L.wash[i].cone = v));
+  redraws.push(slider(d, 'kW', 0, 400, 5,
+    () => L.wash[i].energy / 1000, v => L.wash[i].energy = v * 1000));
+  redraws.push(colour(d, () => L.wash[i].color, c => L.wash[i].color = c));
+}));
+
+// ── output ──────────────────────────────────────────────────────────────────
+const out = document.getElementById('out');
+const f = (n, d = 1) => (+n).toFixed(d);
+function writeOut(){
+  const v = (a, d = 1) => `(${a.map(x => f(x, d)).join(', ')})`;
+  out.value =
+`CAM_POS = ${v(L.cam.pos)}
+CAM_TARGET = ${v(L.cam.target)}
+CAM_LENS = ${f(L.cam.lens)}
+
+WASH_SPOTS = [
+${L.wash.map(w => `    (${JSON.stringify(w.name)}, ${v(w.color, 2)}, ${f(w.energy)}, ` +
+                  `${v(w.pos)}, ${v(w.aim)}, ${f(w.cone)}, ${w.shadow ? 'True' : 'False'}),`).join('\n')}
+]
+
+SUNS = [
+${L.suns.map(s => `    (${JSON.stringify(s.name)}, ${v(s.color, 2)}, ${f(s.energy, 2)}, ` +
+                  `${f(s.pitch)}, ${f(s.yaw)}, ${f(s.angle)}, ${s.shadow ? 'True' : 'False'}),`).join('\n')}
+]`;
+}
+
+document.getElementById('copy').onclick = e => {
+  navigator.clipboard.writeText(out.value).then(() => {
+    e.target.textContent = 'Copied';
+    setTimeout(() => e.target.textContent = 'Copy', 1200);
+  });
+};
+document.getElementById('reset').onclick = () => {
+  L.cam = structuredClone(START.cam);
+  L.suns = structuredClone(START.suns);
+  L.wash = structuredClone(START.wash);
+  redraws.forEach(r => r());
+  refresh();
+};
+for (const [id, fn] of [
+  ['players', v => playerBoxes.visible = v],
+  ['cones',   v => coneGroup.visible = v],
+  ['labels',  v => labels.visible = v],
+  ['through', () => resize()],
+]) document.getElementById(id).onchange = e => { fn(e.target.checked); };
+
+function refresh(){ rebuildLights(); rebuildGizmo(); writeOut(); }
+
+// ── loop ────────────────────────────────────────────────────────────────────
+const hud = document.getElementById('hud');
+function resize(){
+  const w = view.clientWidth, h = view.clientHeight;
+  renderer.setSize(w, h);
+  orbit.aspect = w / h;
+  orbit.updateProjectionMatrix();
+}
+addEventListener('resize', resize);
+resize();
+refresh();
+
+renderer.setAnimationLoop(() => {
+  controls.update();
+  const through = document.getElementById('through').checked;
+  gizmo.visible = !through;
+  if (through){
+    // Letterbox to the render aspect so what you see is what gets rendered.
+    const w = view.clientWidth, h = view.clientHeight;
+    const vw = Math.min(w, h * L.aspect), vh = vw / L.aspect;
+    renderer.setViewport((w - vw) / 2, (h - vh) / 2, vw, vh);
+    renderer.setScissor((w - vw) / 2, (h - vh) / 2, vw, vh);
+    renderer.setScissorTest(true);
+    renderer.render(scene, shot);
+    renderer.setScissorTest(false);
+  } else {
+    renderer.setViewport(0, 0, view.clientWidth, view.clientHeight);
+    renderer.render(scene, orbit);
+  }
+  hud.textContent = through
+    ? `render camera · ${L.cam.lens.toFixed(0)}mm · ${L.aspect.toFixed(2)}:1`
+    : `orbit — drag rotate · scroll zoom · right-drag pan`;
+});
+</script>
+</body>
+</html>
