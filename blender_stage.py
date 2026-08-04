@@ -634,7 +634,8 @@ def voice_map():
     seat tables rather than restated here, so adding a player or moving a voice
     can't leave this map quietly wrong."""
     m = {"marimba": (5,), "bass": (24, 20), "conductor": (),
-         "finger_piano": tuple(fingerpiano.VOICES), "bass.fp_group": (24,)}
+         "finger_piano": tuple(fingerpiano.VOICES),
+         "bass.fp_group": (24,), "bass.guitar": (20,)}
     for pl in pizz.PLAYERS:
         m[f"pizz.{pl['name'].lower().replace(' ', '_')}"] = (pl['voice'],)
     for pl in bowedstrings.PLAYERS:
