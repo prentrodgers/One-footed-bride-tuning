@@ -77,7 +77,12 @@ def main():
                color=colour, alpha=0.95 if is_section else 0.7, linewidth=0)
         ax.axhline(i, color=colour, lw=0.3, alpha=0.35, zorder=0)
 
+    # Cues past the end of the piece would print their labels out in the
+    # margin with no line under them — the cue sheet in blender_stage.py is
+    # usually still the one written for some longer piece.
     for tc, label in data.get("cues", []):
+        if tc > data["duration"]:
+            continue
         ax.axvline(tc, color="#222222", lw=1.0, ls="--", alpha=0.7, zorder=3)
         ax.text(tc, len(names) - 0.2, f" {label}", rotation=90, va="bottom",
                 ha="left", fontsize=6, color="#222222")
