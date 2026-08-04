@@ -658,6 +658,80 @@ def build_resonators(bar_info, n):
     return tubes
 
 
+# ── Player silhouette ───────────────────────────────────────────────────────
+# The player behind the keyboard, as a flat near-black cut-out rather than a
+# model. A single plane is enough because _framing() in blender_stage.py gives
+# every shot the SAME viewing direction and only moves along it — so a cut-out
+# facing that one direction is never caught side-on. The exception is the
+# ("overhead", a, b) pass, which looks down; a flat figure gives itself away
+# there, and that is the price of not rigging anything.
+#
+# Height is set off the STAND, not in metres. What makes a figure read as
+# standing at an instrument is the bars landing at its hips, and the stand is
+# what puts the bars where they are.
+PLAYER_HIP_FRAC = 0.45            # hip height as a fraction of total height
+PLAYER_Y = 1.65                   # behind the naturals' back edge (~1.08)
+PLAYER_COLOR = (0.020, 0.020, 0.028)   # not pure black: reads as a form, not a hole
+
+
+def player_half_profile():
+    """The right half of a standing figure, (x, z) in units of body height,
+    feet at z=0 and the top of the head at z=1. Arms hang forward and down
+    over the keyboard, which from behind is the pose that says 'playing'
+    rather than 'standing near'."""
+    return [
+        (0.030, 0.060), (0.060, 0.000), (0.155, 0.000),   # inner leg, foot
+        (0.140, 0.300), (0.135, 0.450),                   # outer leg, hip
+        (0.125, 0.520), (0.135, 0.660), (0.150, 0.740),   # waist, ribs, armpit
+        (0.175, 0.700), (0.215, 0.560), (0.245, 0.440),   # inner arm down to hand
+        (0.285, 0.460), (0.255, 0.610), (0.215, 0.750),   # hand, back up the arm
+        (0.195, 0.815), (0.105, 0.845), (0.055, 0.862),   # shoulder, neck
+    ]
+
+
+def player_outline():
+    """The half profile mirrored into one closed loop, with a head arc across
+    the top. Counter-clockwise, starting at the crotch."""
+    half = player_half_profile()
+    head_c, head_r = 0.930, 0.070
+    neck_x, neck_z = half[-1]
+    a0 = math.atan2(neck_z - head_c, neck_x)          # where the neck meets the skull
+    arc = [(head_r * math.cos(a0 + (math.pi - 2 * a0) * k / 12),
+            head_c + head_r * math.sin(a0 + (math.pi - 2 * a0) * k / 12))
+           for k in range(13)]
+    return ([(0.0, 0.440)] + half + arc
+            + [(-x, z) for x, z in reversed(half)])
+
+
+def build_player_silhouette(bar_info, floor_z=None):
+    """One flat figure standing behind the keyboard, in the XZ plane."""
+    floor_z = RESON_FLOOR_Z if floor_z is None else floor_z
+    bar_z = max(b["z"] for b in bar_info)
+    height = (bar_z - floor_z) / PLAYER_HIP_FRAC
+    cx = (min(b["x"] for b in bar_info) + max(b["x"] for b in bar_info)) / 2.0
+
+    verts = [(cx + x * height, PLAYER_Y, floor_z + z * height)
+             for x, z in player_outline()]
+    # Tessellate rather than trust one concave n-gon: the arms and the gap
+    # between the legs are exactly the shapes that come out wrong otherwise.
+    faces = mathutils.geometry.tessellate_polygon(
+        [[mathutils.Vector((v[0], v[2], 0.0)) for v in verts]])
+
+    mesh = bpy.data.meshes.new("player_silhouette")
+    mesh.from_pydata(verts, [], faces)
+    mesh.update()
+    mat = bpy.data.materials.new("PlayerSilhouette")
+    mat.use_nodes = True
+    bsdf = mat.node_tree.nodes["Principled BSDF"]
+    bsdf.inputs["Base Color"].default_value = (*PLAYER_COLOR, 1.0)
+    bsdf.inputs["Roughness"].default_value = 0.95
+    bsdf.inputs["Metallic"].default_value = 0.0
+    mesh.materials.append(mat)
+    obj = bpy.data.objects.new("player_silhouette", mesh)
+    bpy.context.scene.collection.objects.link(obj)
+    return obj
+
+
 def point_camera_at(cam, target):
     """Aim cam at target via Blender's track-quat math, instead of a
     hand-guessed Euler angle — robust to whatever position we pick."""
@@ -771,6 +845,7 @@ def main():
     build_strings(bar_info, post_x_left, post_x_right)
     build_frame(bar_info, post_x_left, post_x_right)
     build_resonators(bar_info, n_bars)
+    build_player_silhouette(bar_info)
     build_stage(2.0 * half_width)
 
     scene = bpy.context.scene
