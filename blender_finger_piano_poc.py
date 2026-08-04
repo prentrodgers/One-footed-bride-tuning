@@ -44,8 +44,12 @@ def build_finger_piano(x0):
     """Build the tine rack at x0. Returns the same geom dict the bass finger
     piano returns (update_finger_piano feeds it straight back). Uses real
     piano keyboard geometry (naturals in a row, accidentals in the gaps)."""
+    # Stand height: this section is scaled 8.0 onto the shared stage, so this
+    # small number is what puts the rack level with the marimba's bars — i.e.
+    # at a standing player's hands rather than on the floor.
     return bass.build_bass_finger_piano(x0, bottom_octave=BOTTOM_OCTAVE,
-                                        color_fn=fp_color, piano_layout=True)
+                                        color_fn=fp_color, piano_layout=True,
+                                        stand_floor_z=-0.20)
 
 
 def update_finger_piano(t, geom, notes):

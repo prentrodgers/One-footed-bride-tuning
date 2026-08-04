@@ -516,6 +516,10 @@ def setup_bass(npy, tempo):
     # Finger piano on the left (enlarged FP_SCALE bigger than the guitar),
     # baritone guitar on the right, separated in X.
     FP_SCALE = 1.5
+    # How far the finger piano is lifted off this section's floor, in section
+    # units. The bass section is scaled 4.5 onto the stage, so this lands the
+    # rack at about the marimba's bar height — a standing player's hands.
+    FP_STAND_DROP = 0.30
     fp_total_w = bass.TINE_RACK_W * FP_SCALE
     gtr_total_len = bass.HEAD_LEN + bass.NECK_LEN + bass.BODY_W
     gap = 0.3   # narrower gap between the bass finger piano and the guitar
@@ -526,12 +530,15 @@ def setup_bass(npy, tempo):
     # it up in place (pivot at fp_x0, floor level). The animation still
     # composes through the extra parent transform, exactly as the whole
     # section's scale does.
+    # Its stand reaches the floor the GUITAR sets, not its own: the guitar is
+    # the lowest thing in this section, so that is where the section's floor
+    # ends up, and legs stopping anywhere above it would hover.
     before_fp = set(bpy.data.objects)
-    fp_geom = bass.build_bass_finger_piano(fp_x0)
+    fp_geom = bass.build_bass_finger_piano(fp_x0, stand_floor_z=-FP_STAND_DROP / FP_SCALE)
     fp_objs = [o for o in bpy.data.objects if o not in before_fp]
     fp_empty = bpy.data.objects.new("bass_fp_group", None)
     bpy.context.scene.collection.objects.link(fp_empty)
-    fp_empty.location = (fp_x0, 0.0, 0.0)
+    fp_empty.location = (fp_x0, 0.0, FP_STAND_DROP)
     bpy.context.view_layer.update()
     pinv = fp_empty.matrix_world.inverted()   # keep objects in place when parenting
     for o in fp_objs:

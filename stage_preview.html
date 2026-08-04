@@ -349,8 +349,17 @@ document.getElementById('reset').onclick = () => {
   redraws.forEach(r => r());
   refresh();
 };
+// Player boxes live INSIDE their section's box, so showing them on top of a
+// solid section just buries them — the baritone guitar simply vanishes into
+// the bass box. Ghost the sections that have players; leave the ones that do
+// not (marimba, finger_piano, conductor) solid, or they would vanish too.
+const HAS_PLAYERS = new Set(PLAYER_NAMES.map(n => n.split('.')[0]));
 for (const [id, fn] of [
-  ['players', v => playerBoxes.visible = v],
+  ['players', v => {
+     playerBoxes.visible = v;
+     for (const m of sectionBoxes.children)
+       m.material.opacity = (v && HAS_PLAYERS.has(m.userData.name)) ? 0.10 : 0.85;
+   }],
   ['cones',   v => coneGroup.visible = v],
   ['labels',  v => labels.visible = v],
   ['through', () => resize()],

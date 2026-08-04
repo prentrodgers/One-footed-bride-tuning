@@ -324,8 +324,41 @@ def reset_tine_bend(obj, zs, y0, half_thick):
     obj.data.update()
 
 
+def build_fp_stand(x0, base_w, base_depth, floor_z):
+    """Four legs and a foot rail carrying a finger piano's base down to
+    `floor_z`, so it is played standing at a stand like the marimba instead
+    of lying on the floor. `floor_z` is in this builder's own units and is
+    how the caller sets the height — each section is scaled differently on
+    the shared stage, so there is no one right number here."""
+    mat = make_wood_material("FingerPianoStandWood", (0.30, 0.24, 0.18))
+    top_z = -BASE_HEIGHT / 2.0
+    drop = top_z - floor_z
+    r = min(base_depth * 0.16, drop * 0.06)
+    legs = []
+    for dx in (-base_w * 0.40, base_w * 0.40):
+        for dy in (-base_depth * 0.32, base_depth * 0.32):
+            bpy.ops.mesh.primitive_cylinder_add(
+                radius=r, depth=drop, location=(x0 + dx, dy, (top_z + floor_z) / 2.0))
+            leg = bpy.context.object
+            leg.name = "finger_piano_leg"
+            leg.data.materials.append(mat)
+            legs.append(leg)
+    # Foot rail low down, tying the legs together — without it four separate
+    # posts read as the instrument hovering over sticks.
+    rail_z = floor_z + drop * 0.16
+    for dy in (-base_depth * 0.32, base_depth * 0.32):
+        bpy.ops.mesh.primitive_cylinder_add(
+            radius=r * 0.8, depth=base_w * 0.80, location=(x0, dy, rail_z),
+            rotation=(0.0, math.radians(90), 0.0))
+        rail = bpy.context.object
+        rail.name = "finger_piano_rail"
+        rail.data.materials.append(mat)
+        legs.append(rail)
+    return legs
+
+
 def build_bass_finger_piano(x0, bottom_octave=TINE_BOTTOM_OCTAVE, color_fn=bass_color,
-                            piano_layout=False):
+                            piano_layout=False, stand_floor_z=None):
     total_w = TINE_RACK_W
     tines, pitch_to_idx, n = build_tine_layout(bottom_octave, TINE_RACK_W, color_fn, piano_layout)
     glow_mat = make_glow_material("TineGlow")
@@ -391,6 +424,9 @@ def build_bass_finger_piano(x0, bottom_octave=TINE_BOTTOM_OCTAVE, color_fn=bass_
     finger.name = "tine_finger"
     finger.data.materials.append(finger_mat)
     finger.hide_render = True
+
+    if stand_floor_z is not None:
+        build_fp_stand(x0, base_w, base_depth, stand_floor_z)
 
     return dict(tine_objs=tine_objs, tine_zs=tine_zs, tine_geo=tine_geo,
                 pitch_to_idx=pitch_to_idx, n=n, finger=finger, total_w=total_w,
