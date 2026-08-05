@@ -1400,6 +1400,12 @@ def _dump_layout(path, targets, res_x, res_y):
                      "colors": [list(c) for c in BACKDROP_COLORS],
                      "hold": BACKDROP_HOLD, "strength": BACKDROP_STRENGTH},
         "margin": CAMERA_MARGIN,
+        # The resolved cue sheet, so the preview can step through the actual
+        # shots. focus is always a list: ["wide"], ["pizz", "finger_piano"],
+        # or ["overhead", a, b] — the marker stays in place, as in the tuple.
+        "cues": [{"t": c[0], "move": c[2],
+                  "focus": [c[1]] if isinstance(c[1], str) else list(c[1])}
+                 for c in build_cue_sheet(targets)],
     }
     Path(path).write_text(json.dumps(payload, indent=1))
     print(f"[stage] wrote {path}: {len(payload['targets'])} boxes, "

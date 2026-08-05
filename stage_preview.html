@@ -18,6 +18,11 @@
   its box table drifted out of date and it would then write back a SECTIONS
   block that moved things that were already where you wanted them.
 
+  The cue dropdown is the bridge to activity_*.png. That chart tells you WHEN
+  to cut and to whom; pick the cue here and you see the shot it produces,
+  framed by a port of _framing() reading the live camera values — so a change
+  to CAM_POS or the lens re-frames every cue exactly as the render will.
+
   What it is honest about: WHERE the camera is, what it frames, where each
   light sits, which way it points, and what its cone covers on the floor.
   What it is NOT: an exposure match. three.js and EEVEE do not agree on what
@@ -55,12 +60,16 @@
          font-weight:700;cursor:pointer;margin-top:7px}
   button.ghost{background:#2c313b;color:var(--ink);font-weight:500}
   #err{padding:20px;font:13px ui-monospace,monospace;color:#ff9a9a}
+  select{width:100%;background:#12151a;color:var(--ink);border:1px solid var(--line);
+         border-radius:4px;padding:6px;font:12px ui-monospace,monospace;margin-bottom:8px}
 </style>
 </head>
 <body>
 <div id="view"><div id="hud"></div></div>
 <div id="panel">
   <h1>Stage preview</h1>
+  <select id="cue"></select>
+  <div id="scrub"></div>
   <div class="chk"><input type="checkbox" id="through"><label for="through">Look through render camera</label></div>
   <div class="chk"><input type="checkbox" id="players"><label for="players">Show individual instruments</label></div>
   <div class="chk"><input type="checkbox" id="cones" checked><label for="cones">Show light cones</label></div>
@@ -114,6 +123,60 @@ const controls = new OrbitControls(orbit, renderer.domElement);
 controls.target.set(0, 6, 3);
 controls.enableDamping = true;
 
+// ── shot framing ────────────────────────────────────────────────────────────
+// A port of _framing() / _framing_overhead() from blender_stage.py. It reads
+// the LIVE camera values, so moving CAM_POS or the lens re-frames every cue
+// the way it will in the render — which is the point of having both in one
+// page. Keep in step with the Python if that ever changes.
+const halfFovs = () => [Math.atan((L.cam.sensor / 2) / L.cam.lens),
+                        Math.atan((L.cam.sensor / L.aspect / 2) / L.cam.lens)];
+const shotNames = f => f[0] === 'overhead' ? f.slice(1) : f;
+
+function unionBox(names){
+  const b = names.map(n => L.targets[n]).filter(Boolean);
+  if (!b.length) return null;
+  return [Math.min(...b.map(v=>v[0])), Math.max(...b.map(v=>v[1])),
+          Math.min(...b.map(v=>v[2])), Math.max(...b.map(v=>v[3])),
+          Math.min(...b.map(v=>v[4])), Math.max(...b.map(v=>v[5]))];
+}
+
+function framingOverhead(name){
+  const b = L.targets[name];
+  const c = [(b[0]+b[1])/2, (b[2]+b[3])/2, (b[4]+b[5])/2];
+  const [hH, hV] = halfFovs();
+  const h = Math.max((b[1]-b[0])/2*L.margin / Math.tan(hH),
+                     (b[3]-b[2])/2*L.margin / Math.tan(hV), 8.0);
+  return {pos:[c[0], c[1] - h*0.75, c[2] + h*0.85], target:c};
+}
+
+function framing(focus, progress = 0){
+  if (focus.length === 1 && focus[0] === 'wide')
+    return {pos:[...L.cam.pos], target:[...L.cam.target]};
+  if (focus[0] === 'overhead'){
+    const a = framingOverhead(focus[1]), b = framingOverhead(focus[2]);
+    const mix = (p, q) => p.map((v, i) => v + (q[i] - v) * progress);
+    return {pos:mix(a.pos, b.pos), target:mix(a.target, b.target)};
+  }
+  const box = unionBox(shotNames(focus));
+  if (!box) return {pos:[...L.cam.pos], target:[...L.cam.target]};
+  const target = [(box[0]+box[1])/2, (box[2]+box[3])/2, (box[4]+box[5])/2];
+  const [hH, hV] = halfFovs();
+  const dist = Math.max((box[1]-box[0])/2*L.margin / Math.tan(hH),
+                        (box[5]-box[4])/2*L.margin / Math.tan(hV), 6.0);
+  const ax = [L.cam.pos[0]-L.cam.target[0], L.cam.pos[1]-L.cam.target[1],
+              L.cam.pos[2]-L.cam.target[2]];
+  const n = Math.hypot(...ax) || 1;
+  const pos = target.map((v, i) => v + ax[i] / n * dist);
+  pos[2] = Math.max(pos[2], 1.5);   // never dip below the stage floor
+  return {pos, target};
+}
+
+// Which shot the render camera is showing: null = the authored wide camera.
+let activeCue = null, cueProgress = 0;
+const activeFraming = () =>
+  activeCue === null ? {pos:[...L.cam.pos], target:[...L.cam.target]}
+                     : framing(activeCue.focus, cueProgress);
+
 // The real render camera, built from the same lens/sensor maths as the
 // Blender one: horizontal FOV from sensor width, vertical from the aspect.
 const shot = new THREE.PerspectiveCamera(30, L.aspect, 0.5, 800);
@@ -121,9 +184,10 @@ function syncShot(){
   const hFov = 2 * Math.atan((L.cam.sensor / 2) / L.cam.lens);
   shot.fov = 2 * Math.atan(Math.tan(hFov / 2) / L.aspect) * 180 / Math.PI;
   shot.aspect = L.aspect;
-  shot.position.set(...L.cam.pos);
+  const f = activeFraming();
+  shot.position.set(...f.pos);
   shot.up.set(0, 0, 1);
-  shot.lookAt(...L.cam.target);
+  shot.lookAt(...f.target);
   shot.updateProjectionMatrix();
 }
 
@@ -315,6 +379,39 @@ L.wash.forEach((w, i) => group('Wash — ' + w.name, false, d => {
   redraws.push(colour(d, () => L.wash[i].color, c => L.wash[i].color = c));
 }));
 
+// ── cue picker ──────────────────────────────────────────────────────────────
+// The bridge to activity_*.png: that chart says WHEN to cut and to whom, this
+// says what the resulting shot actually looks like. Pick a cue, see its frame.
+const cueSel = document.getElementById('cue');
+const scrub = document.getElementById('scrub');
+const mmss = t => `${Math.floor(t/60)}:${String(Math.floor(t%60)).padStart(2,'0')}`;
+const focusLabel = f => f.length === 1 ? f[0]
+  : f[0] === 'overhead' ? `overhead ${f[1]} → ${f[2]}` : f.join(' + ');
+
+const CUES = L.cues || [];
+cueSel.innerHTML =
+  `<option value="">— authored camera (CAM_POS) —</option>` +
+  (CUES.length ? `<optgroup label="cue sheet">` + CUES.map((c, i) =>
+      `<option value="c${i}">${mmss(c.t)}  ${focusLabel(c.focus)}` +
+      `${c.move ? '  (move ' + c.move + 's)' : ''}</option>`).join('') + `</optgroup>` : '') +
+  `<optgroup label="any target">` +
+  Object.keys(L.targets).sort().map(n => `<option value="t${n}">${n}</option>`).join('') +
+  `</optgroup>`;
+
+cueSel.onchange = () => {
+  const v = cueSel.value;
+  scrub.innerHTML = '';
+  cueProgress = 0;
+  if (!v){ activeCue = null; }
+  else if (v[0] === 'c'){ activeCue = CUES[+v.slice(1)]; }
+  else { activeCue = {t:null, focus:[v.slice(1)], move:0}; }
+  // Only a travelling overhead has anywhere to scrub to.
+  if (activeCue && activeCue.focus[0] === 'overhead')
+    slider(scrub, 'travel', 0, 1, 0.01, () => cueProgress, p => { cueProgress = p; });
+  document.getElementById('through').checked = activeCue !== null;
+  refresh();
+};
+
 // ── output ──────────────────────────────────────────────────────────────────
 const out = document.getElementById('out');
 const f = (n, d = 1) => (+n).toFixed(d);
@@ -396,9 +493,11 @@ renderer.setAnimationLoop(() => {
     renderer.setViewport(0, 0, view.clientWidth, view.clientHeight);
     renderer.render(scene, orbit);
   }
+  const shotName = activeCue === null ? 'authored camera'
+    : (activeCue.t === null ? '' : mmss(activeCue.t) + '  ') + focusLabel(activeCue.focus);
   hud.textContent = through
-    ? `render camera · ${L.cam.lens.toFixed(0)}mm · ${L.aspect.toFixed(2)}:1`
-    : `orbit — drag rotate · scroll zoom · right-drag pan`;
+    ? `${shotName} · ${L.cam.lens.toFixed(0)}mm · ${L.aspect.toFixed(2)}:1`
+    : `${shotName} — drag rotate · scroll zoom · right-drag pan`;
 });
 </script>
 </body>
