@@ -128,7 +128,6 @@ CAM_SENSOR = 36.0
 #     ("2:30", "bowed_strings"),
 
 # this list is from bwv256 from 8/1/26, subsequently lost. 
-
 # CAMERA_CUES = [
 #     ("0:00", "wide"),
 #     ("0:06", ("pizz", "finger_piano")),
@@ -160,38 +159,28 @@ CAM_SENSOR = 36.0
 #     ("7:00", "wide")
 # ]
 
-
-# this is for Uploads/ball9-t61c_lm19_r1.25_df4_t3_d08_04_t118.npy and Uploads/ball9-t61c_lm19_r1.25_df4_t3_d08_04_t118.mp3 dated 8/3/26 at 10:07
-# I used activity_bwv261.png as guidance for the camera cues.
+# bwv258 — Uploads/ball9-t58c_lm17_r1.75_df3_t3_d04_02_t092.{npy,mp3}
+# tempo 92, 238.2s (3:58). Authored 8/7/26 against activity_bwv258.png.
 CAMERA_CUES = [
     ("0:00", "wide"),
-    ("0:06", ("pizz", "finger_piano")),
-    ("0:30", "marimba", 4),
-    ("0:45", "bass", 4),
-    ("1:00", ("pizz", "finger_piano"), 5),
-    ("1:25", 'marimba', 4),
-    ("1:45", "bass", 4),
-    ("2:10", ("overhead", "marimba", "bass.guitar")),
-    ("2:30", "melody"),
-    ("2:45", "pizz"),
-    ("3:00", "marimba"),
-    ("3:15", "pizz"),
-    ("3:30", "melody", 5),
-    ("3:50", "bass", 5),
-    ("4:00", "woodwind"),
-    ("4:15", ("overhead", "marimba", "bass.guitar")),
-    ("4:30", "melody", 5),
-    ("4:45", "woodwind", 4),
-    ("5:00", "brass", 5),
-    ("5:15", ("marimba", "melody")),
-    ("5:30", "brass", 4),
-    ("5:40", "pizz", 4),
-    ("5:50", "bass"),
-    ("6:00", "pizz", 4),
-    ("6:15", "marimba"),
-    ("6:30", "pizz", 5),
-    ("6:45", ("overhead", "woodwind", "finger_piano")),
-    ("7:00", "wide")
+    ("0:12", "bowed_strings", 4),
+    ("0:26", ("pizz", "bass")),
+    ("0:38", "finger_piano"),
+    ("0:50", "melody.trumpet"),
+    ("1:04", "bowed_strings", 3),
+    ("1:18", "bass.guitar"),
+    ("1:30", ("pizz", "finger_piano")),
+    ("1:43", "wide"),
+    ("1:52", "brass"),
+    ("2:02", "bass", 3),
+    ("2:10", "wide"),
+    ("2:18", "melody"),
+    ("2:28", "woodwind", 3),
+    ("2:38", "marimba", 4),
+    ("2:52", ("overhead", "marimba", "bass.guitar")),
+    ("3:12", "bowed_strings"),
+    ("3:26", "brass", 3),
+    ("3:40", "wide", 4),
 ]
 # Time ranges the shot generator fills in around the hand-authored cues:
 # (start_s, end_s, seed). Deterministic per seed, so a render repeats exactly.
@@ -1383,6 +1372,8 @@ def _dump_layout(path, targets, res_x, res_y):
     box sizes does."""
     import json
     payload = {
+        "dumped": time.strftime("%b %d %H:%M:%S"),
+        "cue_count": len(CAMERA_CUES),
         "targets": {k: [round(v, 3) for v in b] for k, b in sorted(targets.items())},
         "sections": {k: dict(v) for k, v in SECTIONS.items()},
         "aspect": res_x / res_y,

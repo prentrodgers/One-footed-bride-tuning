@@ -68,6 +68,7 @@
 <div id="view"><div id="hud"></div></div>
 <div id="panel">
   <h1>Stage preview</h1>
+  <div id="stamp"></div>
   <select id="cue"></select>
   <div id="scrub"></div>
   <div class="chk"><input type="checkbox" id="through"><label for="through">Look through render camera</label></div>
@@ -95,7 +96,10 @@ import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 // breed — run the whole scene Z-up so a number here IS the number you paste.
 THREE.Object3D.DEFAULT_UP.set(0, 0, 1);
 
-const L = await fetch('stage_layout.json')
+// no-store, because this file is re-dumped every time the cue sheet or the
+// geometry changes and http.server sends no Cache-Control — so a plain reload
+// will happily show you yesterday's cues and give no sign that it has.
+const L = await fetch('stage_layout.json', {cache:'no-store'})
   .then(r => r.ok ? r.json() : Promise.reject(new Error(r.status + ' ' + r.statusText)))
   .catch(e => {
     document.body.innerHTML = `<div id="err">Could not load stage_layout.json (${e.message}).<br><br>
@@ -387,6 +391,14 @@ const scrub = document.getElementById('scrub');
 const mmss = t => `${Math.floor(t/60)}:${String(Math.floor(t%60)).padStart(2,'0')}`;
 const focusLabel = f => f.length === 1 ? f[0]
   : f[0] === 'overhead' ? `overhead ${f[1]} → ${f[2]}` : f.join(' + ');
+
+// Stamp the dump time on screen. Silently-stale data is the failure mode this
+// page is most prone to — it reads a snapshot, and a cue edit is invisible
+// here until --dump-layout runs again.
+document.getElementById('stamp').textContent =
+  `layout dumped ${L.dumped ?? '?'} · ${(L.cues || []).length} cues`;
+document.getElementById('stamp').style.cssText =
+  'color:#878fa0;font:10px ui-monospace,monospace;margin:-6px 0 8px';
 
 const CUES = L.cues || [];
 cueSel.innerHTML =
