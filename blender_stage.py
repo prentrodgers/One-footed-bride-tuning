@@ -152,6 +152,113 @@ CAM_SENSOR = 36.0
 #     ("7:00", "wide")
 # ]
 
+# bwv257 — Uploads/ball9-t57c_lm19_r1.12_df5_t3_d05_07_t106.{npy,mp3}
+# tempo 106, 302.4s (5:02) = 9072 frames. Authored 8/8/26 against activity_bwv257.png.
+#
+# Dense and near-continuous — almost everything plays the whole way, so
+# there are few entries to cut ON. Leans on shot-size variety instead, plus
+# the one real hole: bowed_strings drop out 2:50-3:15, which is where the
+# overhead goes.
+# CAMERA_CUES = [
+#     ("0:00", "wide"),
+#     ("0:12", ("pizz", "bass")),
+#     ("0:26", "marimba", 4),
+#     ("0:40", "bowed_strings"),
+#     ("0:52", "brass"),
+#     ("1:06", "bass.guitar"),
+#     ("1:18", "finger_piano"),
+#     ("1:30", "wide"),
+#     ("1:42", "melody.trumpet"),
+#     ("1:56", "marimba", 3),
+#     ("2:10", ("pizz", "finger_piano")),
+#     ("2:24", "woodwind"),
+#     ("2:38", "melody"),
+#     ("2:52", ("overhead", "marimba", "bass.guitar")),
+#     ("3:14", "bowed_strings"),
+#     ("3:28", "brass", 3),
+#     ("3:42", "melody.trumpet"),
+#     ("3:56", "marimba", 4),
+#     ("4:10", ("pizz", "bass")),
+#     ("4:24", "woodwind", 3),
+#     ("4:38", "bass.guitar"),
+#     ("4:50", "wide", 3),
+# ]
+
+# bwv259 — Uploads/ball9-t59c_lm19_r1.12_df2_t3_d05_21_t088.{npy,mp3}
+# tempo 88, 313.2s (5:13) = 9396 frames. Authored 8/8/26 against activity_bwv259.png.
+#
+# The most cuttable of the three. woodwind, brass and melody enter and
+# leave in clean blocks with real silence between, and pizz visibly
+# thickens from 4:00 to the end. marimba never stops, so it is the safe
+# cut whenever everything else is out.
+# CAMERA_CUES = [
+#     ("0:00", "wide"),
+#     ("0:12", "woodwind", 4),
+#     ("0:26", "brass"),
+#     ("0:40", ("marimba", "bass")),
+#     ("0:56", "brass", 3),
+#     ("1:10", "melody.vibraphone"),
+#     ("1:22", "woodwind"),
+#     ("1:38", "melody.trumpet"),
+#     ("1:52", ("pizz", "marimba")),
+#     ("2:06", "wide"),
+#     ("2:20", "woodwind", 3),
+#     ("2:34", "brass"),
+#     ("2:48", "melody"),
+#     ("3:02", "bowed_strings", 3),
+#     ("3:16", "bass.guitar"),
+#     ("3:28", "brass", 3),
+#     ("3:42", "melody.trumpet"),
+#     ("3:54", ("overhead", "marimba", "finger_piano")),
+#     ("4:14", "pizz"),
+#     ("4:28", "brass"),
+#     ("4:42", "bowed_strings"),
+#     ("4:56", "wide", 4),
+# ]
+
+# bwv261 — Uploads/ball9-t61c_lm19_r1.25_df4_t3_d08_04_t118.{npy,mp3}
+# tempo 118, 480.6s (8:00) = 14418 frames. Authored 8/8/26 against activity_bwv261.png.
+#
+# Long, so it needs the most shots. Two big tutti returns at 1:55 and
+# 4:00, brass running unbroken from 5:30, and bowed_strings absent
+# 5:55-7:15 — the longest hole in any of these pieces. The overhead sits
+# at 3:36 where marimba is thin and the guitar and finger piano carry.
+# CAMERA_CUES = [
+#     ("0:00", "wide"),
+#     ("0:12", ("pizz", "bass")),
+#     ("0:24", "bowed_strings", 4),
+#     ("0:38", "melody.trumpet"),
+#     ("0:52", "bass.guitar"),
+#     ("1:04", "brass", 3),
+#     ("1:18", "marimba", 4),
+#     ("1:34", ("pizz", "finger_piano")),
+#     ("1:48", "wide"),
+#     ("1:58", "melody"),
+#     ("2:12", "bowed_strings", 3),
+#     ("2:26", "brass"),
+#     ("2:40", "marimba", 4),
+#     ("2:54", "finger_piano"),
+#     ("3:08", "pizz"),
+#     ("3:22", "bass.guitar"),
+#     ("3:36", ("overhead", "bass.guitar", "finger_piano")),
+#     ("3:58", "wide"),
+#     ("4:12", "woodwind", 4),
+#     ("4:26", "brass"),
+#     ("4:40", ("pizz", "marimba")),
+#     ("4:54", "melody"),
+#     ("5:08", "bowed_strings", 3),
+#     ("5:22", "bass"),
+#     ("5:34", "brass", 3),
+#     ("5:48", "marimba"),
+#     ("6:02", "pizz"),
+#     ("6:16", "finger_piano"),
+#     ("6:30", ("marimba", "melody")),
+#     ("6:44", "brass", 3),
+#     ("6:58", "pizz"),
+#     ("7:12", "woodwind"),
+#     ("7:26", "bowed_strings", 4),
+#     ("7:40", "wide", 4),
+# ]
 # bwv258 — Uploads/ball9-t58c_lm17_r1.75_df3_t3_d04_02_t092.{npy,mp3}
 # tempo 92, 238.2s (3:58). Authored 8/7/26 against activity_bwv258.png.
 CAMERA_CUES = [
