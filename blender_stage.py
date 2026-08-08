@@ -55,13 +55,6 @@ import string_length as sl
 
 FPS = 30
 
-# Name prefix of objects that get NO vote on how their section is framed.
-# A player silhouette stands a head taller than its instrument, so this is
-# the choice between a shot of the marimba that crops its player off at the
-# neck, and one that pulls back far enough to hold both. Pulling back wins:
-# set this to "player_silhouette" if you would rather have the tighter
-# instrument and lose the figure.
-SCENERY_PREFIX = None
 
 # Each section is placed by a DIRECT scale + a floor position (cx, cy) — no
 # auto-fit. A bigger `scale` makes a section genuinely bigger on screen,
@@ -349,9 +342,7 @@ def place_section(name, before_objs):
     # leave stale matrix_world values behind; mesh_bounds reads them.
     bpy.context.view_layer.update()
 
-    framed = new if SCENERY_PREFIX is None else [
-        o for o in new if not o.name.startswith(SCENERY_PREFIX)]
-    min_x, max_x, min_y, max_y, min_z, max_z = mesh_bounds(framed or new)
+    min_x, max_x, min_y, max_y, min_z, max_z = mesh_bounds(new)
     cfg = SECTIONS[name]
     scale = cfg["scale"]   # direct scale, no auto-fit
 
@@ -400,7 +391,6 @@ def setup_marimba(npy, tempo):
     marimba.build_strings(bar_info, post_l, post_r)
     marimba.build_frame(bar_info, post_l, post_r)
     marimba.build_resonators(bar_info, n_bars)
-    marimba.build_player_silhouette(bar_info)
 
     notes = marimba.load_features_array(npy, tempo, voice=5) if npy else np.zeros((0, 5))
     if len(notes):
