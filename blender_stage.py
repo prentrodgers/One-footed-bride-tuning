@@ -187,34 +187,31 @@ CAM_SENSOR = 36.0
 # bwv259 — Uploads/ball9-t59c_lm19_r1.12_df2_t3_d05_21_t088.{npy,mp3}
 # tempo 88, 313.2s (5:13) = 9396 frames. Authored 8/8/26 against activity_bwv259.png.
 #
-# The most cuttable of the three. woodwind, brass and melody enter and
-# leave in clean blocks with real silence between, and pizz visibly
-# thickens from 4:00 to the end. marimba never stops, so it is the safe
-# cut whenever everything else is out.
-# CAMERA_CUES = [
-#     ("0:00", "wide"),
-#     ("0:12", "woodwind", 4),
-#     ("0:26", "brass"),
-#     ("0:40", ("marimba", "bass")),
-#     ("0:56", "brass", 3),
-#     ("1:10", "melody.vibraphone"),
-#     ("1:22", "woodwind"),
-#     ("1:38", "melody.trumpet"),
-#     ("1:52", ("pizz", "marimba")),
-#     ("2:06", "wide"),
-#     ("2:20", "woodwind", 3),
-#     ("2:34", "brass"),
-#     ("2:48", "melody"),
-#     ("3:02", "bowed_strings", 3),
-#     ("3:16", "bass.guitar"),
-#     ("3:28", "brass", 3),
-#     ("3:42", "melody.trumpet"),
-#     ("3:54", ("overhead", "marimba", "finger_piano")),
-#     ("4:14", "pizz"),
-#     ("4:28", "brass"),
-#     ("4:42", "bowed_strings"),
-#     ("4:56", "wide", 4),
-# ]
+# 
+CAMERA_CUES = [
+    ("0:00", "wide"),
+    ("0:12", "woodwind", 4),
+    ("0:26", "brass"),
+    ("0:40", ("marimba", "bass")),
+    ("0:56", "brass", 3),
+    ("1:10", "melody.vibraphone"),
+    ("1:22", "woodwind"),
+    ("1:38", "melody.trumpet"),
+    ("1:52", ("pizz", "marimba")),
+    ("2:06", "wide"),
+    ("2:20", "woodwind", 3),
+    ("2:34", "brass"),
+    ("2:48", "melody"),
+    ("3:02", "bowed_strings", 3),
+    ("3:16", "bass.guitar"),
+    ("3:28", "brass", 3),
+    ("3:42", "melody.trumpet"),
+    ("3:54", ("overhead", "marimba", "finger_piano")),
+    ("4:14", "pizz"),
+    ("4:28", "brass"),
+    ("4:42", "bowed_strings"),
+    ("4:56", "wide", 4),
+]
 
 # bwv261 — Uploads/ball9-t61c_lm19_r1.25_df4_t3_d08_04_t118.{npy,mp3}
 # tempo 118, 480.6s (8:00) = 14418 frames. Authored 8/8/26 against activity_bwv261.png.
@@ -261,27 +258,27 @@ CAM_SENSOR = 36.0
 # ]
 # bwv258 — Uploads/ball9-t58c_lm17_r1.75_df3_t3_d04_02_t092.{npy,mp3}
 # tempo 92, 238.2s (3:58). Authored 8/7/26 against activity_bwv258.png.
-CAMERA_CUES = [
-    ("0:00", "wide"),
-    ("0:12", "bowed_strings", 4),
-    ("0:26", ("pizz", "bass")),
-    ("0:38", "finger_piano"),
-    ("0:50", "melody.trumpet"),
-    ("1:04", "bowed_strings", 3),
-    ("1:18", "bass.guitar"),
-    ("1:30", ("pizz", "finger_piano")),
-    ("1:43", "wide"),
-    ("1:52", "brass"),
-    ("2:02", "bass", 3),
-    ("2:10", "wide"),
-    ("2:18", "melody"),
-    ("2:28", "woodwind", 3),
-    ("2:38", "marimba", 4),
-    ("2:52", ("overhead", "marimba", "bass.guitar")),
-    ("3:12", "bowed_strings"),
-    ("3:26", "brass", 3),
-    ("3:40", "wide", 4),
-]
+# CAMERA_CUES = [
+#     ("0:00", "wide"),
+#     ("0:12", "bowed_strings", 4),
+#     ("0:26", ("pizz", "bass")),
+#     ("0:38", "finger_piano"),
+#     ("0:50", "melody.trumpet"),
+#     ("1:04", "bowed_strings", 3),
+#     ("1:18", "bass.guitar"),
+#     ("1:30", ("pizz", "finger_piano")),
+#     ("1:43", "wide"),
+#     ("1:52", "brass"),
+#     ("2:02", "bass", 3),
+#     ("2:10", "wide"),
+#     ("2:18", "melody"),
+#     ("2:28", "woodwind", 3),
+#     ("2:38", "marimba", 4),
+#     ("2:52", ("overhead", "marimba", "bass.guitar")),
+#     ("3:12", "bowed_strings"),
+#     ("3:26", "brass", 3),
+#     ("3:40", "wide", 4),
+# ]
 # Time ranges the shot generator fills in around the hand-authored cues:
 # (start_s, end_s, seed). Deterministic per seed, so a render repeats exactly.
 # Hand cues always win — generated shots are dropped near them.

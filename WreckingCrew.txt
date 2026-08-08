@@ -18678,3 +18678,962 @@ kubectl exec $POD -- bash -c "echo echo $TOKEN > /tmp/askpass.sh && chmod +x /tm
             scp one-footed-bride-pod:/home/prent/Repos/One-footed-bride-tuning/Uploads/*.mp4 Uploads/.
       Much simpler than the "k cp" syntax, supports wild cards and dot target. Neat. 
       Now move up the fingerboard on the string instruments: Excellent. I want to tackle a challenging task next. The strings should not always be full length when plucked or bowed. Imagine a finger pressing down on the fingerboard. It moves towards the bridge to make higher notes, so the vibration is across a shorter length. Each string has a note it makes on the unblocked length. It's different for each instrument. The particular string is already being chosen by the python codes for each string instrument. Now I want to add the diminsished length if the tone is higher than the open string, proportional to how much higher the tone is. Does that make sense? Ask questions if you are unsure.
+      
+      We have completed what we can do with Matplotlib, and I've generated several videos to watch. Pick the best to upload to YouTube.
+            ls -1 Uploads/*.mp4
+                  Uploads/merged_bwv253_t080_233s.mp4  
+                  Uploads/merged_bwv254_t088_380s.mp4
+            scp one-footed-bride-pod:/home/prent/Repos/One-footed-bride-tuning/Uploads/*.mp4 Uploads/.     
+                  Uploads/merged_bwv253_t080_233s.mp4  
+                  Uploads/merged_bwv254_t088_380s.mp4
+
+-----------------
+7/25/26 Making progress on the Blender rendering.
+      To run a render issue these commands:
+            blender --background --python blender_marimba_poc.py -- \
+--npy bwv253_features_array.npy --tempo 100 --duration 8.0 \
+--out blender_marimba_frames
+
+      Then mux to mp4 with the matching audio clip:
+
+            ffmpeg -y -framerate 30 -i blender_marimba_frames/frame_%06d.png \
+-i "Uploads/ball9-t53d_lm17_r1.12_df5_t1_d00_47_t100.mp3" \
+-t 8.0 -c:v libx264 -pix_fmt yuv420p -c:a aac -shortest \
+blender_marimba_preview.mp4
+
+      Flags worth knowing:
+      - --duration in seconds (frames = duration × 30fps) — currently rendering at ~0.55s/frame, so an 8s clip takes ~2.2 minutes.
+      - --npy / --tempo must match the features array you're driving it from.
+      - --out is the frame-dump directory (PNG sequence).                  
+
+      I want to get the marimba right before moving on. Prompt: ❯ I'd like you to focus for a while on getting the velocity of the mallet striking the bar. It should be much faster and "harder". This implies an acceleration that the current mallet strike is missing. The current strike seems like it's slowing down and gently touching the bar. A real marimba player hits the bar hard and quickly lifts the mallet to let the bar sing. Perhaps we need to implement a very slight vibration while respecting the node points on the bar that are stable. Very tiny but we need something visual to match the audio that is quick and sharp like a knife in the air.
+
+      Command string:
+            rm -rf blender_marimba_frames && blender --background --python blender_marimba_poc.py -- --npy bwv253_features_array.npy --tempo 100 --duration 8.0 --out blender_marimba_frames 2>&1 | tail -15
+
+      I see that the Intel GPU on the machine running the blender instance is fully engaged. That's a good sign. I was concerned that some device driver would be missing. This is not the case on node fs3. Worried about the two b70s on the fs5 node.
+
+      Good to know the topology. One thing worth flagging before you move to fs5: EEVEE (what our script uses) renders through a single OpenGL/Vulkan context per process — it won't automatically spread one render across both B70s the way Cycles can split tiles across multiple compute devices. Left as-is, a blender --background --python blender_marimba_poc.py run on fs5 will likely only engage one of the two GPUs, leaving the second idle.
+
+      To actually use both B70s, you'd want to parallelize at the process level — e.g. split the frame range in half and run two Blender instances concurrently, each pinned to a different GPU and writing to its own output directory, then merge the PNG sequences before the ffmpeg mux step. That's a straightforward change to the render invocation (not the script itself) — happy to write that wrapper (a small shell script or a k8s Job with 2 pods) if you want to test it on fs5 when you get there.
+
+      The one-footed-bride-pod is on the fs5 now. The test frames are here:
+      /home/prent/.claude/jobs/c2747e67/tmp/pizz_test1/frame_000000.png)
+      Ways to improve the stringed instruments:
+      1. The bow should be tilted to only excite the string that is vibrating, not straight across all the strings.
+      2. Make the bow look like a violin bow, with the parts of the bow: the stick, the hairs, the tip with a fine point at the top, the frog, the screw, and the eye in the frog.
+      3. A scroll at the very top, peg box with tuning pegs just below the scroll, the tuning pegs, the routing of the strings from the top of the neck to the tuning pegs.
+      4. At the bottom, below the bridge, there should be a tail piece that gathers the strings and is attached to the instrument by an end button on the bottom. Violins and violas should have a chin rest. 
+      5. There should be symetrical f-holes on either side of the bridge at the thinest part of the body of the instrument. 
+      
+      I just realized that I can paste a picture into Claude and he can convert that into blender geometry. Neat. Now I no longer have to paste my lame comments into the chat, he can just look at it and understand the object. Takes a bit of time, but less compared to the step by step method. blender_pizzicato_frames/frame_000187.png
+
+      For reference, the full workflow is two separate commands:
+      1. Render frames (Blender)
+            blender --background --python blender_pizzicato_poc.py -- --npy bwv253_features_array.npy --tempo 100 --duration 8.0 --out blender_pizzicato_frames
+
+      2. Mux to mp4 (ffmpeg) — this is the step that was missing
+            ffmpeg -y -framerate 30 -i blender_bass_frames/frame_%06d.png \
+ -i "Uploads/ball9-t53d_lm17_r1.12_df5_t1_d00_47_t100.mp3" \
+ -t 8.0 -c:v libx264 -pix_fmt yuv420p -c:a aac -shortest blender_bass_preview.mp4
+
+      If you just want to eyeball geometry/positioning changes, checking an individual PNG frame directly is faster than muxing — the mp4 step is really only worth it when you want to hear it against the audio or watch the motion play out.
+
+      I've blown through all my Claude Code allotment. So I'm going to post one more c album.
+            CHORALES=${1:-$(echo bwv{253..264})}
+            python WreckingCrew.py --numpy_dir Archive/straw-man/viterbi-tunings-6-29 --chorale_list $CHORALES --auto_density --shuffle_density --deep_bass_backoff 0.25 --back_off_clicks 0.25 --album 7 --mod c --rondo_section_a 0 31 --rondo_insert_a_after 63 127
+      Upload them using ftp:
+            dirname=c6-07-25-26
+            # mkdir -p Uploads/$dirname
+            # mv Uploads/*.mp3 Uploads/$dirname
+            # mv Uploads/$dirname /home/prent/Dropbox/Uploads/
+      Might as well upload it while you are at it:
+            eval $(op signin) && FTP_PASS=$(op item get "GoDaddy FTP server" --fields password --reveal) && lftp -u prent,"$FTP_PASS" ftp://50.63.8.141 -e "set ssl:verify-certificate false; cd httpdocs/listen; mput /home/prent/Dropbox/Uploads/$dirname/*.mp3; quit"  
+
+--------------------
+7/26/26 Working on the bass section today.
+      Render the bass section frames:
+            rm -rf blender_bass_frames
+            blender --background --python blender_bass_section_poc.py -- \
+ --npy bwv253_features_array.npy --tempo 110 --duration 49.0 \
+ --out blender_bass_frames
+
+      ffmpeg -y -framerate 30 -i blender_bass_frames/frame_%06d.png \
+ -i "Uploads/ball9-t53d_lm17_r1.12_df5_t1_d00_53_t110.mp3" \
+ -c:v libx264 -pix_fmt yuv420p -c:a aac \
+ -t 49.0 -shortest \
+ blender_bass_preview.mp4
+
+      How are we going to put these sections together? I also want lighting that accents the section with the highest volume. Where is volume (not velocity) stored in bwv2??_features_array.npy? Column 14. 
+
+      Claude noticed that the bass part overall volume changes on 42% of the notes. That seems odd. Also, looking at the overall volume column in the features_array numpy files, I see that sometimes there is a string of floating point values. I know that in the features array I have to keep the floating point for all the values, but never considered that fracional values would be so prevalent. This is of 32 chords bwv253_feature_array.npy. What's going on with overall volume for the bass part in instrument #24?
+            ┌──────────┬────────────────────┬─────────────┬──────────────┐
+            │  voice   │      section       │    notes    │ vol. changes │
+            ├──────────┼────────────────────┼─────────────┼──────────────┤
+            │ 5        │ marimba            │ 844         │ 1            │
+            ├──────────┼────────────────────┼─────────────┼──────────────┤
+            │ 1        │ finger piano       │ 595         │ 1            │
+            ├──────────┼────────────────────┼─────────────┼──────────────┤
+            │ 2,3,4    │ pizzicato          │ 209/186/225 │ 1 each       │
+            ├──────────┼────────────────────┼─────────────┼──────────────┤
+            │ 9        │ martelé            │ 220         │ 1            │
+            ├──────────┼────────────────────┼─────────────┼──────────────┤
+            │ 17,18,19 │ violin/viola/cello │ 63/22/34    │ 2 each       │
+            ├──────────┼────────────────────┼─────────────┼──────────────┤
+            │ 26,27    │ trombone/tuba      │ 22/32       │ 2 each       │
+            ├──────────┼────────────────────┼─────────────┼──────────────┤
+            │ 20       │ baritone guitar    │ 569         │ 4            │
+            ├──────────┼────────────────────┼─────────────┼──────────────┤
+            │ 12,15    │ bassoon/oboe       │ 33/31       │ 7 each       │
+            ├──────────┼────────────────────┼─────────────┼──────────────┤
+            │ 25       │ trumpet            │ 65          │ 16           │
+            ├──────────┼────────────────────┼─────────────┼──────────────┤
+            │ 13,14    │ clarinet/flute     │ 27/38       │ 18-19        │
+            ├──────────┼────────────────────┼─────────────┼──────────────┤
+            │ 24       │ bass tine          │ 517         │ 218          │
+            └──────────┴────────────────────┴─────────────┴──────────────┘
+      This value is set here:
+            def generate_random_volumes(time_slots = 8, max_value=25, sections = 8, max_section_sum = 70, max_voice_value = 10, min_time_slot_sum = 10, sparse_mode = False): 
+      But it must be changed later. 
+
+------------
+7/28/26 First full render of the first 32 chords of bwv253 on the fs5
+      Copy the MP3 to the pod first (scp "Uploads/ball9-t53d_lm17_r1.12_df5_t1_d00_53_t110.mp3" one-footed-bride-pod:.../Uploads/), then run both commands there.
+      Copy files that are not controlled by git:
+            scp bwv253_features_array.npy one-footed-bride-pod:Repos/One-footed-bride-tuning/.
+            scp Uploads/ball9-t53d_lm17_r1.12_df5_t1_d00_53_t110.mp3 one-footed-bride-pod:Repos/One-footed-bride-tuning/Uploads/.
+      Now do the git push
+            eval $(op signin) 
+            GIT_PAT=$(op item get "GitHub PAT" --fields credential --reveal) 
+            git remote set-url origin https://$GIT_PAT@github.com/prentrodgers/One-footed-bride-tuning.git
+            git push
+      Committed to main as 54a4b19a — 11 pipeline files + bwv253_features_array.npy. (The other 55 uncommitted files are pre-existing working-tree changes and render artifacts I deliberately left alone.) Push whenever ready.
+            ssh one-footed-bride-pod 
+            git stash
+            git pull
+      Command for the pod (after git pull)
+
+      Render the frames — this is the ~30-min part, and it needs only the code + the .npy (no audio):
+
+            blender --background --python blender_stage.py -- --npy bwv253_features_array.npy --tempo 110 --duration 49.0 --res-x 1280 --res-y 720 --out stage_frames
+                  -bash: blender: command not found
+      I tried that in the pod and it's missing blender and tar.
+
+            ssh one-footed-bride-pod 
+            cd /tmp
+            curl -LO https://download.blender.org/release/Blender5.1/blender-5.1.2-linux-x64.tar.xz
+                  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                                Dload  Upload   Total   Spent    Left  Speed
+                  100 61559  100 61559    0     0   123k      0 --:--:-- --:--:-- --:--:--  123k # <-- html, not the 300Mb binary
+      
+      We can't add any new libraries inside the pod. We will have to modify the yaml that created it. Claude warns:
+      We're matching Blender 5.1.2 (x86_64) — the pod needs the same major version, because our render calls the 'BLENDER_EEVEE' engine enum, which differs across Blender versions.
+      Claude gave me the command to curl the Blender version, but the pod is also missing tar. I could modify the Yaml file for the one-footed-bride pod here: one-footed-bride-jupyter.yaml. But it just uses one of my images:
+            image: quay.io/prentrodgers/python-music:0.7
+      Where is that made? In parallel-jobs. Nice to know.
+      I asked claude to rebuild the image with the missing software. Anything else I might need? I can't think of anything. 
+      To deploy (order matters)
+
+      1. Build & push the image (from parallel-jobs/):
+            podman build -f Containerfile.08-draft -t quay.io/prentrodgers/python-music:0.8 .
+            podman login quay.io # make sure you open the quay entry on 1Password and copy the userid and password to autheticate.
+            podman push quay.io/prentrodgers/python-music:0.8
+      2. Promote the drafts (rename over the real files, then commit):
+            mv Containerfile.08-draft Containerfile
+            cd .. && mv one-footed-bride-jupyter.08-draft.yaml one-footed-bride-jupyter.yaml
+      3. Redeploy: 
+            kubectl delete -f one-footed-bride-jupyter.yaml && kubectl apply -f one-footed-bride-jupyter.yaml
+      4. SSH in and render - don't use k exec -it deploy/one...
+            ssh one-footed-bride-pod # it doesn't work if you aren't in the sshd container.
+            cd Repos/One-footed-bride-tuning && git pull
+            blender --background --gpu-backend vulkan --python blender_stage.py -- --npy bwv253_features_array.npy --tempo 110 --duration 49.0 --res-x 1280 --res-y 720 --out stage_frames 
+
+      Now running at 1 second per frame, better by 30% compared to the fs3. 
+      To speed it up, reduce the resolution:
+            blender --background --gpu-backend vulkan --python blender_stage.py -- --npy bwv253_features_array.npy --tempo 110 --duration 5.0 --res-x 960 --res-y 540 
+            ffmpeg -y -framerate 30 -i stage_proto.png/frame_%06d.png -i "Uploads/ball9-t53d_lm17_r1.12_df5_t1_d00_53_t110.mp3" -c:v libx264 -pix_fmt yuv420p -c:a aac -t 5.0 -shortest preview.mp4
+
+      For a 49 second render:
+            rm -rf stage_frames
+            blender --background --gpu-backend vulkan --python blender_stage.py -- --npy bwv253_features_array.npy --tempo 110 --duration 55.0 --res-x 1280 --res-y 720 --out stage_frames
+            
+            ffmpeg -y -framerate 30 -i stage_frames/frame_%06d.png -i "Uploads/ball9-t53d_lm17_r1.12_df5_t1_d00_53_t110.mp3" -c:v libx264 -pix_fmt yuv420p -c:a aac -t 49.0 -shortest stage_full.mp4
+
+            scp one-footed-bride-pod:/home/prent/Repos/One-footed-bride-tuning/stage_full.mp4 Uploads/.
+
+------------
+7/29/26 Worked on some refinements to the layout, then let claude commit.
+      Push to github:
+            eval $(op signin) 
+            GIT_PAT=$(op item get "GitHub PAT" --fields credential --reveal) 
+            git remote set-url origin https://$GIT_PAT@github.com/prentrodgers/One-footed-bride-tuning.git
+            git push
+      It's time to parallize the rendering process on two GPUs on the fs5. 
+      But first fix the terminal in the pod:
+            TERM=xterm-256color
+      Claude has committed the parallel version, but isn't sure it's going to work. We may have to create two pods and split the work between the GPU's that way. That's a cludge, so see if this works: 
+      It picked the same GPU for both. I had to pkill them:
+            pkill -f blender_stage.py          # both, by command line
+            pkill -9 -f blender_stage.py       # if it ignores the TERM
+      A different approach seems to be working:
+            kubectl exec -i deploy/one-footed-bride -c pod-ssh -- bash -s <<'EOF'
+            set -e
+            cd /home/prent/Repos/One-footed-bride-tuning
+            rm -rf stage_frames && mkdir stage_frames
+
+            cat > /tmp/half.sh <<'INNER'
+            #!/bin/bash
+            set -e
+            hide=$1; shift
+            mount --bind /dev/null /dev/dri/$hide
+            export MESA_VK_DEVICE_SELECT=8086:e223
+            cd /home/prent/Repos/One-footed-bride-tuning
+            exec blender --background --gpu-backend vulkan --python blender_stage.py -- \
+            --npy bwv253_features_array.npy --tempo 110 --duration 55.0 \
+            --res-x 1280 --res-y 720 --out stage_frames "$@"
+            INNER
+            chmod +x /tmp/half.sh
+
+            setsid nohup unshare -m --propagation private /tmp/half.sh \
+            renderD130 --frame-start 0 --frame-end 824 > /tmp/half1.log 2>&1 &
+            setsid nohup unshare -m --propagation private /tmp/half.sh \
+            renderD129 --frame-start 825 > /tmp/half2.log 2>&1 &
+
+            sleep 30
+            tail -n 2 /tmp/half1.log /tmp/half2.log
+            EOF
+
+            kubectl exec deploy/one-footed-bride -c pod-ssh -- bash -c \
+                  'tail -n 2 /tmp/half1.log /tmp/half2.log; ls /home/prent/Repos/One-footed-bride-tuning/stage_frames | wc -l'
+      
+      When it finished (15-20 minutes) run this as root in the container from the host:
+            kubectl exec -it deploy/one-footed-bride -c pod-ssh -- bash
+            whoami
+                        root
+            chown -R prent:prent /home/prent/Repos/One-footed-bride-tuning/stage_frames
+      Then from a normal host:
+            ssh one-footed-bride-pod
+            ls stage_frames | wc -l     # 1650
+            ffmpeg -y -framerate 30 -i stage_frames/frame_%06d.png -i "Uploads/ball9-t53d_lm17_r1.12_df5_t1_d00_53_t110.mp3" -c:v libx264 -pix_fmt yuv420p -c:a aac -t 49.0 -shortest stage_full.mp4
+      Should I invest the time in a full render of bwv256. It really cooks.
+            scp bwv256_features_array.npy one-footed-bride-pod:Repos/One-footed-bride-tuning/.
+            scp "Uploads/ball9-t56c_lm19_r1.12_df4_t3_d04_46_t104.mp3" one-footed-bride-pod:Repos/One-footed-bride-tuning/Uploads/.
+
+      Then push:
+            eval $(op signin)
+            GIT_PAT=$(op item get "GitHub PAT" --fields credential --reveal)
+            git remote set-url origin https://$GIT_PAT@github.com/prentrodgers/One-footed-bride-tuning.git
+            git push
+      And pull:
+            ssh one-footed-bride-pod
+            cd Repos/One-footed-bride-tuning && git stash && git pull && git log --oneline -1   # expect 93f7ada6
+      Then run the dual render. Issue this on the host:
+            kubectl exec -i deploy/one-footed-bride -c pod-ssh -- bash -s <<'EOF'
+set -e
+cd /home/prent/Repos/One-footed-bride-tuning
+rm -rf stage_frames && mkdir stage_frames
+
+cat > /tmp/half.sh <<'INNER'
+#!/bin/bash
+set -e
+hide=$1; shift
+mount --bind /dev/null /dev/dri/$hide
+export MESA_VK_DEVICE_SELECT=8086:e223
+cd /home/prent/Repos/One-footed-bride-tuning
+exec blender --background --gpu-backend vulkan --python blender_stage.py -- \
+  --npy bwv256_features_array.npy --tempo 104 --duration 282.0 \
+  --res-x 1280 --res-y 720 --out stage_frames "$@"
+INNER
+chmod +x /tmp/half.sh
+
+setsid nohup unshare -m --propagation private /tmp/half.sh \
+  renderD130 --frame-start 0 --frame-end 4229 > /tmp/half1.log 2>&1 &
+setsid nohup unshare -m --propagation private /tmp/half.sh \
+  renderD129 --frame-start 4230 > /tmp/half2.log 2>&1 &
+
+sleep 40
+tail -n 2 /tmp/half1.log /tmp/half2.log
+EOF
+
+      Watch the GPU's on one screen:
+            ssh fs5 sudo nano nvtop -i 
+      Check the progress on another:
+            kubectl exec deploy/one-footed-bride -c pod-ssh -- bash -c  'tail -n 2 /tmp/half1.log /tmp/half2.log; ls /home/prent/Repos/One-footed-bride-tuning/stage_frames | wc -l'
+                  ==> /tmp/half1.log <==
+                  13:47.017  render           | Saved: 'stage_frames/frame_000622.png'
+                  13:48.291  render           | Saved: 'stage_frames/frame_000623.png'
+
+                  ==> /tmp/half2.log <==
+                  13:47.552  render           | Saved: 'stage_frames/frame_004851.png'
+                  13:48.862  render           | Saved: 'stage_frames/frame_004852.png'
+                  1247
+      It will run until it finished all 8460 frames. Then use ffmeg to pull them into a video:
+            kubectl exec -it deploy/one-footed-bride -c pod-ssh -- bash
+            cd /home/prent/Repos/One-footed-bride-tuning/
+            chown -R prent:prent stage_frames   
+            ffmpeg -y -framerate 30 -i stage_frames/frame_%06d.png  -i "Uploads/ball9-t56c_lm19_r1.12_df4_t3_d04_46_t104.mp3" -c:v libx264 -pix_fmt yuv420p -c:a aac -shortest stage_full_bwv256-2.mp4
+      
+      Then back on the host pull the final video down from the pod to the host:
+            scp one-footed-bride-pod:/home/prent/Repos/One-footed-bride-tuning/stage_full_bwv256-1.mp4 Uploads/.
+
+      While that's running in the pod.(halfway done ls -1 stage_frames | wc -l = 4130) I would like to experiment with lighting and camera movement. I've never done anything like this before. What are our options?
+      
+      Claude Opus 5 says:
+      Right now the stage has exactly one light: a sun at energy 2.5 plus a dim world at 0.4 (blender_stage.py:441-451). That's why everything reads evenly lit and a bit flat. And the camera is deliberately fixed (blender_stage.py:77-80). Lots of room in both.
+
+      Lighting
+      1. Three-point rig instead of the one sun. Warm key from front-left, dimmer cool fill from front-right, and a rim/back light behind the orchestra to separate instruments from the black floor. One-time setup, zero per-frame cost, and it's the single biggest look improvement available. Instruments stop being silhouettes against dark.
+
+      2. Volume-driven section lighting — the thing you asked about on 7/26 and column 14. A spot over each section whose energy tracks that section's current volume, so the loudest section is visibly lit and quiet ones fall back. It reuses the note-loading each setup_* already does; the update callback just sets light.data.energy. Modest cost — a handful of extra shadow-casting lights.
+
+      3. Bloom on the glowing parts. The marimba bars, strings and wind bodies already glow via obj.color. Bloom makes that glow bleed into the air and reads as light rather than paint. Gotcha: EEVEE dropped its bloom checkbox — I checked your 5.2 build and there's no use_bloom, so it's a compositor Glare node instead. Cheap, applied post-render.
+
+      4. Volumetric light shafts. Visible cones from the spots, dust in the air, very "concert film". Your build has full volumetric support. This is the expensive one — it's a per-frame raymarch and could easily double your 1.31 s/frame. Worth prototyping on a 5-second clip before committing.
+
+      5. Motion blur. Available, and it would help the mallets and bows read as fast rather than strobing. Also raises per-frame cost (it renders sub-steps).
+
+      Camera
+      6. Slow push-in over the whole piece. Interpolate CAM_POS/CAM_TARGET from wide to slightly tighter across the duration. Ten lines, no render cost, and a 4:42 static shot is a long time to hold still.
+
+      7. Arc/orbit. Swing the camera through 15–20° around the stage. Shows off that this is genuinely 3D — the whole reason for the depth axis.
+
+      8. Cut or drift to the loudest section. You already have both signals: column 14 for volume, column 15 for the source chord index (the conductor's baton uses it for beat tracking). Point the camera at whichever section is carrying the music. This is the ambitious one — it's a "director" and needs rules about how often to move so it doesn't get seasick.
+
+      9. Low-amplitude drift. A slow noise wobble so the frame feels alive rather than locked to a tripod.
+
+      The one real constraint
+      Every cx/scale in SECTIONS was tuned against that exact camera — I've been measuring screen positions against CAM_POS, CAM_TARGET and the 38 mm lens all session. Move the camera and "the brass sits above the marimba" is only true at one moment in the move. Anything beyond a gentle push-in means re-checking that sections don't collide or leave frame at the extremes of the movement. Not a blocker, just the thing that'll bite.
+
+      How to iterate
+      Don't test these on 95-minute renders. A 5-second clip at 960×540 is about 90 frames — under two minutes locally, and I can render one and show you a strip of frames the way I did for the bows.
+
+      My suggestion: three-point rig first (biggest gain, free, no camera risk), then volume-driven section spots since you've wanted them for a while, then a slow push-in. Volumetrics and motion blur last, once you know what they cost per frame.
+
+      Which do you want to start with? I can have the three-point rig and a test clip ready while the bwv256 render finishes.
+
+-------------------
+7/31/26 Work on lighting and camera movement today.
+      Ray tracing has been applied to the brass instrument, which is an improvement to their stylistic realism. Will it move with the lighting and camera movement or is there just one look?
+      Make the lighting and camera focus based in interestingness. I need to write that. 
+      Claude noticed that the selection of the rondo sections are pythonic. So this repeats only chords 0 through 30, not 31 that I expected. 
+            CHORALES=${1:-$(echo bwv{253..264})}
+            CHORALES=bwv256
+            python WreckingCrew.py --numpy_dir Archive/straw-man/viterbi-tunings-6-29 --chorale_list $CHORALES --density_level 4 --deep_bass_backoff 0.25 --back_off_clicks 0.25 --album 7 --mod c --rondo_section_a 0 32 --rondo_insert_a_after 63 127
+      That's nice, but I prefer the previous bwv256, even though it's missing one chord. Here's what I need to fill out as I watch the video camera_cue_demo.mp4 on the host.
+            CAMERA_CUES = [
+            (0.0,  "wide"),
+            (17.0, ("pizz", "finger_piano")),   # a tuple frames several sections as one
+            (25.0, "marimba"),
+                              ]
+            CAMERA_MOVE_T = 2.5     # seconds per move
+            CAMERA_MARGIN = 1.25    # 1.0 = section exactly fills frame
+      Times in seconds, ascending. Focus is "wide", one section key, or a tuple. Valid keys: pizz, marimba, bass, finger_piano, woodwind, brass, bowed_strings, melody, conductor. A typo raises at startup rather than 90 minutes in. 
+
+      The cue time is when the move starts — it arrives CAMERA_MOVE_T later. So mark the beat where you want to begin travelling, not where you want to land. Subtract 2.5s if you'd rather think in arrivals.
+
+      Framings are computed, not hand-tuned: I take the section's measured bounds, keep the wide shot's viewing angle and 38mm lens, and move along that axis to the distance where the section fits. Moves ease in and out (smoothstep) on both position and aim, so they arc rather than snapping. Left at a single wide cue the camera doesn't update at all — the render is byte-identical to today's.
+
+      One compositional thing to know. The bass section is 14.1 units wide by 1.9 tall. Nothing that flat can fill a 16:9 frame, so a solo "bass" cue puts the instruments across the middle with a lot of bare floor beneath (frame at t=4.5 above). Two ways out when you hit it: pair it with a neighbour — ("bass", "pizz") — so the combined box is taller, or drop CAMERA_MARGIN toward 1.0 to crop tighter and let the ends run off frame. Worth knowing before you write a cue sheet full of solo shots on the wide flat sections.
+
+      I just watched a few of the videos of Steve Reich's Music for 18 Musicians. They all move camera angles ever 10-15 seconds. Sometimes they will switch cameras, sometimes they pan from one section to another. No real relationship between the loudness of the section and the camera position. It's like they assign the movements to each cameraman, then remix in the studio when it's finished. This allows them to switch cameras and to have the cameraman pan after 15 seconds to another section or instrument closeup. Then it's back to the wide shot. The musicians occasionally make grand movements together, like the bass clarinets lowering the bell of the instrument, then slowly rising together. The violins are amplified, as are the singers, in essence everyone has a microphone on them. The cellist looks weird with a mask in 2024. 
+      What is the orchestration of this piece:
+            1 violin 
+            1 cello 
+            2 clarinets 
+            4 female singers (SSSA)
+            4 pianos 
+            3 marimbas sometimes played by 3 people on one instrument. 
+            2 xylophones 
+            1 vibraphone
+      I asked claude to design the lighting and camera for each video, with me supplying the first minute or so, and she taking over and inventing the rest.
+
+      I need to return some hand warmers that are being recalled. Mine are Ocoopa UT3053 batch 401
+      GO here after you drop off the defective batteries at a recycling site. That might only be the Factoria site. 
+
+      Run one frame locally
+            blender --background --python blender_stage.py -- --npy bwv256_features_array.npy --tempo 104 --duration 282.0 --frame-start 0 --frame-end 0 --out /tmp/cuecheck
+      Make sure you have the older version of bwv256:
+            ssh one-footed-bride-pod ls -lth Repos/One-footed-bride-tuning/bwv256_features_array.npy
+                  -rw-rw-r-- 1 prent prent 2.5M Jul 30 15:12 Repos/One-footed-bride-tuning/bwv256_features_array.npy
+            ssh one-footed-bride-pod ls -lth Repos/One-footed-bride-tuning/Uploads/ball9-t56c_lm19_r1.12_df4_t3_d04_46_t104.mp3
+                  -rw-r--r-- 1 prent prent 11M Jul 30 15:12 Repos/One-footed-bride-tuning/Uploads/ball9-t56c_lm19_r1.12_df4_t3_d04_46_t104.mp3
+            kubectl exec -i deploy/one-footed-bride -c pod-ssh -- bash -s <<'EOF'
+set -e
+cd /home/prent/Repos/One-footed-bride-tuning
+rm -rf stage_frames && mkdir stage_frames
+
+cat > /tmp/half.sh <<'INNER'
+#!/bin/bash
+set -e
+hide=$1; shift
+mount --bind /dev/null /dev/dri/$hide
+export MESA_VK_DEVICE_SELECT=8086:e223
+cd /home/prent/Repos/One-footed-bride-tuning
+exec blender --background --gpu-backend vulkan --python blender_stage.py -- \
+  --npy bwv256_features_array.npy --tempo 104 --duration 282.0 \
+  --res-x 1280 --res-y 720 --out stage_frames "$@"
+INNER
+chmod +x /tmp/half.sh
+
+setsid nohup unshare -m --propagation private /tmp/half.sh \
+  renderD130 --frame-start 0 --frame-end 4229 > /tmp/half1.log 2>&1 &
+setsid nohup unshare -m --propagation private /tmp/half.sh \
+  renderD129 --frame-start 4230 > /tmp/half2.log 2>&1 &
+
+sleep 40
+tail -n 2 /tmp/half1.log /tmp/half2.log
+EOF
+
+      To do tomorrow, after the frames have been generated:
+      It will run until it finished all 8460 frames. Then use ffmeg to pull them into a video:
+            kubectl exec -it deploy/one-footed-bride -c pod-ssh -- bash
+            cd /home/prent/Repos/One-footed-bride-tuning/
+            chown -R prent:prent stage_frames   
+      
+            ffmpeg -y -framerate 30 -i stage_frames/frame_%06d.png  -i "Uploads/ball9-t56c_lm19_r1.12_df4_t3_d04_46_t104.mp3" -c:v libx264 -pix_fmt yuv420p -c:a aac -shortest stage_full_bwv256-3.mp4 # notice the rename -2 to avoid clobbering the old one.
+      
+      Then back on the host pull the final video down from the pod to the host:
+            scp one-footed-bride-pod:/home/prent/Repos/One-footed-bride-tuning/stage_full_bwv256-3.mp4 Uploads/.
+                  
+---------------
+8/1/26 Something went wrong. The music doesn't match the video. 
+      Promt to Claude: When the video shows the bowed string section moving the bow, the audio has the bowed strings silent. When the video shows the marimba, it's not playing, but the music has lots of marimba playing. When I hear the audio of the baritone guitar, the video shows it not playing. Your idea of ensuring provenance is terrific thinking. Make the names the same in all ways but the extension. One more thingIs there any way prior to zooming in on a section, we can check the volume fielld to ensure it's playing at an audible volume? And can we have overhead shots on the middle row added to the mix, that slowly pans from the marimba to the finger pianos?
+
+      Claude: All three, committed as f8b5a271.
+
+      Provenance — WreckingCrew.py:2043. Once mod is finalised, the features array is copied to Uploads/ball9-t{mod}.npy, same stem as the mp3 that run is about to write. Identical but for the extension, exactly as you asked. The old bwv256_features_array.npy still gets written; it's just no longer the thing you feed the renderer.
+
+      Volume gate — the generator now checks column 14 before choosing a target. My first cut required 3 notes in the window and it rejected the flute, which holds long notes; a note-count threshold would have quietly biased the whole edit toward busy sections. It measures sounding time instead — a target must sound for at least 25% of the shot. Verified against six targets: brass and bowed strings both correctly rejected inside their real silences and accepted at their entries. Voice numbers are read from each section's own seat tables rather than restated, so moving a voice can't leave the map wrong. Your hand cues are never gated.
+
+      Overhead pans — a new shot form ("overhead", "finger_piano", "marimba") that travels the middle row across the shot's full hold. The generator emits them; you can also write them by hand. Straight-down was my first attempt and it was almost all floor, since the row is only ~1 unit deep — it's a high oblique now, which is what the frames above show.
+
+      One thing I could not test: the WreckingCrew change parses and is guarded by an existence check, but I haven't executed a full run. You'll see Saved Uploads/ball9-t....npy (pairs with ball9-t....mp3) in the output if it worked.
+
+      Your next steps — the current bwv256 pair can't be trusted, so:
+
+      Re-run WreckingCrew. It now emits a matched .npy and .mp3 into Uploads/.
+      Copy both to the pod, and point --npy at the new paired file rather than bwv256_features_array.npy.
+      Re-author CAMERA_CUES against the new audio — the times will have moved, and the current sheet is stamped for the old render.
+      Worth a 20-second render at low resolution to confirm sync before committing three hours to it.
+
+      Ran this:
+            python WreckingCrew.py --numpy_dir Archive/straw-man/viterbi-tunings-6-29 --chorale_list $CHORALES --density_level 4 --deep_bass_backoff 0.25 --back_off_clicks 0.25 --album 7 --mod c --rondo_section_a 0 32 --rondo_insert_a_after 63 127
+      Produced this: Uploads/ball9-t56c_lm19_r1.12_df4_t3_d07_59_t118.npy
+      And this: Uploads/ball9-t56c_lm19_r1.12_df4_t3_d07_59_t118.mp3
+      git push using the eval method, then pull from the pod:
+            ssh one-footed-bride-pod
+            cd Repos/One-footed-bride-tuning && git stash && git pull && git log --oneline -1  
+      Then copy them into the pod:
+            scp Uploads/ball9-t56c_lm19_r1.12_df4_t3_d07_59_t118.mp3 one-footed-bride-pod:/home/prent/Repos/One-footed-bride-tuning/Uploads/ball9-t56c_lm19_r1.12_df4_t3_d07_59_t118.mp3
+                  ball9-t56c_lm19_r1.12_df4_t3_d07_59_t118.mp3
+            scp /home/prent/Repos/One-footed-bride-tuning/Uploads/ball9-t56c_lm19_r1.12_df4_t3_d07_59_t118.npy one-footed-bride-pod:/home/prent/Repos/One-footed-bride-tuning/Uploads/ball9-t56c_lm19_r1.12_df4_t3_d07_59_t118.npy
+                  ball9-t56c_lm19_r1.12_df4_t3_d07_59_t118.npy     
+      Then run the kubectl exec command, but change the name of the npy file:
+            kubectl exec -i deploy/one-footed-bride -c pod-ssh -- bash -s <<'EOF'
+set -e
+cd /home/prent/Repos/One-footed-bride-tuning
+rm -rf stage_frames && mkdir stage_frames
+
+cat > /tmp/half.sh <<'INNER'
+#!/bin/bash
+set -e
+hide=$1; shift
+mount --bind /dev/null /dev/dri/$hide
+export MESA_VK_DEVICE_SELECT=8086:e223
+cd /home/prent/Repos/One-footed-bride-tuning
+exec blender --background --gpu-backend vulkan --python blender_stage.py -- \
+  --npy Uploads/ball9-t56c_lm19_r1.12_df4_t3_d07_59_t118.npy --tempo 118 --duration 282.0 \
+  --res-x 1280 --res-y 720 --out stage_frames "$@"
+INNER
+chmod +x /tmp/half.sh
+
+setsid nohup unshare -m --propagation private /tmp/half.sh \
+  renderD130 --frame-start 0 --frame-end 4229 > /tmp/half1.log 2>&1 &
+setsid nohup unshare -m --propagation private /tmp/half.sh \
+  renderD129 --frame-start 4230 > /tmp/half2.log 2>&1 &
+
+sleep 40
+tail -n 2 /tmp/half1.log /tmp/half2.log
+EOF
+
+      kubectl exec -it deploy/one-footed-bride -c pod-ssh -- bash
+            cd /home/prent/Repos/One-footed-bride-tuning/
+            chown -R prent:prent stage_frames   
+      
+            ffmpeg -y -framerate 30 -i stage_frames/frame_%06d.png  -i "Uploads/ball9-t56c_lm19_r1.12_df4_t3_d07_59_t118.mp3" -c:v libx264 -pix_fmt yuv420p -c:a aac -shortest stage_full_bwv256-3.mp4 # notice the rename -2 to avoid clobbering the old one.
+
+            scp one-footed-bride-pod:/home/prent/Repos/One-footed-bride-tuning/stage_full_bwv256-3.mp4 Uploads/stage_full_bwv256-3.mp4
+      I forgot to change the camera cues, so the first few seconds will be irrelevant, then random. Oops. I also failed to change the tempo. That really screwed it up. Before starting again, review the camera cues json in blender_stage.py starting at line 102:
+            CAMERA_CUES = [
+    (0.0,  "wide"),
+    (6.0,  ("bass", "finger_piano")),   # pedal note under changing chords
+    (30.0, "bass"),
+    (43.5, "wide"),                     # chord 31 ends, section changes
+     ]
+
+      # Time ranges the shot generator fills in around the hand-authored cues:
+      # (start_s, end_s, seed). Deterministic per seed, so a render repeats exactly.
+      # Hand cues always win — generated shots are dropped near them.
+      CAMERA_AUTOGEN = [
+      (50.0, 279.0, 7),
+      
+      Promit to claude: The timing was all off in the last render. I neglected to change the --tempo 104 to --tempo 118, and there are several other areas that needed be updated with the new video based on Uploads/ball9-t56c_lm19_r1.12_df4_t3_d07_59_t118.mp3 and ball9-t56c_lm19_r1.12_df4_t3_d07_59_t118.npy. The duration in the blender command line still has --duration 282.0, which was for the previous mp3 file. What should the duration be now? Also the command line has hard coded --frame-start 0 and --frame-start 4230. That should probably change as well. The mp3 is 7:59 in length, not including the convolution (delay line). I don't have a good understanding of all the parameters I need to change when moving from one mp3 and npy file to another. Here is what I think I should use, but I need you to explain all the parameters that need to be changed before I run the next render. I plan to update the CAMERA_CUES with new values based on the new mp3/npy files, but should CAMERA_AUTOGEN also change?
+
+      Claude says: Measured both new files:
+
+      mp3: 474.70s — note the d07_59 in the filename is the pre-convolution estimate, not the real length. Don't use it. The actual value in minutes:seconds: 7:91. That's 5.3 seconds longer than the time in the file name. The reverb is not that long, or maybe it is. In any case, don't use that in the render. 
+      npy: 30317 rows, last note ends 473.00s at tempo 118.
+      Those two agree to within 1.7s of reverb tail — the same relationship the old pair had (279.87 vs 281.65). This pair is genuinely matched.
+
+      What changes when you swap audio:
+      --tempo # use the value in the file name 
+      --npy # use the directory and file name relative to the repo.
+      --duration 475.0 # this is value that ffprobe detects. 
+            ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 Uploads/ball9-t56c_lm19_r1.12_df4_t3_d07_59_t118.mp3
+                  474.697125
+      CAMERA_CUES = # must be set after an exhaustive listening session taking notes of the times when each instrument is at it's most interesting. Keep each section for max 15 seconds, then move or cut to the next. 
+      CAMERA_AUTOGEN = # Set the end a few seconds short of the duration — 470.0 — and the start wherever your hand cues finish.
+      total frames = ceil(duration) * 30 - in other words 30 frames a second for every second in the duration derived from ffprobe rounded up 475 * 30 = 14250
+      split = frames/2 - 1 and frames/2 14250/2 = 7125 - 1 = 7124 for the first half 7125 for the second half.
+      Autogen end = duration - 5 # stop changing the scene at the end.
+
+      Revised command line for this pair:
+            kubectl exec -i deploy/one-footed-bride -c pod-ssh -- bash -s <<'EOF'
+set -e
+cd /home/prent/Repos/One-footed-bride-tuning
+rm -rf stage_frames && mkdir stage_frames
+
+cat > /tmp/half.sh <<'INNER'
+#!/bin/bash
+set -e
+hide=$1; shift
+mount --bind /dev/null /dev/dri/$hide
+export MESA_VK_DEVICE_SELECT=8086:e223
+cd /home/prent/Repos/One-footed-bride-tuning
+exec blender --background --gpu-backend vulkan --python blender_stage.py -- \
+  --npy Uploads/ball9-t56c_lm19_r1.12_df4_t3_d07_59_t118.npy --tempo 118 --duration 475.0 \
+  --res-x 1280 --res-y 720 --out stage_frames "$@"
+INNER
+chmod +x /tmp/half.sh
+
+setsid nohup unshare -m --propagation private /tmp/half.sh \
+  renderD130 --frame-start 0 --frame-end 7124 > /tmp/half1.log 2>&1 &
+setsid nohup unshare -m --propagation private /tmp/half.sh \
+  renderD129 --frame-start 7125 > /tmp/half2.log 2>&1 &
+
+sleep 40
+tail -n 2 /tmp/half1.log /tmp/half2.log
+EOF
+
+      I want to run the old matplotlib to see the activity of each section:
+            ./gen-video.sh bwv256
+                 
+      Meanwhile claude created this to see a chart:
+            blender --background --python blender_stage.py -- --npy "Uploads/ball9-t56c_lm19_r1.12_df4_t3_d07_59_t118.npy"  --tempo 118 --duration 475.0 --dump-activity activity.json
+
+            .venv/bin/python plot_activity.py activity.json -o activity.png
+      Take a look at activity.png. It shows when each instrument is active. But not how loud it is. That's the key. 
+      Valid names for instruments:
+      [stage] pizz     scale=6.600  X[-22.76,-9.24] Y[12.82,17.18] Z[0.00,7.21]
+                  bass                          14.13 wide x  1.86 tall
+                  bass.fp_group                  8.51 wide x  1.17 tall
+                  bass.guitar                    6.82 wide ×  1.86 tall
+                  bowed_strings                 11.21 wide x  7.21 tall
+                  bowed_strings.cello            4.51 wide x  7.21 tall
+                  bowed_strings.viola            3.45 wide x  3.96 tall
+                  bowed_strings.violin_i         6.01 wide x  3.54 tall
+                  bowed_strings.violin_ii        6.58 wide x  3.54 tall
+                  brass                         10.32 wide x  7.05 tall
+                  brass.trombone                 4.53 wide x  1.67 tall
+                  brass.trumpet1                 2.94 wide x  0.90 tall
+                  brass.trumpet2                 2.94 wide x  0.90 tall
+                  brass.tuba                     4.11 wide x  7.05 tall
+                  conductor                      1.08 wide x  2.96 tall
+                  conductor.pivot                0.13 wide x  1.00 tall
+                  finger_piano                  10.08 wide x  1.39 tall
+                  marimba                       12.67 wide x  2.79 tall
+                  marimba.mallet_pivot_0         0.19 wide x  0.72 tall
+                  melody                        10.58 wide x  3.78 tall
+                  melody.bassoon                 1.58 wide x  3.71 tall
+                  melody.clarinet                0.94 wide x  3.05 tall
+                  melody.flute                   1.80 wide x  0.14 tall
+                  melody.oboe                    0.81 wide x  2.66 tall
+                  melody.trumpet                 2.35 wide x  0.72 tall
+                  melody.vibraphone              4.10 wide x  2.96 tall
+                  pizz                          13.51 wide x  7.21 tall
+                  pizz.cello                     2.56 wide x  7.21 tall
+                  pizz.martele                   6.97 wide x  4.17 tall
+                  pizz.viola                     1.58 wide x  4.67 tall
+                  pizz.violin                    1.34 wide x  4.17 tall
+                  woodwind                       8.12 wide x  3.64 tall
+                  woodwind.bassoon               1.92 wide x  3.61 tall
+                  woodwind.clarinet              1.04 wide x  3.03 tall
+                  woodwind.horn                  2.70 wide x  2.37 tall
+                  woodwind.oboe                  0.89 wide x  2.64 tall
+                  [stage] 34 targets (plus 'wide')
+      I asked for clarification on the panning move. It turns out it's not a pan, it's a camera moving on a dolly to get the best close-up possible of the new target. Example:
+            (30, "marimba", 4)
+      This means at time 30 I start a dolly move from the previous target to one on the marimba and take 4 seconds to complete the move. \
+---------
+8/2/26 Overhead shot:
+      Overhead shots, now documented at blender_stage.py:95-108:
+
+      ("2:10", ("overhead", "marimba", "bass.guitar")),
+      ("2:30", "bowed_strings"),      # ← this cue's time sets the travel speed
+      The restrictions, from _shot_framing and _shot_progress:
+
+      Exactly two names after the marker. _, a, b = focus — one or three raises. Each must be a plain target name, not a nested tuple.
+      move_seconds does not drive the travel. It only eases the entry from the previous shot. The drift from over a to over b always spans the shot's full hold, so the gap to the next cue is what sets the pace — 20s later is a slow drift, 4s is a swoop.
+      As the final cue there's no next cue to measure, so it falls back to sum(CAMERA_HOLD) * 2 seconds.
+      It's the only form that breaks the fixed viewing angle every other shot preserves — high oblique, tilted back toward the audience rather than straight down.
+      The autogen path builds these itself from the middle row (marimba/bass/finger_piano, ordered) at line 851.
+
+      Added a startup arity guard next to the unknown-name check — a malformed overhead tuple used to unpack fine at load and only blow up inside update_camera, i.e. minutes into a render.
+
+      Almost ready to run the render:
+      But first push local
+            eval $(op signin)
+            GIT_PAT=$(op item get "GitHub PAT" --fields credential --reveal)
+            git remote set-url origin https://$GIT_PAT@github.com/prentrodgers/One-footed-bride-tuning.git
+            git push
+      And pull:
+            ssh one-footed-bride-pod
+            cd Repos/One-footed-bride-tuning && git stash && git pull && git log --oneline -1   # expect 93f7ada6
+      Then run the dual render. Issue this on the host. 
+
+            kubectl exec -i deploy/one-footed-bride -c pod-ssh -- bash -s <<'EOF'
+set -e
+cd /home/prent/Repos/One-footed-bride-tuning
+rm -rf stage_frames && mkdir stage_frames
+
+cat > /tmp/half.sh <<'INNER'
+set -e
+hide=$1; shift
+mount --bind /dev/null /dev/dri/$hide
+export MESA_VK_DEVICE_SELECT=8086:e223
+cd /home/prent/Repos/One-footed-bride-tuning
+exec blender --background --gpu-backend vulkan --python blender_stage.py -- --npy Uploads/ball9-t56c_lm19_r1.12_df4_t3_d07_59_t118.npy --tempo 118 --duration 475.0 --res-x 1280 --res-y 720 --out stage_frames "$@"
+INNER
+
+setsid nohup unshare -m --propagation private bash /tmp/half.sh renderD130 --frame-start 0 --frame-end 7124 > /tmp/half1.log 2>&1 &
+setsid nohup unshare -m --propagation private bash /tmp/half.sh renderD129 --frame-start 7125 > /tmp/half2.log 2>&1 &
+
+sleep 40
+tail -n 2 /tmp/half1.log /tmp/half2.log
+EOF
+
+
+      Monitor it using 
+            ssh fs5 
+            nvtop -i
+      When it's done (2-3 hours) change the ownership of the frames and run ffmpeg. 
+
+      kubectl exec -it deploy/one-footed-bride -c pod-ssh -- bash
+            cd /home/prent/Repos/One-footed-bride-tuning/
+            chown -R prent:prent stage_frames   
+      
+      Rename the output to -4
+            ffmpeg -y -framerate 30 -i stage_frames/frame_%06d.png  -i "Uploads/ball9-t56c_lm19_r1.12_df4_t3_d07_59_t118.mp3" -c:v libx264 -pix_fmt yuv420p -c:a aac -shortest stage_full_bwv256-4.mp4 
+
+      Then on the host:
+            scp one-footed-bride-pod:/home/prent/Repos/One-footed-bride-tuning/stage_full_bwv256-4.mp4 Uploads/stage_full_bwv256-4.mp4
+
+-----------------
+8/3/26 Lessons learned 
+      1. Too short on the wide shot at the start, then too long on the same instrument in the next scene. 30 seconds is forever at the start, so make 20 seconds on wide then 10 seconds on each scene at the beginning.
+      The vibraphone has some issues I hadn't noticed before we zoomed in on it. It has a few problems. 1) the horizontal silve bar on the top needs to be eliminated. 2) The bars need to be supported at their nodes, approximately 20% from each end. This can be done either with a felt covered support structure, or some other method that allows the middle and ends of the bar to vibrate. 3) it needs resonators for each bar that are proportional to the pitch being resonated, like the marimba. The marimba resonators need to be twice as long so they are visible. Now that the marimba is on a stand, there is plenty of room beneath the bars for the resonator. These need to have a length proportiaonal to the pitch. Their absolute length need not be accurate, but the general increasing size as the bars increase in length is the key visual factor. For the low bars the resonator should reach to the level of the stand bottom, and then turn up if needed. Close-ups of the French Horn show discontinuity between the elements of the instrument, leaving the bell hanging in the air separate from the tube, and the two silver things in the middle haging in the air. The bottom of the bassoon should show the subes connected with a u-shaped tube, rather than terminating in the bass in the present arrangement. Have the bassoon be dark brown when not playing and lighght brown when playing.  The silver dots on the oboe and clarinet should have more dots, go for a total of 10, with them starting close together at the top and farther appart, slightly, at the bottom of the instrument. The marimba mallets should start from behind the instrument. Imagine an invisible performer standing behind the instrument with many arms. She is holding the mallet in her hands and hitting the bars in front of her. Right now it looks like the player is in front of the instrument instead of in back of it.
+
+      All eight done and verified with renders. Committed as 008c8d53.
+
+      Vibraphone — the silver bar on top was two frame rails at z+0.01, crossing right over the bars. Gone. Bars now sit on felt pads at their nodes (20% in from each end), carried on two rails threaded under the bars, which taper inward as the bars shorten. Each bar got its own resonator.
+
+      Resonator length — now goes as the square of its own bar's length on both instruments. A quarter-wave tube goes as 1/f and a bar as 1/√f, so that's the physically right relation, and it replaced the marimba's five flat octave tiers with a smooth ramp.
+
+      Marimba resonators — they hang until level with the stand's feet, then fold back up. One thing worth flagging: my first version divided the length evenly across legs, and that made the visible drop non-monotonic — the 1.30 m bar's tube ended higher than the 1.00 m one, because gaining a leg halves the drop. The last leg now takes the remainder, so every tube long enough to fold reaches the same floor and the row steps down cleanly. Bottoming out exactly at the feet also means the marimba's bounding box is unchanged (12.67 × 2.79, same as before), so nothing shifted on stage.
+
+      Mallets — the pivot sat directly above the bar, which is why it read as a player in front. It's now derived from the strike angle, putting the hand 0.71 behind the bar centre with the head landing exactly on centre. Side-on render confirms hands behind, heads reaching forward.
+
+      French horn — bell and leadpipe now start on the outer coil rather than near it; rotors moved onto the inner coil's lower arc.
+
+      Bassoon — U-bend, dark brown at rest → light brown playing. Took two passes: a bare semicircle between two nearly-touching bores just reproduced the blob, so both bores stop short and a narrower tube drops out of each before turning.
+
+      Oboe/clarinet — 10 keys, crowded at top, opening out toward the bell.
+
+      Renders are in the scratchpad if you want to look before re-rendering: vibe.png, marimba_wide.png, mallet_side.png, bassoon.png, horn.png, plus stage frames fr/frame_001020.png (marimba), fr/frame_004650.png (melody), fr/frame_008700.png (woodwind).
+            ls -lth /tmp/claude-1000/-home-prent-Repos-One-footed-bride-tuning/a4be9266-0297-4d6d-9e56-4ed67edcf7f3/scratchpad/
+
+-------------
+8/4/26 I like the results from two days ago and want to 
+
+      activity_bwv261.png
+            ssh one-footed-bride-pod 
+            or n in 57 58 59 ; do ls -1 /home/prent/Repos/One-footed-bride-tuning/Uploads/ball9-t$n*.*; done
+                  /home/prent/Repos/One-footed-bride-tuning/Uploads/ball9-t57c_lm19_r1.12_df5_t3_d05_07_t106.mp3
+                  /home/prent/Repos/One-footed-bride-tuning/Uploads/ball9-t57c_lm19_r1.12_df5_t3_d05_07_t106.npy
+                  /home/prent/Repos/One-footed-bride-tuning/Uploads/ball9-t58c_lm17_r1.75_df3_t3_d04_02_t092.mp3
+                  /home/prent/Repos/One-footed-bride-tuning/Uploads/ball9-t58c_lm17_r1.75_df3_t3_d04_02_t092.npy
+                  /home/prent/Repos/One-footed-bride-tuning/Uploads/ball9-t59c_lm19_r1.12_df2_t3_d05_21_t088.mp3
+                  /home/prent/Repos/One-footed-bride-tuning/Uploads/ball9-t59c_lm19_r1.12_df2_t3_d05_21_t088.npy
+      Four ideas from my walk today:
+      1. Ask fable to draw some more realistic looking instruments to use in the videos. The current ones are caricatures, and I would like to get as realistic as possible. After all, I like to call my music fake but accurate. Accurate tunings that could not be created on real instruments, accurate arrangements using the most realistic samples I could find, and it makes sense I'd like fake but accurate videos as well. 
+      2. Ask Fable if there is a blender image repository of musical instruments that we could use.
+      3. Let's shrink the instruments by about 30%, keeping them in place. In the now vacant space, include human beings (or robots if we must) playing the instruments. 
+      4. Can Fable implement my current video in 3JS? Andrej Karpathy talked about getting Fable to create a realistic video of the first paragraph of The Lord of the Rings, with Bilbo Baggins house, and the tresures in tunnels beneath. It was all done in 3js.
+      5. Asked Claude Fable if it could create activity_bwv257.png by program, and he created 
+            ./make_activity.sh Uploads/ball9-t57c_lm19_r1.12_df5_t3_d05_07_t106.npy
+      I passed all of these to Claude Fable. He already dod the 5th one. Here are his answers to the first four: 
+
+      Claude: Good set. Verdicts first, reasoning after.
+
+      Verdict
+      1. More realistic instruments	Realistic for a big step up; never for photoreal
+      2. Instrument model repositories	Realistic — best value per hour of the four
+      3. Shrink 30% + add players	Shrinking is easy; convincing players are hard→never
+      4. Port to three.js	Hard but realistic — and it buys you something nothing else does
+      1. Realistic instruments. The ceiling here isn't modelling skill, it's your render budget. You're at ~1.65s/frame in EEVEE for 14,250 frames. Photorealism means Cycles, materials with real texture maps, and subdivided geometry — call it 30–60s/frame, which turns a 2-hour render into 5–10 days. That's the wall, not the geometry.
+
+      Short of that wall there's a lot of room. Bevels and subdivision on the existing meshes, procedural wood grain and varnish instead of flat colours, and better proportions would move you from "caricature" to "stylised-realistic" without materially changing render time. That's worth doing. "As realistic as possible" via generated procedural code is not — a photoreal violin isn't 500 more lines of bpy.ops, it's a modelled asset.
+
+      Worth naming the tension, then I'll drop it: your tunings are impossible on real instruments. There's a coherent argument that instruments which look slightly impossible are more honest to "fake but accurate" than ones pretending to be photographs. Your call entirely.
+
+      2. Model repositories. These exist in quantity — Sketchfab, BlendSwap, Blender Market, TurboSquid. Two real constraints: licences vary a lot (CC0 vs CC-BY vs commercial-only, and yours is published music), and poly counts from asset stores are often 100× what you need for instruments that are 200px tall in a wide shot.
+
+      The reason I rank this highest is a split that already exists in your code. Your sections divide cleanly into things with moving parts (marimba bars flex, mallets strike, guitar strings, finger-piano tines) and things that only sway and glow (woodwind, brass, bowed strings, melody). The second group needs nothing from a model but a mesh parented to a seat empty with an object-colour-driven material — that's a genuinely cheap swap, and it's most of your instrument count. The animated ones you'd keep procedural, because update_marimba knows the geometry it built.
+
+      3. Shrink and add players. The shrink is one edit — multiply each scale in SECTIONS by 0.7. Ten seconds of work.
+
+      The people are the whole problem. Ranked by what actually survives contact:
+
+      Silhouettes or shadow figures — cheap, atmospheric, no uncanny valley. Would probably look terrific against your coloured backdrop.
+      Abstract geometric robots, no faces — moderate work, sidesteps the valley by not competing.
+      Rigged humans from Mixamo etc. — free and available, but generic "playing" loops will visibly desync from your actual notes, and desynced playing looks worse than no player at all.
+      Convincing humans playing in sync — character rigging plus IK plus per-note hand animation. Not happening here.
+      One thing in your favour if you do pursue it: Saturday's mallet fix put the pivot exactly where a hand belongs — behind the instrument, at the right height, derived from the strike angle. An arm would have a well-defined attachment point already. Also note your woodwind module's docstring opens "4 invisible woodwind players" — the invisibility is a design choice you'd be reversing, not an omission.
+
+      4. three.js. The port is more mechanical than it sounds. Your geometry is cones, cylinders, tori and swept tubes — three.js has direct equivalents for all of them. Your update_*(t) callbacks are already pure functions of time, which is exactly the shape a browser render loop wants. And EEVEE is itself a rasteriser, so the quality drop is far smaller than Blender→WebGL suggests; it's not Cycles you'd be giving up.
+
+      The work is real: re-express nine geometry modules, export the features array to something the browser can load, rebuild the lighting. Weeks, not days.
+
+      What makes it interesting isn't fidelity, it's the loop. Right now authoring a camera cue costs you a render to see if it worked. In a browser you'd scrub the timeline and know instantly. Given you've spent the last several days authoring cues against static charts, that's the single biggest workflow gain on this list.
+
+      If it appeals, there's a much cheaper version: a three.js preview with crude box-and-cylinder stand-ins at the right positions and scales, driven by the same cue sheet, used only for timing camera moves — with Blender still doing the final render. Days rather than weeks, and it captures most of the benefit.
+
+      My response: Two ideas I'm interested in pursuing: 1) shadow figures and 2)three.js preview to help setting the camera origin and lighting using boxes (cubes of variable dimensions) intead of instruments. I should have said that this is only to help set the camera cues. I made some terrible mistakes on the last video because I made a few bad decisions and didn't notice it until after the render. 
+      
+      Claude says: Both delivered. Committed as c2ce3260 (preview) and fec6dd0e (figure).
+
+      Shadow figure — marimba only. One polygon on one plane, near-black, no rig or texture. The key decision was sizing: rather than picking a height in metres, it's derived from the stand — hip height as a fraction of body height — because what makes a figure read as standing at an instrument is the bars landing at its hips. That holds however the marimba gets scaled.
+
+      I had to decide framing rather than default it, and rendering both is what settled it:
+
+      Excluded from framing (instrument stays tight): the figure overflows a marimba close-up and gets cropped at the neck. A faceless dark shape looming out of frame — genuinely worse than nothing.
+      Included (camera pulls back): whole figure, bars at its hips, unmistakably a player at a keyboard. The marimba drops from 2.79 to 5.92 units of framed height, so it sits smaller in its own close-up.
+      I went with pulling back. SCENERY_PREFIX at blender_stage.py:57 flips it back to tight framing if you disagree once you see it moving.
+
+      Two honest limitations. The arms don't reach the mallets — the figure's arms are baked into the silhouette at the keyboard's centre, while mallets appear wherever the note is, sometimes several units away. That's inherent to the billboard option; only the jointed version could fix it. And the overhead pass will see it edge-on, since your cue sheet has three ("overhead", …) shots — worth watching for at 2:10 and 4:15.
+
+      Renders to look at before you commit to rolling it out:
+
+      scratchpad/fr2/frame_001020.png — the version that shipped
+      scratchpad/fr/frame_001020.png — the cropped alternative
+      scratchpad/player.png — bare, no stage lighting
+      The three.js preview needs --dump-layout re-run now that the marimba's box changed:
+
+
+      blender -b -P blender_stage.py -- --dump-layout stage_layout.json
+      python3 -m http.server 8000
+
+---------------------------
+8/5/26 Making progress on the three.js version of the video. 
+      Now it's just a web gui to decide on camera angles and lighting. I still have to choose the timing on which instrument/section to focus on.
+
+      Some ideas. What if we could get the instruments to move to where they are in the audio field in 3d? Today the audio location bounces around based on the stereo value. I could ask Claude to position the instruments in the stage based on the stereo value. Make them all moveable. 
+      Stop worrying about realistic instruments. As Claude identified, the closer you get to real, the faker it looks. Embrace the playfulness of three.js. Look at the examples on X here: https://x.com/threejs
+      
+---------------
+8/6/26 How can I get back to the Claude I was working with yesterday morning.      
+      The three.js program is designed to show what the camera will see at each of the time slots articuated in CAMERA_CUES in blender_stage.py based on activity_bwv258.png.
+
+      Start the server:
+            python3 -m http.server 8000 # then open http://localhost:8000/stage_preview.html in a browser.
+      It answers "where does the one camera live, and how is the stage lit?" — the decisions that are fixed for the whole piece. Your CAMERA_CUES only ever push in and out along a single viewing axis; this page is where you set that axis and the light rig it looks at.
+
+      It is not a renderer and not a timeline. It has no idea what time it is or what's playing.
+      The four things you can do
+      
+      1. Look at the stage. Every section is a coloured box, sized from the real Blender build. Drag to orbit, scroll to zoom, right-drag to pan. Tick Show individual instruments to break sections into their 35 individual targets — sections that have players go transparent so you can see inside them (that's how bass.guitar becomes visible).
+
+      2. Place the camera. Sliders for CAM_POS, CAM_TARGET and CAM_LENS. Tick Look through render camera to see the true 38mm 16:9 frame, letterboxed to the render aspect.
+
+      3. Step through your cue sheet. The dropdown at the top lists all 28 cues in time order, plus every target individually. Pick one and the camera snaps to exactly the shot that cue produces. Overhead cues get a travel slider, since they drift from over one instrument to over another. This is the bridge to activity_bwv257.png: that chart tells you when to cut and to whom; this shows you what the resulting shot looks like — before spending two hours rendering to find out.
+
+      Because the framing reads the live camera values, moving CAM_POS re-frames all 28 cues at once.
+
+      4. Move the lights. Each wash spot and both suns get position, aim, cone, energy and colour. Cones are drawn down to where they land on the floor, so you can see which sections each one actually covers.
+
+      Everything you change is written out as paste-ready Python at the bottom of the panel — CAM_POS, CAM_TARGET, CAM_LENS, WASH_SPOTS, SUNS. Reset puts it all back.
+
+      What it's honest about, and what it isn't
+      Trustworthy: position, direction, framing, coverage. The framing is a verified port of _framing() — I computed all 34 shots in Blender and in the browser and they agree to float32 precision.
+
+      Not trustworthy: brightness. three.js and EEVEE don't agree on what a watt is. Use it to decide where a light points and what it covers, never how bright the render will be.
+
+      When to re-run the dump
+            blender -b -P blender_stage.py -- --dump-layout stage_layout.json
+      After any geometry change or any edit to CAMERA_CUES — the page reads a snapshot, not your source. That staleness is exactly what went wrong with the older stage_layout_editor.html, whose hand-copied numbers had drifted so far that pasting its output would have moved things that were already correct.
+
+8/7/26 Next steps:
+      I just want to confirm the next steps to create a video of the bwv258 chorale. 
+      1. Create CAMERA_CUES in @blender_stage.py based on @activity_bwv258.png. 
+      2. Once those are created, create the stage_layout by executing the command: 
+            blender -b -P blender_stage.py -- --dump-layout stage_layout.json 
+      3. Start the web server:
+            python3 -m http.server 8000 
+      4. Open a browser on http://localhost:8000/stage_preview.html
+      5. Review the camera movements in stage_preview.html. If any look incorrect step through 1,2, 3, 4 and continue to inspect the camera movements.
+      This much I understand, but what I don't understand is the role of the window on the gui where it says: Paste back into blender_stage.py. Do I need separate CAM_POS, CAM_TARGET, CAM_LENS, and WASH_SPOTS for each time slot in CAMERA_CUES? What are the functions of those 4 variables?
+      Make sure you have each file from roughly the same time and date:
+            ls -lth activity_bwv258.png
+                  -rw-r--r--. 1 prent prent 173K Aug  4 15:44 activity_bwv258.png
+            ls -lth Uploads/ball9-t58c_lm17_r1.75_df3_t3_d04_02_t092.npy
+                  -rw-r--r--. 1 prent prent 1.6M Aug  4 15:38 Uploads/ball9-t58c_lm17_r1.75_df3_t3_d04_02_t092.npy
+            ls -lth Uploads/ball9-t58c_lm17_r1.75_df3_t3_d04_02_t092.mp3
+                  -rw-r--r--. 1 prent prent 9.1M Aug  4 15:38 Uploads/ball9-t58c_lm17_r1.75_df3_t3_d04_02_t092.mp3
+      
+      When you are satisfied, then it's time to run the render.
+            For bwv258 (Uploads/ball9-t58c_lm17_r1.75_df3_t3_d04_02_t092, tempo 92, 238.2s ≈ 7149 frames):
+
+      6. Git push on the local files, and git pull in the container. 
+            eval $(op signin)
+            GIT_PAT=$(op item get "GitHub PAT" --fields credential --reveal)
+            git remote set-url origin https://$GIT_PAT@github.com/prentrodgers/One-footed-bride-tuning.git
+            git push
+
+      Then git pull on the pod:
+            kubectl exec -i deploy/one-footed-bride -c pod-ssh -- git -C /home/prent/Repos/One-footed-bride-tuning pull
+      Then confirm the push-pull worked:
+            kubectl exec -i deploy/one-footed-bride -c pod-ssh -- bash -c "cd /home/prent/Repos/One-footed-bride-tuning && blender -b -P blender_stage.py -- --list-targets" 2>&1 | grep -E "^    [0-9]+:|cue sheet"
+
+      
+      7. Render on the pod on node fs5 — your two-GPU split, with the split at 3574/3575 for this length.
+      This version calculates everyting that could be calculated. 8/7/26
+
+                  kubectl exec -i deploy/one-footed-bride -c pod-ssh -- bash -s <<'EOF'
+set -eu
+
+# ══ per-chorale — the only block you edit ═══════════════════════════════════
+NPY=Uploads/ball9-t58c_lm17_r1.75_df3_t3_d04_02_t092.npy
+TEMPO=92
+DURATION=238.3
+# ═══════════════════════════════════════════════════════════════════════════
+FPS=30
+RES_X=1280
+RES_Y=720
+GPU_A=renderD130          # half 1 hides this device and uses the other
+GPU_B=renderD129
+REPO=/home/prent/Repos/One-footed-bride-tuning
+
+cd "$REPO"
+# Check the inputs BEFORE wiping stage_frames — a typo here used to delete a
+# finished render and only then fail.
+test -f "$NPY" || { echo "no such npy: $NPY" >&2; exit 1; }
+
+# Frame split, derived rather than worked out by hand. Must match
+# blender_stage.py: n_frames = ceil(duration * FPS), frames 0..n_frames-1.
+TOTAL=$(awk -v d="$DURATION" -v f="$FPS" 'BEGIN{t=d*f; c=int(t); if (t-c > 1e-9) c++; print c}')
+LAST=$((TOTAL - 1))
+MID=$((TOTAL / 2))
+echo "render: $TOTAL frames  |  half1 0..$((MID-1))  half2 $MID..$LAST  |  tempo $TEMPO"
+
+rm -rf stage_frames && mkdir stage_frames
+
+cat > /tmp/half.sh <<INNER
+set -e
+hide=\$1; shift
+mount --bind /dev/null /dev/dri/\$hide
+export MESA_VK_DEVICE_SELECT=8086:e223
+cd $REPO
+exec blender --background --gpu-backend vulkan --python blender_stage.py -- --npy $NPY --tempo $TEMPO --duration $DURATION --res-x $RES_X --res-y $RES_Y --out stage_frames "\$@"
+INNER
+
+setsid nohup unshare -m --propagation private bash /tmp/half.sh $GPU_A --frame-start 0 --frame-end $((MID-1)) > /tmp/half1.log 2>&1 &
+setsid nohup unshare -m --propagation private bash /tmp/half.sh $GPU_B --frame-start $MID > /tmp/half2.log 2>&1 &
+
+sleep 40
+tail -n 2 /tmp/half1.log /tmp/half2.log
+EOF
+
+      After a few hours 
+            cat /tmp/half1.log /tmp/half2.log | wc -l
+                  7290 # this has some error messages that add to the total.
+            ssh one-footed-bride-pod 
+            cd Repos/One-footed-bride-tuning
+            ls -1 stage_frames | wc -l
+                  7149
+            ssh one-footed-bride-pod ls -1 /home/prent/Repos/One-footed-bride-tuning/stage_frames/ | wc -l
+                  7149
+            # scp -r one-footed-bride-pod:/home/prent/Repos/One-footed-bride-tuning/stage_frames/ .
+            ssh one-footed-bride-pod "tar -C /home/prent/Repos/One-footed-bride-tuning -cf - stage_frames" | tar -xf -
+
+
+      8. Mux frames to video:             
+            ffmpeg -y -framerate 30 -i stage_frames/frame_%06d.png \
+  -i "Uploads/ball9-t58c_lm17_r1.75_df3_t3_d04_02_t092.mp3" \
+  -c:v libx264 -pix_fmt yuv420p -c:a aac -shortest stage_full_bwv258.mp4
+
+-------------------
+8/8/26 What's next. I think I need to refine the positioning of the camera. 
+      There are too many closeups of totally uninteresting instruments. Better than a close up of nothing happening, use a wide shot.
+      The reason is that I forgot to do a git pull on the pod. 
+
+      Try a render on the fs1.
+            sudo dnf install -y git git-lfs blender
+            git clone https://github.com/prentrodgers/One-footed-bride-tuning
+            cd One-footed-bride-tuning
+            scp fs3:/home/prent/Repos/One-footed-bride-tuning/Uploads/ball9-t58c_lm17_r1.75_df3_t3_d04_02_t092.npy Uploads/.
+            blender -b -P blender_stage.py -- --npy Uploads/ball9-t58c_lm17_r1.75_df3_t3_d04_02_t092.npy --tempo 92 --duration 238.3 --res-x 1280 --res-y 720 --out stage_frames
+      It ran 4 times faster than the dual B70's. Amazing. 0.419s/frame compared to 1.65 seconds on the dual B70's. Here's the full script to render on the fs1: now in blender-render.sh on the fs1
+            #!/usr/bin/env bash
+            set -eu
+
+            # ══ per-chorale — the only block you edit ═══════════════════════════════════
+            STEM=ball9-t58c_lm17_r1.75_df3_t3_d04_02_t092
+            TEMPO=92
+            DURATION=238.3
+            OUT=stage_full_bwv258.mp4
+            # ═══════════════════════════════════════════════════════════════════════════
+            REPO=~/Repos/One-footed-bride-tuning
+            cd "$REPO"
+
+            test -f "Uploads/$STEM.npy" || { echo "no npy: Uploads/$STEM.npy" >&2; exit 1; }
+            test -f "Uploads/$STEM.mp3" || { echo "no mp3: Uploads/$STEM.mp3" >&2; exit 1; }
+            git pull --ff-only
+            blender -b -P blender_stage.py -- --list-targets | grep -E "^    [0-9]+:|cue sheet"
+            read -rp "cue sheet correct? [enter to render, ctrl-c to stop] " _
+
+            rm -rf stage_frames && mkdir stage_frames
+            time blender -b -P blender_stage.py -- --npy "Uploads/$STEM.npy" --tempo $TEMPO --duration $DURATION --res-x 1280 --res-y 720 --out stage_frames
+            ffmpeg -y -framerate 30 -i stage_frames/frame_%06d.png -i "Uploads/$STEM.mp3" -c:v libx264 -pix_fmt yuv420p -c:a aac -shortest "$OUT"
+            ls -lh "$OUT"
+
+      I was missing ffmpeg on fs1 
+            sudo dnf install ffmpeg 
+            ffmpeg -y -framerate 30 -i stage_frames/frame_%06d.png -i "Uploads/ball9-t58c_lm17_r1.75_df3_t3_d04_02_t092.mp3" -c:v libx264 -pix_fmt yuv420p -c:a aac -shortest stage_full_bwv258.mp4
+
+      The 4090 is going away soon. What should I replace it with. How about a new GPU for the fs9 or fs3 open air case.
+      See the benchmarks here: https://opendata.blender.org/
+            NVIDIA GeForce RTX 4090       11468.21	7
+            NVIDIA GeForce RTX 5060 Ti     4111.95	35 # this is not significantly faster than the B70. Not a good investment of $700
+            Intel Arc Pro B70 Graphics     3801.67    4
+      I guess that explains why my 4090 system is being bid up on ebay. 
+
+      Now do bwv257 wnd bwv259, then if time, bwv261
+      He recommends doing 59 first:
+            Uploads/ball9-t59c_lm19_r1.12_df2_t3_d05_21_t088.npy
+            Uploads/ball9-t59c_lm19_r1.12_df2_t3_d05_21_t088.mp3
+            STEM=ball9-t59c_lm19_r1.12_df2_t3_d05_21_t088
+            duration=5:13 = 
+                  Chroale     Shots	Length secs       Frames	Tempo
+                  bwv257	22	5:02	302.398      9072	      106
+                  bwv259	22	5:13 	313.109      9396	       88 # <-- first
+                  bwv261	34	8:00	480.582     14418	      118
