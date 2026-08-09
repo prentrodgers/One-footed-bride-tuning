@@ -19620,12 +19620,7 @@ EOF
             sudo dnf install ffmpeg 
             ffmpeg -y -framerate 30 -i stage_frames/frame_%06d.png -i "Uploads/ball9-t58c_lm17_r1.75_df3_t3_d04_02_t092.mp3" -c:v libx264 -pix_fmt yuv420p -c:a aac -shortest stage_full_bwv258.mp4
 
-      The 4090 is going away soon. What should I replace it with. How about a new GPU for the fs9 or fs3 open air case.
-      See the benchmarks here: https://opendata.blender.org/
-            NVIDIA GeForce RTX 4090       11468.21	7
-            NVIDIA GeForce RTX 5060 Ti     4111.95	35 # this is not significantly faster than the B70. Not a good investment of $700
-            Intel Arc Pro B70 Graphics     3801.67    4
-      I guess that explains why my 4090 system is being bid up on ebay. 
+      
 
       Now do bwv257 wnd bwv259, then if time, bwv261
       He recommends doing 59 first:
