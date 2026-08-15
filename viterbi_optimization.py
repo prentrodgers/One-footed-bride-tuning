@@ -67,6 +67,43 @@ def _parallel_candidate_worker(args):
     return i, candidates
 
 
+def polish_candidate(chord, chord_scorer, tolerance, radius=6, passes=3):
+    """Nudge each voice a few cents to reach compromises an exact ratio chain cannot.
+
+    SA builds a chord by writing exact diamond ratios pair by pair, so every interval
+    it does not write directly is a *sum* of ratios and can land in a hole in the
+    diamond.  bwv261 chord 2 (D G A E) is the clear case: a 4/3 D-G plus a 9/8 D-E
+    leaves G-E at 294¢, and the lm17 diamond jumps 289 (13/11) to 316 (6/5), so that
+    interval misses the tolerance window and takes the +1000 penalty (score 1079).
+    SA therefore has to break a note by ~45¢ instead (E as 12/11, score 93).
+    Moving G down 3¢ puts all six intervals inside a ±3¢ window at once — score 79,
+    the tuning the June 2026 runs only reached by luck, when leftover SA perturbation
+    noise happened to land there.
+
+    Pitch classes are preserved: a voice is never moved outside its ±50¢ window.
+    Returns (polished_chord, score).
+    """
+    best = np.asarray(chord, dtype=float).copy()
+    best_score = chord_scorer.score_chord(best, tolerance=tolerance)
+    pcs = [int(atu.pitch_class_from_cents(c)) for c in best]
+    for _ in range(passes):
+        improved = False
+        for v in range(best.shape[0]):
+            for delta in range(-radius, radius + 1):
+                if delta == 0:
+                    continue
+                trial = best.copy()
+                trial[v] = (best[v] + delta) % 1200
+                if int(atu.pitch_class_from_cents(trial[v])) != pcs[v]:
+                    continue
+                score = chord_scorer.score_chord(trial, tolerance=tolerance)
+                if score < best_score:
+                    best_score, best, improved = score, trial, True
+        if not improved:
+            break
+    return best, float(best_score)
+
+
 def generate_k_candidates(cent_value_chord, cent_value_chord_prev, chord_num,
                          chord_scorer, low_number_ratios, tonal_diamond,
                          tolerance, K=10, rolls=4, sa_iterations=100,
@@ -117,13 +154,16 @@ def generate_k_candidates(cent_value_chord, cent_value_chord_prev, chord_num,
             spread=spread_variation,
             max_no_improve=candidate_max_no_improve)
         
+        # Polish before de-duplication so near-identical SA results collapse to the
+        # same key and the DP gets the compromise tunings on its menu.
+        tuned_chord, score = polish_candidate(tuned_chord, chord_scorer, tolerance)
+
         # Create a hashable representation to check for duplicates
         tuning_key = tuple(np.round(tuned_chord, 1))  # Round to 0.1 cent
-        
+
         if tuning_key not in seen_tunings:
             seen_tunings.add(tuning_key)
             duplicate_streak = 0
-            score = chord_scorer.score_chord(tuned_chord, tolerance=tolerance)
             candidates.append((tuned_chord.copy(), float(score)))
             
             if len(candidates) >= K:
@@ -137,6 +177,18 @@ def generate_k_candidates(cent_value_chord, cent_value_chord_prev, chord_num,
                     f'{len(candidates)} unique candidates found)')
                 break
     
+    # Always offer the polished 12-TET chord as one candidate.  SA can only reach a
+    # chord by chaining exact ratios, so where the diamond has a hole it never emits
+    # the near-miss chord at all — it scores 1000+ mid-search and is rejected long
+    # before anything could nudge it into the window.  Polishing the 12-TET start
+    # instead reaches that compromise directly (bwv261 chord 2: 79 vs the 93 SA
+    # settles for).  Everywhere else this candidate scores in the thousands and the
+    # sort below drops it, so it costs one slot and a few hundred cached lookups.
+    seed_chord, seed_score = polish_candidate(
+        np.asarray(cent_value_chord, dtype=float), chord_scorer, tolerance)
+    if tuple(np.round(seed_chord, 1)) not in seen_tunings:
+        candidates.append((seed_chord, seed_score))
+
     # Sort by score (lower is better)
     candidates.sort(key=lambda x: x[1])
     
@@ -176,43 +228,37 @@ def _accum_mad_cost(accum, cents_array, octave=1200.0):
     return total
 
 
-def _mad_optimal_delta(cents_array, pc_accum, octave=1200.0, max_shift=50.0):
-    """Find a single cent offset for the whole chord that reduces MAD cost.
+def _pc_preserving_shifts(cents, octave=1200.0, max_shift=50.0):
+    """Every whole-chord integer offset that leaves all pitch classes unchanged.
 
-    Tries shifting the chord toward each voice's running pitch-class circular
-    mean.  Only accepts shifts that leave every pitch class unchanged (hard
-    constraint from horizontal_transpose logic).  Returns (delta, shifted) if
-    an improvement is found, otherwise (0.0, None).
+    ``score_chord`` only looks at pairwise deltas, so transposing all voices by
+    the same amount is free vertically — it moves only the horizontal and MAD
+    terms.  The full legal range is offered rather than a targeted handful, and
+    the DP picks with the complete objective.
+
+    An earlier version proposed only the offsets that land each shared pitch
+    class exactly on its previous value.  That averaged 0.86 candidates per
+    transition out of ~78 legal ones, and never offered the compromise shift
+    when two shared pitch classes pulled in different directions — which is
+    where the stubborn 20-40¢ gaps lived.
     """
-    pcs = atu.pitch_class_from_cents(cents_array)
-    base_cost = _accum_mad_cost(pc_accum, cents_array, octave)
+    pcs = atu.pitch_class_from_cents(cents)
 
-    candidate_deltas = []
-    for pc, cv in zip(pcs, cents_array):
-        if pc_accum[pc, 2] < 1:
+    # Widest offset keeping every voice inside its ±49¢ pitch-class window.
+    lo, hi = -int(max_shift), int(max_shift)
+    for pc, cv in zip(pcs, cents):
+        deviation = (float(cv) - pc * 100.0 + octave / 2) % octave - octave / 2
+        lo = max(lo, int(np.ceil(-49.0 - deviation)))
+        hi = min(hi, int(np.floor(49.0 - deviation)))
+
+    variants = []
+    for delta in range(lo, hi + 1):
+        if delta == 0:
             continue
-        angle = np.arctan2(pc_accum[pc, 0], pc_accum[pc, 1]) % (2.0 * np.pi)
-        mean_cv = angle * octave / (2.0 * np.pi)
-        delta = float(np.mod(mean_cv - float(cv) + 600.0, 1200.0) - 600.0)
-        candidate_deltas.append(delta)
-
-    best_delta = 0.0
-    best_cost = base_cost
-
-    for delta in candidate_deltas:
-        if abs(delta) < 1e-6 or abs(delta) > max_shift:
-            continue
-        shifted = np.mod(cents_array + delta, octave)
-        if not np.array_equal(atu.pitch_class_from_cents(shifted), pcs):
-            continue
-        cost = _accum_mad_cost(pc_accum, shifted, octave)
-        if cost < best_cost - 1e-6:
-            best_cost = cost
-            best_delta = delta
-
-    if abs(best_delta) < 1e-6:
-        return 0.0, None
-    return best_delta, np.mod(cents_array + best_delta, octave)
+        shifted = np.mod(cents + delta, octave)
+        if np.array_equal(atu.pitch_class_from_cents(shifted), pcs):
+            variants.append(shifted)
+    return variants
 
 
 def compute_transition_cost(prev_cents, curr_cents, prev_midi, curr_midi,
@@ -260,7 +306,8 @@ def compute_transition_cost(prev_cents, curr_cents, prev_midi, curr_midi,
 
 def viterbi_select_path(all_candidates, chorale_midi, vertical_weight=1.0,
                        horizontal_weight=0.5, penalty_type='pitch_class_jump',
-                       mad_weight=0.0, verbose=False, verbose_threshold=None):
+                       mad_weight=0.0, verbose=False, verbose_threshold=None,
+                       prev_chord_cents=None, prev_chord_midi=None):
     """
     Select optimal path through candidate trellis using dynamic programming.
 
@@ -284,12 +331,30 @@ def viterbi_select_path(all_candidates, chorale_midi, vertical_weight=1.0,
     # from the raw candidate if a MAD-reducing transposition was applied.
     dp = [[None for _ in range(len(all_candidates[i]))] for i in range(n_chords)]
 
-    # Initialise first chord — no transition cost, seed the accumulator
+    # Initialise first chord.  When this trellis is one phrase of a larger piece,
+    # prev_chord_cents is the last chord of the previous phrase, so the seam gets
+    # the same transposition treatment as any interior transition.
+    # ponytail: the PC accumulator still restarts at each phrase; only matters
+    # when mad_weight > 0, thread it through if global drift needs tighter control.
+    empty_accum = np.zeros((12, 3), dtype=float)
     for k in range(len(all_candidates[0])):
         cent_vals, v_score = all_candidates[0][k]
-        # Try transposition even at chord 0 (no prior history → no-op, but safe)
-        accum = _update_pc_accum(np.zeros((12, 3), dtype=float), cent_vals)
-        dp[0][k] = (vertical_weight * v_score, -1, accum, cent_vals)
+        variants = [cent_vals]
+        if prev_chord_cents is not None:
+            variants += _pc_preserving_shifts(cent_vals)
+
+        best_cost, best_cents = float('inf'), cent_vals
+        for used_cents in variants:
+            h_cost = 0.0
+            if prev_chord_cents is not None:
+                h_cost = compute_transition_cost(
+                    prev_chord_cents, used_cents, prev_chord_midi,
+                    chorale_midi[:, 0], penalty_type=penalty_type)
+            cost = vertical_weight * v_score + horizontal_weight * h_cost
+            if cost < best_cost:
+                best_cost, best_cents = cost, used_cents
+
+        dp[0][k] = (best_cost, -1, _update_pc_accum(empty_accum, best_cents), best_cents)
 
     # Fill DP table left to right
     for i in range(1, n_chords):
@@ -303,15 +368,14 @@ def viterbi_select_path(all_candidates, chorale_midi, vertical_weight=1.0,
             best_accum = None
             best_used_cents = curr_cents
 
+            # The raw candidate plus every pitch-class-preserving transposition.
+            # Transposition costs nothing vertically, so it is a free knob for the
+            # horizontal and MAD terms.  These depend only on the candidate, so
+            # build them once here instead of once per predecessor.
+            variants = [curr_cents] + _pc_preserving_shifts(curr_cents)
+
             for k_prev in range(K_prev):
                 prev_cost, _, prev_accum, prev_used = dp[i-1][k_prev]
-
-                # Consider original and MAD-transposed variant
-                variants = [curr_cents]
-                if mad_weight > 0:
-                    _, trans = _mad_optimal_delta(curr_cents, prev_accum)
-                    if trans is not None:
-                        variants.append(trans)
 
                 for used_cents in variants:
                     h_cost = compute_transition_cost(
@@ -424,6 +488,12 @@ def hierarchical_viterbi_optimization(chorale, cent_value_chorale,
     logging.info(f'Hierarchical Viterbi: {len(phrase_boundaries)} phrase(s), '
                 f'{n_chords} chords, K={K}')
     
+    # Candidate generation is independent per chord, so with workers do the whole
+    # piece in a single pool.  Creating a pool inside the phrase loop capped
+    # parallelism at the phrase length — chorales average well under ten chords
+    # per phrase, so most cores sat idle.
+    all_candidates = None
+
     # Populate module-level state before forking so workers inherit it
     if n_workers > 1:
         _WORKER_STATE.update({
@@ -443,9 +513,21 @@ def hierarchical_viterbi_optimization(chorale, cent_value_chorale,
             'candidate_max_no_improve': candidate_max_no_improve,
         })
 
+        base_seed = int(rng.integers(0, 2**31))
+        tasks = [(i, cent_value_chorale[:, i].copy(), base_seed + i)
+                 for i in range(n_chords)]
+        ctx = multiprocessing.get_context('fork')
+        with multiprocessing.pool.Pool(processes=n_workers, context=ctx,
+                                       initializer=_worker_log_reinit) as pool:
+            results_list = pool.map(_parallel_candidate_worker, tasks)
+        all_candidates = [cands for _, cands in sorted(results_list)]
+        logging.info(f'Generated candidates for {n_chords} chords on {n_workers} workers')
+
     # Level 1: Optimize within phrases
     phrase_solutions = []
     phrase_paths = []
+    prev_tail_cents = None      # last chord of the previous phrase
+    prev_tail_midi = None
 
     for phrase_idx, (start, end) in enumerate(phrase_boundaries):
         logging.info(f'Phrase {phrase_idx+1}/{len(phrase_boundaries)}: '
@@ -453,15 +535,8 @@ def hierarchical_viterbi_optimization(chorale, cent_value_chorale,
         
         phrase_indices = list(range(start, end))
 
-        if n_workers > 1:
-            base_seed = int(rng.integers(0, 2**31))
-            tasks = [(i, cent_value_chorale[:, i].copy(), base_seed + i)
-                     for i in phrase_indices]
-            ctx = multiprocessing.get_context('fork')
-            with multiprocessing.pool.Pool(processes=n_workers, context=ctx,
-                                           initializer=_worker_log_reinit) as pool:
-                results_list = pool.map(_parallel_candidate_worker, tasks)
-            phrase_candidates = [cands for _, cands in sorted(results_list)]
+        if all_candidates is not None:
+            phrase_candidates = all_candidates[start:end]
         else:
             phrase_candidates = []
             prev_cents = np.zeros(4, dtype=int)
@@ -486,11 +561,15 @@ def hierarchical_viterbi_optimization(chorale, cent_value_chorale,
             vertical_weight=vertical_weight_phrase,
             horizontal_weight=horizontal_weight_phrase,
             mad_weight=mad_weight,
-            verbose=verbose, verbose_threshold=verbose_threshold)
-        
+            verbose=verbose, verbose_threshold=verbose_threshold,
+            prev_chord_cents=prev_tail_cents, prev_chord_midi=prev_tail_midi)
+
         phrase_solutions.append(phrase_tuning)
         phrase_paths.append(path)
-        
+        if len(phrase_tuning):
+            prev_tail_cents = phrase_tuning[-1]
+            prev_tail_midi = chorale[:, end - 1]
+
         logging.info(f'Phrase {phrase_idx+1} optimized: cost={cost:.1f}, '
                     f'{len(path)} chords')
     
@@ -541,5 +620,50 @@ def detect_phrase_boundaries(chorale, fermata_threshold=2):
     
     logging.info(f'Detected {len(boundaries)} phrase(s): {boundaries}')
     return boundaries
+
+def _self_check():
+    """Assert the DP transposes a chord when doing so closes an adjacent gap."""
+    chord_a = np.array([0.0, 400.0, 700.0, 1000.0])
+    chord_b = np.array([20.0, 420.0, 720.0, 1020.0])   # same PCs, 20¢ sharp
+    midi = np.array([[60, 60], [64, 64], [67, 67], [70, 70]])
+
+    shifts = _pc_preserving_shifts(chord_b)
+    assert any(np.allclose(s, chord_a) for s in shifts), shifts
+    for s in shifts:
+        assert np.array_equal(atu.pitch_class_from_cents(s),
+                              atu.pitch_class_from_cents(chord_b)), s
+
+    tunings, _, _ = viterbi_select_path(
+        [[(chord_a, 10.0)], [(chord_b, 10.0)]], midi, horizontal_weight=0.5)
+    assert np.allclose(tunings[1], chord_a), tunings[1]
+
+    # A phrase seam gets the same treatment: chord 0 transposes toward the tail
+    # of the previous phrase instead of being taken as-is.
+    seam, _, _ = viterbi_select_path(
+        [[(chord_b, 10.0)]], midi[:, :1], horizontal_weight=0.5,
+        prev_chord_cents=chord_a, prev_chord_midi=midi[:, 0])
+    assert np.allclose(seam[0], chord_a), seam[0]
+
+    # A shift big enough to change a pitch class must never be offered.
+    near_edge = np.array([45.0, 445.0, 745.0, 1045.0])
+    for s in _pc_preserving_shifts(near_edge):
+        assert np.array_equal(atu.pitch_class_from_cents(s),
+                              atu.pitch_class_from_cents(near_edge)), s
+
+    # polish_candidate must reach the compromise an exact ratio chain misses:
+    # bwv261 chord 2, D-G 4/3 + D-E 9/8 leaves G-E at 294¢ (a hole in the lm17
+    # diamond) and scores 1079; nudging G 3¢ flat scores 79.
+    scorer = atu.ChordScorer(atu.build_tonal_diamond(17)[:-1])
+    chain = np.array([209.0, 707.0, 911.0, 413.0])
+    assert scorer.score_chord(chain, tolerance=3) > 1000
+    polished, score = polish_candidate(chain, scorer, tolerance=3)
+    assert score < 100, (polished, score)
+    assert np.array_equal(atu.pitch_class_from_cents(polished),
+                          atu.pitch_class_from_cents(chain)), polished
+    print('viterbi_optimization self-check passed')
+
+
+if __name__ == '__main__':
+    _self_check()
 
 # Made with Bob
