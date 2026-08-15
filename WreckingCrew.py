@@ -34,15 +34,15 @@ os.makedirs(os.path.expanduser(WAVE_DIR), exist_ok=True)
 rng = np.random.default_rng()
 
 def parse_params_from_filename(filename):
-    """Extract tolerance, ratio_factor, and limit_max from filename.
-    
-    Expected format: bwv###_t#_r#.###_lm##-trans-sa-opt.npy
+    """Extract tolerance, ratio_factor, and limit_max from a path.
+
+    Matches either the old encoded file name (bwv###_t#_r#.###_lm##-trans-sa-opt.npy)
+    or the current tuning directory name (Archive/straw-man/t3_r1.25_lm17/bwv261-opt.npy).
     Returns dict with 'tolerance', 'ratio_factor', 'limit_max' or None if not found.
     """
     import re
-    basename = os.path.basename(filename)
-    # Match pattern: _t(\d+)_r([\d.]+)_lm(\d+)
-    match = re.search(r'_t(\d+)_r([\d.]+)_lm(\d+)', basename)
+    # Match t(\d+)_r([\d.]+)_lm(\d+) anywhere in the path, at a '/' or '_' boundary
+    match = re.search(r'(?:^|[/_])t(\d+)_r([\d.]+)_lm(\d+)', filename or '')
     if match:
         return {
             'tolerance': int(match.group(1)),
@@ -2152,9 +2152,6 @@ def chorale_to_wave_v4(version, album, include_sections, ratio_factor, limit_max
     else:
         mask = True
 
-    # assign the list of valid intervals from a tonality diamond.
-    tonal_diamond = np.array(atu.build_tonal_diamond(limit_max, penalize_7_11=False)) 
-
     # Load the chorale and some metadata - Since we already have the chorale in cents in a numpy file.
 
     cent_file_name = os.path.join(numpy_dir, f'{version}{cent_file_partial}') # fills out to the actual cent file name
@@ -2175,17 +2172,22 @@ def chorale_to_wave_v4(version, album, include_sections, ratio_factor, limit_max
             # Use the first match (there should only be one per chorale)
             cent_file_name = matches[0]
             print(f'File not found with basic name, using encoded filename: {os.path.basename(cent_file_name)}')
-            # Extract parameters from the found filename
-            file_params = parse_params_from_filename(cent_file_name)
-            if file_params:
-                # Update the parameters that will be used
-                tolerance = file_params['tolerance']
-                ratio_factor = file_params['ratio_factor']
-                limit_max = file_params['limit_max']
-                print(f'Extracted from filename: tolerance={tolerance}, ratio_factor={ratio_factor}, limit_max={limit_max}')
         else:
             print(f'Warning: Could not find {cent_file_name} or any encoded variant')
-    
+
+    # The tuning params live either in the file name (old) or the tuning directory
+    # name (current, e.g. Archive/straw-man/t3_r1.25_lm17). Whichever it is, it wins:
+    # it describes how these cents were actually generated, and it names the mp3/npy.
+    file_params = parse_params_from_filename(cent_file_name)
+    if file_params:
+        tolerance = file_params['tolerance']
+        ratio_factor = file_params['ratio_factor']
+        limit_max = file_params['limit_max']
+        print(f'Extracted from path: tolerance={tolerance}, ratio_factor={ratio_factor}, limit_max={limit_max}')
+
+    # assign the list of valid intervals from a tonality diamond (after limit_max is resolved).
+    tonal_diamond = np.array(atu.build_tonal_diamond(limit_max, penalize_7_11=False))
+
     print(f'About to load {cent_file_name = }')
     cent_value_chorale = np.load(cent_file_name)
     # print(f'{chorale_in_cents.shape = }, {chorale_in_cents[:,10:12] = }')
@@ -2366,8 +2368,8 @@ def mainline(chorale_override=None, short_repeats=False, just_triangle=False, in
       dmu.start_logger(JUPYTER_LOG, log_level = 'info')
       print(f'{platform.uname() = }')
       woodwinds_volume = 16 # only used if short_repeats = True
-      
       # Set the instrument sections based on mode combinations
+      new_orch = True
       # Priority: just_triangle determines instrument choice, short_repeats determines complexity
       if just_triangle and short_repeats:
             # Both flags: Triangle samples with straight chorale (no complex patterns)
@@ -2381,18 +2383,6 @@ def mainline(chorale_override=None, short_repeats=False, just_triangle=False, in
                   'marimbas':   [False, np.array(['xylp1', 'mari1', 'vibp1', 'harp1', 'ebss1', 'stri1', 'bgui1', 'long1'])],
                   'bass_section':  [False, np.array(['bfin3', 'bfin4', 'celp3', 'celp4', 'bgui3', 'bgui2', 'long2', 'long3'])],
                   'melody_section':[False, np.array(['flut2', 'flut3', 'clar2', 'vibp1', 'oboe3', 'basn4', 'trmp5', 'frnh3'])]}
-      elif just_triangle:
-            # Triangle only: Triangle samples with complex arpeggio patterns
-            include_sections = {
-                  # section --      play or not --    instruments in the section
-                  'finger_pianos': [False, np.array(['fing1', 'fing2', 'fing3', 'fing4', 'fing5', 'fing6', 'bfin1', 'bfin2'])],
-                  'wood_winds':    [True, np.array(['trian1', 'trian2', 'trian3', 'trian4', 'trian5', 'trian6', 'trian7', 'trian8'])],
-                  'pizz_strings':  [False, np.array(['vlip1', 'vlip2', 'vlip3', 'vlip4', 'vlap1', 'vlap2', 'celp1', 'celp2'])],
-                  'bowed_strings': [False, np.array(['vliv1', 'vliv2', 'vliv3', 'vliv4', 'vlav1', 'vlav2', 'celv1', 'celv2'])],
-                  'brass_section': [False, np.array(['trmp1', 'trmp2', 'trmp3', 'trmp4', 'trmb1', 'trmb2', 'tuba1', 'tuba2'])],
-                  'marimbas':   [False, np.array(['xylp1', 'mari1', 'vibp1', 'harp1', 'ebss1', 'stri1', 'bgui1', 'long1'])],
-                  'bass_section':  [False, np.array(['bfin3', 'bfin4', 'celp3', 'celp4', 'bgui3', 'bgui2', 'long2', 'long3'])],
-                  'melody_section':[True, np.array(['flut2', 'flut3', 'clar2', 'vibp1', 'oboe3', 'basn4', 'trmp5', 'frnh3'])]}
       elif short_repeats:
             # Short repeats only: McGill samples with straight chorale (no complex patterns)
             include_sections = {
@@ -2410,7 +2400,20 @@ def mainline(chorale_override=None, short_repeats=False, just_triangle=False, in
                   'brass_section': [True, np.array(['trmp1', 'trmp2', 'trmp3', 'trmp4', 'trmb1', 'trmb2', 'tuba1', 'tuba2'])],
                   'marimbas':   [False, np.array(['xylp1', 'mari1', 'vibp1', 'harp1', 'ebss1', 'stri1', 'bgui1', 'long1'])],
                   'bass_section':  [False, np.array(['bfin3', 'bfin4', 'celp3', 'celp4', 'bgui3', 'bgui2', 'long2', 'long3'])],
-                  'melody_section':[False, np.array(['flut2', 'flut3', 'clar2', 'mari2', 'oboe3', 'basn4', 'trmp5', 'frnh3'])]}
+                  'melody_section':[False, np.array(['flut2', 'flut3', 'clar2', 'mari2', 'oboe3', 'basn4', 'trmp5', 'frnh3'])]
+                  }
+      elif new_orch:
+            include_sections = {
+                # section --      play or not --    instruments in the section
+                'finger_pianos': [True, np.array(['fing1', 'flut1', 'fing3', 'fing4', 'flut2', 'fing5', 'fing6', 'bfin2'])],
+                'wood_winds':    [True, np.array(['fing2', 'clar1', 'oboe1', 'oboe2', 'frnh1', 'frnh2', 'basn1', 'basn2'])],
+                'pizz_strings':  [True, np.array(['vlip1', 'vlip2', 'vlap1', 'celp1', 'vlim1', 'vlim2', 'vlap2', 'celp2',])],
+                'bowed_strings': [True, np.array(['vliv1', 'vliv2', 'vliv3', 'vliv4', 'vlav1', 'vlav2', 'celv1', 'celv2'])],
+                'brass_section': [True, np.array(['trmp1', 'trmp2', 'trmp3', 'trmp4', 'trmb1', 'trmb2', 'tuba1', 'tuba2'])],
+                'marimbas':      [True, np.array(['mari1', 'mari2', 'mari3', 'mari4', 'mari5', 'mari6', 'mari7', 'mari8'])],
+                'bass_section':  [True, np.array(['bgui1', 'bgui2', 'bgui3', 'bfin3', 'bfin4', 'bgui4', 'bfin5', 'bfin6'])],
+                'melody_section':[True, np.array(['flut3', 'flut4', 'clar2', 'vibp1', 'oboe3', 'basn4', 'trmp5', 'vibp2'])]}
+                  
       else:
             # Neither flag: Full mode with all McGill instruments and complex arpeggio patterns
             include_sections = {
@@ -2601,22 +2604,21 @@ if __name__ == "__main__":
                           help="Insert section B after each listed chord index, e.g. --rondo_insert_b_after 64")
       args = parser.parse_args()
 
-      # Try to extract parameters from cent_file_partial filename if it contains them
-      # This allows parameters to be encoded in the filename instead of passed as arguments
-      file_params = None
-      if args.cent_file_partial:
-            file_params = parse_params_from_filename(args.cent_file_partial)
-            if file_params:
-                  # Use file parameters as defaults if command-line args are still at their defaults
-                  if args.tolerance is None:
-                        args.tolerance = file_params['tolerance']
-                        logging.info(f'Using tolerance={args.tolerance} from filename')
-                  if args.ratio_factor == 1.5:  # default value
-                        args.ratio_factor = file_params['ratio_factor']
-                        logging.info(f'Using ratio_factor={args.ratio_factor} from filename')
-                  if args.limit_max == 17:  # default value
-                        args.limit_max = file_params['limit_max']
-                        logging.info(f'Using limit_max={args.limit_max} from filename')
+      # Extract the tuning parameters encoded in the cent file name (old layout) or in
+      # the tuning directory name (current layout, e.g. Archive/straw-man/t3_r1.25_lm17).
+      file_params = (parse_params_from_filename(args.cent_file_partial)
+                     or parse_params_from_filename(args.numpy_dir))
+      if file_params:
+            # Use them as defaults if command-line args are still at their defaults
+            if args.tolerance is None:
+                  args.tolerance = file_params['tolerance']
+                  logging.info(f'Using tolerance={args.tolerance} from path')
+            if args.ratio_factor == 1.5:  # default value
+                  args.ratio_factor = file_params['ratio_factor']
+                  logging.info(f'Using ratio_factor={args.ratio_factor} from path')
+            if args.limit_max == 17:  # default value
+                  args.limit_max = file_params['limit_max']
+                  logging.info(f'Using limit_max={args.limit_max} from path')
 
       if args.tolerance is None:
             args.tolerance = 1
