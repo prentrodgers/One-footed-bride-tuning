@@ -324,7 +324,7 @@ def load_and_merge_previous(output_file, best_cents, best_scores, chord_scorer, 
     try:
         prev = np.load(output_file)          # shape (4, N)
     except (EOFError, ValueError):
-        return best_cents, best_scores
+        return best_cents, best_scores, True
     prev_chords = (prev.T) % 1200        # shape (N, 4)
     prev_scores = np.array([chord_scorer.score_chord(prev_chords[i], tolerance)
                              for i in range(prev_chords.shape[0])])
@@ -658,6 +658,12 @@ def parse_args():
                         help='Maximum allowed cent jump between shared pitch classes in adjacent chords; 0 disables continuity enforcement (default: 40)')
     parser.add_argument('--retune_on_gaps', type=int, default=3,
                         help='Number of SA retune attempts for chords that exceed max_gap (default: 3)')
+    parser.add_argument('--keep_previous', action=argparse.BooleanOptionalAction, default=True,
+                        help='Keep the previously saved result when it wins on '
+                             'mean_score + spread_weight * spread. That comparison has no '
+                             'adjacent-gap term, so it will reject a run that trades chord '
+                             'score or global spread for smaller pitch-class jumps. Use '
+                             '--no-keep_previous while comparing tunings by ear (default: True)')
     parser.add_argument('--snap_tolerance', type=float, default=0.0,
                         help='Snap pitch-class cent values within this distance (¢) of the modal cent to the mode; 0 disables (default: 0)')
     
@@ -754,7 +760,24 @@ def main():
         logging.info(f'{cent_value_chorale.shape = }, {chorale.shape = }, {keys[root]} {mode}')
         atu.log_top_notes(top_notes)
 
-        if workers == 1 and num_runs == 1:
+        output_file = os.path.join(numpy_dir, f'{version}-opt.npy')
+        final_cent_value_chorale = None
+        final_score = None
+
+        if args.use_viterbi:
+            # Only the preliminary whole-chorale pass is skipped, not simulated
+            # annealing itself: generate_k_candidates runs build_straw_man_chord_sa
+            # K times per chord, so SA does far more work here than this pass did.
+            # The pass is dropped because it fed nothing into Viterbi — candidates
+            # are built from the 12-TET starting cents and the result was replaced
+            # outright.
+            print('Skipping the preliminary whole-chorale SA pass (its result was '
+                  'discarded unused).\n'
+                  '  Simulated annealing still runs, and more of it: every one of the '
+                  f'{args.k_candidates} candidates\n'
+                  f'  per chord is a full SA run of {rolls} roll(s) x up to '
+                  f'{sa_iterations} iterations.')
+        elif workers == 1 and num_runs == 1:
             # Single worker: run directly, preserving original print behavior
             mismatch_count = 0
             drift_count = 0
@@ -804,12 +827,6 @@ def main():
             if drift_count > 0: print(f'{drift_count = }')
             _print_early_stop_histogram(single_worker_early_stop_iters, sa_iterations)
 
-            # Compare with previously saved file
-            output_file = os.path.join(numpy_dir, f'{version}-opt.npy')
-            final_cent_value_chorale, final_score, improved = load_and_merge_previous(
-                output_file, final_cent_value_chorale, final_score, chord_scorer, tolerance,
-                chorale=chorale, spread_weight=args.spread_weight)
-
         else:
             # Multi-worker: run parallel batches, merge per-chord bests
             overall_best_cents = None
@@ -857,12 +874,6 @@ def main():
 
             final_cent_value_chorale = overall_best_cents
             final_score = overall_best_scores
-
-            # Compare with previously saved file
-            output_file = os.path.join(numpy_dir, f'{version}-opt.npy')
-            final_cent_value_chorale, final_score, improved = load_and_merge_previous(
-                output_file, final_cent_value_chorale, final_score, chord_scorer, tolerance,
-                chorale=chorale, spread_weight=args.spread_weight)
 
         # Viterbi optimization: generate K candidates per chord and select optimal path
         if args.use_viterbi:
@@ -928,6 +939,18 @@ def main():
                 final_cent_value_chorale, chorale, args.snap_tolerance)
             final_score = np.array([chord_scorer.score_chord(final_cent_value_chorale[i], tolerance)
                                     for i in range(final_cent_value_chorale.shape[0])])
+
+        # Compare with the previously saved file LAST.  Run earlier, this comparison
+        # decided nothing: Viterbi, continuity enforcement and snapping all rewrite
+        # final_cent_value_chorale afterwards, so a "keeping previous" result was
+        # discarded and the new array was saved over the old one regardless of
+        # whether it was actually better.
+        if args.keep_previous:
+            final_cent_value_chorale, final_score, improved = load_and_merge_previous(
+                output_file, final_cent_value_chorale, final_score, chord_scorer, tolerance,
+                chorale=chorale, spread_weight=args.spread_weight)
+        else:
+            improved = True
 
         print(f'{version = }, chords: {final_cent_value_chorale.shape[0]}, {tolerance = }, {rolls = }, {limit_max = }, {sa_iterations = }, {initial_temperature = }, {cooling_rate = }, {args.ratio_factor = }, {args.stability_factor = }')
 

@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Grid search over limit_max, tolerance, ratio_factor, stability_factor, and max_delta.
+# Grid search over limit_max, tolerance, and ratio_factor.
 # Usage: bash grid_search.sh [chorale]   (default: all bwv253-264)
 #
 # Produces one audio file per combination (all renders happen inside the loop).
 # A ranking summary is printed at the end via select_best_and_render.py (no re-render).
-# Intermediate numpy files are written to Archive/straw-man/t{t}_r{r}_s{s}_md{md}_sn{sn}_lm{lm}/
+# Intermediate numpy files are written to Archive/straw-man/t{t}_r{r}_lm{lm}/
 #
 # NOTE: snap_tolerance > 0 is disabled. Independent per-voice snapping breaks
 # inter-voice intervals at tolerance=1 (even a 2-cent error per voice creates
@@ -15,88 +15,112 @@ set -euo pipefail
 mkdir -p ~/Music/sflib
 
 # CHORALES="${1:-bwv253}"
-CHORALES="${1:-$(echo bwv{253..264})}"
+# CHORALES="${1:-$(echo bwv{253..264})}"
+
+# LIMIT_MAXES=(17 19)
+# TOLERANCES=(1 2)
+# RATIOS=(1.125 1.25 1.375 1.5)
+# STABILITY_FACTORS=(0)
+# MAX_DELTAS=(33)
+
+# test with just one:
+CHORALES="bwv261"
 
 LIMIT_MAXES=(17 19)
-TOLERANCES=(1 2)
-RATIOS=(1.125 1.25 1.375 1.5 1.625)
-STABILITY_FACTORS=(0)
-MAX_DELTAS=(33)
+TOLERANCES=(1 2 3)
+RATIOS=(1.25 1.50 1.75)
+ROLLS=4
+
+# Not searched over — held fixed and passed through to the tuner. They are no
+# longer part of the directory name, so changing one silently overwrites the
+# previous result rather than starting a new cell.
+STABILITY_FACTOR=0
+MAX_DELTA=33
+SPREAD=7
+
+# FRESH=1 wipes each result directory and saves this run's output unconditionally.
+# FRESH=0 keeps the directory and lets the keep-previous ratchet accumulate the
+# best result across repeated runs.
+#
+# WARNING: the ratchet compares mean_score + spread_weight * max-circular-MAD and
+# has NO adjacent-gap term.  A run with smaller pitch-class jumps but a slightly
+# worse chord score or more global drift will be discarded.  Check the gap columns
+# in the report after each pass rather than trusting the ratchet to keep the
+# tuning you actually prefer.
+FRESH=1
+
 
 for limit_max in "${LIMIT_MAXES[@]}"; do
     for tolerance in "${TOLERANCES[@]}"; do
-        for stability_factor in "${STABILITY_FACTORS[@]}"; do
-            for max_delta in "${MAX_DELTAS[@]}"; do
-                for ratio in "${RATIOS[@]}"; do
-                    snap_tolerance=0
-                    spread=7
-                    dir="Archive/straw-man/t${tolerance}_r${ratio}_s${stability_factor}_md${max_delta}_sn${snap_tolerance}_lm${limit_max}"
-                    echo "========================================"
-                    echo "limit_max=${limit_max}  tolerance=${tolerance}  ratio_factor=${ratio}  stability_factor=${stability_factor}  max_delta=${max_delta}  spread=${spread}  sa_iterations=1000"
-                    echo "dir=${dir}"
-                    echo "========================================"
+        for ratio in "${RATIOS[@]}"; do
+            dir="Archive/straw-man/t${tolerance}_r${ratio}_lm${limit_max}"
+            echo "========================================"
+            echo "limit_max=${limit_max}  tolerance=${tolerance}  ratio_factor=${ratio}  stability_factor=${STABILITY_FACTOR}  max_delta=${MAX_DELTA}  spread=${SPREAD}  sa_iterations=1000"
+            echo "dir=${dir}"
+            echo "========================================"
 
-                    mkdir -p "$dir"
-                    # rm -f "$dir"/*-opt.npy "$dir"/*-trans-sa-opt.npy
+            mkdir -p "$dir"
+            if [ "$FRESH" = "1" ]; then
+                rm -f "$dir"/*-opt.npy "$dir"/*-opt.txt
+                keep_flag="--no-keep_previous"
+            else
+                keep_flag="--keep_previous"
+            fi
 
-                    # Step 1: tune with SA
-                    time python Straw_man_tuning_v2.py \
-                        --no-print_values --no-print_finals --no-print_initial \
-                        --rolls 8 --workers 1 --runs 1 \
-                        --limit_max "$limit_max" \
-                        --chorale_list $CHORALES \
-                        --ratio_factor "$ratio" \
-                        --tolerance "$tolerance" \
-                        --max_delta "$max_delta" \
-                        --numpy_dir "$dir" \
-                        --max_gap 33 --retune_on_gaps 5 \
-                        --stability_factor "$stability_factor" \
-                        --sa_iterations 1000 \
-                        --cooling_rate 0.999 \
-                        --initial_temp 3.0 \
-                        --spread "$spread" \
-                        --use_viterbi \
-                        --k_candidates 15 \
-                        --viterbi_vertical_weight 1.0 \
-                        --viterbi_horizontal_weight 0.5 \
-                        --detect_phrases \
-                        --phrase_horizontal_weight 1.0
+            # Step 1: tune with SA
+            time python Straw_man_tuning_v2.py \
+                --no-print_values --no-print_finals --no-print_initial \
+                --rolls "$ROLLS" --workers 1 --runs 1 \
+                --limit_max "$limit_max" \
+                --chorale_list $CHORALES \
+                --ratio_factor "$ratio" \
+                --tolerance "$tolerance" \
+                --max_delta "$MAX_DELTA" \
+                --numpy_dir "$dir" \
+                --max_gap 33 --retune_on_gaps 5 \
+                "$keep_flag" \
+                --stability_factor "$STABILITY_FACTOR" \
+                --sa_iterations 1000 \
+                --cooling_rate 0.999 \
+                --initial_temp 3.0 \
+                --spread "$SPREAD" \
+                --use_viterbi \
+                --k_candidates 15 \
+                --viterbi_vertical_weight 1.0 \
+                --viterbi_horizontal_weight 0.5 \
+                --detect_phrases \
+                --phrase_horizontal_weight 8.0 \
+                --viterbi_workers 16
 
-                    # Step 2: horizontal consistency pass
-                    for c in $CHORALES; do
-                        python horizontal_transpose.py \
-                            --destination "${dir}/${c}-trans-sa-opt.npy" \
-                            "${dir}/${c}-opt.npy" \
-                            --log-level DEBUG
-                    done
+            # Step 2: spread analysis
+            # (The old horizontal_transpose.py pass is gone: the Viterbi DP
+            # now considers pitch-class-preserving whole-chord transpositions
+            # on every transition and at phrase seams, so the greedy post-pass
+            # has nothing left to shift.)
+            python analyze_spread.py \
+                --numpy_dir "$dir" \
+                --chorale_list $CHORALES \
+                --suffix="-opt.npy"
 
-                    # Step 3: spread analysis
-                    python analyze_spread.py \
-                        --numpy_dir "$dir" \
-                        --chorale_list $CHORALES \
-                        --suffix="-trans-sa-opt.npy"
+            # Step 3: render all combinations (one chorale at a time)
+            # for c in $CHORALES; do
+            #     python WreckingCrew.py \
+            #         --short_repeats \
+            #         --chorale_name "$c" \
+            #         --cent_file_partial="-opt.npy" \
+            #         --no_show_volumes \
+            #         --album 4 \
+            #         --tolerance "$tolerance" \
+            #         --ratio_factor "$ratio" \
+            #         --stability_factor "$STABILITY_FACTOR" \
+            #         --max_delta "$MAX_DELTA" \
+            #         --limit_max "$limit_max" \
+            #         --numpy_dir "$dir" \
+            #         --spread "$SPREAD" \
+            #         --max_cents_slide 50
+            # done
 
-                    # Step 4: render all combinations (one chorale at a time)
-                    # for c in $CHORALES; do
-                    #     python WreckingCrew.py \
-                    #         --short_repeats \
-                    #         --chorale_name "$c" \
-                    #         --cent_file_partial="-trans-sa-opt.npy" \
-                    #         --no_show_volumes \
-                    #         --album 4 \
-                    #         --tolerance "$tolerance" \
-                    #         --ratio_factor "$ratio" \
-                    #         --stability_factor "$stability_factor" \
-                    #         --max_delta "$max_delta" \
-                    #         --limit_max "$limit_max" \
-                    #         --numpy_dir "$dir" \
-                    #         --spread "$spread" \
-                    #         --max_cents_slide 50
-                    # done
-
-                    echo "Done: limit_max=${limit_max}  tolerance=${tolerance}  ratio_factor=${ratio}  stability_factor=${stability_factor}  max_delta=${max_delta}  spread=${spread}"
-                done
-            done
+            echo "Done: limit_max=${limit_max}  tolerance=${tolerance}  ratio_factor=${ratio}"
         done
     done
 done
@@ -105,11 +129,13 @@ echo "========================================"
 echo "Grid search complete. Printing ranking summary..."
 echo "========================================"
 
-# Final summary: rank all directories by combined score+spread (no re-render).
+# Final summary: gap and chord-quality report for every directory (no winner
+# is chosen, and nothing is rendered — read the table and listen).
 python select_best_and_render.py \
     --numpy_dir_root Archive/straw-man \
     --chorale_list $CHORALES \
-    --spread_weight 0.5
+    --suffix="-opt.npy" \
+    --sort_by gapsum
 
 echo "========================================"
 echo "Done."
