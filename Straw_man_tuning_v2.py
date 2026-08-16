@@ -717,7 +717,9 @@ def main():
         os.makedirs(numpy_dir, exist_ok=True)
     # Write the log into numpy_dir so each grid-search job keeps its own log
     # alongside its numpy results rather than overwriting the shared test.log.
-    log_path = os.path.join(numpy_dir, 'straw-man-tuning.log')
+    # The chorale is in the name because per-chorale jobs share one numpy_dir:
+    # a fixed name would have concurrent jobs overwriting each other mid-run.
+    log_path = os.path.join(numpy_dir, f'straw-man-tuning-{args.chorale_list[0]}.log')
     start_logger(log_path, level=logging.INFO)
     print(f'{numpy_dir = }')
     print(f'Logging to {log_path}')

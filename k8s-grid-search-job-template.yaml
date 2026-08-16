@@ -94,7 +94,10 @@ spec:
             MAX_DELTA=33
             SPREAD=7
             INITIAL_TEMP=3.0
-            CHORALES="bwv253 bwv254 bwv255 bwv256 bwv257 bwv258 bwv259 bwv260 bwv261 bwv262 bwv263 bwv264"
+            # One chorale per job.  Chorales are independent, and a job that ran all
+            # twelve serially spent 12 x ~60s single-threaded (the per-chorale loop,
+            # the Viterbi DP and enforce_continuity) with most cores idle.
+            CHORALE=CHORALE_VALUE
 
             # Same directory scheme as grid_search.sh, and the one WreckingCrew.py
             # parses for tolerance/ratio/limit_max.  initial_temp is no longer part
@@ -104,6 +107,7 @@ spec:
 
             echo "========================================"
             echo "Job JOBID starting"
+            echo "chorale=${CHORALE}"
             echo "limit_max=${LIMIT_MAX}  tolerance=${TOLERANCE}  ratio_factor=${RATIO}"
             echo "initial_temp=${INITIAL_TEMP}  stability_factor=${STABILITY_FACTOR}  spread=${SPREAD}"
             echo "dir=${DIR}"
@@ -112,11 +116,14 @@ spec:
             mkdir -p "$DIR"
             mkdir -p ~/Music/sflib
 
-            # FRESH=1 wipes the cell and saves this run unconditionally, matching
-            # grid_search.sh.  The keep-previous ratchet compares mean_score +
-            # spread_weight * MAD with no adjacent-gap term, so it will discard a
-            # run with smaller pitch-class jumps.
-            rm -f "$DIR"/*-opt.npy "$DIR"/*-opt.txt
+            # Wipe only this chorale's files and save unconditionally, matching
+            # grid_search.sh's FRESH=1.  Scoped to ${CHORALE} because the twelve
+            # per-chorale jobs for this cell share $DIR — a wildcard here would
+            # have each job delete the other eleven's results.
+            # (The keep-previous ratchet compares mean_score + spread_weight * MAD
+            # with no adjacent-gap term, so it will discard a run with smaller
+            # pitch-class jumps.)
+            rm -f "$DIR/${CHORALE}-opt.npy" "$DIR/${CHORALE}-opt.txt"
 
             # Step 1: tune with SA and viterbi optimization
             echo "Step 1: Running Straw_man_tuning_v2.py..."
@@ -124,7 +131,7 @@ spec:
                 --no-print_values --no-print_finals --no-print_initial \
                 --rolls 4 --workers 1 --runs 1 \
                 --limit_max "$LIMIT_MAX" \
-                --chorale_list $CHORALES \
+                --chorale_list "$CHORALE" \
                 --ratio_factor "$RATIO" \
                 --tolerance "$TOLERANCE" \
                 --max_delta "$MAX_DELTA" \
@@ -144,31 +151,35 @@ spec:
                 --viterbi_verbose_threshold 80 \
                 --detect_phrases \
                 --phrase_horizontal_weight 8.0 \
-                --viterbi_workers 24
+                --viterbi_workers 8
 
             # Step 2: spread analysis
             # (The old horizontal_transpose.py pass is gone: the Viterbi DP now
             # considers pitch-class-preserving whole-chord transpositions on every
             # transition and at phrase seams, so the greedy post-pass has nothing
             # left to shift.)
+            #
+            # Both analyses cover only this job's chorale.  The cross-chorale
+            # table has to come from a separate aggregation run once every job
+            # for a cell has finished.
             echo "Step 2: Running analyze_spread.py..."
             python analyze_spread.py \
                 --numpy_dir "$DIR" \
-                --chorale_list $CHORALES \
+                --chorale_list "$CHORALE" \
                 --suffix="-opt.npy"
 
             # Step 3: adjacent-chord spread analysis
             echo "Step 3: Running analyze_adjacent_spread.py..."
             python analyze_adjacent_spread.py \
                 --numpy_dir "$DIR" \
-                --chorale_list $CHORALES \
+                --chorale_list "$CHORALE" \
                 --suffix="-opt.npy" \
                 --gap_threshold 15 \
                 --top 20
-            
+
             echo "========================================"
             echo "Job JOBID complete!"
-            echo "Results saved to: $DIR"
+            echo "Results saved to: $DIR (${CHORALE})"
             echo "========================================"
         volumeMounts:
         - mountPath: /home/prent
@@ -185,14 +196,15 @@ spec:
         - name: LOGNAME
           value: "prent"
         resources:
-          # --viterbi_workers 24 forks 24 candidate generators, so the limit has to
-          # allow them.  requests is what the scheduler packs against: raise it
-          # toward 24 if you want one job per node instead of several sharing.
+          # Sized so several per-chorale jobs share a node: 8 cores each means
+          # three concurrent jobs on a 24-core box, and one job's single-threaded
+          # phase overlaps another's parallel phase instead of idling cores.
+          # Keep --viterbi_workers equal to this cpu value.
           requests:
             cpu: "8"
             memory: "1Gi"
           limits:
-            cpu: "24"
+            cpu: "8"
             memory: "8Gi"
       volumes:
       - name: ceph-files
