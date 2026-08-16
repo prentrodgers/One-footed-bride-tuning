@@ -35,9 +35,14 @@ spec:
               - key: kubernetes.io/hostname
                 operator: In
                 values:
+                - fs2
+                - fs3
                 - fs4
+                - fs5
+                - fs6
                 - fs7
                 - fs8
+                - fs9
       initContainers:
       - name: git-sync
         image: quay.io/prentrodgers/python-music:0.7
@@ -91,7 +96,11 @@ spec:
             INITIAL_TEMP=3.0
             CHORALES="bwv253 bwv254 bwv255 bwv256 bwv257 bwv258 bwv259 bwv260 bwv261 bwv262 bwv263 bwv264"
 
-            DIR="Archive/straw-man/t${TOLERANCE}_r${RATIO}_lm${LIMIT_MAX}_tmp${INITIAL_TEMP}"
+            # Same directory scheme as grid_search.sh, and the one WreckingCrew.py
+            # parses for tolerance/ratio/limit_max.  initial_temp is no longer part
+            # of the name, so changing it overwrites the cell rather than making a
+            # new one.
+            DIR="Archive/straw-man/t${TOLERANCE}_r${RATIO}_lm${LIMIT_MAX}"
 
             echo "========================================"
             echo "Job JOBID starting"
@@ -103,11 +112,17 @@ spec:
             mkdir -p "$DIR"
             mkdir -p ~/Music/sflib
 
+            # FRESH=1 wipes the cell and saves this run unconditionally, matching
+            # grid_search.sh.  The keep-previous ratchet compares mean_score +
+            # spread_weight * MAD with no adjacent-gap term, so it will discard a
+            # run with smaller pitch-class jumps.
+            rm -f "$DIR"/*-opt.npy "$DIR"/*-opt.txt
+
             # Step 1: tune with SA and viterbi optimization
             echo "Step 1: Running Straw_man_tuning_v2.py..."
             time python Straw_man_tuning_v2.py \
                 --no-print_values --no-print_finals --no-print_initial \
-                --rolls 5 --workers 1 --runs 1 \
+                --rolls 4 --workers 1 --runs 1 \
                 --limit_max "$LIMIT_MAX" \
                 --chorale_list $CHORALES \
                 --ratio_factor "$RATIO" \
@@ -115,44 +130,39 @@ spec:
                 --max_delta "$MAX_DELTA" \
                 --numpy_dir "$DIR" \
                 --max_gap 33 --retune_on_gaps 5 \
+                --no-keep_previous \
                 --stability_factor "$STABILITY_FACTOR" \
                 --sa_iterations 1000 \
                 --cooling_rate 0.999 \
                 --initial_temp "$INITIAL_TEMP" \
                 --spread "$SPREAD" \
                 --use_viterbi \
-                --viterbi_mad_weight 0.3 \
-                --k_candidates 20 \
+                --k_candidates 15 \
                 --viterbi_vertical_weight 1.0 \
                 --viterbi_horizontal_weight 0.5 \
                 --viterbi_verbose \
                 --viterbi_verbose_threshold 80 \
                 --detect_phrases \
-                --phrase_horizontal_weight 1.0 \
-                --viterbi_workers 4
-            
-            # Step 2: horizontal consistency pass
-            echo "Step 2: Running horizontal_transpose.py for each chorale..."
-            for c in $CHORALES; do
-                python horizontal_transpose.py \
-                    --destination "${DIR}/${c}-trans-sa-opt.npy" \
-                    "${DIR}/${c}-opt.npy" \
-                    --log-level DEBUG
-            done
-            
-            # Step 3: spread analysis
-            echo "Step 3: Running analyze_spread.py..."
+                --phrase_horizontal_weight 8.0 \
+                --viterbi_workers 24
+
+            # Step 2: spread analysis
+            # (The old horizontal_transpose.py pass is gone: the Viterbi DP now
+            # considers pitch-class-preserving whole-chord transpositions on every
+            # transition and at phrase seams, so the greedy post-pass has nothing
+            # left to shift.)
+            echo "Step 2: Running analyze_spread.py..."
             python analyze_spread.py \
                 --numpy_dir "$DIR" \
                 --chorale_list $CHORALES \
-                --suffix="-trans-sa-opt.npy"
+                --suffix="-opt.npy"
 
-            # Step 4: adjacent-chord spread analysis
-            echo "Step 4: Running analyze_adjacent_spread.py..."
+            # Step 3: adjacent-chord spread analysis
+            echo "Step 3: Running analyze_adjacent_spread.py..."
             python analyze_adjacent_spread.py \
                 --numpy_dir "$DIR" \
                 --chorale_list $CHORALES \
-                --suffix="-trans-sa-opt.npy" \
+                --suffix="-opt.npy" \
                 --gap_threshold 15 \
                 --top 20
             
@@ -175,11 +185,14 @@ spec:
         - name: LOGNAME
           value: "prent"
         resources:
+          # --viterbi_workers 24 forks 24 candidate generators, so the limit has to
+          # allow them.  requests is what the scheduler packs against: raise it
+          # toward 24 if you want one job per node instead of several sharing.
           requests:
-            cpu: "1"
+            cpu: "8"
             memory: "1Gi"
           limits:
-            cpu: "8"
+            cpu: "24"
             memory: "8Gi"
       volumes:
       - name: ceph-files
