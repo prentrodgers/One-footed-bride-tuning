@@ -2,40 +2,35 @@
 """
 select_best_and_render.py
 
-Scan all tuned-array directories under --numpy_dir_root, compute per-chorale
-combined metric, print a ranked table, and optionally render the winning
-directory per chorale with WreckingCrew.py.
+Report on every tuned-array directory under --numpy_dir_root: chord quality and
+a detailed picture of the adjacent-chord pitch-class gaps, so the trade-off
+between the two is visible rather than collapsed into a single number.
 
-Ranking metric
---------------
-The primary concern is whether WreckingCrew.py can generate a glissando for
-each adjacent-chord pitch-class transition.  build_glides_array() only creates
-a slide when the cent gap is in the range (1, max_cents_slide).  Gaps above
-max_cents_slide produce no slide — just an abrupt, audibly sour jump.
+This used to pick a winner with a hinge metric:
 
-  combined = penalty_weight * hard_jump_count
-           + penalty_weight * 0.1 * mean_hard_jump_cents
-           + score_weight   * mean_chord_score
+    combined = 10 * (gaps >= max_cents_slide) + 0.1 * mean_hard_gap + mean_score
 
-  hard_jump_count  — number of adjacent PC transitions whose gap exceeds
-                     max_cents_slide (these will NOT be smoothed by a glissando)
-  mean_hard_jump   — average gap size of those hard jumps (secondary penalty)
-  mean_chord_score — vertical chord quality (tiebreaker)
+That hinge is gone.  It had two problems.  First, it was blind below the
+threshold: a tuning whose worst gap was 15¢ and one whose worst was 31¢ scored
+identically, so the ranking always came down to a few tenths of chord score.
+Second, `enforce_continuity` repairs a gap by shifting it to land on *exactly*
+max_gap, and the hinge counted `gap >= max_cents_slide` — so a repaired 33¢ gap
+was scored as a hard failure and buried, while an untouched 32¢ gap passed as
+clean.  The threshold was measuring the repair step, not the music.
 
-A result with zero hard jumps and a slightly worse chord score always beats
-one with even one hard jump.
+So this now reports instead of deciding.  For each directory it shows the gap
+count, sum, mean, median, p90 and max, plus how many gaps exceed 10/20/30¢, and
+then lists the largest individual gaps with their chord index, voice and note
+name so they can be found by ear in the rendered audio.
+
+--sort_by only orders the rows; it does not declare anything best.
 
 Usage:
     python select_best_and_render.py \
         --numpy_dir_root Archive/straw-man \
-        --chorale_list bwv253 bwv254 \
-        --suffix=-trans-sa-opt.npy \
-        --max_cents_slide 33 \
-        --penalty_weight 10.0 \
-        --score_weight 1.0
-
-    # To also render winners:
-    python select_best_and_render.py ... --render
+        --chorale_list bwv256 \
+        --suffix=-opt.npy \
+        --sort_by gapsum --top_gaps 10
 """
 
 import argparse
@@ -46,7 +41,6 @@ import shutil
 import subprocess
 import sys
 import time
-from collections import Counter, defaultdict
 
 import numpy as np
 
@@ -56,85 +50,104 @@ if base_dir not in sys.path:
 
 import adaptive_tuning_util as atu
 
+NOTE_NAMES = atu.set_accidentals(False)   # sharps: C♮ C♯ D♮ ...
+
 
 def parse_dir_params(dirname):
-    """Parse a tuning directory name into a params dict.
+    """Pull tuning parameters out of a directory name.
 
-    Supports two naming conventions:
-      Old: t{t}_r{r}_s{s}_md{md}_sn{sn}[_lm{lm}]
-      New: t{t}_r{r}_lm{lm}_tmp{temp}   (stability=0, max_delta=33, snap=0 implied)
-
-    Returns None if the name matches neither pattern.
+    Each field is read independently rather than by matching a fixed layout, so
+    every naming convention this project has used still parses:
+      t1_r1.25_lm17               current: tolerance, ratio and limit only
+      t1_r1.25_s0_md33_sn0_lm17   stability / max_delta / snap encoded
+      t2_r1.125_lm17_tmp3.0       temperature encoded
+    Absent fields fall back to the values those runs used.  Returns None when the
+    name carries no tolerance/ratio pair at all, so unrelated directories are
+    left to the caller's defaults.
     """
     name = os.path.basename(dirname)
-    # New convention: t1_r1.375_lm17_tmp3.0
-    m = re.match(r't(\d+)_r([\d.]+)_lm(\d+)_tmp([\d.]+)$', name)
-    if m:
-        return {
-            'tolerance': int(m.group(1)),
-            'ratio_factor': float(m.group(2)),
-            'limit_max': int(m.group(3)),
-            'stability_factor': 0.0,
-            'max_delta': 33,
-            'snap_tolerance': 0,
-        }
-    # Old convention: t1_r1.125_s0_md33_sn0_lm17
-    m = re.match(r't(\d+)_r([\d.]+)_s([\d.]+)_md(\d+)_sn(\d+)(?:_lm(\d+))?', name)
-    if m:
-        return {
-            'tolerance': int(m.group(1)),
-            'ratio_factor': float(m.group(2)),
-            'stability_factor': float(m.group(3)),
-            'max_delta': int(m.group(4)),
-            'snap_tolerance': int(m.group(5)),
-            'limit_max': int(m.group(6)) if m.group(6) else 23,
-        }
-    return None
+    tolerance = re.search(r'(?:^|_)t(\d+)(?:_|$)', name)
+    ratio = re.search(r'_r([\d.]+?)(?:_|$)', name)
+    if not tolerance or not ratio:
+        return None
+
+    limit_max = re.search(r'_lm(\d+)(?:_|$)', name)
+    stability = re.search(r'_s([\d.]+)(?:_|$)', name)
+    max_delta = re.search(r'_md(\d+)(?:_|$)', name)
+    snap = re.search(r'_sn(\d+)(?:_|$)', name)
+    return {
+        'tolerance': int(tolerance.group(1)),
+        'ratio_factor': float(ratio.group(1)),
+        'limit_max': int(limit_max.group(1)) if limit_max else 23,
+        'stability_factor': float(stability.group(1)) if stability else 0.0,
+        'max_delta': int(max_delta.group(1)) if max_delta else 33,
+        'snap_tolerance': int(snap.group(1)) if snap else 0,
+    }
 
 
-def compute_adjacency_metric(cent_4n, max_cents_slide):
-    """Count adjacent-chord PC transitions that exceed max_cents_slide (lower is better).
+def find_tuning_files(d, version, suffix, fallback):
+    """Every tuned array for `version` in directory `d`, with its parameters.
 
-    WreckingCrew's build_glides_array() only generates a glissando when the cent
-    gap between the same pitch class in consecutive chords is in the range
-    (1, max_cents_slide).  Gaps above that threshold produce no slide — just an
-    abrupt audible jump.  This function returns:
-
-        (hard_jump_count, mean_hard_jump_cents, max_gap_cents, total_transitions)
-
-    hard_jump_count      — transitions above max_cents_slide (primary penalty)
-    mean_hard_jump_cents — mean gap of those hard jumps (secondary penalty)
-    max_gap_cents        — worst single gap anywhere in the piece
-    total_transitions    — total shared-PC adjacent transitions found
+    Two layouts are in use: grid-search directories hold `{version}{suffix}` and
+    encode the parameters in the directory name, while the archived collections
+    hold `{version}_t{t}_r{r}_lm{lm}{suffix}` and encode them in the filename.
+    Returns a list of (path, params); filename parameters win when present.
     """
-    n_chords = cent_4n.shape[1]
-    hard_jumps = []
-    all_gaps = []
-
-    for i in range(1, n_chords):
-        prev_col = cent_4n[:, i - 1]
-        curr_col = cent_4n[:, i]
-        if np.array_equal(prev_col, curr_col):
+    # Anchored so that '-opt.npy' does not also swallow '-trans-sa-opt.npy',
+    # which a plain '*-opt.npy' glob would.
+    pattern = re.compile(
+        rf'^{re.escape(version)}(?:_t(\d+)_r([\d.]+)_lm(\d+))?{re.escape(suffix)}$')
+    found = []
+    for name in sorted(os.listdir(d)):
+        m = pattern.match(name)
+        if not m:
             continue
+        params = dict(fallback)
+        if m.group(1):
+            params.update(tolerance=int(m.group(1)), ratio_factor=float(m.group(2)),
+                          limit_max=int(m.group(3)))
+        found.append((os.path.join(d, name), params))
+    return found
+
+
+def collect_gaps(cent_4n):
+    """Every shared-pitch-class cent gap between adjacent chords.
+
+    For each voice of each chord whose pitch class also appears in the previous
+    chord, record the distance to the nearest occurrence of that pitch class.
+    Returns a list of (gap, chord_idx, voice_idx, pitch_class, prev_cent, curr_cent).
+    Gaps of 1¢ or less are dropped as rounding noise, matching what
+    WreckingCrew's build_glides_array() treats as no movement.
+    """
+    out = []
+    for i in range(1, cent_4n.shape[1]):
+        prev_col, curr_col = cent_4n[:, i - 1], cent_4n[:, i]
+        if np.array_equal(prev_col, curr_col):
+            continue                      # held chord: same cents, no transition
         prev_pcs = atu.pitch_class_from_cents(prev_col)
         curr_pcs = atu.pitch_class_from_cents(curr_col)
-        prev_map = defaultdict(list)
-        for pc, cv in zip(prev_pcs, prev_col):
-            prev_map[int(pc)].append(float(cv))
-        for pc, cv in zip(curr_pcs, curr_col):
-            pc = int(pc)
-            if pc not in prev_map:
+        for v, (pc, cv) in enumerate(zip(curr_pcs, curr_col)):
+            same_pc = [float(p) for p, ppc in zip(prev_col, prev_pcs) if ppc == pc]
+            if not same_pc:
                 continue
-            gap = min(atu.cent_distance_mod_1200(cv, p) for p in prev_map[pc])
+            prev_cent = min(same_pc, key=lambda p: atu.cent_distance_mod_1200(float(cv), p))
+            gap = atu.cent_distance_mod_1200(float(cv), prev_cent)
             if gap > 1.0:
-                all_gaps.append(gap)
-                if gap >= max_cents_slide:
-                    hard_jumps.append(gap)
+                out.append((gap, i, v, int(pc), prev_cent, float(cv)))
+    return out
 
-    hard_jump_count = len(hard_jumps)
-    mean_hard_jump = float(np.mean(hard_jumps)) if hard_jumps else 0.0
-    max_gap = float(np.max(all_gaps)) if all_gaps else 0.0
-    return hard_jump_count, mean_hard_jump, max_gap, len(all_gaps)
+
+def summarize_gaps(gaps, max_cents_slide):
+    """Reduce a gap list to the summary columns shown in the table."""
+    if not gaps:
+        return dict(n=0, total=0.0, mean=0.0, median=0.0, p90=0.0, mx=0.0,
+                    over10=0, over20=0, over30=0, at_slide=0)
+    g = np.array([x[0] for x in gaps])
+    return dict(
+        n=len(g), total=float(g.sum()), mean=float(g.mean()),
+        median=float(np.median(g)), p90=float(np.percentile(g, 90)), mx=float(g.max()),
+        over10=int((g > 10).sum()), over20=int((g > 20).sum()),
+        over30=int((g > 30).sum()), at_slide=int((g >= max_cents_slide).sum()))
 
 
 def score_array(cent_4n, tonal_diamond, tolerance):
@@ -147,39 +160,58 @@ def score_array(cent_4n, tonal_diamond, tolerance):
     return float(np.mean(scores)), float(np.max(scores)), int(np.argmax(scores))
 
 
+SORT_KEYS = {
+    'score':  lambda r: r['mean_score'],
+    'gapsum': lambda r: r['g']['total'],
+    # Worst single jump first, total gap as the tie-break.  The worst jump is what
+    # gets heard: on bwv261 this ordering put t3_r1.625_lm19 (max 11¢, sum 44) above
+    # t3_r1.375_lm19 (max 14¢, sum 32), and the 11¢ tuning was the one that sounded
+    # right — so a lower total does not make up for a bigger lurch.
+    'maxgap': lambda r: (r['g']['mx'], r['g']['total']),
+    'p90':    lambda r: r['g']['p90'],
+    'over20': lambda r: (r['g']['over20'], r['g']['total']),
+    'name':   lambda r: r['dir'],
+}
+
+
 def main():
     parser = argparse.ArgumentParser(
-        description='Rank tuned-array directories by glissando-aware adjacency metric and optionally render winners')
+        description='Report chord quality and adjacent pitch-class gap detail for tuned-array directories')
     parser.add_argument('--numpy_dir_root', type=str, default='Archive/straw-man',
                         help='Root directory containing tuned-array subdirectories')
     parser.add_argument('--chorale_list', type=str, nargs='+', default=['bwv253'],
                         help='Chorale names to evaluate')
-    parser.add_argument('--suffix', type=str, default='-trans-sa-opt.npy',
-                        help='Primary file suffix to evaluate (default: -trans-sa-opt.npy)')
-    parser.add_argument('--alt_suffix', type=str, default='-opt.npy',
-                        help='Fallback suffix: used instead of --suffix when it produces fewer hard '
-                             'jumps for a given directory/chorale combination. Set to empty string "" '
-                             'to disable fallback (default: -opt.npy)')
+    parser.add_argument('--suffix', type=str, default='-opt.npy',
+                        help='File suffix to report on (default: -opt.npy)')
+    parser.add_argument('--alt_suffix', type=str, default='',
+                        help='Second suffix to report as its own row when present, e.g. '
+                             '-trans-sa-opt.npy. Both are reported side by side rather than '
+                             'one being silently chosen (default: none)')
     parser.add_argument('--max_cents_slide', type=float, default=33.0,
-                        help='Glissando threshold: gaps above this value (cents) produce no slide in '
-                             'WreckingCrew and count as hard jumps in the ranking metric. '
-                             'Must match --max_cents_slide passed to WreckingCrew.py (default: 33)')
-    parser.add_argument('--penalty_weight', type=float, default=10.0,
-                        help='Weight applied to each hard jump (gap >= max_cents_slide) in the combined '
-                             'metric; set high so even one hard jump outweighs chord-quality differences '
-                             '(default: 10.0)')
-    parser.add_argument('--score_weight', type=float, default=1.0,
-                        help='Weight of mean chord quality score in combined metric; acts as tiebreaker '
-                             'when hard_jump_count is equal (default: 1.0)')
-    # kept for backward compatibility but no longer drives ranking
-    parser.add_argument('--spread_weight', type=float, default=0.0,
-                        help='(Legacy, ignored in ranking) Whole-chorale MAD spread weight (default: 0.0)')
-    parser.add_argument('--tolerance', type=int, default=None,
-                        help='Ignored — tolerance is read per-directory from the directory name.')
-    parser.add_argument('--limit_max', type=int, default=23,
-                        help='Tonal diamond limit_max (default: 23)')
+                        help='Glissando reference: WreckingCrew slides a gap only below this '
+                             'value. Shown as the final bucket column; it no longer discards '
+                             'anything (default: 33)')
+    parser.add_argument('--sort_by', type=str, default='score', choices=sorted(SORT_KEYS),
+                        help='Row ordering only — implies no judgement of quality. '
+                             'score=mean chord score, gapsum=total gap cents, maxgap, p90, '
+                             'over20=count of gaps above 20¢, name (default: score)')
+    parser.add_argument('--top_gaps', type=int, default=10,
+                        help='List this many largest individual gaps per detailed directory; '
+                             '0 disables the detail section (default: 10)')
+    parser.add_argument('--detail_dirs', type=int, default=3,
+                        help='Show the largest-gap detail for this many leading rows (default: 3)')
+    parser.add_argument('--tolerance', type=int, default=1,
+                        help='Chord-scoring tolerance for directories whose name does not encode '
+                             'it (default: 1)')
+    parser.add_argument('--limit_max', type=int, default=17,
+                        help='Tonal diamond limit_max for directories whose name does not encode '
+                             'it (default: 17)')
+    parser.add_argument('--copy_npy_to', type=str, default=None,
+                        help='Copy the leading row per chorale (under --sort_by) to this '
+                             'directory. Ordering is not a quality verdict — check the report first.')
+    # Kept for when selection is trustworthy again; unused for now.
     parser.add_argument('--render', action='store_true',
-                        help='Run WreckingCrew.py for the best directory per chorale')
+                        help='Run WreckingCrew.py for the leading row per chorale')
     parser.add_argument('--album', type=int, default=4,
                         help='WreckingCrew album number (default: 4)')
     parser.add_argument('--bass_sustain', type=int, default=15,
@@ -187,179 +219,118 @@ def main():
     parser.add_argument('--spread_render', type=int, default=7,
                         help='WreckingCrew spread argument (default: 7)')
     parser.add_argument('--copy_mp3_to', type=str, default=None,
-                        help='Copy winning MP3s to this directory (e.g. ~/Dropbox/Uploads)')
+                        help='Copy rendered MP3s to this directory (e.g. ~/Dropbox/Uploads)')
     parser.add_argument('--uploads_dir', type=str, default='Uploads',
                         help='Directory to search for MP3s (default: Uploads)')
-    parser.add_argument('--copy_npy_to', type=str, default=None,
-                        help='Copy winning .npy files for each chorale to this directory')
     parser.add_argument('--short_repeats', action='store_true',
                         help='Pass --short_repeats to WreckingCrew.py')
-    parser.add_argument('--trim', action='store_true',
-                        help='Delete all non-winning directories from numpy_dir_root after scoring')
     args = parser.parse_args()
 
     root = (args.numpy_dir_root if os.path.isabs(args.numpy_dir_root)
             else os.path.join(base_dir, args.numpy_dir_root))
 
-    # Find all matching subdirectories, sorted by name
+    suffixes = [args.suffix] + ([args.alt_suffix] if args.alt_suffix else [])
+
+    # Any subdirectory holding a matching file is reportable.  Directories whose
+    # name does not encode tolerance/limit_max fall back to the CLI defaults so
+    # ad-hoc result directories can be inspected too.
     dirs = []
     for name in sorted(os.listdir(root)):
         full = os.path.join(root, name)
-        if os.path.isdir(full) and parse_dir_params(name) is not None:
+        if not os.path.isdir(full):
+            continue
+        if any(find_tuning_files(full, v, s, {})
+               for v in args.chorale_list for s in suffixes):
             dirs.append(full)
 
     if not dirs:
-        print(f'No matching directories found under {root}')
+        print(f'No directories under {root} contain {args.chorale_list} files '
+              f'with suffix {suffixes}')
         return
 
-    # Tonal diamonds are built per-directory (limit_max varies); cache by value.
     tonal_diamond_cache = {}
-
-    winners = []  # (version, best_dir, best_params) for rendering
-
-    use_alt_suffix = bool(args.alt_suffix)
+    leaders = []   # (version, dir, params, suffix) — leading row per chorale
 
     for version in args.chorale_list:
-        print(f'\n{"=" * 78}')
-        print(f'Chorale: {version}  (suffix: {args.suffix}'
-              + (f'  alt_suffix: {args.alt_suffix}' if use_alt_suffix else '') + ')')
-        print(f'  max_cents_slide={args.max_cents_slide}  penalty_weight={args.penalty_weight}  '
-              f'score_weight={args.score_weight}')
-        print(f'{"=" * 78}')
-        print(f'  {"Directory":<42} {"lm":>4} {"Mean":>6} {"MaxGap":>7} {"HardJmp":>8} {"Suffix":<8} {"Combined":>10}')
-        print(f'  {"-" * 42} {"--":>4} {"-----":>6} {"------":>7} {"-------":>8} {"------":<8} {"---------":>10}')
+        print(f'\n{"=" * 108}')
+        print(f'Chorale: {version}   sorted by {args.sort_by} (ordering only, not a ranking)')
+        print(f'{"=" * 108}')
 
-        results = []
+        rows = []
         for d in dirs:
-            params = parse_dir_params(d)
-
-            # Load primary suffix
-            primary_file = os.path.join(d, f'{version}{args.suffix}')
-            alt_file = os.path.join(d, f'{version}{args.alt_suffix}') if use_alt_suffix else None
-
-            # Determine which file(s) exist
-            has_primary = os.path.exists(primary_file)
-            has_alt = alt_file is not None and os.path.exists(alt_file)
-            if not has_primary and not has_alt:
-                continue
-
-            lm = params['limit_max']
-            if lm not in tonal_diamond_cache:
-                tonal_diamond_cache[lm] = atu.build_tonal_diamond(lm)
-            tol = params['tolerance']
-
-            def _score_file(path):
-                try:
-                    arr = np.load(path, allow_pickle=True)
+            params = parse_dir_params(d) or {
+                'tolerance': args.tolerance, 'limit_max': args.limit_max,
+                'ratio_factor': 0.0, 'stability_factor': 0.0,
+                'max_delta': 33, 'snap_tolerance': 0,
+            }
+            for sfx in suffixes:
+                for path, fparams in find_tuning_files(d, version, sfx, params):
+                    lm, tol = fparams['limit_max'], fparams['tolerance']
+                    if lm not in tonal_diamond_cache:
+                        # [:-1] drops the 2/1 octave row, matching Straw_man_tuning_v2.
+                        tonal_diamond_cache[lm] = atu.build_tonal_diamond(lm)[:-1]
+                    try:
+                        arr = np.load(path, allow_pickle=True)
+                    except Exception as e:
+                        print(f'  {os.path.basename(d)}: could not load '
+                              f'{os.path.basename(path)} — {e}')
+                        continue
                     mean_sc, max_sc, max_ch = score_array(arr, tonal_diamond_cache[lm], tol)
-                    hard_count, mean_hard, max_gap, total_trans = compute_adjacency_metric(
-                        arr, args.max_cents_slide)
-                    combined = (args.penalty_weight * hard_count
-                                + args.penalty_weight * 0.1 * mean_hard
-                                + args.score_weight * mean_sc)
-                    return combined, mean_sc, max_sc, max_ch, hard_count, mean_hard, max_gap, total_trans
-                except Exception as e:
-                    print(f'  {os.path.basename(d)}: could not load {os.path.basename(path)} — {e}')
-                    return None
+                    gaps = collect_gaps(arr)
+                    rows.append({
+                        'dir': d, 'suffix': sfx, 'path': path, 'params': fparams,
+                        'mean_score': mean_sc, 'max_score': max_sc, 'max_chord': max_ch,
+                        'gaps': gaps, 'g': summarize_gaps(gaps, args.max_cents_slide),
+                    })
 
-            primary_scores = _score_file(primary_file) if has_primary else None
-            alt_scores = _score_file(alt_file) if has_alt else None
-
-            # Pick whichever has fewer hard jumps; use combined score as tiebreaker
-            if primary_scores is not None and alt_scores is not None:
-                # prefer fewer hard jumps; if equal prefer lower combined cost
-                if alt_scores[4] < primary_scores[4] or (
-                        alt_scores[4] == primary_scores[4] and alt_scores[0] < primary_scores[0]):
-                    chosen_scores = alt_scores
-                    chosen_suffix = args.alt_suffix
-                else:
-                    chosen_scores = primary_scores
-                    chosen_suffix = args.suffix
-            elif primary_scores is not None:
-                chosen_scores = primary_scores
-                chosen_suffix = args.suffix
-            else:
-                chosen_scores = alt_scores
-                chosen_suffix = args.alt_suffix
-
-            combined, mean_sc, max_sc, max_ch, hard_count, mean_hard, max_gap, total_trans = chosen_scores
-            results.append((combined, mean_sc, max_sc, max_ch,
-                             hard_count, mean_hard, max_gap, total_trans,
-                             d, params, chosen_suffix))
-
-        if not results:
+        if not rows:
             print(f'  No results found for {version}')
             continue
 
-        results.sort(key=lambda x: x[0])
-        for i, (combined, mean_sc, max_sc, max_ch,
-                hard_count, mean_hard, max_gap, total_trans,
-                d, params, chosen_suffix) in enumerate(results):
-            marker = ' <-- BEST' if i == 0 else ''
-            lm = params['limit_max']
-            hard_flag = f' ({hard_count} jumps)' if hard_count > 0 else ' (clean)'
-            suffix_label = 'trans' if 'trans' in chosen_suffix else 'opt'
-            print(f'  {os.path.basename(d):<42} {lm:>4} {mean_sc:>6.1f} {max_gap:>7.1f} '
-                  f'{hard_count:>8}{hard_flag:<12} {suffix_label:<8} {combined:>10.1f}{marker}')
+        rows.sort(key=SORT_KEYS[args.sort_by])
 
-        best = results[0]
-        (best_combined, best_mean, best_max, best_maxch,
-         best_hard_count, best_mean_hard, best_max_gap,
-         best_total_trans, best_dir, best_params, best_suffix) = best
-        print(f'\n  Winner: {os.path.basename(best_dir)}  [{best_suffix}]')
-        print(f'    mean_score={best_mean:.1f}, max_gap={best_max_gap:.1f}¢, '
-              f'hard_jumps={best_hard_count} (>{args.max_cents_slide:.0f}¢), '
-              f'total_transitions={best_total_trans}, combined={best_combined:.1f}')
-        winners.append((version, best_dir, best_params, best_suffix))
+        ms = int(args.max_cents_slide)
+        print(f'  {"Directory":<30} {"sfx":<6} {"t":>2} {"ratio":>6} {"lm":>3} '
+              f'{"ChordAvg":>8} {"ChordMax":>8} |'
+              f' {"N":>4} {"GapSum":>7} {"Avg":>6} {"Med":>6} {"p90":>6} {"Max":>6} |'
+              f' {">10":>4} {">20":>4} {">30":>4} {">=" + str(ms):>5}')
+        print(f'  {"-" * 30} {"-" * 6} {"-" * 2} {"-" * 6} {"-" * 3} {"-" * 8} {"-" * 8} |'
+              f' {"-" * 4} {"-" * 7} {"-" * 6} {"-" * 6} {"-" * 6} {"-" * 6} |'
+              f' {"-" * 4} {"-" * 4} {"-" * 4} {"-" * 5}')
+        for r in rows:
+            g, p = r['g'], r['params']
+            sfx_label = 'trans' if 'trans' in r['suffix'] else 'opt'
+            print(f'  {os.path.basename(r["dir"])[:30]:<30} {sfx_label:<6} '
+                  f'{p["tolerance"]:>2} {p["ratio_factor"]:>6.3f} {p["limit_max"]:>3} '
+                  f'{r["mean_score"]:>8.1f} {r["max_score"]:>8.0f} |'
+                  f' {g["n"]:>4} {g["total"]:>7.0f} {g["mean"]:>6.1f} {g["median"]:>6.1f} '
+                  f'{g["p90"]:>6.1f} {g["mx"]:>6.1f} |'
+                  f' {g["over10"]:>4} {g["over20"]:>4} {g["over30"]:>4} {g["at_slide"]:>5}')
 
-    print(f'\n{"=" * 78}')
+        if args.top_gaps > 0:
+            for r in rows[:max(0, args.detail_dirs)]:
+                worst = sorted(r['gaps'], reverse=True)[:args.top_gaps]
+                if not worst:
+                    continue
+                print(f'\n  Largest gaps — {os.path.basename(r["dir"])} '
+                      f'[{"trans" if "trans" in r["suffix"] else "opt"}]')
+                print(f'    {"chord":>6} {"voice":>6} {"note":<5} {"prev":>8} {"curr":>8} {"gap":>7}')
+                for gap, chord_idx, voice, pc, prev_c, curr_c in worst:
+                    print(f'    {chord_idx:>6} {voice:>6} {NOTE_NAMES[pc]:<5} '
+                          f'{prev_c:>8.1f} {curr_c:>8.1f} {gap:>7.1f}')
 
-    if args.trim and winners:
-        winning_dirs = {best_dir for _, best_dir, _, _ in winners}
-        # Map each winning dir to the chorales it won (and the chosen suffix per chorale)
-        dir_winners = defaultdict(set)
-        dir_winner_suffix = {}   # (dir, version) -> chosen suffix
-        for version, best_dir, _, w_suffix in winners:
-            dir_winners[best_dir].add(version)
-            dir_winner_suffix[(best_dir, version)] = w_suffix
+        leaders.append((version, rows[0]['dir'], rows[0]['params'], rows[0]['suffix'],
+                        rows[0]['path']))
 
-        # Delete non-winning directories entirely
-        to_delete = [d for d in dirs if d not in winning_dirs]
-        if to_delete:
-            print(f'\nDeleting {len(to_delete)} non-winning directories ...')
-            for d in to_delete:
-                shutil.rmtree(d)
-                print(f'  deleted {os.path.basename(d)}')
-
-        # Within winning directories, keep only the suffix file for winning chorales
-        all_chorales = set(args.chorale_list)
-        print(f'\nPruning files within winning directories ...')
-        for d in sorted(winning_dirs):
-            losers = all_chorales - dir_winners[d]
-            removed = []
-            # Delete all files for losing chorales
-            for version in losers:
-                for f in glob.glob(os.path.join(d, f'{version}*')):
-                    os.remove(f)
-                    removed.append(os.path.basename(f))
-            # For winning chorales, keep only the chosen suffix file
-            for version in dir_winners[d]:
-                keep_suffix = dir_winner_suffix.get((d, version), args.suffix)
-                for f in glob.glob(os.path.join(d, f'{version}*')):
-                    if not f.endswith(keep_suffix):
-                        os.remove(f)
-                        removed.append(os.path.basename(f))
-            kept = sorted(dir_winners[d])
-            print(f'  {os.path.basename(d)}: kept {kept}, removed {len(removed)} file(s)')
-
-        print(f'\nDone. {len(winning_dirs)} director{"y" if len(winning_dirs) == 1 else "ies"} remaining.')
+    print(f'\n{"=" * 108}')
+    print('Report only — no winner was chosen. Row order reflects --sort_by.')
 
     render_start_time = None
     if args.render:
         render_start_time = time.time()
-        print('\nRendering winners with WreckingCrew.py...\n')
-        for version, best_dir, params, w_suffix in winners:
-            print(f'  {version}  →  {os.path.basename(best_dir)}  [{w_suffix}]')
+        print('\nRendering leading rows with WreckingCrew.py...\n')
+        for version, d, params, w_suffix, _path in leaders:
+            print(f'  {version}  →  {os.path.basename(d)}  [{w_suffix}]')
             cmd = [
                 sys.executable, os.path.join(base_dir, 'WreckingCrew.py'),
                 '--chorale_name', version,
@@ -371,7 +342,7 @@ def main():
                 '--stability_factor', str(params['stability_factor']),
                 '--max_delta', str(params['max_delta']),
                 '--limit_max', str(params['limit_max']),
-                '--numpy_dir', best_dir,
+                '--numpy_dir', d,
                 '--spread', str(args.spread_render),
                 '--max_cents_slide', str(args.max_cents_slide),
                 '--bass_sustain', str(args.bass_sustain),
@@ -380,26 +351,20 @@ def main():
                 cmd.append('--short_repeats')
             subprocess.run(cmd, check=True)
         print('\nDone rendering.')
-    else:
-        print('\nRun with --render to produce audio for the winners.')
 
     if args.copy_mp3_to:
         uploads = (args.uploads_dir if os.path.isabs(args.uploads_dir)
                    else os.path.join(base_dir, args.uploads_dir))
         dest = os.path.expanduser(args.copy_mp3_to)
         os.makedirs(dest, exist_ok=True)
-        print(f'\nCopying winning MP3s to {dest} ...\n')
-        for version, best_dir, params, _ in winners:
-            tol = params['tolerance']
-            lm  = params['limit_max']
-            rf  = params['ratio_factor']
-            sf  = params['stability_factor']
-            md  = params['max_delta']
+        print(f'\nCopying MP3s to {dest} ...\n')
+        for version, d, params, _sfx, _path in leaders:
             bwv_num = version[-2:]   # '53' for bwv253, '60' for bwv260
-            # Match any mod_letter and any spread/duration/tempo suffix
             pattern = os.path.join(
                 uploads,
-                f'ball9-t{bwv_num}?_lm{lm}_r{rf:.2f}_sf{sf:.2f}_md{md:02d}_sp??_t{tol}_*.mp3'
+                f'ball9-t{bwv_num}?_lm{params["limit_max"]}_r{params["ratio_factor"]:.2f}'
+                f'_sf{params["stability_factor"]:.2f}_md{params["max_delta"]:02d}'
+                f'_sp??_t{params["tolerance"]}_*.mp3'
             )
             matches = glob.glob(pattern)
             if render_start_time is not None:
@@ -415,21 +380,17 @@ def main():
     if args.copy_npy_to:
         dest = os.path.expanduser(args.copy_npy_to)
         os.makedirs(dest, exist_ok=True)
-        print(f'\nCopying winning .npy files to {dest} ...\n')
-        for version, best_dir, params, w_suffix in winners:
-            src = os.path.join(best_dir, f'{version}{w_suffix}')
+        print(f'\nCopying the leading row per chorale (by {args.sort_by}) to {dest} ...')
+        print('  Ordering is not a quality verdict — confirm against the report above.\n')
+        for version, d, params, w_suffix, _path in leaders:
+            src = _path
             if not os.path.exists(src):
                 print(f'  {version}: not found — {src}')
-            else:
-                # Encode parameters in the destination filename
-                t = params['tolerance']
-                r = params['ratio_factor']
-                lm = params['limit_max']
-                # Extract the suffix part (e.g., '-trans-sa-opt.npy')
-                dest_filename = f'{version}_t{t}_r{r:.3f}_lm{lm}{w_suffix}'
-                dest_path = os.path.join(dest, dest_filename)
-                shutil.copy2(src, dest_path)
-                print(f'  {version}  →  {dest_filename}  (from {os.path.basename(best_dir)})')
+                continue
+            dest_filename = (f'{version}_t{params["tolerance"]}'
+                             f'_r{params["ratio_factor"]:.3f}_lm{params["limit_max"]}{w_suffix}')
+            shutil.copy2(src, os.path.join(dest, dest_filename))
+            print(f'  {version}  →  {dest_filename}  (from {os.path.basename(d)})')
         print('\nDone copying.')
 
 

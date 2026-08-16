@@ -48,7 +48,8 @@ SPREAD=7
 # alone cannot tell these runs apart: four passes over t3_r1.375_lm19 spanned
 # 56.2-57.9 mean while ten different cells spanned 56.0-57.6.  Use FRESH=1 only
 # when you want this run's output regardless of what came before.
-FRESH=1
+FRESH=0 # once you want to ratchet each run, set fresh=0 and keep the --keep_previous flag in the python call below
+MAX_GAP=12
 
 for limit_max in "${LIMIT_MAXES[@]}"; do
     for tolerance in "${TOLERANCES[@]}"; do
@@ -77,7 +78,7 @@ for limit_max in "${LIMIT_MAXES[@]}"; do
                 --tolerance "$tolerance" \
                 --max_delta "$MAX_DELTA" \
                 --numpy_dir "$dir" \
-                --max_gap 33 --retune_on_gaps 5 \
+                --max_gap "$MAX_GAP" --retune_on_gaps 5 \
                 "$keep_flag" \
                 --stability_factor "$STABILITY_FACTOR" \
                 --sa_iterations 1000 \
@@ -131,11 +132,17 @@ echo "========================================"
 
 # Final summary: gap and chord-quality report for every directory (no winner
 # is chosen, and nothing is rendered — read the table and listen).
+#
+# Sorted by maxgap, not gapsum: the two disagree, and the worst single jump is
+# the one that matches what gets heard.  Sorting by gapsum on bwv261 would have
+# led with t3_r1.375_lm19 (max 14¢, sum 32) over t3_r1.625_lm19 (max 11¢, sum
+# 44), and the 11¢ tuning was the better one.  ChordAvg is not worth sorting on
+# at all — it varies more between runs of one cell than across the whole grid.
 python select_best_and_render.py \
     --numpy_dir_root Archive/straw-man \
     --chorale_list $CHORALES \
     --suffix="-opt.npy" \
-    --sort_by gapsum
+    --sort_by maxgap
 
 echo "========================================"
 echo "Done."
