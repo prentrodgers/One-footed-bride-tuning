@@ -14,7 +14,6 @@ set -euo pipefail
 
 mkdir -p ~/Music/sflib
 
-# CHORALES="${1:-bwv253}"
 # CHORALES="${1:-$(echo bwv{253..264})}"
 
 # LIMIT_MAXES=(17 19)
@@ -27,8 +26,8 @@ mkdir -p ~/Music/sflib
 CHORALES="bwv261"
 
 LIMIT_MAXES=(17 19)
-TOLERANCES=(1 2 3)
-RATIOS=(1.25 1.50 1.75)
+TOLERANCES=(3)
+RATIOS=(1.25 1.375 1.50 1.625 1.75)
 ROLLS=4
 
 # Not searched over — held fixed and passed through to the tuner. They are no
@@ -42,13 +41,14 @@ SPREAD=7
 # FRESH=0 keeps the directory and lets the keep-previous ratchet accumulate the
 # best result across repeated runs.
 #
-# WARNING: the ratchet compares mean_score + spread_weight * max-circular-MAD and
-# has NO adjacent-gap term.  A run with smaller pitch-class jumps but a slightly
-# worse chord score or more global drift will be discarded.  Check the gap columns
-# in the report after each pass rather than trusting the ratchet to keep the
-# tuning you actually prefer.
+# Prefer FRESH=0 when hunting for a good tuning.  The ratchet now compares
+# mean_score + spread_weight * max-circular-MAD + gap_weight * max-adjacent-gap,
+# so repeated passes over one cell keep the smallest pitch-class jumps rather
+# than whichever run drew the luckiest seed.  That matters because mean_score
+# alone cannot tell these runs apart: four passes over t3_r1.375_lm19 spanned
+# 56.2-57.9 mean while ten different cells spanned 56.0-57.6.  Use FRESH=1 only
+# when you want this run's output regardless of what came before.
 FRESH=1
-
 
 for limit_max in "${LIMIT_MAXES[@]}"; do
     for tolerance in "${TOLERANCES[@]}"; do
