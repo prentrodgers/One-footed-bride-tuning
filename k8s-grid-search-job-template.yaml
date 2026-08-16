@@ -120,9 +120,9 @@ spec:
             # grid_search.sh's FRESH=1.  Scoped to ${CHORALE} because the twelve
             # per-chorale jobs for this cell share $DIR — a wildcard here would
             # have each job delete the other eleven's results.
-            # (The keep-previous ratchet compares mean_score + spread_weight * MAD
-            # with no adjacent-gap term, so it will discard a run with smaller
-            # pitch-class jumps.)
+            # To accumulate instead, drop this rm and the --no-keep_previous flag:
+            # the ratchet now includes a max-adjacent-gap term, so repeated passes
+            # over a cell converge on the smallest pitch-class jumps.
             rm -f "$DIR/${CHORALE}-opt.npy" "$DIR/${CHORALE}-opt.txt"
 
             # Step 1: tune with SA and viterbi optimization

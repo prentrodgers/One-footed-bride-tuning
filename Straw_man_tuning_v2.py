@@ -310,11 +310,42 @@ def compute_spread_score(cent_value_chorale_4n, chorale):
     return max_mad
 
 
-def load_and_merge_previous(output_file, best_cents, best_scores, chord_scorer, tolerance,
-                             chorale=None, spread_weight=0.5):
-    """Keep whichever result has the lower combined metric: mean_score + spread_weight * spread.
+def compute_gap_score(cent_value_chorale_4n):
+    """Largest cent jump between shared pitch classes in adjacent chords.
 
-    spread_weight=0 falls back to score-only comparison.
+    The worst single jump rather than an average: one audible lurch is what gets
+    noticed, and a mean over hundreds of chords that mostly did not move lets it
+    hide.  Global drift, by contrast, is not audible — which is why this is a
+    separate term from compute_spread_score rather than folded into it.
+
+    Parameters
+    ----------
+    cent_value_chorale_4n : np.ndarray, shape (4, N)
+        Tuned cent values, one column per chord.
+    """
+    worst = 0.0
+    prev_chord = None
+    for chord_cents in cent_value_chorale_4n.T:
+        if prev_chord is not None:
+            gap = _max_pitch_class_gap(prev_chord, chord_cents)[0]
+            worst = max(worst, gap)
+        prev_chord = chord_cents
+    return worst
+
+
+def load_and_merge_previous(output_file, best_cents, best_scores, chord_scorer, tolerance,
+                             chorale=None, spread_weight=0.5, gap_weight=1.0):
+    """Keep whichever result has the lower combined metric.
+
+        combined = mean_score + spread_weight * spread + gap_weight * max_adjacent_gap
+
+    The gap term exists because the first two cannot tell good runs from bad ones
+    here.  On bwv261, four runs of one cell spanned 56.2-57.9 mean, while ten
+    different parameter cells spanned 56.0-57.6 — run-to-run noise is larger than
+    the entire grid, so a ratchet on mean_score alone keeps whichever run got the
+    luckiest seed.  Adjacent jumps do separate: the same four runs ranged from a
+    3¢ worst jump to 14¢.  Either weight can be set to 0 to drop its term.
+
     Per-chord merging is intentionally absent: mixing chords from independent runs
     breaks the adjacency continuity each run carefully builds.
     """
@@ -329,29 +360,36 @@ def load_and_merge_previous(output_file, best_cents, best_scores, chord_scorer, 
     prev_scores = np.array([chord_scorer.score_chord(prev_chords[i], tolerance)
                              for i in range(prev_chords.shape[0])])
 
+    # best_cents is (N, 4); transpose to (4, N) for the two chorale-wide metrics.
+    curr_spread = prev_spread = 0.0
     if chorale is not None and spread_weight > 0:
-        # best_cents is (N, 4); transpose to (4, N) for compute_spread_score
         curr_spread = compute_spread_score(best_cents.T, chorale)
         prev_spread = compute_spread_score(prev, chorale)
-        curr_combined = np.mean(best_scores) + spread_weight * curr_spread
-        prev_combined = np.mean(prev_scores) + spread_weight * prev_spread
-        if prev_combined < curr_combined:
-            print(f"  Previous result is better — keeping previous"
-                  f" (combined {prev_combined:.2f} vs {curr_combined:.2f};"
-                  f" score {np.mean(prev_scores):.1f} vs {np.mean(best_scores):.1f};"
-                  f" spread {prev_spread:.1f} vs {curr_spread:.1f}¢)")
-            return prev_chords, prev_scores, False
-        else:
-            print(f"  Current result is better — keeping current"
-                  f" (combined {curr_combined:.2f} vs {prev_combined:.2f};"
-                  f" score {np.mean(best_scores):.1f} vs {np.mean(prev_scores):.1f};"
-                  f" spread {curr_spread:.1f} vs {prev_spread:.1f}¢)")
-    else:
-        if np.sum(prev_scores) < np.sum(best_scores):
-            print(f"  Previous result is better (total {np.sum(prev_scores):.1f} vs {np.sum(best_scores):.1f}) — keeping previous")
-            return prev_chords, prev_scores, False
-        else:
-            print(f"  Current result is better (total {np.sum(best_scores):.1f} vs {np.sum(prev_scores):.1f}) — keeping current")
+
+    curr_gap = prev_gap = 0.0
+    if gap_weight > 0:
+        curr_gap = compute_gap_score(best_cents.T)
+        prev_gap = compute_gap_score(prev)
+
+    curr_combined = np.mean(best_scores) + spread_weight * curr_spread + gap_weight * curr_gap
+    prev_combined = np.mean(prev_scores) + spread_weight * prev_spread + gap_weight * prev_gap
+
+    def _describe(a_score, a_spread, a_gap, b_score, b_spread, b_gap):
+        return (f" score {a_score:.1f} vs {b_score:.1f};"
+                f" spread {a_spread:.1f} vs {b_spread:.1f}¢;"
+                f" max gap {a_gap:.1f} vs {b_gap:.1f}¢")
+
+    if prev_combined < curr_combined:
+        print(f"  Previous result is better — keeping previous"
+              f" (combined {prev_combined:.2f} vs {curr_combined:.2f};"
+              + _describe(np.mean(prev_scores), prev_spread, prev_gap,
+                          np.mean(best_scores), curr_spread, curr_gap) + ")")
+        return prev_chords, prev_scores, False
+
+    print(f"  Current result is better — keeping current"
+          f" (combined {curr_combined:.2f} vs {prev_combined:.2f};"
+          + _describe(np.mean(best_scores), curr_spread, curr_gap,
+                      np.mean(prev_scores), prev_spread, prev_gap) + ")")
     return best_cents, best_scores, True
 
 
@@ -637,7 +675,13 @@ def parse_args():
     parser.add_argument('--ratio_factor', type=float, default=1.0, help='Consonance/stability trade-off: high favours low-limit ratios, low favours staying near the current interval; balance point ~1.7 (default: 1.0)')
     parser.add_argument('--stability_factor', type=float, default=0.5, help='Weight for cent distance from previous chord in the sort key; reduces cumulative pitch-class drift (default: 0.5)')
     parser.add_argument('--spread', type=int, default=7, help='Std dev of Gaussian noise (cents) added to each note at the start of each SA roll; 0 disables perturbation (default: 7)')
-    parser.add_argument('--spread_weight', type=float, default=0.5, help='Weight of pitch-class spread in the keep/discard comparison: combined = mean_score + spread_weight * weighted_spread; 0 disables spread comparison (default: 0.5)')
+    parser.add_argument('--spread_weight', type=float, default=0.5, help='Weight of pitch-class spread in the keep/discard comparison: combined = mean_score + spread_weight * spread + gap_weight * max_gap; 0 disables the spread term (default: 0.5)')
+    parser.add_argument('--gap_weight', type=float, default=1.0,
+                        help='Weight of the largest adjacent pitch-class jump in the keep/discard '
+                             'comparison. This is the term that makes repeated --keep_previous runs '
+                             'converge on something audible: mean_score varies more between runs of '
+                             'one cell than it does across the whole parameter grid, while adjacent '
+                             'jumps separate runs clearly. 0 disables the gap term (default: 1.0)')
     parser.add_argument('--include_list', type=str, default=None,
                         help='Slice of chords to include, e.g. "8:17" (default: None, use all chords)')
     parser.add_argument('--chorale_list', type=str, nargs='+', default=['bwv253'],
@@ -660,9 +704,10 @@ def parse_args():
                         help='Number of SA retune attempts for chords that exceed max_gap (default: 3)')
     parser.add_argument('--keep_previous', action=argparse.BooleanOptionalAction, default=True,
                         help='Keep the previously saved result when it wins on '
-                             'mean_score + spread_weight * spread. That comparison has no '
-                             'adjacent-gap term, so it will reject a run that trades chord '
-                             'score or global spread for smaller pitch-class jumps. Use '
+                             'mean_score + spread_weight * spread + gap_weight * max_gap. '
+                             'With the gap term on, repeated runs over the same directory '
+                             'ratchet toward smaller pitch-class jumps, so a lucky run is '
+                             'kept rather than overwritten by the next one. Use '
                              '--no-keep_previous while comparing tunings by ear (default: True)')
     parser.add_argument('--snap_tolerance', type=float, default=0.0,
                         help='Snap pitch-class cent values within this distance (¢) of the modal cent to the mode; 0 disables (default: 0)')
@@ -950,7 +995,8 @@ def main():
         if args.keep_previous:
             final_cent_value_chorale, final_score, improved = load_and_merge_previous(
                 output_file, final_cent_value_chorale, final_score, chord_scorer, tolerance,
-                chorale=chorale, spread_weight=args.spread_weight)
+                chorale=chorale, spread_weight=args.spread_weight,
+                gap_weight=args.gap_weight)
         else:
             improved = True
 
@@ -997,6 +1043,7 @@ def main():
             f.write(f"stability_factor: {args.stability_factor}\n")
             f.write(f"spread: {args.spread}\n")
             f.write(f"spread_weight: {args.spread_weight}\n")
+            f.write(f"gap_weight: {args.gap_weight}\n")
             f.write(f"snap_tolerance: {args.snap_tolerance}\n")
             f.write(f"max_gap: {args.max_gap}\n")
             f.write(f"retune_on_gaps: {args.retune_on_gaps}\n")
