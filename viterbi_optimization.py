@@ -459,8 +459,6 @@ def hierarchical_viterbi_optimization(chorale, cent_value_chorale,
                                      phrase_boundaries=None,
                                      vertical_weight_phrase=1.0,
                                      horizontal_weight_phrase=1.0,
-                                     vertical_weight_piece=1.0,
-                                     horizontal_weight_piece=0.3,
                                      mad_weight=0.0,
                                      verbose=False, verbose_threshold=None,
                                      candidate_max_no_improve=None,
@@ -579,8 +577,11 @@ def hierarchical_viterbi_optimization(chorale, cent_value_chorale,
         final_tuning = phrase_solutions[0]
         piece_path = phrase_paths[0]
     else:
-        # Multiple phrases: optionally run piece-level optimization
-        # For now, just concatenate (could add transition smoothing here)
+        # Concatenation is the whole of the piece level: phrase seams are already
+        # optimized inside the phrase pass, which receives the previous phrase's
+        # tail as prev_chord_cents and scores it at horizontal_weight_phrase.  A
+        # separate piece-level weight existed here once and was never read — it
+        # looked like a knob for seam continuity while doing nothing at all.
         final_tuning = np.vstack(phrase_solutions)
         piece_path = []
         for path in phrase_paths:

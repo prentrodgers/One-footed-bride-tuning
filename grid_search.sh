@@ -88,7 +88,6 @@ for limit_max in "${LIMIT_MAXES[@]}"; do
                 --use_viterbi \
                 --k_candidates 15 \
                 --viterbi_vertical_weight 1.0 \
-                --viterbi_horizontal_weight 0.5 \
                 --detect_phrases \
                 --phrase_horizontal_weight 8.0 \
                 --viterbi_workers 16

@@ -146,7 +146,6 @@ spec:
                 --use_viterbi \
                 --k_candidates 15 \
                 --viterbi_vertical_weight 1.0 \
-                --viterbi_horizontal_weight 0.5 \
                 --viterbi_verbose \
                 --viterbi_verbose_threshold 80 \
                 --detect_phrases \

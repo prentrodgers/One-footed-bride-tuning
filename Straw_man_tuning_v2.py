@@ -371,6 +371,23 @@ def load_and_merge_previous(output_file, best_cents, best_scores, chord_scorer, 
         curr_gap = compute_gap_score(best_cents.T)
         prev_gap = compute_gap_score(prev)
 
+    # A chord scoring 1000+ has an interval that matches nothing in the diamond —
+    # score_chord adds 1000 per miss.  Averaged over a few hundred chords that
+    # costs ~3.6 points, which gap_weight=1.0 lets 4¢ of adjacency outbid, so the
+    # combined metric alone will happily accept a wolf fifth to buy a smaller
+    # jump.  It did: t3_r1.75_lm19 ended up with D-A at 675¢, 27¢ flat.  Misses
+    # are categorical, so they are compared before anything else.
+    curr_misses = int(np.sum(np.asarray(best_scores) >= 1000))
+    prev_misses = int(np.sum(prev_scores >= 1000))
+    if curr_misses != prev_misses:
+        keep_prev = prev_misses < curr_misses
+        kept, rejected = ('previous', 'current') if keep_prev else ('current', 'previous')
+        print(f"  {kept.capitalize()} result has fewer chords with an out-of-diamond interval "
+              f"({min(prev_misses, curr_misses)} vs {max(prev_misses, curr_misses)}) — keeping {kept}")
+        if keep_prev:
+            return prev_chords, prev_scores, False
+        return best_cents, best_scores, True
+
     curr_combined = np.mean(best_scores) + spread_weight * curr_spread + gap_weight * curr_gap
     prev_combined = np.mean(prev_scores) + spread_weight * prev_spread + gap_weight * prev_gap
 
@@ -719,8 +736,6 @@ def parse_args():
                         help='Number of candidate tunings to generate per chord for Viterbi optimization (default: 10)')
     parser.add_argument('--viterbi_vertical_weight', type=float, default=1.0,
                         help='Weight for vertical (chord quality) scores in Viterbi path selection (default: 1.0)')
-    parser.add_argument('--viterbi_horizontal_weight', type=float, default=0.5,
-                        help='Weight for horizontal (pitch-class consistency) costs in Viterbi path selection (default: 0.5)')
     parser.add_argument('--viterbi_penalty_type', type=str, default='pitch_class_jump',
                         choices=['pitch_class_jump', 'voice_leading', 'combined'],
                         help='Type of horizontal penalty: pitch_class_jump (default), voice_leading, or combined')
@@ -926,7 +941,6 @@ def main():
         if args.use_viterbi:
             print(f"\nRunning Viterbi optimization (K={args.k_candidates}, "
                   f"v_weight={args.viterbi_vertical_weight}, "
-                  f"h_weight={args.viterbi_horizontal_weight}, "
                   f"mad_weight={args.viterbi_mad_weight})...")
             
             # Detect phrase boundaries if requested
@@ -947,8 +961,6 @@ def main():
                 phrase_boundaries=phrase_boundaries,
                 vertical_weight_phrase=args.viterbi_vertical_weight,
                 horizontal_weight_phrase=args.phrase_horizontal_weight,
-                vertical_weight_piece=args.viterbi_vertical_weight,
-                horizontal_weight_piece=args.viterbi_horizontal_weight,
                 mad_weight=args.viterbi_mad_weight,
                 verbose=args.viterbi_verbose,
                 verbose_threshold=args.viterbi_verbose_threshold,
@@ -1051,7 +1063,6 @@ def main():
             if args.use_viterbi:
                 f.write(f"k_candidates: {args.k_candidates}\n")
                 f.write(f"viterbi_vertical_weight: {args.viterbi_vertical_weight}\n")
-                f.write(f"viterbi_horizontal_weight: {args.viterbi_horizontal_weight}\n")
                 f.write(f"viterbi_penalty_type: {args.viterbi_penalty_type}\n")
                 f.write(f"detect_phrases: {args.detect_phrases}\n")
                 f.write(f"phrase_horizontal_weight: {args.phrase_horizontal_weight}\n")

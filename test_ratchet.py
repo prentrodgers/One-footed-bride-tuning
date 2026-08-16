@@ -53,6 +53,19 @@ def main():
             chorale=None, spread_weight=0.0, gap_weight=0.0)
         assert improved, 'gap_weight=0 should no longer consider the gap'
 
+        # A wolf interval outranks any amount of adjacency. This candidate has a
+        # perfect 0¢ jump but one chord with an out-of-diamond interval, which
+        # averaged over the piece costs less than the gap term it saves.
+        wolf = np.stack([CHORD, CHORD], axis=1).copy()
+        wolf[2, :] = (CHORD[0] + 675.0) % 1200      # 27¢ flat fifth, both chords
+        wolf_scores = np.array([scorer.score_chord(wolf[:, i], tolerance=3) for i in range(2)])
+        assert wolf_scores.max() >= 1000, wolf_scores
+        assert compute_gap_score(wolf) == 0, compute_gap_score(wolf)
+        _, _, improved = load_and_merge_previous(
+            saved, wolf.T, wolf_scores, scorer, tolerance=3,
+            chorale=None, spread_weight=0.0, gap_weight=1.0)
+        assert not improved, 'a wolf interval was accepted to buy a smaller jump'
+
     print('ratchet self-check passed')
 
 
