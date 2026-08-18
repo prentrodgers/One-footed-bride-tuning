@@ -1,10 +1,13 @@
 #!/usr/bin/env python3.10
 """
 Post one finished Bach chorale (just-intonation rendering) to Twitter/X daily.
-Links to mp3 files hosted on ripnread.com.
+Links to mp3 files hosted on Cloudflare R2 at audio.microtonalnotes.net.
+X rewrites every outbound link to https://, so the host must have a real cert.
 
 Crontab entry (6:00 AM every day):
-    0 6 * * * /usr/bin/python3.10 /home/prent/Dropbox/Tutorials/TonicNet/daily_chorale_tweet.py >> /tmp/daily_chorale_tweet.log 2>&1
+    0 6 * * * /home/prent/miniforge3/bin/mamba run -n csound python \
+        /home/prent/Repos/One-footed-bride-tuning/daily_chorale_tweet.py >> /tmp/daily_chorale_tweet.log 2>&1
+    (this runs on fs7)
 
 Before first use:
     1. pip install tweepy
@@ -14,7 +17,8 @@ Before first use:
          TWITTER_API_SECRET=...
          TWITTER_ACCESS_TOKEN=...
          TWITTER_ACCESS_SECRET=...
-    4. Upload mp3 album to ripnread.com/listen/ once a month.
+    4. Publish the mp3 album to the R2 bucket once a month:
+         cd ~/Repos/file-service && ./scripts/publish-album.sh <album-dir>
     5. Update MP3_DIR to point to the local copy (for filename scanning).
 """
 
@@ -35,7 +39,7 @@ except ImportError:
 # ── Configuration ──────────────────────────────────────────────────────────
 UPLOADS_ROOT = os.path.expanduser("~/Dropbox/Uploads")
 MP3_DIR = None  # auto-detected from latest a* directory in UPLOADS_ROOT
-BASE_URL = "http://ripnread.com/listen"
+BASE_URL = "https://audio.microtonalnotes.net"
 STATE_FILE = os.path.expanduser("~/.daily_chorale_tweet_state.json")
 ENV_FILE = os.path.expanduser("~/.daily_chorale_tweet.env")
 
@@ -98,7 +102,10 @@ def load_env():
 
 def parse_filename(fname, base_url=BASE_URL):
     """Parse an mp3 filename into a human-readable description and URL."""
-    url = f"{base_url}/{quote(fname)}"
+    normalized_base = base_url.strip().rstrip("/")
+    if normalized_base.startswith("http://"):
+        normalized_base = "https://" + normalized_base.removeprefix("http://")
+    url = f"{normalized_base}/{quote(fname)}"
 
     m = FILENAME_RE.match(fname)
     if not m:
