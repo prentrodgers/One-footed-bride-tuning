@@ -56,8 +56,21 @@ spec:
             REPO_DIR=/home/prent/Repos/One-footed-bride-tuning
             REPO_URL=https://github.com/prentrodgers/One-footed-bride-tuning.git
             if [ -d "$REPO_DIR/.git" ]; then
-              echo "Repo exists — pulling latest..."
-              cd "$REPO_DIR" && git pull
+              # Mirror origin rather than merge into it.  The checkout lives on a
+              # shared ceph volume that jobs write into, so `git pull` aborts the
+              # moment any tracked file is dirty — WreckingCrew.py writes
+              # {version}_features_array.npy into the repo root, and eleven of those
+              # are tracked, so a pull that has to delete them refuses and the whole
+              # job fails before it starts.  A deploy checkout should never merge.
+              #
+              # Deliberately NO `git clean`: results land in the untracked
+              # Archive/straw-man/t*_r*_lm*/ directories, and cleaning would delete
+              # every accumulated tuning the ratchet depends on.  `reset --hard`
+              # touches tracked files only.
+              echo "Repo exists — resetting to origin/main..."
+              cd "$REPO_DIR"
+              git fetch --prune origin
+              git reset --hard origin/main
             else
               echo "Cloning repo..."
               mkdir -p /home/prent/Repos
@@ -94,6 +107,16 @@ spec:
             MAX_DELTA=33
             SPREAD=7
             INITIAL_TEMP=3.0
+            MAX_GAP=33
+            # Mirrors grid_search.sh.  FRESH=0 keeps this chorale's saved tuning and
+            # lets the ratchet accumulate across repeated passes; FRESH=1 wipes it and
+            # saves this run unconditionally.  0 is the useful setting: the tuner now
+            # seeds the Viterbi trellis with the saved tuning, so a pass starts from
+            # the path already on disk instead of rebuilding from 12-TET.  Wiping the
+            # file first removes the thing that makes repeated passes converge — with
+            # it in place eight of eight bwv261 cells improved and were accepted,
+            # against 12 of 115 without.
+            FRESH=0
             # One chorale per job.  Chorales are independent, and a job that ran all
             # twelve serially spent 12 x ~60s single-threaded (the per-chorale loop,
             # the Viterbi DP and enforce_continuity) with most cores idle.
@@ -116,14 +139,16 @@ spec:
             mkdir -p "$DIR"
             mkdir -p ~/Music/sflib
 
-            # Wipe only this chorale's files and save unconditionally, matching
-            # grid_search.sh's FRESH=1.  Scoped to ${CHORALE} because the twelve
-            # per-chorale jobs for this cell share $DIR — a wildcard here would
-            # have each job delete the other eleven's results.
-            # To accumulate instead, drop this rm and the --no-keep_previous flag:
-            # the ratchet now includes a max-adjacent-gap term, so repeated passes
-            # over a cell converge on the smallest pitch-class jumps.
-            rm -f "$DIR/${CHORALE}-opt.npy" "$DIR/${CHORALE}-opt.txt"
+            # Scoped to ${CHORALE} throughout: the twelve per-chorale jobs for this
+            # cell share $DIR, so a wildcard would have each job delete the other
+            # eleven's results.  The ratchet is likewise per-file, so leaving the
+            # incumbent in place costs the other jobs nothing.
+            if [ "$FRESH" = "1" ]; then
+                rm -f "$DIR/${CHORALE}-opt.npy" "$DIR/${CHORALE}-opt.txt"
+                keep_flag="--no-keep_previous"
+            else
+                keep_flag="--keep_previous"
+            fi
 
             # Step 1: tune with SA and viterbi optimization
             echo "Step 1: Running Straw_man_tuning_v2.py..."
@@ -136,8 +161,8 @@ spec:
                 --tolerance "$TOLERANCE" \
                 --max_delta "$MAX_DELTA" \
                 --numpy_dir "$DIR" \
-                --max_gap 33 --retune_on_gaps 5 \
-                --no-keep_previous \
+                --max_gap "$MAX_GAP" --retune_on_gaps 5 \
+                "$keep_flag" \
                 --stability_factor "$STABILITY_FACTOR" \
                 --sa_iterations 1000 \
                 --cooling_rate 0.999 \
