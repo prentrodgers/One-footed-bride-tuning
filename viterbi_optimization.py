@@ -48,7 +48,7 @@ def _worker_log_reinit():
 
 def _parallel_candidate_worker(args):
     """Module-level worker: picklable, reads complex objects from _WORKER_STATE."""
-    i, cent_col, seed = args
+    i, cent_col, seed, incumbent = args
     s = _WORKER_STATE
     rng = np.random.default_rng(seed)
     candidates = generate_k_candidates(
@@ -63,7 +63,8 @@ def _parallel_candidate_worker(args):
         spread=s['spread'],
         rng=rng,
         build_chord_sa_func=s['build_chord_sa_func'],
-        candidate_max_no_improve=s['candidate_max_no_improve'])
+        candidate_max_no_improve=s['candidate_max_no_improve'],
+        incumbent=incumbent)
     return i, candidates
 
 
@@ -111,7 +112,7 @@ def generate_k_candidates(cent_value_chord, cent_value_chord_prev, chord_num,
                          ratio_factor=1.0, stability_factor=0.0, spread=7,
                          rng=None, build_chord_sa_func=None,
                          candidate_max_no_improve=None,
-                         max_duplicate_streak=5):
+                         max_duplicate_streak=5, incumbent=None):
     """
     Generate K diverse candidate tunings for a single chord.
 
@@ -191,11 +192,26 @@ def generate_k_candidates(cent_value_chord, cent_value_chord_prev, chord_num,
 
     # Sort by score (lower is better)
     candidates.sort(key=lambda x: x[1])
-    
-    logging.info(f'chord {chord_num}: generated {len(candidates)} unique candidates '
-                f'(scores: {[f"{s:.1f}" for _, s in candidates[:5]]}...)')
-    
-    return candidates[:K]
+    chosen = candidates[:K]
+
+    # The chord this cell already saved, offered unchanged and AFTER the trim so
+    # the sort can never drop it.  With the previous tuning present at every chord
+    # the trellis contains the previous path, so the DP's best path is at worst a
+    # tie with it and the run can only move the piece forward.  Without this each
+    # run rebuilt from 12-TET and had to beat the incumbent across the whole
+    # chorale on one lucky draw — which is why 103 of 115 comparisons were
+    # rejections.  It is offered unpolished on purpose: polishing each chord on its
+    # own would change the cents and break the adjacency the saved path was chosen
+    # for.  Costs one extra candidate slot.
+    if incumbent is not None:
+        inc = np.asarray(incumbent, dtype=float) % 1200.0
+        if tuple(np.round(inc, 1)) not in {tuple(np.round(c, 1)) for c, _ in chosen}:
+            chosen.append((inc, float(chord_scorer.score_chord(inc, tolerance=tolerance))))
+
+    logging.info(f'chord {chord_num}: generated {len(chosen)} unique candidates '
+                f'(scores: {[f"{s:.1f}" for _, s in chosen[:5]]}...)')
+
+    return chosen
 
 
 def _update_pc_accum(accum, cents_array, octave=1200.0):
@@ -261,12 +277,27 @@ def _pc_preserving_shifts(cents, octave=1200.0, max_shift=50.0):
     return variants
 
 
+# A gap costs its size, plus a quadratic surcharge on whatever part of it sits
+# above GAP_HINGE.  The linear term alone minimises the SUM of gaps, but the
+# ratchet in Straw_man_tuning_v2 keeps a run on its WORST single gap, and
+# listening agreed with the ratchet: t3_r1.625_lm19 (max 11, sum 44) beat
+# t3_r1.375_lm19 (max 14, sum 32).  Summing alone, the DP will buy one 20¢ jump
+# to save fifteen 1¢ ones and the ratchet then discards the whole run.  The
+# surcharge makes one 20¢ gap cost more than two 10¢ gaps (45 vs 20 at weight
+# 0.25), so the path search chases the same thing the keep/discard step does.
+# GAP_HINGE is 10¢ because that is the threshold the ear settled on.
+GAP_HINGE = 10.0
+GAP_HINGE_WEIGHT = 0.25
+
+
 def compute_transition_cost(prev_cents, curr_cents, prev_midi, curr_midi,
                            penalty_type='pitch_class_jump'):
     """
     Compute horizontal penalty for transitioning between two chords.
 
-    Penalizes pitch-class jumps for shared notes between adjacent chords.
+    Penalizes pitch-class jumps for shared notes between adjacent chords, with a
+    quadratic surcharge above GAP_HINGE so that large jumps cannot be paid for by
+    shaving small ones.
     """
     prev_pcs = atu.pitch_class_from_cents(prev_cents)
     curr_pcs = atu.pitch_class_from_cents(curr_cents)
@@ -288,6 +319,8 @@ def compute_transition_cost(prev_cents, curr_cents, prev_midi, curr_midi,
                            for prev_c in prev_pc_map[pc]]
                 min_dist = min(distances)
                 total_penalty += min_dist
+                if min_dist > GAP_HINGE:
+                    total_penalty += GAP_HINGE_WEIGHT * (min_dist - GAP_HINGE) ** 2
     
     if penalty_type in ['voice_leading', 'combined']:
         # Additional penalty for voice leading (MIDI note movement)
@@ -463,7 +496,8 @@ def hierarchical_viterbi_optimization(chorale, cent_value_chorale,
                                      verbose=False, verbose_threshold=None,
                                      candidate_max_no_improve=None,
                                      n_workers=1,
-                                     build_chord_sa_func=None):
+                                     build_chord_sa_func=None,
+                                     incumbent=None):
     """
     Apply Viterbi optimization hierarchically at phrase and piece levels.
 
@@ -512,7 +546,8 @@ def hierarchical_viterbi_optimization(chorale, cent_value_chorale,
         })
 
         base_seed = int(rng.integers(0, 2**31))
-        tasks = [(i, cent_value_chorale[:, i].copy(), base_seed + i)
+        tasks = [(i, cent_value_chorale[:, i].copy(), base_seed + i,
+                  None if incumbent is None else incumbent[i].copy())
                  for i in range(n_chords)]
         ctx = multiprocessing.get_context('fork')
         with multiprocessing.pool.Pool(processes=n_workers, context=ctx,
@@ -548,7 +583,8 @@ def hierarchical_viterbi_optimization(chorale, cent_value_chorale,
                     cooling_rate=cooling_rate, ratio_factor=ratio_factor,
                     stability_factor=stability_factor, spread=spread,
                     rng=rng, build_chord_sa_func=build_chord_sa_func,
-                    candidate_max_no_improve=candidate_max_no_improve)
+                    candidate_max_no_improve=candidate_max_no_improve,
+                    incumbent=None if incumbent is None else incumbent[i])
                 phrase_candidates.append(candidates)
                 if candidates:
                     prev_cents = candidates[0][0].copy()

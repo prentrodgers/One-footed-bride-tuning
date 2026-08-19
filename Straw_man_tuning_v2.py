@@ -949,6 +949,25 @@ def main():
                 phrase_boundaries = viterbi.detect_phrase_boundaries(chorale, fermata_threshold=2)
                 print(f"  Detected {len(phrase_boundaries)} phrase(s)")
             
+            # Offer this cell's saved tuning as one candidate per chord, so the
+            # trellis contains the path already on disk and the DP starts from it
+            # rather than rebuilding from 12-TET every run.  Without it a run had
+            # to beat the incumbent across the whole chorale on one draw, which
+            # is why the keep/discard step rejected 103 of 115 runs.
+            incumbent = None
+            if os.path.exists(output_file):
+                try:
+                    prev_arr = np.load(output_file)              # (4, N)
+                    if prev_arr.shape[1] == chorale.shape[1]:
+                        incumbent = (prev_arr.T % 1200).astype(float)   # (N, 4)
+                        print(f'  Seeding candidates with the saved tuning '
+                              f'({incumbent.shape[0]} chords)')
+                    else:
+                        print(f'  Saved tuning has {prev_arr.shape[1]} chords, '
+                              f'chorale has {chorale.shape[1]} — not seeding')
+                except (EOFError, ValueError) as e:
+                    print(f'  Could not read {output_file} for seeding ({e})')
+
             # Run hierarchical Viterbi optimization
             viterbi_tuning, phrase_paths, piece_path = viterbi.hierarchical_viterbi_optimization(
                 chorale, cent_value_chorale,
@@ -966,7 +985,8 @@ def main():
                 verbose_threshold=args.viterbi_verbose_threshold,
                 candidate_max_no_improve=args.viterbi_candidate_no_improve,
                 n_workers=args.viterbi_workers,
-                build_chord_sa_func=build_straw_man_chord_sa)
+                build_chord_sa_func=build_straw_man_chord_sa,
+                incumbent=incumbent)
             
             # Update final results with Viterbi-optimized tuning
             final_cent_value_chorale = viterbi_tuning
