@@ -55,22 +55,48 @@ spec:
             set -euo pipefail
             REPO_DIR=/home/prent/Repos/One-footed-bride-tuning
             REPO_URL=https://github.com/prentrodgers/One-footed-bride-tuning.git
+            # Every pod shares one checkout on ceph, so two syncing at once collide
+            # on .git/index.lock — 23 of 360 jobs died that way, and because a lock
+            # left by a killed git persists, every later job for that cell failed the
+            # same way through all its retries.
+            #
+            # Two guards.  First, skip git entirely when the checkout is already at
+            # the commit we want: these jobs write only untracked paths
+            # (Archive/straw-man/**, test.log), so after the first pod syncs, the
+            # other 359 have nothing to do and never touch .git at all.  Second,
+            # serialize whatever work is left behind an flock on the shared volume,
+            # and clear an index.lock old enough to be a corpse rather than a peer.
+            # Mirror origin rather than merge into it: `git pull` aborts the moment a
+            # tracked file is dirty, which is how this container failed before.
+            # Deliberately NO `git clean` — results live in the untracked
+            # Archive/straw-man/t*_r*_lm*/ directories and cleaning would delete every
+            # accumulated tuning the ratchet depends on.  reset --hard touches tracked
+            # files only, which is the right blast radius.
+            sync_repo() {
+              rm -f "$REPO_DIR/.git/index.lock" 2>/dev/null || true
+              git -C "$REPO_DIR" fetch --prune origin
+              git -C "$REPO_DIR" reset --hard origin/main
+            }
+
             if [ -d "$REPO_DIR/.git" ]; then
-              # Mirror origin rather than merge into it.  The checkout lives on a
-              # shared ceph volume that jobs write into, so `git pull` aborts the
-              # moment any tracked file is dirty — WreckingCrew.py writes
-              # {version}_features_array.npy into the repo root, and eleven of those
-              # are tracked, so a pull that has to delete them refuses and the whole
-              # job fails before it starts.  A deploy checkout should never merge.
-              #
-              # Deliberately NO `git clean`: results land in the untracked
-              # Archive/straw-man/t*_r*_lm*/ directories, and cleaning would delete
-              # every accumulated tuning the ratchet depends on.  `reset --hard`
-              # touches tracked files only.
-              echo "Repo exists — resetting to origin/main..."
-              cd "$REPO_DIR"
-              git fetch --prune origin
-              git reset --hard origin/main
+              REMOTE_SHA=$(git ls-remote "$REPO_URL" refs/heads/main | cut -f1)
+              LOCAL_SHA=$(git -C "$REPO_DIR" rev-parse HEAD 2>/dev/null || echo none)
+              if [ -n "$REMOTE_SHA" ] && [ "$REMOTE_SHA" = "$LOCAL_SHA" ]; then
+                echo "Repo already at $LOCAL_SHA — no git work needed"
+              elif command -v flock >/dev/null 2>&1; then
+                echo "Repo behind ($LOCAL_SHA -> $REMOTE_SHA) — syncing under lock..."
+                exec 9>"/home/prent/.gitsync.lock"
+                flock -w 300 9 || { echo "timed out waiting for the sync lock"; exit 1; }
+                # Re-check: another pod may have synced while we waited.
+                if [ "$(git -C "$REPO_DIR" rev-parse HEAD)" != "$REMOTE_SHA" ]; then
+                  find "$REPO_DIR/.git" -maxdepth 1 -name index.lock -mmin +2 -delete 2>/dev/null || true
+                  sync_repo
+                fi
+                flock -u 9
+              else
+                echo "flock unavailable — syncing unserialized"
+                sync_repo
+              fi
             else
               echo "Cloning repo..."
               mkdir -p /home/prent/Repos
