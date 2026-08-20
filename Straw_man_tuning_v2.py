@@ -51,6 +51,25 @@ def start_logger(logfile: str, level=logging.INFO):
 start_logger(os.path.join(base_dir, 'test.log'), level = logging.INFO)
 reload(atu)
 
+# Marker on the handful of lines that explain why a result looks the way it
+# does.  Grep for it to census a whole batch:
+#     grep -h ">>>" Archive/straw-man/*/straw-man-tuning-*.log
+KEY_LINE = '>>>'
+
+
+def _highlight(msg):
+    """Record a run-defining line in the log file, marked for easy grep.
+
+    Deliberately NOT printed.  For a k8s job stdout means pod stdout, which is
+    ephemeral, truncated to five pods by kubectl's --max-log-requests, and
+    abandoned wholesale the moment one pod is still starting — a 360-job batch
+    could not be censused at all, and three attempts to count the same thing
+    returned 87, 4 and 6.  The per-chorale log persists on the shared volume
+    beside the .npy it explains, so that is where this belongs.
+    """
+    logging.info(f'{KEY_LINE} {msg.strip()}')
+
+
 def _choose_probabilities(num_choices, r=0.3):
     """
     Generate weighted probabilities favoring earlier (better) ratios.
@@ -397,16 +416,16 @@ def load_and_merge_previous(output_file, best_cents, best_scores, chord_scorer, 
                 f" max gap {a_gap:.1f} vs {b_gap:.1f}¢")
 
     if prev_combined < curr_combined:
-        print(f"  Previous result is better — keeping previous"
-              f" (combined {prev_combined:.2f} vs {curr_combined:.2f};"
-              + _describe(np.mean(prev_scores), prev_spread, prev_gap,
-                          np.mean(best_scores), curr_spread, curr_gap) + ")")
+        _highlight(f"  Previous result is better — keeping previous"
+                   f" (combined {prev_combined:.2f} vs {curr_combined:.2f};"
+                   + _describe(np.mean(prev_scores), prev_spread, prev_gap,
+                               np.mean(best_scores), curr_spread, curr_gap) + ")")
         return prev_chords, prev_scores, False
 
-    print(f"  Current result is better — keeping current"
-          f" (combined {curr_combined:.2f} vs {prev_combined:.2f};"
-          + _describe(np.mean(best_scores), curr_spread, curr_gap,
-                      np.mean(prev_scores), prev_spread, prev_gap) + ")")
+    _highlight(f"  Current result is better — keeping current"
+               f" (combined {curr_combined:.2f} vs {prev_combined:.2f};"
+               + _describe(np.mean(best_scores), curr_spread, curr_gap,
+                           np.mean(prev_scores), prev_spread, prev_gap) + ")")
     return best_cents, best_scores, True
 
 
@@ -960,8 +979,8 @@ def main():
                     prev_arr = np.load(output_file)              # (4, N)
                     if prev_arr.shape[1] == chorale.shape[1]:
                         incumbent = (prev_arr.T % 1200).astype(float)   # (N, 4)
-                        print(f'  Seeding candidates with the saved tuning '
-                              f'({incumbent.shape[0]} chords)')
+                        _highlight(f'  Seeding candidates with the saved tuning '
+                                   f'({incumbent.shape[0]} chords)')
                     else:
                         print(f'  Saved tuning has {prev_arr.shape[1]} chords, '
                               f'chorale has {chorale.shape[1]} — not seeding')
