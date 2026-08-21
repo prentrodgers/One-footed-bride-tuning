@@ -74,3 +74,12 @@ Uploads/Old Renders/
 
 # Blender portable tarball for the 0.8 image build (COPYied into the container, kept local)
 parallel-jobs/blender-*-linux-x64.tar.xz
+
+# Generated stage export for stage_preview.html — 22MB, rebuilt with
+#   blender -b -P blender_stage.py -- --export-gltf stage.glb
+stage.glb
+
+# Generated k8s Job manifests — written by generate-grid-search-jobs.sh from
+# k8s-grid-search-job-template.yaml, one per (parameter cell x chorale).
+# Tracking them meant a stale set could be deployed after the template changed.
+k8s-jobs/

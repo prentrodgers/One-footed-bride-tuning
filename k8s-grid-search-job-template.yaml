@@ -39,79 +39,13 @@ spec:
                 - fs3
                 - fs4
                 - fs5
-                - fs6
                 - fs7
                 - fs8
                 - fs9
-      initContainers:
-      - name: git-sync
-        image: quay.io/prentrodgers/python-music:0.7
-        imagePullPolicy: IfNotPresent
-        securityContext:
-          runAsUser: 0
-        command: ["/bin/bash", "-c"]
-        args:
-          - |
-            set -euo pipefail
-            REPO_DIR=/home/prent/Repos/One-footed-bride-tuning
-            REPO_URL=https://github.com/prentrodgers/One-footed-bride-tuning.git
-            # Every pod shares one checkout on ceph, so two syncing at once collide
-            # on .git/index.lock — 23 of 360 jobs died that way, and because a lock
-            # left by a killed git persists, every later job for that cell failed the
-            # same way through all its retries.
-            #
-            # Two guards.  First, skip git entirely when the checkout is already at
-            # the commit we want: these jobs write only untracked paths
-            # (Archive/straw-man/**, test.log), so after the first pod syncs, the
-            # other 359 have nothing to do and never touch .git at all.  Second,
-            # serialize whatever work is left behind an flock on the shared volume,
-            # and clear an index.lock old enough to be a corpse rather than a peer.
-            # Mirror origin rather than merge into it: `git pull` aborts the moment a
-            # tracked file is dirty, which is how this container failed before.
-            # Deliberately NO `git clean` — results live in the untracked
-            # Archive/straw-man/t*_r*_lm*/ directories and cleaning would delete every
-            # accumulated tuning the ratchet depends on.  reset --hard touches tracked
-            # files only, which is the right blast radius.
-            sync_repo() {
-              rm -f "$REPO_DIR/.git/index.lock" 2>/dev/null || true
-              git -C "$REPO_DIR" fetch --prune origin
-              git -C "$REPO_DIR" reset --hard origin/main
-            }
-
-            if [ -d "$REPO_DIR/.git" ]; then
-              REMOTE_SHA=$(git ls-remote "$REPO_URL" refs/heads/main | cut -f1)
-              LOCAL_SHA=$(git -C "$REPO_DIR" rev-parse HEAD 2>/dev/null || echo none)
-              if [ -n "$REMOTE_SHA" ] && [ "$REMOTE_SHA" = "$LOCAL_SHA" ]; then
-                echo "Repo already at $LOCAL_SHA — no git work needed"
-              elif command -v flock >/dev/null 2>&1; then
-                echo "Repo behind ($LOCAL_SHA -> $REMOTE_SHA) — syncing under lock..."
-                exec 9>"/home/prent/.gitsync.lock"
-                flock -w 300 9 || { echo "timed out waiting for the sync lock"; exit 1; }
-                # Re-check: another pod may have synced while we waited.
-                if [ "$(git -C "$REPO_DIR" rev-parse HEAD)" != "$REMOTE_SHA" ]; then
-                  find "$REPO_DIR/.git" -maxdepth 1 -name index.lock -mmin +2 -delete 2>/dev/null || true
-                  sync_repo
-                fi
-                flock -u 9
-              else
-                echo "flock unavailable — syncing unserialized"
-                sync_repo
-              fi
-            else
-              echo "Cloning repo..."
-              mkdir -p /home/prent/Repos
-              git clone "$REPO_URL" "$REPO_DIR"
-            fi
-            chgrp -R 1000 "$REPO_DIR"
-            chmod -R g+rwX "$REPO_DIR"
-            find "$REPO_DIR" -type d -exec chmod g+s {} +
-            echo "Repo ready at $REPO_DIR"
-        volumeMounts:
-        - mountPath: /home/prent
-          name: ceph-files
-        env:
-        - name: HOME
-          value: "/home/prent"
+      # No git-sync init container.  The repo is synced once per batch by
+      # k8s-git-sync-job.yaml, which deploy-grid-search-jobs.sh runs and waits for
+      # before submitting any of these.  Having all 360 sync the one shared
+      # checkout serialised them on .git/index.lock and killed 23 of them.
       containers:
       - name: grid-search
         image: quay.io/prentrodgers/python-music:0.7
@@ -201,7 +135,7 @@ spec:
                 --viterbi_verbose_threshold 80 \
                 --detect_phrases \
                 --phrase_horizontal_weight 8.0 \
-                --viterbi_workers 8
+                --viterbi_workers 4
 
             # Step 2: spread analysis
             # (The old horizontal_transpose.py pass is gone: the Viterbi DP now
@@ -246,15 +180,24 @@ spec:
         - name: LOGNAME
           value: "prent"
         resources:
-          # Sized so several per-chorale jobs share a node: 8 cores each means
-          # three concurrent jobs on a 24-core box, and one job's single-threaded
-          # phase overlaps another's parallel phase instead of idling cores.
-          # Keep --viterbi_workers equal to this cpu value.
+          # 4, not 8.  The eligible nodes are 14-24 CPU and none is a multiple of
+          # 8, so 8-CPU pods stranded 14 cores across fs2-fs9 and pinned fs8 (14
+          # CPU) to a single pod that wasted 6 of them.  At 4 only 6 cores strand
+          # and roughly twice as many pods fit.
+          #
+          # It also leaves the node something to run the kubelet with.  At cpu 8
+          # with eight workers a pod pinned every core it was given, and
+          # container creation for the next job timed out against a saturated
+          # machine:  Error: context deadline exceeded  /  stream terminated by
+          # RST_STREAM with error code: CANCEL.
+          #
+          # Keep --viterbi_workers equal to this cpu value: workers above the
+          # limit only contend.
           requests:
-            cpu: "8"
+            cpu: "4"
             memory: "1Gi"
           limits:
-            cpu: "8"
+            cpu: "4"
             memory: "8Gi"
       volumes:
       - name: ceph-files

@@ -12,11 +12,12 @@ TEMPLATE="k8s-grid-search-job-template.yaml"
 OUTPUT_DIR="k8s-jobs"
 
 # Parameter arrays
-LIMIT_MAXES=(17)
-TOLERANCES=(3)
-RATIOS=(1.5)
+LIMIT_MAXES=(17 19)
+TOLERANCES=(1 2 3)
+RATIOS=(1.25 1.375 1.50 1.625 1.75)
 CHORALES=(bwv253 bwv254 bwv255 bwv256 bwv257 bwv258 bwv259 bwv260 bwv261 bwv262 bwv263 bwv264)
-
+CHORALES=(bwv259 bwv260 bwv262 bwv263)
+CHORALES=(bwv259 bwv262)
 
 echo "Generating Kubernetes Job manifests..."
 echo "Template: $TEMPLATE"

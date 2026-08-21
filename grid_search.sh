@@ -24,9 +24,10 @@ mkdir -p ~/Music/sflib
 
 # test with just one:
 CHORALES="bwv261"
-
+# replace the ones that I deleted due to scores in the thousands
+# rm -r Archive/straw-man/t3_r1.75_lm17 Archive/straw-man/t3_r1.75_lm19
 LIMIT_MAXES=(17 19)
-TOLERANCES=(3)
+TOLERANCES=(1 2 3)
 RATIOS=(1.25 1.375 1.50 1.625 1.75)
 ROLLS=4
 
@@ -49,7 +50,7 @@ SPREAD=7
 # 56.2-57.9 mean while ten different cells spanned 56.0-57.6.  Use FRESH=1 only
 # when you want this run's output regardless of what came before.
 FRESH=0 # once you want to ratchet each run, set fresh=0 and keep the --keep_previous flag in the python call below
-MAX_GAP=12
+MAX_GAP=33 # tried 12 but that caused unrelated problems with enforce_continuity
 
 for limit_max in "${LIMIT_MAXES[@]}"; do
     for tolerance in "${TOLERANCES[@]}"; do

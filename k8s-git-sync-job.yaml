@@ -1,0 +1,106 @@
+# One-shot repo sync for the grid search.
+#
+# The 360 grid-search jobs share a single checkout on the ceph volume, so
+# having each one sync it was both wasteful and unsafe: all 360 took
+# .git/index.lock in turn, and 23 died when two overlapped or when a lock left
+# by a killed git outlived its pod.  The repo only needs to move once per
+# batch, so it moves here, and the grid jobs just read what this leaves behind.
+#
+# deploy-grid-search-jobs.sh runs this and waits for it before submitting any
+# grid job.  Run it by hand if you apply a job manifest directly:
+#     kubectl delete job grid-search-git-sync --ignore-not-found
+#     kubectl apply -f k8s-git-sync-job.yaml
+#     kubectl wait --for=condition=complete --timeout=300s job/grid-search-git-sync
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: grid-search-git-sync
+  labels:
+    app: grid-search-sync
+spec:
+  backoffLimit: 2
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        app: grid-search-sync
+    spec:
+      restartPolicy: Never
+      # Both copied from k8s-grid-search-job-template.yaml, and both are load-
+      # bearing on this cluster.  Without the SELinux level the container cannot
+      # access the ceph mount and dies in CreateContainerError; without the node
+      # affinity it can land on a node that cannot mount dropbox-pvc at all.
+      securityContext:
+        seLinuxOptions:
+          level: s0
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: In
+                values:
+                - fs2
+                - fs3
+                - fs4
+                - fs5
+                - fs6
+                - fs7
+                - fs8
+                - fs9
+      containers:
+      - name: git-sync
+        image: quay.io/prentrodgers/python-music:0.7
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          runAsUser: 0
+        command: ["/bin/bash", "-c"]
+        args:
+          - |
+            set -euo pipefail
+            REPO_DIR=/home/prent/Repos/One-footed-bride-tuning
+            REPO_URL=https://github.com/prentrodgers/One-footed-bride-tuning.git
+
+            if [ -d "$REPO_DIR/.git" ]; then
+              # Mirror origin rather than merge into it: `git pull` aborts the moment
+              # a tracked file is dirty, and WreckingCrew.py writes
+              # {version}_features_array.npy into the repo root.
+              #
+              # Deliberately NO `git clean` — results live in the untracked
+              # Archive/straw-man/t*_r*_lm*/ directories and cleaning would delete
+              # every accumulated tuning the ratchet depends on.  reset --hard
+              # touches tracked files only, which is the right blast radius.
+              #
+              # Nothing else should be running git here (this Job is the only writer
+              # and the grid jobs no longer touch .git at all), so a lock present now
+              # is a corpse from a killed process.
+              rm -f "$REPO_DIR/.git/index.lock"
+              cd "$REPO_DIR"
+              echo "At $(git rev-parse --short HEAD), fetching..."
+              git fetch --prune origin
+              git reset --hard origin/main
+              echo "Now at $(git rev-parse --short HEAD)"
+            else
+              echo "Cloning repo..."
+              mkdir -p /home/prent/Repos
+              git clone "$REPO_URL" "$REPO_DIR"
+            fi
+
+            chgrp -R 1000 "$REPO_DIR"
+            chmod -R g+rwX "$REPO_DIR"
+            find "$REPO_DIR" -type d -exec chmod g+s {} +
+            echo "Repo ready at $REPO_DIR"
+        volumeMounts:
+        - mountPath: /home/prent
+          name: ceph-files
+        env:
+        - name: HOME
+          value: "/home/prent"
+      volumes:
+      - name: ceph-files
+        persistentVolumeClaim:
+          claimName: dropbox-pvc
+          readOnly: false
+      imagePullSecrets:
+        - name: regcred
