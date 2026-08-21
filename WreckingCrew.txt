@@ -19508,6 +19508,12 @@ EOF
             GIT_PAT=$(op item get "GitHub PAT" --fields credential --reveal)
             git remote set-url origin https://$GIT_PAT@github.com/prentrodgers/One-footed-bride-tuning.git
             git push
+      Then remove the PAT from your local .git/config.
+            cat .git/config | grep "url ="
+                  url = https://ghp...@github.com/prentrodgers/One-footed-bride-tuning.git
+            git remote set-url origin https://github.com/prentrodgers/One-footed-bride-tuning
+            cat .git/config | grep "url ="
+                  url = https://github.com/prentrodgers/One-footed-bride-tuning # <-- PAT is gone
 
       Then git pull on the pod:
             kubectl exec -i deploy/one-footed-bride -c pod-ssh -- git -C /home/prent/Repos/One-footed-bride-tuning pull
@@ -19622,13 +19628,1066 @@ EOF
 
       
 
-      Now do bwv257 wnd bwv259, then if time, bwv261
-      He recommends doing 59 first:
+      Now do bwv257 and bwv259, then if time, bwv261
+      He recommends doing 259 first:
             Uploads/ball9-t59c_lm19_r1.12_df2_t3_d05_21_t088.npy
             Uploads/ball9-t59c_lm19_r1.12_df2_t3_d05_21_t088.mp3
+
             STEM=ball9-t59c_lm19_r1.12_df2_t3_d05_21_t088
             duration=5:13 = 
                   Chroale     Shots	Length secs       Frames	Tempo
                   bwv257	22	5:02	302.398      9072	      106
                   bwv259	22	5:13 	313.109      9396	       88 # <-- first
                   bwv261	34	8:00	480.582     14418	      118
+
+------------------------
+8/9/26 From the emergency vet clinic waiting for a vet. Arrived 8:00 am. Now 9:50 am.
+      Get some work done. edit blender-render.sh to reflect BWV261
+            STEM=ball9-t61c_lm19_r1.25_df4_t3_d08_04_t118
+            DURATION=480.58
+            TEMPO=118
+            OUT=stage_full_bwv261.mp4
+      Let it run for about an hour and a half or so. Then:
+            ls -lth stage_frames | tail
+                  -rw-r--r--. 1 prent prent  1.1M Aug  9 09:55 frame_000001.png
+                  -rw-r--r--. 1 prent prent  1.1M Aug  9 09:55 frame_000000.png
+            ls -lth stage_frames | head
+                  total 15G
+                  -rw-r--r--. 1 prent prent  1.1M Aug  9 11:42 frame_014417.png
+                  -rw-r--r--. 1 prent prent  1.1M Aug  9 11:42 frame_014416.png
+      See if it was able to run the ffmpeg step 
+            ls -lth *.mp4
+                  -rw-r--r--. 1 prent prent 27M Aug  9 11:42 stage_full_bwv261.mp4
+                  -rw-r--r--. 1 prent prent 16M Aug  9 09:41 stage_full_bwv259.mp4
+                  -rw-r--r--. 1 prent prent 15M Aug  8 14:30 stage_full_bwv258.mp4
+      Then copy to fs3
+            scp fs1:~/Repos/One-footed-bride-tuning/stage_full_bwv261.mp4 .
+      Then end with bwv257.
+            STEM=ball9-t57c_lm19_r1.12_df5_t3_d05_07_t106
+            DURATION=3302.4
+            TEMPO=106
+            OUT=stage_full_bwv257.mp4
+
+      -----------------
+      Run with a different orchestra. What I want is to eventually choose 5-6 different orchestra configurations, and have the WreckingCrew.py randomly choose from the alternatives.
+      First choice is replacing the finger_pianos with all flutes, pizz_strings with all clarinets, marimbas with all oboes, and bass_section with all bassoons. This may be overkill. I also want all guitars, including the long string for bass soubled on bass finger piano, all finger pianos, and some mixtures of all of the above. 
+            CHORALES=bwv255
+            python WreckingCrew.py --numpy_dir Archive/straw-man/viterbi-tunings-6-29 --chorale_list $CHORALES --density_level 4 --deep_bass_backoff 0.25 --back_off_clicks 0.25 --album 7 --mod c --rondo_section_a 0 32 --rondo_insert_a_after 63 127
+      A few problems with the assortment. It sounds terrible from the start, but adds distortion in the last minute of the performance. Clipping. 
+                  overall samples out of range:     1340     1378
+            grep "number of samples out of range:" csound_slide_tuning.log | wc -l
+                  28    
+      A lousy start, but it's time to join the family now.
+
+--------------
+8/12/26 On my walk I had another idea. 
+      Allow the Viterbi optimization to consider all the transpositions available to all the 10 chords on its path examination, subject to not changing any pitch class with the transposition. This will require modification to some of these files:
+      
+            template here: k8s-grid-search-job-template.yaml      
+            used by generate-grid-search-jobs.sh - this file controls the scope of the grid search 
+            k8s-jobs/grid-search-job-nn-lm17-t3-r1-5.yaml where nn is the job number. 
+
+            The goal is to run through this stream of tasks:
+            time python Straw_man_tuning_v2.py - this does the simulated annealing and viterbi optimization 
+            python horizontal_transpose.py - this does a check on out of place chords and transposes them to improve transitions from chord to chord. 
+            python analyze_spread.py - Report the spread scores for all the chorales in the target directory. Makes no changes. Does not cause any subsequent changes. 
+            Example: python analyze_spread.py --numpy_dir Archive/straw-man/viterbi-tunings-6-29 --chorale_list bwv255 --suffix="_t1_r1.250_lm17-opt.npy"
+
+            /home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/viterbi-tunings-6-29/bwv255_t1_r1.250_lm17-opt.npy
+            Original chorale key: G♮ major
+            Pitch classes sorted by frequency in original chorale:
+            G♮: 130 C♮: 104 D♮: 94  B♮: 58  A♮: 40
+            Note   Occurs     Min     Max   Range  Unique cent values (rounded)
+            ------------------------------------------------------------------------------------------
+            G♮        130     679     717      38  [679, 680, 690, 692, 693, 695, 701, 706, 711, 712, 717]
+            C♮        104    1161      15      54  [4, 9, 10, 15, 1161, 1163, 1168, 1178, 1188, 1190, 1193] <-- wide spread
+            D♮         94     170     247      77  [170, 181, 182, 186, 191, 192, 193, 194, 195, 199, 203, 208, 214, 219, 231, 247] <-- wide spread
+            B♮         58    1065    1141      76  [1065, 1066, 1076, 1079, 1087, 1098, 1103, 1116, 1141] <-- wide spread
+            A♮         40     862     948      86  [862, 884, 888, 894, 895, 897, 901, 948] <-- wide spread
+            E♮         40     374     401      27  [374, 376, 379, 390, 395, 396, 401]
+            F♯         22     568     633      65  [568, 579, 581, 586, 596, 633] <-- wide spread
+            F♮         18     458     524      66  [458, 498, 502, 524] <-- wide spread
+            G♯          4     787     787       0  [787]
+            A♯          2    1022    1022       0  [1022]
+
+            For the last few months I have been working on tuning chorales to optimum cent values that minimize the sum of the ratios of the intervals in each chord in the chorale. Each chord has 6 intervals that need to be examined to find the cent values for each of the 4 notes in the chord that minimize the ratio sum of the six interval's ratios. I have several helper functions that are used in the python program @Straw_man_tuning_v2.py to tune the ideal cent values. There are a number of requirements in addition to low ratios for each interval. The cent value must not change the pitch class of the note. That is, the cent value must rounds same pitch class as the original MIDI value. The tuning is done using Simulated Annealing to find the optimum cent values. 
+            An additional requirement is to minimize an changes in cent value for the same pitch class in adjacent or near adjacent chords. This can be achieved by having the initial Simualted Annealing repeat its tuning exercise several times, seeking cent values for chords that reduce the movement between adjacent chords. It could also be done by transposing all the cent values in a chord to minimize this movement. Or a combination of these techniques could be employed. 
+            The program has an implementation of the Viterbi Optimization algorithm to find a path through all the cent value tuples that minimize the movement of cent values for the same pitch class for adjacent chords. I don't think it considers the ability to transpose a chord in order to minimize the cent movement of adjacent chords with the same pitch class, but I've lost track of exactly how the Viterbi Optimization is done. I'd like you to examine the code and tell me if this might improve the quality of the results from @Straw_man_tuning_v2.py.
+
+            Claude took that and considered what the effects would be of some changes.
+            The change worth making
+
+            Feed the transposition candidates into the DP (dynamic programming) and let the full objective choose, instead of pre-selecting by MAD (Mean Absolute Deviation). Replace lines 309-314:
+                  variants = [curr_cents] + _pc_preserving_shifts(curr_cents, prev_used, prev_accum)
+            with a helper that collects: the deltas aligning each shared pitch class to prev_used, plus the existing _mad_optimal_delta result, filtered by the same PC-preservation check. The inner loop already scores each variant with h_cost + m_cost and stores best_used_cents, so nothing else changes. Cost goes from ≤2 to ≤5 variants — K²×5 cheap distance evals per chord, invisible next to SA.
+
+            Critically: this is only worth doing with --viterbi_mad_weight non-zero (0.1–0.3, as your own help text suggests). At mad_weight=0 you get exactly the greedy drift in the table above. Consider making that the default when transposition is enabled.
+
+            Two follow-ons once it works: candidates in generate_k_candidates that differ only by transposition become wasted trellis slots (dedupe the key modulo shift), and enforce_continuity's fallback-1 uniform shift (Straw_man_tuning_v2.py:492) becomes largely redundant.
+
+            Want me to write the patch?
+            
+            I answered: Yes let's try it out and see how it sounds. If given a choice to have cent values for the same pitch class drift over the course of the piece, or having them move 35+ cents between adjacent chords, the latter is a disaster that sticks out like a sore thumb, and the former is hardly detectable to the typical listener. Any musician who hears adjacent cent moves will assume the composer intended those, and Bach would object were he in the audience. But a gradual small movement of cent values between chords 5-10 chords apart would not be noticed. So MAD is not as important as the adjacency challenge. 
+
+            One think he showed: Chord score identical (50.0 → 50.0), confirming transposition is vertically free. That's not actually true. Unless the score he's referring to is not the chord_score I know. 
+
+            What changed — viterbi_optimization.py, three edits:
+
+            _pc_preserving_shifts — enumerates whole-chord offsets that land each shared pitch class on its value in the previous chord, plus the old MAD offset, keeping only offsets that preserve every pitch class.
+            
+            The DP inner loop now offers those as variants on every transition, and picks between them with the full objective — no longer gated on mad_weight > 0, and no longer pre-selected by the MAD term alone.
+            
+            The phrase seam — viterbi_select_path accepts the previous phrase's last chord, so --detect_phrases no longer leaves 13 untreated boundaries.
+            
+            Measured (same candidate trellis, both selectors, so no SA noise; bwv253, 14 phrases, hw=1.0):
+
+            chord             score	max PC MAD	      adj gap mean	adj gap max	>35¢
+            viterbi alone	50.5	17.6¢	            7.4¢	            28¢	      0/57
+            viterbi + horizontal_transpose.py (current pipeline)	
+                              50.5	29.5¢	            2.3¢	            57¢	      1/57
+            in-DP + seam (new)	
+                              50.6	19.5¢	            0.4¢	            18¢	      0/57
+
+            The greedy post-pass is what produces the 57¢ sore thumb — it fixes one pair and wrecks the next, having no view of the path. The DP sees the whole phrase, so it never has to. Chord score is unchanged (50.5 → 50.6) because transposition is provably free vertically — verified across 60 chords × 44 shifts, zero score changes.
+
+            Your drift-vs-adjacency tradeoff turned out not to be a tradeoff here: MAD improved too (29.5 → 19.5¢). I'd been ready to spend drift and didn't have to.
+
+            Zero pitch-class violations in every configuration.
+
+            I'll render an abbreviated clip once the tuning lands, plus the same chorale through the old code at identical settings so you have a paired A/B to listen to.
+
+            He comes back and Correcting my earlier numbers
+            The dramatic table I showed you was measured at (K=10, sa_iterations=300). At your production settings (K=15, rolls=8, sa_iterations=1000) the gap is much narrower, because better candidates give the greedy post-pass an easier job:
+
+            bwv253, production settings	chord score	      max PC MAD	adj gap mean	adj gap max
+            baseline Viterbi alone	      49.1	            19.5¢	      3.1¢	            22.0¢
+            baseline + greedy (your pipeline)
+                                    	49.1	            12.4¢	      0.7¢	            13.0¢
+            new in-DP + seam	            49.1	            15.5¢	      0.2¢	            7.0¢
+
+-----------------
+8/14/26 Asked Claude to ensure that the tuning stream isn't optimizing for different targets.
+      What are the criteria that @select_best_and_render.py use to determine the best? Do they match the goals that @viterbi_optimization.py  and  @Straw_man_tuning_v2.py are using?
+      He really chewed on that one. 
+      I need to provide more guidance. What as select_best_and_render.py done in the past for me? Check the reports that came out.
+            ls -lth grid-search-aggregation-log.txt grid_search.output.txt select_best_no_hor.txt select_best_trans.txt select_best.txt
+                  -rw-r--r--. 1 prent prent  35K Jul 16 13:06 select_best_trans.txt
+                  -rw-r--r--. 1 prent prent  35K Jul 16 13:06 select_best_no_hor.txt
+                  -rw-r--r--. 1 prent prent  32K Jul 16 13:06 select_best.txt
+                  -rw-r--r--. 1 prent prent 108K Jul  1 10:07 grid-search-aggregation-log.txt
+                  -rw-r--r--. 1 prent prent  36K Jul  1 10:07 grid_search.output.txt
+
+      What @select_best_and_render.py  is designed to do is choose from all the available tunings with all the available grid search parameters the one that sounds the best. To my ears that might be one with a low chord_score average for the chorale, or it might be one with the fewest large jumps of cent values between adjacent notes of the same pitch class. We coded @select_best_and_render.py  a few months ago when I wasn't sure what the bad sounding tunings were caused by. I think we need to find a way to make more promient those trade-offs. In the past we had a hinge that penalized those with specific gaps (sometimes 33, sometimes 35, sometimes 50!) and caused them to be discarded, while others with just under that sized gap got through and the chord score was determinant.  As I work with these tunings more, my ears are more sensitive to the flaws that snuck through in the past. Take a look at the results from a run done a month ago that I saved in @select_best_no_hor.txt. The BEST was selected based on a few factors. The report only lists the max gap and number of hard jumps. It would be better if it showed the top 5 or 10 largest gaps, or a sum of the gaps, or some other measure that provided more information about the gaps. I'm less concerned at this point with choosing the best from the grid search than learning what's most important to my listening enjoyment. I know more about that than I used to, but not enough to give you absolute guidance. Let's change @select_best_and_render.py to just a report for now. Give me more information about the gaps, since in my ignorance I think those are what ruins the harsh tunings I hear on bwv256, for example. Keep the ability to copy the winners when we are able to properly assess winning using the argument --copy_npy_to. For now keep the --render --album --bass_sustain --copy_mp3_to --uploads_dir arguments, but we won't be using them for a while.
+
+-----------------
+8/15/26 Two tracks at once: Three.js enhancement, and grid_search to try to improve chorale tuning.
+      First the tuning done on a limited set of LIMIT_MAXES=(17 19) TOLERANCES=(1 2 3) RATIOS=(1.25 1.50 1.75) ROLLS=4
+            ============================================================================================================
+            Chorale: bwv261   sorted by gapsum (ordering only, not a ranking)
+            ===========================================================================================
+            Directory       sfx   t  ratio  lm ChordAvg ChordMax |    N  GapSum    Avg    Med    p90    Max |  >10  >20  >30  >=33
+            --------------- ---- -- ------ --- -------- -------- | ---- ------- ------ ------ ------ ------ | ---- ---- ---- -----
+            t2_r1.25_lm17   opt   2  1.250  17     57.3      141 |    2      16    8.0    8.0    8.0    8.0 |    0    0    0     0
+            t3_r1.25_lm19   opt   3  1.250  19     57.4      116 |    3      19    6.3    8.0    8.0    8.0 |    0    0    0     0
+            t1_r1.75_lm17   opt   1  1.750  17     57.4      145 |    1      31   31.0   31.0   31.0   31.0 |    1    1    1     0
+            t1_r1.25_lm17   opt   1  1.250  17     57.3      145 |    4      47   11.8    6.5   24.7   31.0 |    1    1    1     0
+            t3_r1.50_lm17   opt   3  1.500  17     56.7      123 |    7      49    7.0    3.0   14.4   24.0 |    1    1    0     0
+            t3_r1.75_lm17   opt   3  1.750  17     57.1      123 |    8      55    6.9    5.5   10.3   11.0 |    1    0    0     0
+            t3_r1.25_lm17   opt   3  1.250  17     56.7      101 |    8      57    7.1    5.5   15.0   15.0 |    2    0    0     0
+            t3_r1.50_lm19   opt   3  1.500  19     56.9      112 |    7      57    8.1    3.0   17.0   17.0 |    3    0    0     0
+            t1_r1.75_lm19   opt   1  1.750  19     57.6      145 |    6      63   10.5   11.0   14.0   14.0 |    5    0    0     0
+            t1_r1.50_lm17   opt   1  1.500  17     57.3      145 |    7      69    9.9    7.0   16.0   16.0 |    2    0    0     0
+            t2_r1.50_lm19   opt   2  1.500  19     58.2      145 |    8      90   11.2   10.0   20.6   29.0 |    2    1    0     0
+            t2_r1.25_lm19   opt   2  1.250  19     57.2      141 |    6      98   16.3   12.0   31.0   31.0 |    3    2    2     0
+            t1_r1.50_lm19   opt   1  1.500  19     57.1      140 |    5     101   20.2   24.0   28.2   31.0 |    5    3    1     0
+            t3_r1.75_lm19   opt   3  1.750  19     56.8      105 |   12     121   10.1   11.0   18.8   28.0 |    7    1    0     0
+            t1_r1.25_lm19   opt   1  1.250  19     57.5      145 |    9     122   13.6   15.0   19.0   31.0 |    7    1    1     0
+            t2_r1.75_lm19   opt   2  1.750  19     57.1      145 |   14     156   11.1    7.0   20.1   31.0 |    6    2    1     0
+            t2_r1.75_lm17   opt   2  1.750  17     56.8      140 |   12     157   13.1   10.5   24.0   32.0 |    6    3    1     0
+            t2_r1.50_lm17   opt   2  1.500  17     57.6      140 |   16     222   13.9   13.5   20.0   31.0 |   10    1    1     0
+      You can have low chord score averages (CSA) or limited pitch class gaps on adjacent chords (PCGAC). Pick one. This list is sorted by the sum of the PCGAC.
+      The scores are all under 58, so I don't think that makes any difference, so disregard CSA.
+      Chordmax just balances interestingness with strength - see One Footed Bride. Spice is good.
+      N is the number of PCGAC (I think. Confirm it.) This could be many imperceptable gaps. Pay more attention to the number of gaps larger than 20 or larger than 30.
+      Start by removing those that are clearly deficient in one or more factors, then listen to the results. They may be imperceptibly different.
+      These two have no gaps wider than 10:
+            t2_r1.25_lm17   opt   2  1.250  17     57.3      141 |    2      16    8.0    8.0    8.0    8.0 |    0    0    0     0
+            t3_r1.25_lm19   opt   3  1.250  19     57.4      116 |    3      19    6.3    8.0    8.0    8.0 |    0    0    0     0
+      These have only one gap wider than 10:
+            t3_r1.75_lm17   opt   3  1.750  17     57.1      123 |    8      55    6.9    5.5   10.3   11.0 |    1    0    0     0
+      These have no gaps wider than 10:
+            t3_r1.75_lm17   opt   3  1.750  17     57.1      123 |    8      55    6.9    5.5   10.3   11.0 |    1    0    0     0
+            t3_r1.25_lm17   opt   3  1.250  17     56.7      101 |    8      57    7.1    5.5   15.0   15.0 |    2    0    0     0
+            t3_r1.50_lm19   opt   3  1.500  19     56.9      112 |    7      57    8.1    3.0   17.0   17.0 |    3    0    0     0
+      This one has no gaps wider than 10 at tolerance 1:
+            t1_r1.50_lm17   opt   1  1.500  17     57.3      145 |    7      69    9.9    7.0   16.0   16.0 |    2    0    0     0
+            t1_r1.75_lm19   opt   1  1.750  19     57.6      145 |    6      63   10.5   11.0   14.0   14.0 |    5    0    0     0
+      Start with the last two. 
+
+            for nd in t1_r1.50_lm17 t1_r1.75_lm19 ; do echo __________ $nd ___________ ; python WreckingCrew.py --numpy_dir Archive/straw-man/$nd --chorale_list bwv261 --cent_file_partial=-opt.npy --album 6 --mod d --short_repeats ; done
+
+      They both have a max chord 72 with a score of 145
+            t1_r1.50_lm17:
+                  72:  383  699  966  102	E♮ G♮ A♯ C♯	145.0
+                  # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+                  1 E♮ G♮   316  6/5      2 E♮ A♯   583  7/5      3 E♮ C♯   281 20/17 
+                  4 G♮ A♯   267  7/6      5 G♮ C♯   597 24/17     6 A♯ C♯   336 17/14 
+                  74:  383  699 1085 1085	E♮ G♮ B♮ B♮	43.0
+                  # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+                  1 E♮ G♮   316  6/5      2 E♮ B♮   498  4/3      3 E♮ B♮   498  4/3  
+                  4 G♮ B♮   386  5/4      5 G♮ B♮   386  5/4      6 B♮ B♮     0  1/1  
+            t1_r1.75_lm19      
+                  72:  410  691 1027   94	E♮ G♮ A♯ C♯	145.0
+                  # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+                  1 E♮ G♮   281 20/17     2 E♮ A♯   583  7/5      3 E♮ C♯   316  6/5  
+                  4 G♮ A♯   336 17/14     5 G♮ C♯   597 24/17     6 A♯ C♯   267  7/6  
+                  74:  410  677 1112 1112	E♮ G♮ B♮ B♮	59.0
+                  # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+                  1 E♮ G♮   267  7/6      2 E♮ B♮   498  4/3      3 E♮ B♮   498  4/3  
+                  4 G♮ B♮   435  9/7      5 G♮ B♮   435  9/7      6 B♮ B♮     0  1/1  
+      They are quite a bit different from each other, but they just move the high number ratio to a different spot, leaving the same score. Where is it? 72/16 = 4.5 + 1 = 5.5 
+      It's a passing tone chord. First half of the 3rd quarter note in measure 5. A♯ going to B♮, C♯ also going to B♮. It's gone in a flash.
+      What sounds off is measure 18 3rd quarter note. F♯ A♮ B♮ E♮. I had to go to chord 160 to find that. The numbering is all mixed up by the repeats not taken and skipping the rests. Both tunings had a score of 93 for that chord. It's in a prominent place. Proverbial sticks out like a sore thumb. 
+      I ran it against all 8 of the ones called out above, and they all had troublesome scores of 93 or 109. 
+            grep "F♯ A♮ B♮ E♮" bwv261-scores.txt
+                  160:  596  943 1094  392        F♯ A♮ B♮ E♮     93.0
+                  160:  602  949 1100  398        F♯ A♮ B♮ E♮     93.0
+                  160:  602  949 1100  398        F♯ A♮ B♮ E♮     93.0
+                  160:  605  941 1106  404        F♯ A♮ B♮ E♮     109.0
+                  160:  602  949 1100  398        F♯ A♮ B♮ E♮     93.0
+                  160:  602  949 1100  398        F♯ A♮ B♮ E♮     93.0
+                  160:  602  949 1100  398        F♯ A♮ B♮ E♮     93.0
+                  160:  602  949 1100  398        F♯ A♮ B♮ E♮     93.0
+      I don't know what you can call this chord. Stretched out F♯ B♮ E♮ A♮ it's a fourth chord stack. The chorale is in B minor, not D major, but it ends in B major. This chord might be Bach's way of cadencing to E minor.
+      See if any of the tunings had a decent result on chord 160. 
+      Try the sound of some of the others:
+            for nd in t1_r1.50_lm17 t1_r1.75_lm19 t2_r1.25_lm17 t3_r1.25_lm19 t3_r1.75_lm17 t3_r1.75_lm17 t3_r1.25_lm17 t3_r1.50_lm19 ; do echo __________ $nd ___________ ; python WreckingCrew.py --numpy_dir Archive/straw-man/$nd --chorale_list bwv261 --cent_file_partial=-opt.npy --album 6 --mod d --short_repeats ; done
+      This one sounds nice: t1_r1.50_lm17, but that's from 7:25 this morning and now is 8:51. The file names of the npy and mp3 files were wrong. I got claude to fix that. Now the file names match the grid_search.sh parameters accurately.
+
+      I just noticed a sour chord as the #2 chord in every run of WreckingCrew.py. Is that new? Or did I just miss it? And I don't have the mp3 files for all the ones in bwv261-scores.txt 
+      grep Loaded bwv261-scores.txt
+
+      Compare these tunings with those for bwv261 here: Archive/straw-man/t3_r1.25_lm19/bwv261-opt.npy
+      Tol: 3, RF: 1.25, lm: 19, Average score: 56.5, max score: 101.0 max chord: 192
+      chord #2 gets a score of only 79:
+            2:  201  696  900  405	D♮ G♮ A♮ E♮	79.0
+            # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+            1 D♮ G♮   495  4/3      2 D♮ A♮   501  4/3      3 D♮ E♮   204  9/8  
+            4 G♮ A♮   204  9/8      5 G♮ E♮   291 13/11     6 A♮ E♮   495  4/3  
+      And it sounds much better because of it. What does that set of three grid searcers sound like: 
+      _____________
+
+      In the mean time I asked claude to investigate three.js enhancements to the existing web ui.
+      His reponse: Here's the scoping, from reading both sides. I haven't built anything — your grid search is using 16 of 18 cores and a Blender scene build would contend with it.
+
+      What you have
+      Browser — stage_preview.html, 25KB of three.js reading stage_layout.json. It already draws target boxes, the backdrop, suns, wash spots with visible cones, labels, a camera gizmo, and it already holds the resolved cue list in L.cues. Critically, it already has the framing math ported: unionBox, framing(focus, progress), framingOverhead.
+
+      Blender — blender_stage.py builds 9 sections. Each setup_*(npy, tempo) builds geometry, loads that section's notes, and returns an update(t) closure; main() calls every closure per frame alongside update_camera, update_follow, update_backdrop.
+
+      The preview is missing exactly three things: a time axis, instrument geometry, and the notes.
+
+      The dividing line
+      Geometry can be exported. Animation must be ported. That split decides the whole estimate.
+
+      The instrument builders are ~2,400+ lines of bpy mesh code (marimba 834, bass section 1107). Rewriting those in three.js would be the bulk of the work and would immediately drift from what renders. 
+      Don't. 
+      Blender ships a glTF exporter, and blender_stage.py already builds the full scene before it dumps the layout — adding --export-gltf next to the existing --dump-layout is roughly ten lines, and GLTFLoader in the page is a few more. Object names survive the export, which is what lets the animators find bar.023 and the mallet pivots later.
+
+      The update(t) closures cannot be exported. That's the real work: marimba alone is bar glow decay, per-bar vibration, and a mallet slot allocator. Each section is its own port.
+
+      Phases
+      Phase 0 — measure, one Blender run. Export the glb and check object and triangle count. Blender renders offline at ~0.8s/frame and doesn't care about scene complexity; a browser at 60fps does. This is the go/no-go for the whole approach, and it's cheap.
+
+      Phase 1 — the stage moves in sync, instruments static. Load the glb, port update_camera (line 978), update_follow, update_backdrop. The framing math is already in the page, so this is mostly easing and interpolation. Then drive time from an <audio> element's currentTime rather than a frame counter.
+
+      That last part is the thing worth noticing: the paired mp3 already sits beside the npy (ball9-t58c…mp3, 9.5MB, written by WreckingCrew at the same moment). Using it as the clock gives you sync for free, plus scrubbing, plus live cue-sheet editing — none of which the Blender path can offer, since it renders frames and muxes afterward. Phase 1 alone gets you a camera moving over real instruments in time with the music.
+
+      Phase 2 — first section animated. Marimba: it's the most elaborate and the most visually rewarding.
+
+      Phase 3 — the remaining eight.
+
+      The notes
+      Your .npy is 12688×16 float64, 1.6MB. Only five columns matter to the animators (start beat, duration, pitch, voice, volume from column 14). A --dump-notes emitting just those, already filtered to audible, is a few hundred KB of JSON and avoids writing a .npy parser in JavaScript.
+
+      One thing to change while porting: Blender recomputes glow and onset by scanning the full note array every frame, which is fine offline and will not hold 60fps. Bucket notes per section and binary-search by time.
+
+      The honest risk
+      Mesh budget is the one real unknown, and Phase 0 answers it. blender_bass_section_poc.py makes 26 primitives per call across a multi-seat section, and the marimba adds resonators, frame and strings per bar — the object count could plausibly need instancing or merging before it runs smoothly. I'd rather find that out with one export than after porting an animator.
+
+      Want me to do Phase 0 once your grid finishes, so we're deciding on a real number?
+
+      Phase 0 result
+      --export-gltf is added to blender_stage.py and the export works on the first try. Blender 5.2's glTF exporter took 1.5s.
+
+
+      stage.glb — 920 mesh objects, 318,460 triangles, 22.2 MB
+
+      section_bass             187 objects    62,164 tris
+      section_finger_piano     155 objects    58,732 tris
+      section_bowed_strings    155 objects    54,208 tris
+      section_pizz             140 objects    53,020 tris
+      section_melody           106 objects    35,932 tris
+      section_woodwind          40 objects    24,116 tris
+      section_brass             42 objects    15,336 tris
+      section_marimba           88 objects    13,604 tris
+      section_conductor          5 objects     1,344 tris
+      Triangles are a non-issue. 318K is small — a phone holds 60fps on that. My main worry going in was wrong.
+
+      Draw calls are the number to watch. 920 objects is roughly 920 draw calls per frame. That's within reach on a desktop GPU but it isn't free, and it's the thing that would bite on a laptop. The usual fix — merge static geometry — mostly works here: the great majority of those objects are instrument bodies, stands, frames and resonators that never move. Merging per section would take it to something like 9 static meshes plus the animated objects kept separate.
+
+      22 MB is the real friction, and it's a download, not a framerate problem. Draco compression typically takes geometry down 5-10×, but three.js needs the DRACO decoder wasm served alongside — worth knowing you'd be adding files to the python3 -m http.server directory, not just a CDN line.
+
+      The thing that changes the estimate
+      I was wrong last message about the porting surface. It isn't only transforms and colours. Two animators rewrite mesh vertices every frame:
+
+      update_string_curve (blender_pizzicato_poc.py:434) — bends each vibrating string into its standing wave, with the vibrating length derived from the stopped pitch
+      apply_bar_vibration (blender_marimba_poc.py:741) — flexes each struck marimba bar
+      In three.js that means writing into a BufferGeometry position attribute and flagging it dirty each frame. Entirely doable, but it's per-string and per-bar, and it's the part that has to be re-derived rather than exported. The string sections are also the object-heavy ones — pizz, bowed strings, bass and finger piano together are 637 of the 920 objects — so they're simultaneously the biggest draw-call load and the most intricate animation.
+
+      Revised phasing
+      Phase 1 is unchanged and still cheap: load the glb, drive time from the paired mp3's currentTime, port update_camera / update_follow / update_backdrop. The framing math already exists in the page. That gets a camera moving over real instruments in sync with the music, everything static.
+
+      Phase 2 should now be conductor or brass, not marimba. Conductor is 5 objects and a baton that follows the beat timeline; the wind sections animate per-seat (sway, lean, glow) with no moving parts. Those are transform-and-colour only — a genuine port with no vertex work, and they prove the whole pipeline end to end. Marimba and the string sections come after, once the vertex-update pattern is worth building.
+
+      One caveat on the export as it stands: it writes the scene as --dump-layout leaves it, meaning the static build. Animated objects are at rest position, which is what we want as a base pose — but it also means the export doesn't carry the note data, so --dump-notes is still needed separately.
+
+      Want me to start Phase 1? Yes
+      Phase 1 is in. Three changes:
+
+      blender_stage.py — --export-gltf writes the built stage as a .glb and prints the per-section object/triangle budget. It exports with export_yup=False so the model stays Z-up and needs no axis fixing in the page. --dump-layout now also emits hold, which the preview needs to time a closing pan the way _shot_progress does.
+
+      stage_preview.html — loads stage.glb over the boxes (boxes stay as the fallback and as a toggle), and takes its clock from an <audio> element. Ported from blender_stage.py: _smoothstep, _cue_index, _shot_progress, update_camera's two-sided ease on position and aim, _shot_focus + update_follow including the cone half-angle, and update_backdrop's colour cycle. While audio plays, the cue dropdown and HUD follow playback rather than driving it.
+
+
+            blender -b -P blender_stage.py -- --export-gltf stage.glb
+            blender -b -P blender_stage.py -- --dump-layout stage_layout.json
+            python3 -m http.server 8000
+      open 'http://localhost:8000/stage_preview.html?audio=Uploads/ball9-t58c_lm17_r1.75_df3_t3_d04_02_t092.mp3'
+      The ?audio= parameter is optional — there's also a text field in the panel.
+
+      What I verified: the glb exports (920 meshes, 318,460 tris, 22.2 MB), the layout carries hold and 22 cues, the module parses clean under node --check, every getElementById has a matching element, and all four assets serve 200 over http.server.
+
+      What I could not verify: that it runs. There's no headless browser on this machine, so nothing has actually executed the WebGL path. Two things I'd expect to be the first to bite: whether the glb lands at the right scale and orientation relative to the boxes (export_yup=False should make it exact, but that's reasoning, not observation), and the 22 MB load time on first paint.
+
+      Two defects I did catch by inspection and fixed: the new "Show target boxes" checkbox started unchecked while the boxes were actually visible, and the glb load status was computed but never displayed — a missing model would have looked identical to a loaded one, which is precisely the silent-staleness failure this page's own header warns about. It now reports load progress and failure on the stamp line.
+
+      Nothing animates yet — instruments are at rest pose. That's Phase 2, and conductor or brass is the right first port.
+
+      ____________________________---
+      Back to the tuning exercise:
+      Diagnosis, and the fix is in. Your hypothesis about adjacency smoothing turns out to be the opposite of what happened — E=360 was the most isolated E in the piece (every other E sat between 377 and 446), so continuity wasn't pulling it anywhere. Chord 2 has no E in the chord before it, so its E was free.
+
+      Why chord #2 went sour. The crux is the G–E minor third. If E is a true 9/8 above D and G a true 4/3, then G–E comes out at 294¢ — and the diamond has a hole exactly there: lm17 jumps 289 (13/11) → 316 (6/5), lm19 only adds 298 (19/16). At tolerance 3, 294 matches nothing, so that chord takes the +1000 miss penalty and scores 1079. SA discards it. The only exact-ratio escapes are to break one note by ~45¢ — E down to 12/11 (93, what you heard) or G up to 11/8 (93, the other family in your grid). Both are "perfectly in tune" and musically wrong.
+
+      Why June 29 found 79. That chord isn't a JI solution at all — it's essentially plain 12-TET with a few cents of SA perturbation noise still on it (201/696/900/405 vs 200/700/900/400). The noise happened to pull G–E to 291¢, inside the ±3¢ window of 13/11, so all six intervals scored as hits with low-limit ratios. Pure 12-TET itself scores 3079. It was luck, not search: build_straw_man_chord_sa constructs chords by chaining exact diamond ratios, so a chord that needs to be 3¢ off several ratios at once is unreachable by construction. It only ever appears as leftover noise on voices the interval loop skipped.
+
+      The fix (viterbi_optimization.py:70): a polish_candidate coordinate descent (±6¢, pitch-class preserving), plus — the part that actually matters — always offering the polished 12-TET chord as one extra candidate. Polishing SA's output alone does nothing here, because SA rejects the 1079 chord mid-search and it never reaches a polisher. Seeding reaches the compromise directly. Everywhere else the seed scores in the thousands and the sort drops it; it costs one candidate slot and a few hundred cached score lookups.
+
+      Re-ran your exact grid_search parameters on t3_r1.75_lm17:
+
+      before  chord2 [209 707 911 360]  score 93.0   mean 57.1
+      after   chord2 [198 693 899 401]  score 79.0   mean 56.3
+      That's the June-29 tuning recovered by construction — D–G 495 (4/3), G–E 291 (13/11), D–E 203 (9/8).
+
+      One trade you should decide on. The seed also won at chords 161–162 and 242, gaining ~45 vertical points but pushing three adjacent pitch-class jumps from ≤11¢ up to 21–25¢ (A♮ 896→871 at 162; D♮ and B♮ 21¢ at 242). Given that you've told me adjacent jumps are the audible sore thumb and drift isn't, that may be a bad bargain. --max_gap 33 is what let them through — enforce_continuity never fired. Dropping it to ~15 in grid_search.sh:80 would retune those chords without touching the chord-2 fix. Say the word and I'll run it that way and diff.
+
+      I overwrote Archive/straw-man/t3_r1.75_lm17/bwv261-opt.npy with the new run (--no-keep_previous, as your FRESH=1 path does); the previous version is at scratchpad/bwv261-before.npy if you want to A/B them.
+
+      I asked about that 6 cent issue: I need to understand more about the polishing process you describe as "a polish_candidate coordinate descent (±6¢, pitch-class preserving)" Does that change the tolerance value from 3 to 6?
+      Different thing entirely — the radius never touches the tolerance. Let me show both in the same run:
+
+      Bash
+      IN
+      .venv/bin/python - <<'EOF'
+      import numpy as np, adaptive_tuning_util as atu, viterbi_optimization as v
+      from itertools import combinations
+      td = atu.build_tonal_diamond(17)[:-1]
+      cs = atu.ChordScorer(td)
+      ratios = sorted(set(int(round(r[1])) for r in td))
+
+      def report(name, ch, tol):
+      ch = np.array(ch, dtype=float)
+      print(f'{name}  {np.rint(ch).astype(int)}   score(tol={tol}) = {cs.score_chord(ch, tolerance=tol):7.1f}')
+      for i, j in combinations(range(4), 2):
+            d = atu.cent_value_interval(np.array([ch[i], ch[j]]))[0]
+            near = min(ratios, key=lambda r: abs(r - d))
+            miss = abs(near - d)
+            print(f'      voices {i}-{j}: {d:4.0f}¢  nearest diamond ratio {near:4d}¢  off by {miss:3.0f}¢'
+                  f'{"   MISS" if miss > tol else ""}')
+
+      print('=== what SA can build: exact 4/3 + exact 9/8 chain ===')
+      report('exact chain ', [200, 698, 902, 404], 3)
+      print('\n=== the same chord judged with a LOOSER tolerance (no note moved) ===')
+      report('exact chain ', [200, 698, 902, 404], 6)
+      print('\n=== what the polish does instead: move notes, keep tolerance at 3 ===')
+      polished, score = v.polish_candidate(np.array([200., 700., 900., 400.]), cs, tolerance=3)
+      report('polished    ', polished, 3)
+      EOF
+
+      OUT
+      === what SA can build: exact 4/3 + exact 9/8 chain ===
+      exact chain   [200 698 902 404]   score(tol=3) =  1079.0
+            voices 0-1:  498¢  nearest diamond ratio  498¢  off by   0¢
+            voices 0-2:  498¢  nearest diamond ratio  498¢  off by   0¢
+            voices 0-3:  204¢  nearest diamond ratio  204¢  off by   0¢
+            voices 1-2:  204¢  nearest diamond ratio  204¢  off by   0¢
+            voices 1-3:  294¢  nearest diamond ratio  289¢  off by   5¢   MISS
+            voices 2-3:  498¢  nearest diamond ratio  498¢  off by   0¢
+
+      === the same chord judged with a LOOSER tolerance (no note moved) ===
+      exact chain   [200 698 902 404]   score(tol=6) =    79.0
+            voices 0-1:  498¢  nearest diamond ratio  498¢  off by   0¢
+            voices 0-2:  498¢  nearest diamond ratio  498¢  off by   0¢
+            voices 0-3:  204¢  nearest diamond ratio  204¢  off by   0¢
+            voices 1-2:  204¢  nearest diamond ratio  204¢  off by   0¢
+            voices 1-3:  294¢  nearest diamond ratio  289¢  off by   5¢
+            voices 2-3:  498¢  nearest diamond ratio  498¢  off by   0¢
+
+      === what the polish does instead: move notes, keep tolerance at 3 ===
+      polished      [199 694 900 402]   score(tol=3) =    79.0
+            voices 0-1:  495¢  nearest diamond ratio  498¢  off by   3¢
+            voices 0-2:  499¢  nearest diamond ratio  498¢  off by   1¢
+            voices 0-3:  203¢  nearest diamond ratio  204¢  off by   1¢
+            voices 1-2:  206¢  nearest diamond ratio  204¢  off by   2¢
+            voices 1-3:  292¢  nearest diamond ratio  289¢  off by   3¢
+            voices 2-3:  498¢  nearest diamond ratio  498¢  off by   0¢
+      No — tolerance stays at 3. They're two different axes, and the output above shows the contrast.
+
+      Tolerance is the judge: how far an interval may sit from a diamond ratio and still count as a hit instead of taking the +1000 penalty. polish_candidate(chord, chord_scorer, tolerance) takes your tolerance as an argument and passes it straight into every score_chord call it makes. Whatever you pass on the command line is what the polish is held to.
+
+      Radius is the search: how far a note may be nudged from where SA left it while looking for a better score. It's the reach of the hill-climb, not a tuning window.
+
+      The middle block is what actually changing tolerance to 6 would do — nothing moves, and that 294¢ third stays 5¢ out of tune while being reclassified as a hit. And it would do that to every interval in the piece, not just this one.
+
+      The polish does the opposite: it holds the 3¢ standard and moves notes until every interval satisfies it independently. G moves 6¢, D 1¢, E 2¢, and the worst remaining error is 3¢ — five of the six intervals land within 2¢. The tolerance-6 version keeps a permanent 5¢ error in the chord.
+
+      Both land on 79 because the score sums the limits of the ratios matched, not how closely they were matched — same ratio inventory (4/3, 4/3, 9/8, 9/8, 13/11, 4/3) either way. The difference is whether that 13/11 is really there or just declared.
+
+      Two things the radius can't do: it only accepts a strictly lower score, so widening it can never make a chord worse by your tolerance-3 standard — it only searches further. And every trial that would move a voice out of its ±50¢ pitch-class window is rejected, so the note names never change.
+
+_______________
+8/16/26 Listen to the tuning done yesterday with grid_search.sh.
+      I'm concerned because I fear my two Claude sessions stepped on each other. The one I had working on the three.js session admitted to changing the Straw_man_tuning_v2. But I think the changes were done before I started a new claude session concentrating on tuning. 
+      
+      But the concerning remark is this: 
+      The reverted files, so you're not surprised: ..., select_best_and_render.py (the report rewrite — it's back to the old hinge metric with --penalty_weight),...
+
+      Claude clarified that that remark was not accurate. Here's what it says about the latest run with the "polish" applied.
+      ============================================================================================================
+Chorale: bwv261   sorted by gapsum (ordering only, not a ranking)
+===========================================================================================
+                  Directory        sfx   t  ratio  lm ChordAvg ChordMax |   N  GapSum    Avg    Med    p90    Max |  >10  >20  >30  >=33
+                  ---------------- ---- -- ------ --- -------- -------- |---- ------- ------ ------ ------ ------ | ---- ---- ---- -----
+                  t3_r1.25_lm17    opt   3  1.250  17     56.3      112 |   3      33   11.0    6.0   21.2   25.0 |    1    1    0     0
+                  t3_r1.50_lm19    opt   3  1.500  19     56.6      112 |   5      41    8.2   10.0   14.2   17.0 |    1    0    0     0
+                  t3_r1.75_lm19    opt   3  1.750  19     56.4      101 |   5      57   11.4   11.0   19.0   19.0 |    3    0    0     0
+                  t3_r1.25_lm19    opt   3  1.250  19     56.4      112 |   6      60   10.0    8.5   19.5   22.0 |    3    1    0     0
+                  t2_r1.75_lm19    opt   2  1.750  19     57.3      140 |   7      61    8.7    9.0   13.0   19.0 |    1    0    0     0
+                  t2_r1.50_lm17    opt   2  1.500  17     57.0      140 |   7      71   10.1    9.0   16.4   17.0 |    3    0    0     0
+                  t3_r1.50_lm17    opt   3  1.500  17     55.8      123 |   6      73   12.2   11.0   19.0   25.0 |    5    1    0     0
+                  t3_r1.75_lm17    opt   3  1.750  17     56.4      112 |  11      78    7.1    3.0   22.0   27.0 |    2    2    0     0
+                  t1_r1.50_lm17    opt   1  1.500  17     57.0      145 |   7      86   12.3    8.0   20.2   31.0 |    3    1    1     0
+                  t1_r1.75_lm19    opt   1  1.750  19     56.9      145 |   7      86   12.3    3.0   25.6   31.0 |    3    3    1     0
+                  t1_r1.75_lm17    opt   1  1.750  17     56.9      141 |   6      91   15.2   13.5   21.0   26.0 |    6    1    0     0
+                  t1_r1.25_lm17    opt   1  1.250  17     56.8      145 |   7      95   13.6   11.0   23.8   31.0 |    4    1    1     0
+                  t2_r1.25_lm17    opt   2  1.250  17     56.8      140 |   8     107   13.4   16.0   22.6   31.0 |    5    1    1     0
+
+                  Largest gaps — t3_r1.25_lm17 [opt]
+                  chord  voice note      prev     curr     gap
+                        162      1 A♮       889.0    864.0    25.0
+                        76       0 E♮       438.0    432.0     6.0
+                        208      1 D♮       227.0    225.0     2.0
+
+                  Largest gaps — t3_r1.50_lm19 [opt]
+                  chord  voice note      prev     curr     gap
+                        162      1 A♮       859.0    876.0    17.0
+                        242      3 B♮      1076.0   1086.0    10.0
+                        242      1 D♮       192.0    202.0    10.0
+                        162      0 F♯       611.0    609.0     2.0
+                        160      0 F♯       609.0    611.0     2.0
+
+                  Largest gaps — t1_r1.25_lm19 [opt]
+                  chord  voice note      prev     curr     gap
+                        162      1 A♮       947.0    916.0    31.0
+                        242      3 B♮      1089.0   1100.0    11.0
+                        242      1 D♮       205.0    216.0    11.0
+      What I learned yesterday is that there are some chords that are more important than others. For example, chord #2 is very important for several reasons: 1) it's early in the chorale. 2) it's a very high score (93) but not the worst in the chorale 3) It sticks out like a sore thumb. So bad that I'm going to select any tuning that can't tune D♮ G♮ A♮ E♮ better than a score of 80.
+
+            grep -E "Loaded|D♮ G♮ A♮ E♮" bwv261-scores.txt | grep -E "Loaded|79.0"
+                  Loaded cent file from Archive/straw-man/t3_r1.25_lm17/bwv261-opt.npy.
+                  2:  208  703  909  411  D♮ G♮ A♮ E♮     79.0
+                  Loaded cent file from Archive/straw-man/t3_r1.50_lm19/bwv261-opt.npy.
+                  2:  199  695  900  403  D♮ G♮ A♮ E♮     79.0
+                  Loaded cent file from Archive/straw-man/t3_r1.75_lm19/bwv261-opt.npy.
+                  2:  210  706  911  414  D♮ G♮ A♮ E♮     79.0
+                  Loaded cent file from Archive/straw-man/t3_r1.25_lm19/bwv261-opt.npy.
+                  2:  191  687  892  395  D♮ G♮ A♮ E♮     79.0
+                  Loaded cent file from Archive/straw-man/t3_r1.50_lm17/bwv261-opt.npy.
+                  2:  195  690  896  398  D♮ G♮ A♮ E♮     79.0
+                  Loaded cent file from Archive/straw-man/t3_r1.75_lm17/bwv261-opt.npy.
+                  2:  197  692  898  400  D♮ G♮ A♮ E♮     79.0
+            Filtered out all the numpy tuning files that mistuned chord #2.
+      
+            for nd in t3_r1.25_lm17 t3_r1.50_lm19 t3_r1.75_lm19 t3_r1.25_lm19 t3_r1.50_lm17 t3_r1.75_lm17 ; do echo __________ $nd ___________ ; python WreckingCrew.py --numpy_dir Archive/straw-man/$nd --chorale_list bwv261 --cent_file_partial=-opt.npy --album 6 --mod d --short_repeats ; done
+
+      I wasn't really happy with any of the available numpy tuning runs for bwv261. So I decided to do one more grid search:
+            LIMIT_MAXES=(17 19) # no change here. Higher has never made any improvements
+            TOLERANCES=(3) # we will always get lower scores when we can consider more choices
+            RATIOS=(1.25 1.375 1.50 1.625 1.75) # more choices here might also find the perfect tuning
+            ROLLS=4
+      It takes about 3 minutes per run of Straw_man_tuning_v2.py. 5*1*2*1=10 runs, 30 minutes. I can't get over how well the fs3 is doing with the parallel runs, keeping the machine at 100% for a long time at 43℃. That Peerless Assassin is amazing. And the ASRock Z890i Nova wifi is delivering all the power he needs. Except now it's running the parallel section at 2.7gHz. Half speed. Hmm. Maybe power throttling? Ask claude to check it.
+      
+      I'm noticing during the parallel portions of the @Straw_man_tuning_v2.py  on my node fs3 the maximum speed is down to 2.7gHz. I suspect my ASRock Z890i Nova wifi mini-itx board is throttling due to power demands on my Intel 250KF processor. I have bigger boards and CPUs available in the kubernetes cluster. I think I need to start running the grid_search.sh workload on other servers.  He's keeping cool at 43℃ with the Peerless Assassin cooler, but I think the power delivery is throttling things.
+            cat /sys/devices/system/cpu/intel_pstate/no_turbo
+                  1 # should be 0 to enable turbo. 
+            tuned-adm active
+                  Current active profile: powersave
+            sudo tuned-adm profile throughput-performance
+            cat /sys/devices/system/cpu/intel_pstate/no_turbo
+                  0
+      There's your trouble. Claude has other suggestions:
+      It isn't the board and it isn't the cooler — tuned is set to the powersave profile on fs3. That's what's capping you, and the evidence is unambiguous:
+
+      Signal	Reading	Meaning
+      core/package_throttle_count	0	Has never thermally throttled — matches your 43℃
+      RAPL PL1 / PL2	159 W / 159 W	Platform power cap is generous, not binding
+      intel_pstate/no_turbo	1	Turbo disabled outright
+      energy_performance_preference	power	Hardware biased to maximum efficiency
+      Under 18-core load	P 2700/4200, E 1900/3300	Sitting at 64% and 58% of the non-turbo cap
+      The powersave tuned profile sets no_turbo=1 and EPP=power. Your 2.7 GHz observation is the P-cores; the E-cores are quietly worse at 1.9 GHz. Nothing is being limited by the Z890i's power delivery — a 159 W cap that never engages is not a VRM in distress.
+
+      Two things also worth knowing about this chip: it's 6 P-cores + 12 E-cores, not 18 equal ones. So --viterbi_workers 16 puts 10 workers on E-cores that top out at 3.3 GHz even when everything is unlocked, and a stray 24 would oversubscribe. And your earlier run was 2m46s wall against 28m43s CPU — 10.4× from 16 workers, ~65% efficiency, so the serial DP and enforce_continuity already limit what more cores buy you.
+
+      To unlock it (needs root — I didn't touch system settings):
+            sudo tuned-adm profile throughput-performance   # persists across reboots
+      # verify:
+            cat /sys/devices/system/cpu/intel_pstate/no_turbo                    # want 0 - got 1
+            cat /sys/devices/system/cpu/cpu0/cpufreq/energy_performance_preference  # want performance - got default
+            sudo tuned-adm profile throughput-performance
+
+      That should take P-cores from 2700 to 4200+ and E-cores from 1900 to 3300 — roughly 1.6× on the same hardware, free. Worth re-timing the bwv261 run before you conclude fs3 is too small.
+
+      On moving to the cluster: still worth doing, but the lever isn't faster cores. Each job currently tunes 12 chorales serially, and chorales are completely independent. Splitting the jobs by (cell × chorale) instead of (cell) gives you 12× the job count with no Amdahl ceiling, which beats chasing clock speed on any single box. Want me to make generate-grid-search-jobs.sh emit one job per chorale? 
+
+      Mean score has stopped discriminating. 56.0 to 57.6 across ten cells is noise — you can't pick a winner with it, and select_best_and_render.py --sort_by gapsum is the right call. Worth noting the --keep_previous ratchet still compares mean_score + spread_weight * MAD with no gap term, so with FRESH=0 it would happily throw away the 3¢ cell in favour of a cell 1.4 points "better" on a metric that isn't separating anything. Keeping FRESH=1 is protecting you here.
+
+      ratio_factor isn't behaving monotonically. On lm19: 1.25 → gapsum 244, 1.375 → 14, 1.5 → 47, 1.625 → 124, 1.75 → 220. A 17× swing between adjacent ratio steps, with no trend. That's more likely run-to-run SA variance than a real property of 1.375, so before you commit to that cell, re-run it two or three times with different seeds — if it lands near 14 each time it's real, if it scatters you're reading noise. Cheap now at 1m27 a run.
+
+      Also: enforce_continuity is still costing you chord quality in two cells — t3_r1.25_lm19 went 56.7 → 57.6 and t3_r1.75_lm19 56.1 → 56.6 between the Viterbi line and the final mean. Those are the cells with the worst gaps, so it's working as designed, but it confirms the gaps are being papered over after the fact rather than avoided.
+
+      Want me to run the 1.375/lm19 cell three more times to see whether that 3¢ result reproduces?
+
+      Claude has reworked the batch job submission to take better advantage of multi-tasking:
+      Sizing changed from what I set last time. With one job per node, 24 workers made sense. With per-chorale jobs the right shape is smaller and denser: --viterbi_workers 8 with requests and limits both at cpu: "8", so three jobs fit a 24-core node and one job's single-threaded phase overlaps another's parallel phase. Keep those two numbers equal — if limits.cpu is below the worker count, CFS throttling makes it slower than fewer workers would be.
+
+      Expected throughput, using the 63s-serial / 1660 CPU-s model: ~271s per chorale at 8 workers, so a 10-cell × 12-chorale grid is 120 jobs ≈ 23 minutes on 8 nodes × 3 slots — against roughly 4½ hours the old way. Post-throughput-performance it'll be about half that again.
+
+      Two things to watch on first deploy: topologySpreadConstraints has whenUnsatisfiable: DoNotSchedule with maxSkew: 1, which with 120 jobs will hold pods Pending until they can spread evenly — correct but it'll look like a stall. And you'll pay pod startup, git-sync and the music21 parse 120 times instead of 10.
+
+      All uncommitted — say the word and I'll commit these three files.
+
+      Before we commit, we need to find a way to automate the selection of the best tuning first. Claude may have a suggestion to get back to the ratchet that we lost:
+
+      So neither setting accumulates what you're listening for. The fix is small: add an adjacent-gap term to that comparison and a --gap_weight to expose it. Then FRESH=0 plus N passes per cell genuinely converges — each pass keeps the tuning with the smallest jumps, and lucky draws like the 3¢ one get captured instead of overwritten. Given a run is now 1m26, five passes per cell costs seven minutes and would beat any amount of grid width.
+
+      Want me to add the gap term to the ratchet before we commit, or commit the job-splitting work as-is and do it as a separate change?
+
+      git push
+            Enumerating objects: 35, done.
+            Counting objects: 100% (35/35), done.
+            Delta compression using up to 18 threads
+            Compressing objects: 100% (26/26), done.
+            Writing objects: 100% (27/27), 23.01 KiB | 11.50 MiB/s, done.
+            Total 27 (delta 19), reused 4 (delta 1), pack-reused 0 (from 0)
+            remote: Resolving deltas: 100% (19/19), completed with 8 local objects.
+            To https://github.com/prentrodgers/One-footed-bride-tuning.git
+            c8d1a28..452d3e3  main -> main
+      Last grid_search.sh run:
+            grep -E 'real|numpy_dir =|mean|result is better'  output.txt
+                  numpy_dir = '/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/t3_r1.25_lm17'
+                  Viterbi complete: mean_score=56.3, spread=23.5¢, path_diversity=13/15
+                  Current result is better — keeping current (combined 93.09 vs 93.24; score 56.3 vs 56.5; spread 23.5 vs 23.5¢; max gap 25.0 vs 25.0¢)
+                  mean: 56.3,  median: 47.0,  min: 27.0,  max: 123.0,  argmax: 72,  deciles: [27.  43.  43.  44.7 45.  47.  60.  67.  74.  78. ]
+                  real    1m23.790s
+                  numpy_dir = '/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/t3_r1.375_lm17'
+                  Viterbi complete: mean_score=56.5, spread=28.6¢, path_diversity=14/15
+                  Current result is better — keeping current (combined 89.70 vs 98.11; score 56.5 vs 56.0; spread 24.4 vs 20.1¢; max gap 21.0 vs 32.0¢)
+                  mean: 56.5,  median: 47.0,  min: 27.0,  max: 112.0,  argmax: 242,  deciles: [27. 43. 43. 45. 45. 47. 63. 67. 70. 79.]
+                  real    1m22.085s
+                  numpy_dir = '/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/t3_r1.50_lm17'
+                  Viterbi complete: mean_score=56.5, spread=23.5¢, path_diversity=15/15
+                  Previous result is better — keeping previous (combined 92.27 vs 93.24; score 56.5 vs 56.5; spread 23.5 vs 23.5¢; max gap 24.0 vs 25.0¢)
+                  mean: 56.5,  median: 47.0,  min: 27.0,  max: 123.0,  argmax: 72,  deciles: [27. 43. 43. 45. 45. 47. 60. 67. 72. 79.]
+                  real    1m21.862s
+                  numpy_dir = '/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/t3_r1.625_lm17'
+                  Viterbi complete: mean_score=56.5, spread=23.5¢, path_diversity=12/15
+                  Current result is better — keeping current (combined 93.25 vs 94.07; score 56.5 vs 56.2; spread 23.5 vs 17.7¢; max gap 25.0 vs 29.0¢)
+                  mean: 56.5,  median: 47.0,  min: 27.0,  max: 123.0,  argmax: 72,  deciles: [27.  43.  43.  44.7 45.  47.  60.  67.  74.  78. ]
+                  real    1m21.652s
+                  numpy_dir = '/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/t3_r1.75_lm17'
+                  Viterbi complete: mean_score=56.1, spread=28.6¢, path_diversity=13/15
+                  Previous result is better — keeping previous (combined 92.96 vs 95.56; score 56.2 vs 56.2; spread 23.5 vs 28.6¢; max gap 25.0 vs 25.0¢)
+                  mean: 56.2,  median: 47.0,  min: 27.0,  max: 112.0,  argmax: 242,  deciles: [27. 43. 43. 45. 45. 47. 60. 67. 72. 78.]
+                  real    1m24.115s
+                  numpy_dir = '/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/t3_r1.25_lm19'
+                  Viterbi complete: mean_score=56.5, spread=21.5¢, path_diversity=14/15
+                  Current result is better — keeping current (combined 93.22 vs 109.28; score 56.5 vs 57.6; spread 21.5 vs 43.4¢; max gap 26.0 vs 30.0¢)
+                  mean: 56.5,  median: 47.0,  min: 27.0,  max: 112.0,  argmax: 242,  deciles: [27.  43.  43.  44.7 45.  47.  60.  67.  70.  78. ]
+                  real    1m28.011s
+                  numpy_dir = '/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/t3_r1.375_lm19'
+                  Viterbi complete: mean_score=56.5, spread=22.0¢, path_diversity=13/15
+                  Previous result is better — keeping previous (combined 82.24 vs 93.53; score 56.6 vs 56.5; spread 23.4 vs 22.0¢; max gap 14.0 vs 26.0¢)
+                  mean: 56.6,  median: 47.0,  min: 27.0,  max: 112.0,  argmax: 242,  deciles: [27. 43. 43. 45. 45. 47. 60. 67. 74. 78.]
+                  real    1m27.886s
+                  numpy_dir = '/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/t3_r1.50_lm19'
+                  Viterbi complete: mean_score=56.6, spread=22.8¢, path_diversity=13/15
+                  Current result is better — keeping current (combined 90.02 vs 90.27; score 56.6 vs 56.5; spread 22.8 vs 23.5¢; max gap 22.0 vs 22.0¢)
+                  mean: 56.6,  median: 47.0,  min: 27.0,  max: 102.0,  argmax: 16,  deciles: [27. 43. 43. 45. 45. 47. 63. 67. 67. 79.]
+                  real    1m25.328s
+                  numpy_dir = '/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/t3_r1.625_lm19'
+                  Viterbi complete: mean_score=56.5, spread=19.8¢, path_diversity=13/15
+                  Current result is better — keeping current (combined 77.45 vs 99.43; score 56.5 vs 57.0; spread 19.8 vs 18.8¢; max gap 11.0 vs 33.0¢)
+                  mean: 56.5,  median: 47.0,  min: 27.0,  max: 112.0,  argmax: 242,  deciles: [27.  43.  43.  44.7 45.  47.  60.  67.  70.  78. ]
+                  real    1m27.714s
+                  numpy_dir = '/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/t3_r1.75_lm19'
+                  Viterbi complete: mean_score=56.7, spread=18.3¢, path_diversity=14/15
+                  Current result is better — keeping current (combined 99.04 vs 100.67; score 57.9 vs 56.6; spread 18.3 vs 22.1¢; max gap 32.0 vs 33.0¢)
+                  mean: 57.9,  median: 47.0,  min: 27.0,  max: 112.0,  argmax: 242,  deciles: [27. 43. 43. 45. 45. 47. 64. 67. 74. 89.]
+                  real    1m27.591s
+                  real    14m14.662s
+      So it looks like I need to run it over and over until I get only "Previous result is better" for all choices. But keep reducing the grid search by deleting those that had bad scores from the input grid template. 
+
+      Claude comments:  Now that the ratchet can judge the result honestly, dropping to --max_gap 12 is worth a sweep: enforce_continuity would actually attack chord 236, and if its repairs cost too much chord quality the ratchet will reject them on its own. That's the experiment I'd run next, before more ratio values.
+
+      Worth listening to t3_r1.625_lm19 now — it's the first tuning in this grid where every adjacent jump but one is under 7¢. This is equivalent to sorting on maxgap instead of gapsum. Penalize the worst offenders not the total gaps, many of which are so trivial as to be inaudible.
+
+            for nd in t1_r1.25_lm19  ; do echo __________ $nd ___________ ; python WreckingCrew.py --numpy_dir Archive/straw-man/$nd --chorale_list bwv261 --cent_file_partial=-opt.npy --album 6 --mod d --short_repeats ; done
+            
+      I focussed on chord 236: 
+                  version: bwv261, Tol: 3, RF: 1.375, lm: 19, Average score: 56.6, max score: 112.0 max chord: 242
+                  t3_r1.375_lm19
+                  236:  149  415 1033  149	C♯ E♮ A♯ C♯	60.0
+                  # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+                  1 C♯ E♮   266  7/6      2 C♯ A♯   316  6/5      3 C♯ C♯     0  1/1  
+                  4 E♮ A♯   582  7/5      5 E♮ C♯   266  7/6      6 A♯ C♯   316  6/5  
+                  version: bwv261, Tol: 3, RF: 1.625, lm: 19, Average score: 56.5, max score: 112.0 max chord: 242
+                  t3_r1.625_lm19/
+                  236:  116  431 1049  116	C♯ E♮ A♯ C♯	60.0
+                  # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+                  1 C♯ E♮   315  6/5      2 C♯ A♯   267  7/6      3 C♯ C♯     0  1/1  
+                  4 E♮ A♯   582  7/5      5 E♮ C♯   315  6/5      6 A♯ C♯   267  7/6  
+            There is also the best tolerance 1 tuning:
+                  version: bwv261, Tol: 1, RF: 1.25, lm: 19, Average score: 57.0, max score: 145.0 max chord: 72
+                  t3_r1.625_lm19
+                  236:  110  425 1043  110	C♯ E♮ A♯ C♯	60.0
+                  # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+                  1 C♯ E♮   315  6/5      2 C♯ A♯   267  7/6      3 C♯ C♯     0  1/1  
+                  4 E♮ A♯   582  7/5      5 E♮ C♯   315  6/5      6 A♯ C♯   267  7/6 
+            The three tunings have slightly different tunings that both score 60.0 Which one sounds better? It's the second half of measure 24 in the score. Claude suggests Version A (r1.375) is A♯:C♯:E = 5:6:7 — three consecutive harmonics, the textbook septimal diminished triad, which has a real virtual root. 
+            
+            He wants me to run one more grid_search.sh to see how many improvements are made, and how it shakes out the choice of hwo to tune chord 236. It's a diminished chord, so the goal is a dissonance. Making it 5:6:7 makes it a strong dissonance, instead of a weakling. 
+
+      Last run ratio of Previous vs Current
+            grep -E 'Previous result is better'  output.txt | wc -l
+                  7
+            grep -E 'Current result is better'  output.txt | wc -l
+                  3
+      That run improved 30% of the chords. Then 50%, but Claude has detected an anomaly. Confirmed, and it's a defect in the gap term I added. t3_r1.75_lm19 chord 212 is D♮206 A♮881 — a D–A fifth of 675¢, 27 cents flat. A wolf fifth, plainly audible, far worse than any 11¢ adjacent jump. Both r1.75 cells carry two such chords.
+
+      The cause is scale. A +1000 miss penalty is diluted by averaging over 280 chords, so one wolf fifth costs only ~3.6 points of mean_score — while gap_weight=1.0 makes 4 cents of max-gap cost 4. My metric literally values 4¢ of adjacency above an entire interval being out of tune. Let me check one more thing before fixing:
+
+                  Loaded cent file from Archive/straw-man/t3_r1.75_lm19/bwv261-opt.npy.
+                  version: bwv261, Tol: 3, RF: 1.75, lm: 19, Average score: 72.4, max score: 2108.0 max chord: 212
+                  212:  206  881  206  592	D♮ A♮ D♮ F♯	2108.0
+                  # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+                  1 D♮ A♮   525 19/14     2 D♮ D♮     0  1/1      3 D♮ F♯   386  5/4  
+                  4 A♮ D♮   525 19/14     5 A♮ F♯   289 13/11     6 D♮ F♯   386  5/4  
+      Same error with t3_r1.75_lm17. 
+            rm -r Archive/straw-man/t3_r1.75_lm17 Archive/straw-man/t3_r1.75_lm19
+
+______________________
+8/17/26 Back after an unplanned reboot overnight
+      Still working on the BWV261 tuning. I'm not liking the chords at 16 & 18.
+      The top scorer were:
+  Directory                      sfx     t  ratio  lm ChordAvg ChordMax |    N  GapSum    Avg    Med    p90    Max |  >10  >20  >30  >=33
+  ------------------------------ ------ -- ------ --- -------- -------- | ---- ------- ------ ------ ------ ------ | ---- ---- ---- -----
+  t3_r1.625_lm19                 opt     3  1.625  19     56.5      112 |    9      44    4.9    3.0    7.0   11.0 |    1    0    0     0
+  t3_r1.50_lm19                  opt     3  1.500  19     58.9      122 |   13      79    6.1    6.0   10.8   11.0 |    2    0    0     0
+  t3_r1.50_lm17                  opt     3  1.500  17     57.2      137 |    9      79    8.8    9.0   11.2   12.0 |    4    0    0     0
+  t3_r1.25_lm17                  opt     3  1.250  17     57.2      137 |   19     116    6.1    3.0   12.0   12.0 |    7    0    0     0
+  t3_r1.625_lm17                 opt     3  1.625  17     56.6      112 |   16     118    7.4    6.0   12.0   12.0 |    7    0    0     0
+  t3_r1.25_lm19                  opt     3  1.250  19     57.5      129 |   19     142    7.5    8.0   10.4   12.0 |    2    0    0     0
+  t3_r1.375_lm19                 opt     3  1.375  19     56.6      112 |    5      32    6.4    6.0   10.8   14.0 |    1    0    0     0
+  t3_r1.375_lm17                 opt     3  1.375  17     56.5      112 |   13      98    7.5    3.0   20.8   21.0 |    3    2    0     0
+  t3_r1.75_lm19                  opt     3  1.750  19     56.7      101 |    6      64   10.7   12.0   18.0   22.0 |    3    1    0     0
+  t3_r1.75_lm17                  opt     3  1.750  17     56.1      112 |    7      90   12.9    5.0   27.8   32.0 |    3    2    1     0 
+      Here is t3_r1.625_lm19  
+            16:  590 1044  204  590	F♯ A♯ D♮ F♯	93.0
+            # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+            1 F♯ A♯   454 13/10     2 F♯ D♮   386  5/4      3 F♯ F♯     0  1/1  
+            4 A♯ D♮   360 16/13     5 A♯ F♯   454 13/10     6 D♮ F♯   386  5/4  
+            18:  590 1088  204  822	F♯ B♮ D♮ G♯	67.0
+            # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+            1 F♯ B♮   498  4/3      2 F♯ D♮   386  5/4      3 F♯ G♯   232  8/7  
+            4 B♮ D♮   316  6/5      5 B♮ G♯   266  7/6      6 D♮ G♯   582  7/5
+      This is identical to the best from 6/29/26, and almost all the other tuning runs. It's the same chord as 250, one of which made it down to score 88. How about 236: 
+            grep "C♯ E♮ A♯ C♯" bwv261-scores.txt # All scored 60. But the stacking was different:
+            236:  149  415 1033  149        C♯ E♮ A♯ C♯     60.0
+            # Fr/To Cents Ratio     # Fr/To Cents Ratio     # Fr/To Cents Ratio
+            1 C♯ E♮   266  7/6      2 C♯ A♯   316  6/5      3 C♯ C♯     0  1/1  
+            4 E♮ A♯   582  7/5      5 E♮ C♯   266  7/6      6 A♯ C♯   316  6/5  
+                  C♯ to E♮ to A♯ to C♯
+            This is 7:6   7:5   6:5
+            --
+            236:  116  431 1049  116        C♯ E♮ A♯ C♯     60.0
+            # Fr/To Cents Ratio     # Fr/To Cents Ratio     # Fr/To Cents Ratio
+            1 C♯ E♮   315  6/5      2 C♯ A♯   267  7/6      3 C♯ C♯     0  1/1  
+            4 E♮ A♯   582  7/5      5 E♮ C♯   315  6/5      6 A♯ C♯   267  7/6  
+                  C♯ to E♮ to A♯ to C♯
+            This is 6:5   7:5   7:6
+            None of these are 5:6:7
+            But if you permute then you get
+                  A♯ to C♯ to E♮ to C♯
+                    7:6   6:5   6:5
+                    6:5   7:6   7:6
+
+----------------------
+8/18/26 Trouble with my Daily posts to X. It's looking for this file and not finding it on Godaddy:
+                  https://ripnread.com/listen/ball9-t57c_lm19_r1.12_df5_t3_d05_07_t106.mp3
+            ls -lth ~/Dropbox/Uploads/c8-08-03-26/ball9-t57c_lm19_r1.12_df5_t3_d05_07_t106.mp3
+                  -rwxrwxrwx 1 prent prent 12M Aug  3 10:07 /home/prent/Dropbox/Uploads/c8-08-03-26/ball9-t57c_lm19_r1.12_df5_t3_d05_07_t106.mp3
+      That's where it's looking for the file and finding it, but it links to the http://ripnread.com/listen/ directory. There's your trouble. Need to ftp that directory to Godaddy. See if it's already there but in its own directory. 
+
+      Be ready with your 1Password password, then type this in a terminal.
+            dirname=c8-08-03-26
+            eval $(op signin) && FTP_PASS=$(op item get "GoDaddy FTP server" --fields password --reveal) && lftp -u prent,"$FTP_PASS" ftp://50.63.8.141 -e "set ssl:verify-certificate false; cd httpdocs/listen; mput /home/prent/Dropbox/Uploads/$dirname/*.mp3; quit" 
+      It still doesn't work. It's looking for this URL: 
+            https://ripnread.com/listen/ball9-t57c_lm19_r1.12_df5_t3_d05_07_t106.mp3
+      On the Godaddy file manager, I see this file: ball9-t57c_lm19_r1.12_df5_t3_d05_07_t106.mp3, and this url works:
+            http://ripnread.com/listen/ball9-t57c_lm19_r1.12_df5_t3_d05_07_t106.mp3
+      Who told him to change the URL from http to https? 
+      
+      I asked Copilot for advice: I run this program every morning at a using a cron job. I post the tweet with a link to a mp3 file on my Godaddy server. It suddenly stopped working about ten days ago. I noticed that X was changing the URL from http:// to https://. Is that something X does now? Here is the log file from node fs7: 
+            ssh fs7
+            crontab -l
+                  0 6 * * * /home/prent/miniforge3/bin/mamba run -n csound python /home/prent/Repos/One-footed-bride-tuning/daily_chorale_tweet.py >> /tmp/daily_chorale_tweet.log 2>&1
+            cat /tmp/daily_chorale_tweet.log
+                  Album directory: /home/prent/Dropbox/Uploads/c8-08-03-26
+                  Posting tweet for ball9-t54c_lm17_r1.12_df1_t3_d05_32_t080.mp3 ...
+                  Posted: https://twitter.com/prentrodgers/status/2087162116679881175
+
+                  4 chorales remaining in rotation.
+                  Album directory: /home/prent/Dropbox/Uploads/c8-08-03-26
+                  Posting tweet for ball9-t58c_lm17_r1.75_df3_t3_d04_02_t092.mp3 ...
+                  Posted: https://twitter.com/prentrodgers/status/2087524503421399338
+                  ...
+
+      I've run several grid_search.sh runs today to test the sound of the new Noctua fans. They are much quieter than the Thermalright ones. I ordered two more for the peerless assisin on the fs2. They are a few millimeters less wide than the TR ones, even though the specs advertized equal width. They still work, and seem to keep the fs3 a little cooler, maxing out at 77℃ compared to 87℃ before swapping fans.
+
+      Results for the last few runs:
+            grep "result is better" output.txt | wc -l
+                  30
+            grep "Previous result is better" output.txt | wc -l
+                  25
+            grep "Current result is better" output.txt | wc -l
+                  5
+      So we continue to improve the spreads. For example, the five:
+                  combined 80.76 vs 92.41; score 57.2 vs 56.7; spread 19.2 vs 23.4¢; max gap 14.0 vs 24.0¢
+                  combined 97.32 vs 97.67; score 57.1 vs 56.9; spread 18.4 vs 19.6¢; max gap 31.0 vs 31.0¢
+                  combined 83.42 vs 85.96; score 56.7 vs 56.8; spread 19.5 vs 22.2¢; max gap 17.0 vs 18.0¢
+                  combined 97.65 vs 98.25; score 57.0 vs 58.6; spread 29.3 vs 17.2¢; max gap 26.0 vs 31.0¢
+                  combined 94.54 vs 97.26; score 56.8 vs 57.4; spread 23.5 vs 21.8¢; max gap 26.0 vs 29.0¢
+
+_________________________
+8/19/26 Keep looking for better results:
+      From last night, I could not capture the entire log but I got 80 out of 120:
+            grep "result is better" output.txt | wc -l
+                  80
+            grep "Previous result is better" output.txt | wc -l
+                  68
+            grep "Current result is better" output.txt | wc -l
+                  12
+      Each grid_search.sh does 30 iterations in 45 minutes. Ruuning it 4 times = 120 runs on fs3. Each run is around 1:20 to 1:22. 3 hours estimate.
+      Relatively quiet now thanks to the Noctua fans maxing out at 1700 rpm. Max temperature is 74℃
+      Capture the log of all 120 iterations
+            for n in 1 2 3 4 ; do echo ================$n======================= ; time ./grid_search.sh >>output.log ; done
+                  real    1m22.434s
+                  user    13m37.301s
+                  sys     0m0.775s
+
+                  real    1m20.628s
+                  user    13m45.925s
+                  sys     0m0.795s
+
+                  real    1m21.561s
+                  user    13m30.373s
+                  sys     0m0.789s
+            grep "result is better" output.log | wc -l
+                  115
+            grep "Previous result is better" output.log | wc -l
+                  103
+            grep "Current result is better" output.log | wc -l
+                  12
+      One is now at zero gaps. How is that possible? Here are the top five:
+            Directory       sfx   t  ratio  lm ChordAvg ChordMax |  N  GapSum    Avg    Med    p90    Max |  >10  >20  >30  >=33
+            -------------------- -- ------ --- -------- -------- | -- ------- ------ ------ ------ ------ | ---- ---- ---- -----
+            t1_r1.375_lm19  opt   1  1.375  19     57.3      145 |  0       0    0.0    0.0    0.0    0.0 |    0    0    0     0
+            t1_r1.25_lm17   opt   1  1.250  17     57.2      145 |  1       2    2.0    2.0    2.0    2.0 |    0    0    0     0
+            t2_r1.50_lm19   opt   2  1.500  19     57.5      145 |  1       2    2.0    2.0    2.0    2.0 |    0    0    0     0
+            t2_r1.75_lm17   opt   2  1.750  17     57.4      145 |  5      13    2.6    3.0    3.0    3.0 |    0    0    0     0
+            t1_r1.75_lm17   opt   1  1.750  17     57.1      145 |  3      12    4.0    4.0    4.0    4.0 |    0    0    0     0
+            t3_r1.625_lm19  opt   3  1.625  19     56.8      112 |  5      15    3.0    3.0    3.6    4.0 |    0    0    0     0
+      Listen to the top three:
+            for nd in  t1_r1.375_lm19 t1_r1.25_lm17 t2_r1.50_lm19 ; do echo __________ $nd ___________ ; python WreckingCrew.py --numpy_dir Archive/straw-man/$nd --chorale_list bwv261 --cent_file_partial=-opt.npy --album 6 --mod d --short_repeats ; done
+      This is the biggest challenge for almost all the tunings: 
+                  72:  424  691 1027  108	E♮ G♮ A♯ C♯	145.0
+                  # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+                  1 E♮ G♮   267  7/6      2 E♮ A♯   597 24/17     3 E♮ C♯   316  6/5  
+                  4 G♮ A♯   336 17/14     5 G♮ C♯   583  7/5      6 A♯ C♯   281 20/17 
+      This is the standard diminished chord, which routinely scores 93 or even 88 in other instances. Why the challenge. Too much attention to the gaps?
+
+      Asked claude to review the results:
+      I've gone through about a dozen runs of @grid_search.sh, each looking only at bwv261. That one has lots of unique chords. The hyperparameters are LIMIT_MAXES=(17 19) TOLERANCES=(1 2 3) RATIOS=(1.25.375 1.50 1.625 1.75) and ROLLS=4. Each run takes about 1:20, and all together all the hyperparameters finish in 45 minutes. With the ratchet in place some interesting results have shown up. See the end of @output.log starting at line 4737. The optimizer has tried to reduce the gaps, consistent with relatively good average scores, and now the top of the list is a chorale that needs no glissandi at all to cope with moving cent values for pitch classes in adjacent notes. I'm getting ready to run the @generate-grid-search-jobs.sh .  It's clear from the results I've found that with more runs the gaps get reduced. What can we change to ensure that the gaps are reduced as fast as possible? Notice while searching through the log of four runs of grid_search.sh with 115 total comparisons, 12 of improvements continue to be discovered: grep "result is better" output.log | wc -l
+                  115
+            grep "Previous result is better" output.log | wc -l
+                  103
+            grep "Current result is better" output.log | wc -l
+                  12
+      Claude suggested that we start subsequent runs with the last best run: What changed
+      Seeding (viterbi_optimization.py) — generate_k_candidates takes an incumbent and appends it after the [:K] trim, so the sort can never drop it. That detail matters: the incumbent's vertical score is often worse than fifteen fresh candidates, so sorting first would have discarded exactly the chord you wanted to keep. Threaded through _parallel_candidate_worker (the task tuple carries the row) and hierarchical_viterbi_optimization. Straw_man_tuning_v2.py loads {version}-opt.npy before the Viterbi and passes it, with a chord-count guard so a mismatched array is skipped rather than crashing.
+
+      It's offered unpolished deliberately — polishing each chord independently would change its cents and break the adjacency the saved path was chosen for.
+
+      The hinge (viterbi_optimization.py) — GAP_HINGE = 10.0, GAP_HINGE_WEIGHT = 0.25, applied as a quadratic surcharge above 10¢. The cost curve is now 5→5, 10→10, 15→21, 20→45, 30→130, so one 20¢ jump costs more than two 10¢ jumps. The DP was minimizing the sum while the ratchet keeps on the max; now they chase the same thing.
+
+___________________________
+8/20/26 Get the batch jobs working correctly. There were lots of troubles that Claude had to sort out.
+      Now run the batch jobs. 
+            ./generate-grid-search-jobs.sh 
+                  Next steps:
+                  1. Review the generated manifests in k8s-jobs/
+                  2. Deploy all jobs: ./deploy-grid-search-jobs.sh
+                  3. Monitor progress: kubectl get jobs -l app=grid-search
+                  4. After all complete, run the aggregation job
+      Had to set a limit to the size of the deployment slots to 20. 
+            MAX_INFLIGHT=20 ./deploy-grid-search-jobs.sh
+
+      Monitors:
+      Watch job status:    kubectl get jobs -l app=grid-search -w
+      List all jobs:       kubectl get jobs -l app=grid-search
+      Pod status:          kubectl get po -l app=grid-search -o wide
+      View pod logs:       kubectl logs -l app=grid-search --tail=50
+      Count completed:     kubectl get jobs -l app=grid-search --field-selector status.successful=1 | wc -l
+
+      Lots of Pending, ContainerCreating shows the cluster can't handle much more. There is a lot of wasted time with this design. 
+            kubectl get po -l app=grid-search   -o custom-columns=NAME:.metadata.name,PHASE:.status.phase,NODE:.spec.nodeName   --sort-by=.status.phase | grep Pending | wc -l
+                  17, then 15
+            kubectl logs -l app=grid-search --tail=-1 2>/dev/null | grep -c "result is better"
+            kubectl logs -l app=grid-search --tail=-1 2>/dev/null | grep -c "Current result is better"
+            kubectl logs -l app=grid-search --tail=-1 2>/dev/null | grep -c "Previous result is better"
+      These are unreliable. We should have sent this information to the logs. 
+      The argument to kubectl --tail=1 means show every line
+            kubectl logs -l app=grid-search --tail=-1 2>/dev/null | grep -c "result is better"
+                  306
+            kubectl logs -l app=grid-search --tail=-1 2>/dev/null | grep -c "Current result is better"
+                  180
+            kubectl logs -l app=grid-search --tail=-1 2>/dev/null | grep -c "Previous result is better"
+                  126
+      How did it do?
+            ssh one-footed-bride-pod
+            cd Repos/One-footed-bride-tuning
+            CHORALES=${1:-$(echo bwv{253..264})}
+            python select_best_and_render.py --numpy_dir_root Archive/straw-man --chorale_list $CHORALES --suffix="-opt.npy" --sort_by maxgap
+      Lots of the chorales had max values of 0.0. Take them out of the mix and run the others.
+      Keep these and see if you can do any better: bwv259 bwv260 bwv262 bwv263
+      Did they all produce a winner for tolerance=1? All but bwv259 bwv260 bwv262 bwv263
+      I asked Claude to analyze the results:
+      Something worth checking before you re-run. The best score columns show that lowest mean chord score and lowest max gap are frequently different cells, sometimes wildly:
+
+                  bwv264   min maxgap 0.0   |  best score 47.9 at maxgap 30.0
+                  bwv254   min maxgap 0.0   |  best score 54.2 at maxgap 25.0
+                  bwv261   min maxgap 0.0   |  best score 56.0 at maxgap 13.0
+      Run the jobs:
+            k delete job -l app=grid-search
+            rm k8s-jobs/*.yaml
+            ./generate-grid-search-jobs.sh
+            MAX_INFLIGHT=8 ./deploy-grid-search-jobs.sh # cut back to 8 to avoid an electricity surge blowing up UPS's
+                  Found 120 job manifests in k8s-jobs/
+
+                  Deploy all 120 jobs to Kubernetes cluster? (y/N) y
+
+                  Syncing the repo on the cluster...
+                  HEAD is now at 90f4c4f Put the seeding and ratchet lines in the log, not on stdout
+                  Now at 90f4c4f
+                  Repo ready at /home/prent/Repos/One-footed-bride-tuning
+
+                  Deploying grid-search-job-001-lm17-t1-r1-25-bwv259... OK
+                  Deploying grid-search-job-002-lm17-t1-r1-25-bwv260... OK
+                  Deploying grid-search-job-003-lm17-t1-r1-25-bwv262... OK
+                  Deploying grid-search-job-004-lm17-t1-r1-25-bwv263... OK
+                  ...
+                  Deploying grid-search-job-040-lm17-t2-r1-75-bwv263... OK
+                  queue full (40), waiting............................ slot free.
+
+      Most stay in pending for a lot longer. Only 2 running at the same time. That's terrible. 
+            kubectl get po -l app=grid-search -o wide | grep Running -c
+                  2
+      Lots of CreateContainerError:
+            Warning  Failed            106s                   kubelet            spec.containers{grid-search}: Error: context deadline exceeded
+      There are seven in that status at the moment and only 1 is running. 
+      Claude thinks we need to back off from 40 to 8 to speed up the performance, also reduce the requested CPU
+            kubectl get nodes -o custom-columns=NAME:.metadata.name,ALLOC_CPU:.status.allocatable.cpu,SCHEDULABLE:.spec.unschedulable
+                  NAME   ALLOC_CPU   SCHEDULABLE
+                  fs2    18          <none>
+                  fs3    18          <none>
+                  fs4    20          <none>
+                  fs5    24          <none>
+                  fs6    16          <none>
+                  fs7    24          <none>
+                  fs8    14          <none>
+                  fs9    24          <none>
+            
+________________________
+8/21/26 I asked claude to simplify the job submissions.
+      It's just too prone to error. Let me titrate the rate of job submission in some way.
+            INTERVAL=60 SKIP_SYNC=1 ./deploy-grid-search-jobs.sh
+      Or this works as well:
+            export SKIP_SYNC=1
+            export INTERVAL=60
+            ./deploy-grid-search-jobs.sh
+                  120 jobs, one every 60s
+                  estimated submission time: 120 minutes
+
+                  SKIP_SYNC=1 — not syncing; jobs will run whatever is already on the volume
+
+                  [  1/120] grid-search-job-001-lm17-t1-r1-25-bwv259       OK   run=0 pend=1 done=0 err=0
+                  ...
+      This keeps just a few running at once, with overlaps. Doesn't stress the electic circuits. I need to boost the amps on the circuit in my office. 
+            k get po -l app=grid-search -o wide
+                  NAME                                          READY   STATUS              AGE    NODE  
+                  grid-search-001-lm17-t1-r1-25-bwv259-c29fv    0/1     Completed           5m8s   fs2   
+                  grid-search-002-lm17-t1-r1-25-bwv260-7jldl    0/1     Completed           4m8s   fs3   
+                  grid-search-003-lm17-t1-r1-25-bwv262-55qf4    0/1     Completed           3m7s   fs7   
+                  grid-search-004-lm17-t1-r1-25-bwv263-7wz74    1/1     Running             2m7s   fs2   
+                  grid-search-005-lm17-t1-r1-375-bwv259-wg58t   1/1     Running             67s    fs3   
+                  grid-search-006-lm17-t1-r1-375-bwv260-9v2jf   0/1     ContainerCreating   7s     fs7   
+      And they are no longer stuck in ContainerCreating for many minutes. Most move from that status to running in under 30 seconds. But they only run on fs2, fs3, fs7. That's odd. Speed up to 45.
+            export INTERVAL=45
+            ./deploy-grid-search-jobs.sh
+            120 jobs, one every 45s
+            estimated submission time: 90 minutes
+
+            SKIP_SYNC=1 — not syncing; jobs will run whatever is already on the volume
+            [  1/120] grid-search-job-001-lm17-t1-r1-25-bwv259       OK   run=0 pend=1 done=0 err=1
+            [  2/120] grid-search-job-002-lm17-t1-r1-25-bwv260       OK   run=1 pend=1 done=0 err=0
+      Now three running, one on fs6, which I should remark is now running at 89℃. Hot!
+            k get po -l app=grid-search -o wide
+                  NAME                                         READY   STATUS      AGE     NODE
+                  grid-search-001-lm17-t1-r1-25-bwv259-x9f74   0/1     Completed   2m55s   fs2 
+                  grid-search-002-lm17-t1-r1-25-bwv260-bjg7w   1/1     Running     2m10s   fs3 
+                  grid-search-003-lm17-t1-r1-25-bwv262-d6w7r   1/1     Running     85s     fs7 
+                  grid-search-004-lm17-t1-r1-25-bwv263-2bxvp   1/1     Running     40s     fs6 
+      Now one Running on 
+      fs8 at 67℃
+      fs2 at 95℃ when two are running on the same node
+      fs3 at 67℃
+      fs6 at 89℃
+      fs9 at 48℃ with some cores at 82℃
+      fs4 at 80℃
+      fs5 at 78℃
+
+      How fast did each tuning run?
+            for p in $(kubectl get po -l app=grid-search -o name); do
+  kubectl logs "$p" --tail=-1 2>/dev/null
+done | grep -E "real|Results saved to:|Job"
+      Or this:
+            for p in $(kubectl get po -l app=grid-search -o name); do
+  kubectl logs "$p" --tail=-1 2>/dev/null
+done | awk '/^Job .* starting/{j=$2} /^real/{print j, $2}' \
+     | sed -E 's/-(bwv[0-9]+) /\1 /' | sort -k2
+
+      After the run you can find which ones improved by looking at the logs in one-footed-bride-pod:
+            ssh one-footed-bride-pod cat Repos/One-footed-bride-tuning/Archive/straw-man/t2_r1.25_lm19/straw-man-tuning-bwv263.log | tail -n 1
+                  21 - INFO - >>> Previous result is better — keeping previous (combined 76.33 vs 80.92; score 50.1 vs 49.9; spread 24.5 vs 30.0¢; max gap 14.0 vs 16.0¢)
+            ssh one-footed-bride-pod \
+  'grep -H "result is better" Repos/One-footed-bride-tuning/Archive/straw-man/*/straw-man-tuning-*.log' \
+  | python3 analyze_verdicts.py
+      But that needs to be generalized. Claude provided this:
+            ssh one-footed-bride-pod \
+  'grep -H "result is better" Repos/One-footed-bride-tuning/Archive/straw-man/*/straw-man-tuning-*.log' \
+  | python3 analyze_verdicts.py
+                  120 verdicts   improved: 44   unchanged: 76   kept a WORSE max gap: 5
+
+                  cell                     chorale            score          spread         max gap
+                  ------------------------ -------- --------------- --------------- ---------------
+                  t3_r1.25_lm19            bwv263     49.5→50.6       17.4→25.5       16.0→4.0     
+                  t3_r1.625_lm17           bwv263     49.6→50.2       18.5→16.0       19.0→7.0     
+                  t3_r1.375_lm19           bwv263     49.2→50.3       23.5→24.0       16.0→5.0     
+                  t2_r1.25_lm17            bwv263     50.3→50.9       24.5→23.5       16.0→6.0     
+                  t2_r1.50_lm19            bwv260     53.1→53.8       12.4→19.2       11.0→3.0     
+                  t2_r1.50_lm19            bwv263     50.6→50.6       24.5→23.5       15.0→7.0     
+
+                  Raise --gap_weight (currently 1.0 against spread_weight 0.5) if that is not what you want.
+      Without the table, just the improved amounts:
+            ssh one-footed-bride-pod 'grep -c ">>> Current result" Repos/One-footed-bride-tuning/Archive\/straw-man/*/straw-man-tuning-*.log'   | awk -F: '{s+=$2} END {print s, "improved"}'
+                  44 improved
+      Use select_best_and_render.py:
+            ssh one-footed-bride-pod
+            cd Repos/One-footed-bride-tuning
+            export CHORALES=${1:-$(echo bwv{253..264})}
+            python select_best_and_render.py --numpy_dir_root Archive/straw-man --chorale_list $CHORALES --suffix="-opt.npy" --sort_by maxgap
+      Which one's still need more runs to achieve Max = 0: bwv262 bwv259 
+      Run those two some more times. 
+            python select_best_and_render.py --numpy_dir_root Archive/straw-man --chorale_list $CHORALES --suffix="-opt.npy" --sort_by maxgap | grep -E "    Max|Chorale" -A2
+                  Directory       chorale sfx  t  ratio  lm ChordAvg ChordMax |   N  GapSum    Avg    Med    p90    Max |
+                  ----------------------- ------ ------ --- -------- -------- |---- ------- ------ ------ ------ ------ |
+                  t1_r1.25_lm17   bwv253  opt  1  1.250  17     49.7      119 |   0       0    0.0    0.0    0.0    0.0 |
+                  t1_r1.375_lm19  bwv254  opt  1  1.375  19     55.4      140 |   0       0    0.0    0.0    0.0    0.0 |
+                  t1_r1.25_lm17   bwv255  opt  1  1.250  17     50.8       82 |   0       0    0.0    0.0    0.0    0.0 |
+                  t1_r1.25_lm19   bwv256  opt  1  1.250  19     54.2      145 |   0       0    0.0    0.0    0.0    0.0 |
+                  t1_r1.25_lm17   bwv257  opt  1  1.250  17     58.1      140 |   0       0    0.0    0.0    0.0    0.0 |
+                  t1_r1.25_lm19   bwv258  opt  1  1.250  19     58.2      140 |   0       0    0.0    0.0    0.0    0.0 |
+                  t3_r1.25_lm17   bwv259  opt  3  1.250  17     53.8      104 |   2      19    9.5    9.5    9.9   10.0 |
+                  t3_r1.625_lm19  bwv259  opt  3  1.625  19     54.6      104 |   2       8    4.0    4.0    4.0    4.0 | <-- +
+                  t2_r1.25_lm17   bwv260  opt  2  1.250  17     54.1      140 |   0       0    0.0    0.0    0.0    0.0 |
+                  t1_r1.375_lm19  bwv261  opt  1  1.375  19     57.1      141 |   0       0    0.0    0.0    0.0    0.0 |
+                  t2_r1.25_lm17   bwv262  opt  2  1.250  17     47.9      113 |   3      22    7.3   10.0   10.0   10.0 | <-- -
+                  t1_r1.25_lm17   bwv263  opt  1  1.250  17     50.7      145 |   0       0    0.0    0.0    0.0    0.0 |
+                  t1_r1.50_lm19   bwv263  opt  1  1.500  19     48.6      111 |   0       0    0.0    0.0    0.0    0.0 |
+      Update k8s-grid-search-job-template.yaml to remove fs6 from the hosts.
+      Update generate-grid-search-jobs.sh to limit to CHORALES=(bwv259 bwv262)
+            rm k8s-jobs/*.yaml
+            ./generate-grid-search-jobs.sh
+            INTERVAL=20 SKIP_SYNC=1 ./deploy-grid-search-jobs.sh
+      Finished in about 20 minutes or so.
+      What's left to check: --gap_weight is one of three terms in the ratchet's keep-or-discard decision. It has no effect on tuning itself — it only decides which of two finished results gets written to disk.
+
+      The formula
+
+      combined = mean_score + spread_weight × spread + gap_weight × max_gap
+      Lower wins. Defaults are spread_weight=0.5, gap_weight=1.0.
+
+      mean_score — mean chord consonance across the piece, from score_chord. Around 50.
+      spread — compute_spread_score: the worst pitch class's circular MAD, i.e. how much one note name drifts across the whole piece. Typically 12-30¢.
+      max_gap — compute_gap_score: the single largest cent jump between shared pitch classes in adjacent chords, anywhere in the piece. Typically 1-30¢.
+      So gap_weight=1.0 means one cent of worst-jump costs one point of mean chord score. At spread_weight=0.5, one cent of drift costs half a point.
+
+      Why the gap term exists
+      The docstring records the reasoning: on bwv261, four runs of one cell spanned 56.2-57.9 mean score, while ten different parameter cells spanned 56.0-57.6. Run-to-run noise exceeded the entire grid, so a ratchet on chord score alone just kept whichever run drew the luckiest seed. Adjacent jumps did separate those same four runs — 3¢ to 14¢. The gap term is what makes the ratchet measure something real.
+
+      compute_gap_score takes the worst single jump, not an average, because one audible lurch is what gets noticed and a mean over hundreds of mostly-static chords would bury it.
+
+      The trade-off you'd be tuning
+      Because the terms simply add, they can outbid each other. At current weights, a 9¢ improvement in spread returns 4.5 points, which pays for a 4¢ regression in max gap. Your memory note says the opposite: never accept lower spread at the cost of a larger worst jump. So gap_weight=1.0 permits a trade you've said you don't want.
+
+      Raising it to ~6 makes any gap regression cost more than the largest plausible spread gain (observed swings top out around 12¢, worth 6 points at spread_weight=0.5). Setting spread_weight=0 instead drops drift from the decision entirely, which is defensible given you've said drift is inaudible.
+
+      One thing that sits above all three
+      There's a categorical pre-check ahead of the arithmetic: whichever result has fewer chords scoring ≥1000 wins outright, regardless of weights. A score of 1000+ means an interval matched nothing in the diamond. Without that guard, gap_weight=1.0 let 4¢ of adjacency buy a wolf fifth — the comment records t3_r1.75_lm19 ending up with D-A at 675¢, 27¢ flat.
+
+      So raising gap_weight won't reintroduce wolf intervals; that failure mode is handled separately.
+
+      The census from analyze_verdicts.py is what should decide the number — if regressions are rare, leave it alone.
+
+      My opinion: As I listen to these tunings I realize that I am not the typical listener. I savor the ratios that include 7, 11,and 15. I love their ability to make a chord really sing, And I am hyper sensitive to gaps where the same pitch class has a jarring move from one cent value to another. They sound like an artifact the composer had no intention of making audible. Like an acoustic guitar player who's movements up and down the fingerboard to move from one chord to another are almost as loud as the strummed strings. The composer never intended that noise to disturb the music. Thankfully, I have the power to influence these tradeoffs you have identified. I think we are at the optimum now.I don't mind a slightly higher score because I know that that means there will be more of those ratios with higher integers like 7, 9, 11, 13, even 17 that I love. And I particulary dislike audible cent pitch movements that were not done as a decision of the composer. We have found a way to minimize those, while paying for it with the high integers. Let's leave the hyperparameters where they are for now.
