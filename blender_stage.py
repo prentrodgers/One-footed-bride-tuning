@@ -27,6 +27,7 @@ still read clearly. Animation wiring comes once the layout is agreed.
 
     blender --background --python blender_stage.py -- --out stage_proto.png
 """
+import os
 import argparse
 import math
 import random
@@ -413,6 +414,11 @@ def parse_args():
     # — for stage_preview.html to draw. Needs no notes, so it runs on a static
     # build in seconds.
     p.add_argument("--dump-layout", default=None)
+    # Write the built stage as a .glb for stage_preview.html to render instead
+    # of proxy boxes. Exported rather than re-modelled in three.js because the
+    # section builders are a couple of thousand lines of bpy mesh code that a
+    # hand port would drift away from.
+    p.add_argument("--export-gltf", default=None)
     return p.parse_args(argv)
 
 
@@ -1295,6 +1301,10 @@ def main():
         _dump_layout(args.dump_layout, targets, args.res_x, args.res_y)
         return
 
+    if args.export_gltf:
+        _export_gltf(args.export_gltf)
+        return
+
     if args.list_targets:
         for k in sorted(targets):
             b = targets[k]
@@ -1459,6 +1469,46 @@ def _dump_activity(path, targets, vmap, activity, duration, bucket=1.0):
     print(f"[stage] wrote {path}: {len(levels)} targets, {n} buckets of {bucket}s")
 
 
+def _export_gltf(path):
+    """Write the built stage to a .glb, and report the budget the browser
+    inherits: object count drives draw calls, triangle count drives fill.
+    Blender renders offline at ~0.8s/frame and does not care about either;
+    a page holding 60fps does, so print them before anyone ports an animator."""
+    per_section = {}
+    tris = 0
+    dg = bpy.context.evaluated_depsgraph_get()
+    for o in bpy.data.objects:
+        if o.type != 'MESH':
+            continue
+        root = o
+        while root.parent is not None:
+            root = root.parent
+        section = root.name.split('.')[0]
+        me = o.evaluated_get(dg).to_mesh()
+        me.calc_loop_triangles()
+        n = len(me.loop_triangles)
+        o.evaluated_get(dg).to_mesh_clear()
+        tris += n
+        count, total = per_section.get(section, (0, 0))
+        per_section[section] = (count + 1, total + n)
+
+    # export_yup=False keeps Blender's Z-up instead of rotating to glTF's Y-up.
+    # stage_preview.html runs the whole scene Z-up so its numbers match the ones
+    # you paste back here, and an axis swap on the way out would need undoing on
+    # the way in — exactly where sign errors breed.
+    bpy.ops.export_scene.gltf(filepath=path, export_format='GLB', export_yup=False)
+
+    meshes = sum(c for c, _ in per_section.values())
+    print(f"\n[gltf] {path}  —  {meshes} mesh objects, {tris:,} triangles")
+    for name in sorted(per_section, key=lambda k: -per_section[k][1]):
+        count, total = per_section[name]
+        print(f"    {name:24s} {count:5d} objects  {total:9,d} tris")
+    try:
+        print(f"[gltf] file size: {os.path.getsize(path) / 1e6:.1f} MB")
+    except OSError:
+        pass
+
+
 def _dump_layout(path, targets, res_x, res_y):
     """The stage as numbers, for stage_preview.html: one box per camera
     target plus the camera and every light. Written from the built scene, so
@@ -1485,6 +1535,9 @@ def _dump_layout(path, targets, res_x, res_y):
                      "colors": [list(c) for c in BACKDROP_COLORS],
                      "hold": BACKDROP_HOLD, "strength": BACKDROP_STRENGTH},
         "margin": CAMERA_MARGIN,
+        # _shot_progress falls back to sum(CAMERA_HOLD) * 2 for the last cue,
+        # so the preview needs it to time a closing pan the same way.
+        "hold": list(CAMERA_HOLD),
         # The resolved cue sheet, so the preview can step through the actual
         # shots. focus is always a list: ["wide"], ["pizz", "finger_piano"],
         # or ["overhead", a, b] — the marker stays in place, as in the tuple.

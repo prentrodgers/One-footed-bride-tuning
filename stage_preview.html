@@ -62,6 +62,10 @@
   #err{padding:20px;font:13px ui-monospace,monospace;color:#ff9a9a}
   select{width:100%;background:#12151a;color:var(--ink);border:1px solid var(--line);
          border-radius:4px;padding:6px;font:12px ui-monospace,monospace;margin-bottom:8px}
+  input[type=text]{width:100%;background:#12151a;color:var(--ink);border:1px solid var(--line);
+         border-radius:4px;padding:5px;font:11px ui-monospace,monospace;margin-bottom:6px}
+  audio{width:100%;height:32px;margin-bottom:4px}
+  #clock{font:11px ui-monospace,monospace;color:var(--dim)}
 </style>
 </head>
 <body>
@@ -71,7 +75,17 @@
   <div id="stamp"></div>
   <select id="cue"></select>
   <div id="scrub"></div>
+  <details open id="playbox"><summary>Play with the music</summary>
+    <input id="audiosrc" type="text" spellcheck="false"
+           placeholder="Uploads/ball9-….mp3">
+    <audio id="audio" controls preload="metadata"></audio>
+    <div class="chk"><input type="checkbox" id="drive" checked>
+      <label for="drive">Audio drives the camera, follow spot and backdrop</label></div>
+    <div id="clock">—</div>
+  </details>
   <div class="chk"><input type="checkbox" id="through"><label for="through">Look through render camera</label></div>
+  <div class="chk"><input type="checkbox" id="instruments" checked><label for="instruments">Show instruments (stage.glb)</label></div>
+  <div class="chk"><input type="checkbox" id="boxes" checked><label for="boxes">Show target boxes</label></div>
   <div class="chk"><input type="checkbox" id="players"><label for="players">Show individual instruments</label></div>
   <div class="chk"><input type="checkbox" id="cones" checked><label for="cones">Show light cones</label></div>
   <div class="chk"><input type="checkbox" id="labels" checked><label for="labels">Show names</label></div>
@@ -90,6 +104,7 @@
 <script type="module">
 import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 
 // Blender is Z-up and so is everything in stage_layout.json. Rather than
 // convert on the way in and back out — which is exactly where sign errors
@@ -476,6 +491,155 @@ for (const [id, fn] of [
 
 function refresh(){ rebuildLights(); rebuildGizmo(); writeOut(); }
 
+// ── real instruments ────────────────────────────────────────────────────────
+// The stage exported straight out of the scene Blender renders, rather than
+// re-modelled here: the section builders are a couple of thousand lines of bpy
+// mesh code and a hand port would drift. Optional — without stage.glb the page
+// still works exactly as before, on boxes.
+//
+//     blender -b -P blender_stage.py -- --export-gltf stage.glb
+//
+// Exported with export_yup=False, so the model arrives Z-up like everything
+// else here and needs no axis fixing on the way in.
+const instruments = new THREE.Group();
+scene.add(instruments);
+// Surfaced on the stamp line: a silently-absent model would look identical to
+// one that failed to parse, and this page's whole failure mode is stale or
+// missing data that gives no sign of itself.
+const stampEl = document.getElementById('stamp');
+const baseStamp = stampEl.textContent;
+const setStamp = s => { stampEl.textContent = `${baseStamp} · ${s}`; };
+setStamp('loading stage.glb…');
+
+new GLTFLoader().load('stage.glb',
+  g => {
+    instruments.add(g.scene);
+    let meshes = 0;
+    g.scene.traverse(o => { if (o.isMesh) meshes++; });
+    setStamp(`stage.glb · ${meshes} meshes`);
+    // Boxes are the fallback, so only hide them once the real thing arrives.
+    document.getElementById('boxes').checked = false;
+    sectionBoxes.visible = playerBoxes.visible = false;
+  },
+  xhr => { if (xhr.total) setStamp(`stage.glb ${(100 * xhr.loaded / xhr.total).toFixed(0)}%`); },
+  () => setStamp('stage.glb missing — run --export-gltf, showing boxes'));
+
+document.getElementById('instruments').onchange =
+  e => { instruments.visible = e.target.checked; };
+document.getElementById('boxes').onchange = e => {
+  sectionBoxes.visible = e.target.checked;
+  playerBoxes.visible = e.target.checked && document.getElementById('players').checked;
+};
+
+// ── the clock ───────────────────────────────────────────────────────────────
+// The mp3 WreckingCrew wrote beside the .npy is the time source. Blender
+// renders frames and muxes audio afterwards, so it can never show you sync;
+// here the audio element IS the clock, which makes this the only place the
+// cue sheet can be judged against the music it was written for.
+const audio = document.getElementById('audio');
+const audioSrc = document.getElementById('audiosrc');
+const params = new URLSearchParams(location.search);
+audioSrc.value = params.get('audio') || '';
+if (audioSrc.value) audio.src = audioSrc.value;
+audioSrc.onchange = () => { audio.src = audioSrc.value; audio.load(); };
+
+// Ports of _smoothstep / _cue_index / _shot_progress from blender_stage.py.
+const smoothstep = x => { x = Math.min(1, Math.max(0, x)); return x * x * (3 - 2 * x); };
+const HOLD_SUM = (L.hold || [10, 15]).reduce((a, b) => a + b, 0);
+
+function cueIndexAt(t){
+  let i = 0;
+  while (i + 1 < CUES.length && t >= CUES[i + 1].t) i++;
+  return i;
+}
+function shotProgress(i, t){
+  if (i + 1 >= CUES.length) return smoothstep((t - CUES[i].t) / (HOLD_SUM * 2));
+  const span = CUES[i + 1].t - CUES[i].t;
+  return span > 0 ? smoothstep((t - CUES[i].t) / span) : 0;
+}
+
+// Port of update_camera: a cue with move == 0 cuts, one with a positive value
+// eases from the previous shot on BOTH position and aim, so the move arcs
+// rather than snapping its aim partway through.
+function framingAt(t){
+  if (!CUES.length) return {pos:[...L.cam.pos], target:[...L.cam.target]};
+  const i = cueIndexAt(t), cue = CUES[i];
+  let f = framing(cue.focus, shotProgress(i, t));
+  if (i > 0 && cue.move > 0){
+    const blend = smoothstep((t - cue.t) / cue.move);
+    if (blend < 1){
+      const f0 = framing(CUES[i - 1].focus, 1.0);
+      const mix = (a, b) => a.map((v, k) => v + (b[k] - v) * blend);
+      f = {pos:mix(f0.pos, f.pos), target:mix(f0.target, f.target)};
+    }
+  }
+  return f;
+}
+
+// Port of _shot_focus + update_follow: aim at the live shot, and widen the
+// cone to suit its size — tight on a solo player, open on a wide.
+function shotFocus(focus){
+  const names = focus[0] === 'wide' ? SECTION_NAMES : shotNames(focus);
+  const b = unionBox(names);
+  if (!b) return null;
+  return {centre:[(b[0]+b[1])/2, (b[2]+b[3])/2, (b[4]+b[5])/2],
+          radius:Math.max((b[1]-b[0])/2, (b[5]-b[4])/2)};
+}
+function followAt(t){
+  if (!CUES.length) return null;
+  const i = cueIndexAt(t), cue = CUES[i];
+  let f = shotFocus(cue.focus);
+  if (!f) return null;
+  if (i > 0 && cue.move > 0){
+    const blend = smoothstep((t - cue.t) / cue.move);
+    const f0 = shotFocus(CUES[i - 1].focus);
+    if (blend < 1 && f0){
+      f = {centre:f.centre.map((v, k) => f0.centre[k] + (v - f0.centre[k]) * blend),
+           radius:f0.radius + (f.radius - f0.radius) * blend};
+    }
+  }
+  const off = L.follow.offset, throwLen = Math.hypot(...off);
+  return {pos:f.centre.map((v, k) => v + off[k]), aim:f.centre,
+          angle:Math.min(140 * Math.PI / 180,
+                         2 * Math.atan(f.radius * L.follow.margin / throwLen))};
+}
+
+const followSpot = new THREE.SpotLight(new THREE.Color(...L.follow.color), 2.0);
+followSpot.penumbra = 0.55;
+followSpot.distance = 0;
+scene.add(followSpot, followSpot.target);
+
+// Port of update_backdrop: cross-fade around the colour list on its own hold
+// cycle, independent of the cue sheet.
+function backdropAt(t){
+  const cols = L.backdrop.colors, n = cols.length;
+  const pos = (t / L.backdrop.hold) % n, i = Math.floor(pos);
+  const blend = smoothstep(pos - i), a = cols[i], b = cols[(i + 1) % n];
+  return a.map((v, k) => v + (b[k] - v) * blend);
+}
+
+// Drive everything from the audio clock. Returns the time shown, so the HUD
+// and the cue dropdown can follow without recomputing it.
+function applyTime(t){
+  const f = framingAt(t);
+  shot.position.set(...f.pos);
+  shot.up.set(0, 0, 1);
+  shot.lookAt(...f.target);
+  shot.updateProjectionMatrix();
+
+  const fl = followAt(t);
+  if (fl){
+    followSpot.visible = true;
+    followSpot.position.set(...fl.pos);
+    followSpot.target.position.set(...fl.aim);
+    followSpot.target.updateMatrixWorld();
+    followSpot.angle = fl.angle / 2;
+  } else followSpot.visible = false;
+
+  bd.material.color.setRGB(...backdropAt(t));
+  return t;
+}
+
 // ── loop ────────────────────────────────────────────────────────────────────
 const hud = document.getElementById('hud');
 function resize(){
@@ -488,8 +652,26 @@ addEventListener('resize', resize);
 resize();
 refresh();
 
+const clockEl = document.getElementById('clock');
+const driveEl = document.getElementById('drive');
+const mmssms = t => `${Math.floor(t / 60)}:${(t % 60).toFixed(2).padStart(5, '0')}`;
+
 renderer.setAnimationLoop(() => {
   controls.update();
+  // When the audio is the clock it owns the camera: the cue dropdown follows
+  // playback rather than driving it, so what you see is the cut the render
+  // will make at that moment in the music.
+  const driven = driveEl.checked && audio.src && !isNaN(audio.duration);
+  if (driven){
+    const t = applyTime(audio.currentTime);
+    const i = CUES.length ? cueIndexAt(t) : -1;
+    clockEl.textContent = `${mmssms(t)} / ${mmssms(audio.duration)}` +
+      (i >= 0 ? `  ·  cue ${i + 1}/${CUES.length}  ${focusLabel(CUES[i].focus)}` : '');
+    if (i >= 0 && cueSel.value !== 'c' + i) cueSel.value = 'c' + i;
+  } else {
+    followSpot.visible = false;
+    clockEl.textContent = audio.src ? 'paused — audio not driving' : 'no audio loaded';
+  }
   const through = document.getElementById('through').checked;
   gizmo.visible = !through;
   if (through){
@@ -505,7 +687,10 @@ renderer.setAnimationLoop(() => {
     renderer.setViewport(0, 0, view.clientWidth, view.clientHeight);
     renderer.render(scene, orbit);
   }
-  const shotName = activeCue === null ? 'authored camera'
+  const shotName = driven && CUES.length
+    ? mmss(CUES[cueIndexAt(audio.currentTime)].t) + '  ' +
+      focusLabel(CUES[cueIndexAt(audio.currentTime)].focus)
+    : activeCue === null ? 'authored camera'
     : (activeCue.t === null ? '' : mmss(activeCue.t) + '  ') + focusLabel(activeCue.focus);
   hud.textContent = through
     ? `${shotName} · ${L.cam.lens.toFixed(0)}mm · ${L.aspect.toFixed(2)}:1`
