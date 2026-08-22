@@ -125,35 +125,47 @@ def parse_filename(fname, base_url=BASE_URL):
     return bwv, desc, url
 
 
-def _album_number(d):
-    """Album directories are named c0, c1, ... c8 - sort on that number.
+SERIES = ("c", "d")
+
+
+def _album_key(d):
+    """Album directories are named c0, c1, ... c9, then d0, d1, ... - sort on
+    the series letter first, then the number.
+
+    The letter has to lead, because the d series supersedes the c one: d0 is
+    newer than c9 even though 0 < 9. Sorting on the number alone would rank
+    every d album below every c album, and the d series would never be picked
+    up at all - the daily post would go on serving c9 with no error to show
+    for it.
 
     Deliberately NOT st_mtime. Dropbox rewrites mtime to whenever it synced a
     directory down, so the ordering differs per machine: on fs2 all ten albums
     carry the same nine-minute timestamp and c0 sorts newest, which would post
     the June first-pass instead of the current album. fs7 is only correct today
     because that is where the albums were created; a resync would break it
-    silently. The number in the name means the same thing on every machine.
+    silently. The name means the same thing on every machine.
 
-    Returns -1 for a directory with no number after the c - notably
+    Returns (-1, -1) for a directory with no number after the letter - notably
     compositions/, which also starts with c and also holds ball9-*.mp3 files
     (three of them) - so it sorts last and is never chosen over a real album.
     """
-    m = re.match(r"c(\d+)", d.name)
-    return int(m.group(1)) if m else -1
+    m = re.match(r"([cd])(\d+)", d.name)
+    if not m:
+        return (-1, -1)
+    return (SERIES.index(m.group(1)), int(m.group(2)))
 
 
 def find_latest_album_dir(uploads_root=UPLOADS_ROOT):
-    """Find the highest-numbered c* directory containing ball9-*.mp3 files."""
+    """Find the highest c*/d* directory containing ball9-*.mp3 files."""
     root = Path(uploads_root)
     candidates = sorted(
-        (d for d in root.iterdir() if d.is_dir() and d.name.startswith("c")
-         and list(d.glob("ball9-*.mp3"))),
-        key=_album_number,
+        (d for d in root.iterdir() if d.is_dir()
+         and d.name.startswith(SERIES) and list(d.glob("ball9-*.mp3"))),
+        key=_album_key,
         reverse=True,
     )
-    if not candidates or _album_number(candidates[0]) < 0:
-        print(f"No numbered album directory (c0, c1, ...) in {uploads_root}", file=sys.stderr)
+    if not candidates or _album_key(candidates[0])[0] < 0:
+        print(f"No numbered album directory (c0, c1, ... d0, d1, ...) in {uploads_root}", file=sys.stderr)
         sys.exit(1)
     return str(candidates[0])
 
