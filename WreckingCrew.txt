@@ -19506,12 +19506,13 @@ EOF
       6. Git push on the local files, and git pull in the container. 
             eval $(op signin)
             GIT_PAT=$(op item get "GitHub PAT" --fields credential --reveal)
-            git remote set-url origin https://$GIT_PAT@github.com/prentrodgers/One-footed-bride-tuning.git
-            git push
-      Then remove the PAT from your local .git/config.
-            cat .git/config | grep "url ="
-                  url = https://ghp...@github.com/prentrodgers/One-footed-bride-tuning.git
-            git remote set-url origin https://github.com/prentrodgers/One-footed-bride-tuning
+            #      git remote set-url origin https://$GIT_PAT@github.com/prentrodgers/One-footed-bride-tuning.git
+            
+            git push https://prentrodgers:${GIT_PAT}@github.com/prentrodgers/One-footed-bride-tuning.git $(git branch --show-current)
+
+            
+            #     git push
+            #     git remote set-url origin https://github.com/prentrodgers/One-footed-bride-tuning
             cat .git/config | grep "url ="
                   url = https://github.com/prentrodgers/One-footed-bride-tuning # <-- PAT is gone
 
@@ -20483,17 +20484,7 @@ ___________________________
       Lots of Pending, ContainerCreating shows the cluster can't handle much more. There is a lot of wasted time with this design. 
             kubectl get po -l app=grid-search   -o custom-columns=NAME:.metadata.name,PHASE:.status.phase,NODE:.spec.nodeName   --sort-by=.status.phase | grep Pending | wc -l
                   17, then 15
-            kubectl logs -l app=grid-search --tail=-1 2>/dev/null | grep -c "result is better"
-            kubectl logs -l app=grid-search --tail=-1 2>/dev/null | grep -c "Current result is better"
-            kubectl logs -l app=grid-search --tail=-1 2>/dev/null | grep -c "Previous result is better"
       These are unreliable. We should have sent this information to the logs. 
-      The argument to kubectl --tail=1 means show every line
-            kubectl logs -l app=grid-search --tail=-1 2>/dev/null | grep -c "result is better"
-                  306
-            kubectl logs -l app=grid-search --tail=-1 2>/dev/null | grep -c "Current result is better"
-                  180
-            kubectl logs -l app=grid-search --tail=-1 2>/dev/null | grep -c "Previous result is better"
-                  126
       How did it do?
             ssh one-footed-bride-pod
             cd Repos/One-footed-bride-tuning
@@ -20590,12 +20581,14 @@ ________________________
                   grid-search-004-lm17-t1-r1-25-bwv263-2bxvp   1/1     Running     40s     fs6 
       Now one Running on 
       fs8 at 67℃
-      fs2 at 95℃ when two are running on the same node
+      fs2 at 95℃ when two are running on the same node. Now 20 degrees cooler with the peerless assassin with Noctua fans 
+      fs2 at 75℃ 77℃ when two are running.
       fs3 at 67℃
-      fs6 at 89℃
-      fs9 at 48℃ with some cores at 82℃
-      fs4 at 80℃
-      fs5 at 78℃
+      fs6 at 89℃ # unacceptable. 
+      fs9 at 68℃ with 2 runnning
+      fs4 at 87℃ # borderline
+      fs5 at 79℃ with 2 running
+      fs7 at 83℃
 
       How fast did each tuning run?
             for p in $(kubectl get po -l app=grid-search -o name); do
@@ -20610,13 +20603,9 @@ done | awk '/^Job .* starting/{j=$2} /^real/{print j, $2}' \
       After the run you can find which ones improved by looking at the logs in one-footed-bride-pod:
             ssh one-footed-bride-pod cat Repos/One-footed-bride-tuning/Archive/straw-man/t2_r1.25_lm19/straw-man-tuning-bwv263.log | tail -n 1
                   21 - INFO - >>> Previous result is better — keeping previous (combined 76.33 vs 80.92; score 50.1 vs 49.9; spread 24.5 vs 30.0¢; max gap 14.0 vs 16.0¢)
-            ssh one-footed-bride-pod \
-  'grep -H "result is better" Repos/One-footed-bride-tuning/Archive/straw-man/*/straw-man-tuning-*.log' \
-  | python3 analyze_verdicts.py
-      But that needs to be generalized. Claude provided this:
-            ssh one-footed-bride-pod \
-  'grep -H "result is better" Repos/One-footed-bride-tuning/Archive/straw-man/*/straw-man-tuning-*.log' \
-  | python3 analyze_verdicts.py
+      
+      How many improvements resulted from the last run in the pod:
+            ssh one-footed-bride-pod 'grep -H "result is better" Repos/One-footed-bride-tuning/Archive/straw-man/*/straw-man-tuning-*.log' | python3 analyze_verdicts.py
                   120 verdicts   improved: 44   unchanged: 76   kept a WORSE max gap: 5
 
                   cell                     chorale            score          spread         max gap
@@ -20691,3 +20680,477 @@ done | awk '/^Job .* starting/{j=$2} /^real/{print j, $2}' \
       The census from analyze_verdicts.py is what should decide the number — if regressions are rare, leave it alone.
 
       My opinion: As I listen to these tunings I realize that I am not the typical listener. I savor the ratios that include 7, 11,and 15. I love their ability to make a chord really sing, And I am hyper sensitive to gaps where the same pitch class has a jarring move from one cent value to another. They sound like an artifact the composer had no intention of making audible. Like an acoustic guitar player who's movements up and down the fingerboard to move from one chord to another are almost as loud as the strummed strings. The composer never intended that noise to disturb the music. Thankfully, I have the power to influence these tradeoffs you have identified. I think we are at the optimum now.I don't mind a slightly higher score because I know that that means there will be more of those ratios with higher integers like 7, 9, 11, 13, even 17 that I love. And I particulary dislike audible cent pitch movements that were not done as a decision of the composer. We have found a way to minimize those, while paying for it with the high integers. Let's leave the hyperparameters where they are for now.
+
+            python select_best_and_render.py --numpy_dir_root Archive/straw-man --chorale_list $CHORALES --suffix="-opt.npy" --sort_by maxgap --copy_npy_to Archive/straw-man/viterbi-tunings-8-21
+                  bwv253  →  bwv253_t1_r1.250_lm17-opt.npy  (from t1_r1.25_lm17)
+                  bwv254  →  bwv254_t1_r1.375_lm19-opt.npy  (from t1_r1.375_lm19)
+                  bwv255  →  bwv255_t1_r1.250_lm17-opt.npy  (from t1_r1.25_lm17)
+                  bwv256  →  bwv256_t1_r1.250_lm19-opt.npy  (from t1_r1.25_lm19)
+                  bwv257  →  bwv257_t1_r1.250_lm17-opt.npy  (from t1_r1.25_lm17)
+                  bwv258  →  bwv258_t1_r1.250_lm19-opt.npy  (from t1_r1.25_lm19)
+                  bwv259  →  bwv259_t3_r1.625_lm19-opt.npy  (from t3_r1.625_lm19)
+                  bwv260  →  bwv260_t2_r1.250_lm17-opt.npy  (from t2_r1.25_lm17)
+                  bwv261  →  bwv261_t1_r1.375_lm19-opt.npy  (from t1_r1.375_lm19)
+                  bwv262  →  bwv262_t2_r1.250_lm17-opt.npy  (from t2_r1.25_lm17)
+                  bwv263  →  bwv263_t1_r1.250_lm17-opt.npy  (from t1_r1.25_lm17)
+                  bwv264  →  bwv264_t1_r1.500_lm19-opt.npy  (from t1_r1.50_lm19)
+            python WreckingCrew.py --numpy_dir Archive/straw-man/viterbi-tunings-8-21 --chorale_list bwv261 --cent_file_partial=-opt.npy --album 6 --mod d --short_repeats
+      
+___________________
+8/22/26 Trouble with the new set of mp3 files on X.
+      This is what it is looking for:
+                  https://audio.microtonalnotes.net/ball9-t57d_lm17_r1.25_df5_t1_d01_17_t034.mp3
+      This is what is on Dropbox:
+            cd /home/prent/Dropbox/Uploads/d0-08-21-26
+            ls -lth ball9-t57*.mp3
+                  -rw-r--r--. 1 prent prent 18M Aug 21 15:37 ball9-t57d_lm19_r1.12_df4_t3_d07_35_t106.mp3
+            cd /home/prent/Dropbox/Uploads/c9-08-21-26
+            ls -lth ball9-t57*.mp3
+                  -rw-r--r--. 1 prent prent 2.8M Aug 21 14:41 ball9-t57d_lm17_r1.25_df5_t1_d01_17_t034.mp3
+      What is the next file it will find right now, at 6:32 am Saturday 8/22/26?
+            ssh fs7
+            mamba run -n csound python /home/prent/Repos/One-footed-bride-tuning/daily_chorale_tweet.py --dry-run
+                  Album directory: /home/prent/Dropbox/Uploads/c9-08-21-26
+                  === DRY RUN ===
+                  File: ball9-t54d_lm19_r1.38_df5_t1_d01_15_t038.mp3
+                  Tweet (256 chars):
+                  Bach BWV 254 – "Ach Gott, erhör mein Seufzen und Wehklagen"
+                  19-limit just intonation (tonality diamond).
+                  1:15 at 038 BPM.
+                  Composed by Prent Rodgers, with the help of Dr. Claude.
+                  https://audio.microtonalnotes.net/ball9-t54d_lm19_r1.38_df5_t1_d01_15_t038.mp3
+
+                  10 chorales remaining in rotation.
+      Claude wrote me a bash script that would upload a directory, but I can't find it. See the repo file-service
+
+      Run the local grid_search.sh on bwv262. It's the only one that could not get to zero Gap value. 
+            ssh one-footed-bride-pod 
+            cd Repos/One-footed-bride-tuning/
+            python select_best_and_render.py --numpy_dir_root Archive/straw-man --chorale_list bwv262 --suffix="-opt.npy" --sort_by maxgap
+      Top of the report:
+                  Directory      sfx   t  ratio  lm ChordAvg ChordMax | N  GapSum  Avg   Med   p90  Max | >10 >20 >30 >33
+                  -------------- ---- -- ------ --- -------- -------- |-- ------- ---- ----- ----- ---- |---- --- --- >--
+                  t2_r1.25_lm17  opt   2  1.250  17     47.9      113 | 3      22  7.3  10.0  10.0 10.0 |   0   0   0 > 0
+                  t2_r1.375_lm19 opt   2  1.375  19     47.9      113 | 3      22  7.3  10.0  10.0 10.0 |   0   0   0 > 0
+                  t2_r1.50_lm17  opt   2  1.500  17     48.2      113 | 3      22  7.3  10.0  10.0 10.0 |   0   0   0 > 0
+                  t2_r1.625_lm17 opt   2  1.625  17     47.9      113 | 3      22  7.3  10.0  10.0 10.0 |   0   0   0 > 0
+                  t2_r1.625_lm19 opt   2  1.625  19     47.9      113 | 3      22  7.3  10.0  10.0 10.0 |   0   0   0 > 0
+                  t2_r1.75_lm17  opt   2  1.750  17     47.9      113 | 3      22  7.3  10.0  10.0 10.0 |   0   0   0 > 0
+                  t2_r1.75_lm19  opt   2  1.750  19     47.9      113 | 3      22  7.3  10.0  10.0 10.0 |   0   0   0 > 0
+      Now see if you can do better on the fs3 while observing the Watt-o-meter. 
+           source .venv/bin/activate 
+           time ./grid_search.sh
+      Watts < 245 @ 73℃ 59 seconds per run 
+      Results:
+                  Directory      sfx   t  ratio  lm ChordAvg ChordMax | N  GapSum  Avg   Med  p90  Max | >10 >20 >30 >=33
+                  -------------- ---- -- ------ --- -------- -------- |-- ------- ---- ----- ---- ---- | --- --- --- ----
+                  t2_r1.50_lm19  opt   2  1.500  19     47.9      113 | 3      22  7.3  10.0 10.0 10.0 |   0   0   0    0
+                  t2_r1.75_lm17  opt   2  1.750  17     48.2      113 | 3      22  7.3  10.0 10.0 10.0 |   0   0   0    0
+                  t3_r1.25_lm19  opt   3  1.250  19     47.6       82 | 5      28  5.6   3.0  9.6 10.0 |   0   0   0    0 # <-- might this one be better?
+                  t3_r1.375_lm17 opt   3  1.375  17     47.6       82 | 5      28  5.6   3.0 10.0 10.0 |   0   0   0    0
+                  t3_r1.375_lm19 opt   3  1.375  19     47.6       82 | 5      28  5.6   4.0  9.6 10.0 |   0   0   0    0
+                  t3_r1.25_lm17  opt   3  1.250  17     47.8       98 |10      56  5.6   4.0 10.0 10.0 |   0   0   0    0
+      No improvement. Except for this one, that reduced the median gap to 3.0 t3_r1.25_lm19
+      How can that one show up on top?
+            --sort_by {gapsum,maxgap,name,over20,p90,score}
+                        Row ordering only — implies no judgement of quality. score=mean chord score, gapsum=total gap cents, maxgap, p90, over20=count of gaps above
+                        20¢, name (default: score)
+      Sort by p90, which includes median and average in the comparisons.
+                  Directory       sfx   t  ratio  lm ChordAvg ChordMax | N  GapSum  Avg  Med  p90   Max |>10 >20 >30 >=33
+                  -------------------- -- ------ --- -------- -------- |-- ------- ---- ---- ----  ---- |--- --- --- ----
+                  t3_r1.25_lm19   opt   3  1.250  19     47.6       82 | 5      28  5.6  3.0  9.6  10.0 |  0   0   0    0
+                  t3_r1.375_lm19  opt   3  1.375  19     47.6       82 | 5      28  5.6  4.0  9.6  10.0 |  0   0   0    0
+                  t3_r1.375_lm17  opt   3  1.375  17     47.6       82 | 5      28  5.6  3.0 10.0  10.0 |  0   0   0    0
+                  t3_r1.25_lm17   opt   3  1.250  17     47.8       98 |10      56  5.6  4.0 10.0  10.0 |  0   0   0    0
+                  t2_r1.50_lm19   opt   2  1.500  19     47.9      113 | 3      22  7.3 10.0 10.0  10.0 |  0   0   0    0
+      Run the same in the one-footed-bride-pod:
+
+                  Directory       sfx   t  ratio  lm ChordAvg ChordMax | N  GapSum  Avg  Med  p90  Max |>10 >20 >30 >=33
+                  --------------- ---- -- ------ --- -------- -------- |-- ------- ---- ---- ---- ---- |--- --- --- ----
+                  t3_r1.25_lm19   opt   3  1.250  19     47.6       82 | 5      28  5.6  3.0  9.6 10.0 |  0   0   0    0
+                  t3_r1.50_lm19   opt   3  1.500  19     47.8       82 | 5      27  5.4  3.0  9.6 10.0 |  0   0   0    0
+                  t3_r1.75_lm19   opt   3  1.750  19     47.6       82 | 5      28  5.6  3.0  9.6 10.0 |  0   0   0    0
+                  t2_r1.25_lm17   opt   2  1.250  17     47.9      113 | 3      22  7.3 10.0 10.0 10.0 |  0   0   0    0
+                  t2_r1.375_lm19  opt   2  1.375  19     47.9      113 | 3      22  7.3 10.0 10.0 10.0 |  0   0   0          
+      Same winner. Move them to Archive/straw-man/viterbi-tunings-8-22
+            export CHORALES=${1:-$(echo bwv{253..264})}
+            python select_best_and_render.py --numpy_dir_root Archive/straw-man --chorale_list $CHORALES --suffix="-opt.npy" --sort_by p90 --copy_npy_to Archive/straw-man/viterbi-tunings-8-22
+
+            python WreckingCrew.py --numpy_dir Archive/straw-man/viterbi-tunings-8-22 --chorale_list $CHORALES  --cent_file_partial=-opt.npy --album 6 --mod d --short_repeats
+      
+      Then to run the complete new album of full realizations
+            python WreckingCrew.py --numpy_dir Archive/straw-man/viterbi-tunings-6-29 --chorale_list $CHORALES --density_level 4 --deep_bass_backoff 0.25 --back_off_clicks 0.25 --album 7 --mod c --rondo_section_a 0 32 --rondo_insert_a_after 63 127
+
+      Get a report of all the chorales:
+            python select_best_and_render.py --numpy_dir_root Archive/straw-man/viterbi-tunings-8-22 --chorale_list $CHORALES --suffix="-opt.npy" | grep -E "Chorale|viterbi"
+                 Chorale sfx t  ratio  lm ChordAvg ChordMax | N  GapSum  Avg  Med  p90  Max |>10 >20 >30 >=33
+                  bwv253 opt 1  1.250  17     49.7      119 | 0       0  0.0  0.0  0.0  0.0 |  0   0   0    0
+                  bwv254 opt 1  1.375  19     55.4      140 | 0       0  0.0  0.0  0.0  0.0 |  0   0   0    0
+                  bwv255 opt 1  1.250  17     50.8       82 | 0       0  0.0  0.0  0.0  0.0 |  0   0   0    0
+                  bwv256 opt 1  1.250  19     54.2      145 | 0       0  0.0  0.0  0.0  0.0 |  0   0   0    0
+                  bwv257 opt 1  1.250  17     58.1      140 | 0       0  0.0  0.0  0.0  0.0 |  0   0   0    0
+                  bwv258 opt 1  1.250  19     58.2      140 | 0       0  0.0  0.0  0.0  0.0 |  0   0   0    0
+                  bwv259 opt 3  1.625  19     54.6      104 | 2       8  4.0  4.0  4.0  4.0 |  0   0   0    0
+                  bwv260 opt 2  1.250  17     54.1      140 | 0       0  0.0  0.0  0.0  0.0 |  0   0   0    0
+                  bwv261 opt 1  1.375  19     57.1      141 | 0       0  0.0  0.0  0.0  0.0 |  0   0   0    0
+                  bwv262 opt 3  1.250  19     47.6       82 | 5      28  5.6  3.0  9.6 10.0 |  0   0   0    0
+                  bwv263 opt 1  1.250  17     50.7      145 | 0       0  0.0  0.0  0.0  0.0 |  0   0   0    0
+                  bwv264 opt 1  1.500  19     48.6      111 | 0       0  0.0  0.0  0.0  0.0 |  0   0   0    0
+      These are a bit challenging, but no uncomposed jumps between the same pitch class between adjacent chords. They sound great in the full chorale.
+
+____________________
+8/23/26 The album I made yesterday was all density_factor 4. Very monotonous.
+      Wrong arguments to WreckingCrew.py.
+            CHORALES=${1:-$(echo bwv{253..264})}
+            python WreckingCrew.py --numpy_dir Archive/straw-man/viterbi-tunings-6-29 --chorale_list $CHORALES --auto_density --shuffle_density --deep_bass_backoff 0.25 --back_off_clicks 0.25 --album 7 --mod c --rondo_section_a 0 31 --rondo_insert_a_after 63 127
+      Then run another set of tunings to see if you get any improvements.
+            ssh one-footed-bride-pod
+            ls -lth Archive/straw-man/viterbi-tunings-8-21/bwv2??_*.npy
+                  bwv259_t3_r1.625_lm19-opt.npy
+                  bwv262_t2_r1.250_lm17-opt.npy
+                  bwv260_t2_r1.250_lm17-opt.npy
+                  bwv263_t1_r1.250_lm17-opt.npy
+                  bwv264_t1_r1.500_lm19-opt.npy
+                  bwv261_t1_r1.375_lm19-opt.npy
+                  bwv254_t1_r1.375_lm19-opt.npy
+                  bwv258_t1_r1.250_lm19-opt.npy
+                  bwv256_t1_r1.250_lm19-opt.npy
+                  bwv257_t1_r1.250_lm17-opt.npy
+                  bwv255_t1_r1.250_lm17-opt.npy
+                  bwv253_t1_r1.250_lm17-opt.npy
+      What should the grid_search include in generate-grid-search-jobs.sh
+            LIMIT_MAXES=(17 19)
+            TOLERANCES=(1 2 3)
+            RATIOS=(1.25 1.375 1.50 1.625)
+      Edit the template in k8s-grid-search-job-template.yaml to include all the worker nodes except fs6.
+            rm k8s-jobs/*.yaml
+            k delete job -l grid-search
+            ./generate-grid-search-jobs.sh
+            INTERVAL=20 SKIP_SYNC=1 ./deploy-grid-search-jobs.sh
+      Monitor the pods:
+            kubectl get po -l app=grid-search   -o custom-columns=NAME:.metadata.name,PHASE:.status.phase,NODE:.spec.nodeName --sort-by=.status.phase
+                  NAME                                          PHASE       NODE
+                  grid-search-013-lm17-t1-r1-375-bwv253-ncmq7   Pending     <none>
+                  grid-search-012-lm17-t1-r1-25-bwv264-hjt6h    Pending     fs7
+                  grid-search-008-lm17-t1-r1-25-bwv260-jzjr7    Running     fs8
+                  grid-search-011-lm17-t1-r1-25-bwv263-rkp2p    Running     fs5
+                  grid-search-010-lm17-t1-r1-25-bwv262-zbp4m    Running     fs4
+                  grid-search-006-lm17-t1-r1-25-bwv258-9dgzn    Running     fs3
+                  grid-search-009-lm17-t1-r1-25-bwv261-q4mt5    Running     fs9
+                  grid-search-004-lm17-t1-r1-25-bwv256-wnqgv    Succeeded   fs4
+                  grid-search-007-lm17-t1-r1-25-bwv259-ml9z4    Succeeded   fs7
+                  grid-search-005-lm17-t1-r1-25-bwv257-ptcp6    Succeeded   fs5
+                  grid-search-001-lm17-t1-r1-25-bwv253-c4xml    Succeeded   fs7
+                  grid-search-003-lm17-t1-r1-25-bwv255-gpq8b    Succeeded   fs9
+                  grid-search-002-lm17-t1-r1-25-bwv254-q8qhf    Succeeded   fs8
+      Or the simpler counting the running pods by label:
+            k get po -l app=grid-search --sort_by status.phase -owide | grep Running -c
+
+___________________
+8/24/26 See what you achieved on one-footed-bride-tuning
+            ssh one-footed-bride-pod
+            CHORALES=${1:-$(echo bwv{253..264})} 
+            python select_best_and_render.py --numpy_dir_root Archive/straw-man --chorale_list $CHORALES --suffix="-opt.npy" --sort_by p90
+      Copy the best to a dedicated directory inside the pod where you just finished the tuning
+            python select_best_and_render.py --numpy_dir_root Archive/straw-man --chorale_list $CHORALES --suffix="-opt.npy" --sort_by p90 --copy_npy_to Archive/straw-man/viterbi-tunings-8-23
+      List just the ones in the dedicated directory
+            python select_best_and_render.py --numpy_dir_root Archive/straw-man/viterbi-tunings-8-23 --chorale_list $CHORALES --suffix="-opt.npy" | grep -E "Chorale|viterbi"
+                  Chorale Directory             sfx  t ratio lm ChordAvg ChordMax | N GapSum  Avg  Med  p90  Max |
+                  bwv253  viterbi-tunings-8-23  opt  1 1.250 17     49.7      119 | 0      0  0.0  0.0  0.0  0.0 |
+                  bwv254  viterbi-tunings-8-23  opt  1 1.375 19     55.4      140 | 0      0  0.0  0.0  0.0  0.0 |
+                  bwv255  viterbi-tunings-8-23  opt  1 1.250 17     50.8       82 | 0      0  0.0  0.0  0.0  0.0 |
+                  bwv256  viterbi-tunings-8-23  opt  1 1.250 17     54.2      145 | 0      0  0.0  0.0  0.0  0.0 |
+                  bwv257  viterbi-tunings-8-23  opt  1 1.250 17     58.1      140 | 0      0  0.0  0.0  0.0  0.0 |
+                  bwv258  viterbi-tunings-8-23  opt  1 1.250 17     58.0      140 | 0      0  0.0  0.0  0.0  0.0 |
+                  bwv259  viterbi-tunings-8-23  opt  3 1.625 19     54.6      104 | 2      8  4.0  4.0  4.0  4.0 |
+                  bwv260  viterbi-tunings-8-23  opt  2 1.250 17     54.1      140 | 0      0  0.0  0.0  0.0  0.0 |
+                  bwv261  viterbi-tunings-8-23  opt  1 1.375 19     57.1      141 | 0      0  0.0  0.0  0.0  0.0 |
+                  bwv262  viterbi-tunings-8-23  opt  3 1.500 19     47.8       82 | 5     27  5.4  3.0  9.6 10.0 | -23
+                  bwv263  viterbi-tunings-8-23  opt  1 1.250 17     50.7      145 | 0      0  0.0  0.0  0.0  0.0 |
+                  bwv264  viterbi-tunings-8-23  opt  1 1.250 19     48.5      111 | 0      0  0.0  0.0  0.0  0.0 |
+
+      All look pretty good except I think I can do better with bwv262. What is the best I've done with that one on the host file system?
+                  Chorale: bwv262   sorted by p90 (ordering only, not a ranking)
+                  ===============================================================================================
+                  Directory      sfx  t  ratio  lm ChordAvg ChordMax |  N  GapSum    Avg    Med    p90    Max |
+                  t3_r1.25_lm19  opt  3  1.250  19     47.6       82 |  5      28    5.6    3.0    9.6   10.0 |
+                  t3_r1.375_lm19 opt  3  1.375  19     47.6       82 |  5      28    5.6    4.0    9.6   10.0 |
+                  t3_r1.375_lm17 opt  3  1.375  17     47.6       82 |  5      28    5.6    3.0   10.0   10.0 |
+                  t3_r1.25_lm17  opt  3  1.250  17     47.8       98 | 10      56    5.6    4.0   10.0   10.0 |
+                  t2_r1.50_lm19  opt  2  1.500  19     47.9      113 |  3      22    7.3   10.0   10.0   10.0 |
+                  t2_r1.75_lm17  opt  2  1.750  17     48.2      113 |  3      22    7.3   10.0   10.0   10.0 |
+      I think I might be able to improve the score for the same Max gap of 10.0. On the host it's 47.6 while in the pod it's 47.8. Look at the ChordMax. 82 on the host and 119 on the pod. But on the host the tolerance is 3 vs 1 on the pod. 
+      What this shows is the randomness of the results. The only way to allow randomness to find the best is to keep running more runs. How many improvements were found in the last run on the pod?
+            ssh one-footed-bride-pod 'grep -H "result is better" Repos/One-footed-bride-tuning/Archive/straw-man/*/straw-man-tuning-*.log' | python3 analyze_verdicts.py
+                  312 verdicts   improved: 124   unchanged: 188   kept a WORSE max gap: 13
+      That seems pretty significant benefit from the last run. I guess I'll just have to run it until the improvements decrease. But maybe not. This just counts all the verdicts, but in the end I'm only interested in that small sliver that rise to the top, not the also-rans. 
+
+      I asked claude to fix that: You wrote a nice python program back on August 21 called @analyze_verdicts.py which determined based on the logs from all the jobs created by the chain of 
+            @generate-grid-search-jobs.sh
+      Across these hyperparameters:
+            LIMIT_MAXES=(17 19)
+            TOLERANCES=(1 2 3)
+            RATIOS=(1.25 1.375 1.50 1.625)  ## 
+      then edit the template in @k8s-grid-search-job-template.yaml to include all the worker nodes except fs6.
+            rm k8s-jobs/*.yaml
+            k delete job -l app=grid-search
+            ./generate-grid-search-jobs.sh
+            INTERVAL=20 SKIP_SYNC=1 ./deploy-grid-search-jobs.sh 
+      @analyze_verdicts.py produced a report of all the improvements made with this last 2 hour run of 288 jobs. But what I am most concerened about is the tunings that make it through 
+            python select_best_and_render.py --numpy_dir_root Archive/straw-man --chorale_list $CHORALES --suffix="-opt.npy" --sort_by p90 --copy_npy_to Archive/straw-man/viterbi-tunings-8-24
+      What makes it through that is just one for each chorale based on p90. I don't care if there were improvements that were not the best on that metric. How can we narrow the results from @analyze_verdicts.py so that it can restrict it's reports to just the winners of @select_best_and_render.py at --sort-by p90? Those are the only ones I really care about.
+
+      He responded, despite my typos:
+      analyze_verdicts.py now takes --winners DIR, pointed at the same directory select_best_and_render.py --sort_by p90 --copy_npy_to wrote:
+            Archive/straw-man/viterbi-tunings-8-24
+
+      grep -H "result is better" Archive/straw-man/*/straw-man-tuning-*.log \
+      | python3 analyze_verdicts.py --winners Archive/straw-man/viterbi-tunings-8-23
+      It reads the copied filenames (bwv261_t1_r1.250_lm17-opt.npy) as the winning cell per chorale and drops every verdict line from another cell, so the counts, the table, the gain summary and the gap-regression list all describe only the 12 tunings that actually made it through. Ratios compare as floats — the cell directory writes r1.25 and the copied file writes r1.250, which never match as strings. Chorales whose winning cell logged no comparison are named under the header rather than silently missing.
+
+      Verified end to end against synthetic grep lines and a fake winners dir: the non-winning t3_r1.50_lm19 row for bwv261 was dropped and the bwv262 Previous verdict survived as "unchanged". Local Archive/straw-man/*/straw-man-tuning-*.log files are from an older run and carry no >>> lines, so the real check is the pod grep.
+
+      [test_analyze_verdicts.py](test_analyze_verdicts.py) → skipped: computing the p90 winner inside the analyzer (would mean loading and scoring every .npy); add when you want to run it without a prior --copy_npy_to.
+
+      Run this to get the results you care about. Run this on the host:
+            scp -r one-footed-bride-pod:Repos/One-footed-bride-tuning/Archive/straw-man/viterbi-tunings-8-23 Archive/straw-man/
+
+            ssh one-footed-bride-pod 'grep -H "result is better" Repos/One-footed-bride-tuning/Archive/straw-man/*/straw-man-tuning-*.log' | python3 analyze_verdicts.py --winners Archive/straw-man/viterbi-tunings-8-24
+
+                  Restricted to the 12 winners in Archive/straw-man/viterbi-tunings-8-23
+                  12 verdicts   improved: 5   unchanged: 7   kept a WORSE max gap: 0
+                  cell                     chorale            score          spread         max gap
+                  ------------------------ -------- --------------- --------------- ---------------
+                  t1_r1.25_lm19            bwv264     48.7→48.5       16.7→14.7       13.0→1.0
+                  t1_r1.25_lm17            bwv258     58.0→58.0       19.8→19.9       10.0→1.0
+                  t1_r1.25_lm17            bwv256     54.2→54.2       19.2→25.1        5.0→1.0
+                  t1_r1.25_lm17            bwv253     49.7→49.7       13.4→12.4        1.0→1.0
+                  t1_r1.25_lm17            bwv255     50.8→50.8       14.9→14.9        1.0→1.0
+                  3 cells reduced their worst gap, by 4-12¢ (mean 8.3¢)
+      So now I have the definitive improvements achieved in 2 hours. Well worth it. Here is the next result:
+                  Restricted to the 12 winners in Archive/straw-man/viterbi-tunings-8-24.
+                  12 verdicts   improved: 5   unchanged: 7   kept a WORSE max gap: 0
+                  cell                     chorale            score          spread         max gap
+                  ------------------------ -------- --------------- --------------- ---------------
+                  t1_r1.25_lm17            bwv259     54.1→54.8       16.8→17.2       10.0→1.0
+                  t1_r1.375_lm17           bwv261     57.2→57.2       17.7→21.0        3.0→1.0
+                  t1_r1.25_lm17            bwv256     54.2→54.2       25.1→21.1        1.0→1.0
+                  t1_r1.25_lm17            bwv257     58.1→57.7       19.7→19.8        1.0→1.0
+                  t1_r1.375_lm19           bwv254     55.4→55.4       14.1→14.1        1.0→1.0
+                  2 cells reduced their worst gap, by 2-9¢ (mean 5.5¢)
+      How does this one look 
+                  Chorale  Directory             sfx  t  ratio  lm ChordAvg ChordMax |  N  GapSum    Avg    Med    p90    Max |
+                  bwv253   viterbi-tunings-8-24  opt  1  1.250  17     49.7      119 |  0       0    0.0    0.0    0.0    0.0 |
+                  bwv254   viterbi-tunings-8-24  opt  1  1.375  19     55.4      140 |  0       0    0.0    0.0    0.0    0.0 |
+                  bwv255   viterbi-tunings-8-24  opt  1  1.250  17     50.8       82 |  0       0    0.0    0.0    0.0    0.0 |
+                  bwv256   viterbi-tunings-8-24  opt  1  1.250  17     54.2      145 |  0       0    0.0    0.0    0.0    0.0 |
+                  bwv257   viterbi-tunings-8-24  opt  1  1.250  17     57.7      140 |  0       0    0.0    0.0    0.0    0.0 |
+                  bwv258   viterbi-tunings-8-24  opt  1  1.250  17     58.0      140 |  0       0    0.0    0.0    0.0    0.0 |
+                  bwv259   viterbi-tunings-8-24  opt  1  1.250  17     54.8      125 |  0       0    0.0    0.0    0.0    0.0 |
+                  bwv260   viterbi-tunings-8-24  opt  2  1.250  17     54.1      140 |  0       0    0.0    0.0    0.0    0.0 |
+                  bwv261   viterbi-tunings-8-24  opt  1  1.375  17     57.2      145 |  0       0    0.0    0.0    0.0    0.0 |
+                  bwv262   viterbi-tunings-8-24  opt  3  1.500  19     47.8       82 |  5      27    5.4    3.0    9.6   10.0 |
+                  bwv263   viterbi-tunings-8-24  opt  1  1.250  17     50.7      145 |  0       0    0.0    0.0    0.0    0.0 |
+                  bwv264   viterbi-tunings-8-24  opt  1  1.250  19     48.5      111 |  0       0    0.0    0.0    0.0    0.0 |
+      One more time
+            rm k8s-jobs/*.yaml
+            k delete job -l app=grid-search
+            ./generate-grid-search-jobs.sh
+            INTERVAL=15 SKIP_SYNC=1 ./deploy-grid-search-jobs.sh
+      Monitor the active jobs:
+            watch -n 10 "kubectl get po -l app=grid-search   -o custom-columns=NAME:.metadata.name,PHASE:.status.phase,NODE:.spec.nodeName --sort-by=.status.phase | grep -E 'Running|Pending'"
+      See if it's completed:
+            kubectl get po -l app=grid-search   -o custom-columns=NAME:.metadata.name,PHASE:.status.phase,NODE:.spec.nodeName --sort-by=.status.phase --no-headers | grep Succeeded -c
+                  288
+      When it finishes:
+            ssh one-footed-bride-pod 
+            TERM=xterm-256color
+            cd Repos/One-footed-bride-tuning 
+            CHORALES=${1:-$(echo bwv{253..264})}
+            python select_best_and_render.py --numpy_dir_root Archive/straw-man --chorale_list $CHORALES --suffix="-opt.npy" --sort_by p90 --copy_npy_to Archive/straw-man/viterbi-tunings-8-24b
+      Back on the host:
+            scp -r one-footed-bride-pod:Repos/One-footed-bride-tuning/Archive/straw-man/viterbi-tunings-8-24b Archive/straw-man/
+            ssh one-footed-bride-pod 'grep -H "result is better" Repos/One-footed-bride-tuning/Archive/straw-man/*/straw-man-tuning-*.log' | python3 analyze_verdicts.py --winners Archive/straw-man/viterbi-tunings-8-24b
+                  Restricted to the 12 winners in Archive/straw-man/viterbi-tunings-8-24b.
+                  12 verdicts   improved: 2   unchanged: 10   kept a WORSE max gap: 0
+                  cell                     chorale            score          spread         max gap
+                  ------------------------ -------- --------------- --------------- ---------------
+                  t1_r1.25_lm19            bwv261     57.1→57.1       18.0→17.5        2.0→1.0
+                  t1_r1.25_lm17            bwv253     49.7→49.7       12.4→12.4        1.0→1.0
+                  1 cells reduced their worst gap, by 1-1¢ (mean 1.0¢)
+      What do they look like:
+                  Chorale  Directory              sfx  t ratio lm ChordAvg ChordMax | N GapSum  Avg  Med  p90  Max 
+                  bwv253   viterbi-tunings-8-24b  opt  1 1.250 17     49.7      119 | 0    0    0.0  0.0  0.0  0.0 
+                  bwv254   viterbi-tunings-8-24b  opt  1 1.375 19     55.4      140 | 0    0    0.0  0.0  0.0  0.0 
+                  bwv255   viterbi-tunings-8-24b  opt  1 1.250 17     50.8       82 | 0    0    0.0  0.0  0.0  0.0 
+                  bwv256   viterbi-tunings-8-24b  opt  1 1.250 17     54.2      145 | 0    0    0.0  0.0  0.0  0.0 
+                  bwv257   viterbi-tunings-8-24b  opt  1 1.250 17     57.7      140 | 0    0    0.0  0.0  0.0  0.0 
+                  bwv258   viterbi-tunings-8-24b  opt  1 1.250 17     58.0      140 | 0    0    0.0  0.0  0.0  0.0 
+                  bwv259   viterbi-tunings-8-24b  opt  1 1.250 17     54.8      125 | 0    0    0.0  0.0  0.0  0.0 
+                  bwv260   viterbi-tunings-8-24b  opt  2 1.250 17     54.1      140 | 0    0    0.0  0.0  0.0  0.0 
+                  bwv261   viterbi-tunings-8-24b  opt  1 1.250 19     57.1      145 | 0    0    0.0  0.0  0.0  0.0 
+                  bwv262   viterbi-tunings-8-24b  opt  3 1.500 19     47.8       82 | 5   27    5.4  3.0  9.6 10.0 
+                  bwv263   viterbi-tunings-8-24b  opt  1 1.250 17     50.7      145 | 0    0    0.0  0.0  0.0  0.0 
+                  bwv264   viterbi-tunings-8-24b  opt  1 1.250 19     48.5      111 | 0    0    0.0  0.0  0.0  0.0 
+      Fewer than 5. One more time.
+            rm k8s-jobs/*.yaml
+            k delete job -l app=grid-search
+            ./generate-grid-search-jobs.sh
+            INTERVAL=12 SKIP_SYNC=1 ./deploy-grid-search-jobs.sh
+      Monitor the active jobs:
+            watch -n 10 "kubectl get po -l app=grid-search   -o custom-columns=NAME:.metadata.name,PHASE:.status.phase,NODE:.spec.nodeName --sort-by=.status.phase | grep -E 'Running|Pending'"
+            watch -n 10 "kubectl get po -l app=grid-search --no-headers | grep Running -c"
+                  10
+      This outputs anywhere from 9 to 12. And after about 20 minutes I heard the UPS under stress in the server closet with 13 running at once. 
+      See if it's completed:
+            kubectl get po -l app=grid-search   -o custom-columns=NAME:.metadata.name,PHASE:.status.phase,NODE:.spec.nodeName --sort-by=.status.phase --no-headers | grep Succeeded -c
+                  288
+      When it finishes:
+            ssh one-footed-bride-pod 
+            TERM=xterm-256color
+            cd Repos/One-footed-bride-tuning 
+            CHORALES=${1:-$(echo bwv{253..264})}
+            python select_best_and_render.py --numpy_dir_root Archive/straw-man --chorale_list $CHORALES --suffix="-opt.npy" --sort_by p90 --copy_npy_to Archive/straw-man/viterbi-tunings-8-24c
+      Back on the host, copy the winning tuning numpy array files:
+            scp -r one-footed-bride-pod:Repos/One-footed-bride-tuning/Archive/straw-man/viterbi-tunings-8-24b Archive/straw-man/
+      On the pod, copy the winners to a dedicated directory:
+            ssh one-footed-bride-pod 'grep -H "result is better" Repos/One-footed-bride-tuning/Archive/straw-man/*/straw-man-tuning-*.log' | python3 analyze_verdicts.py --winners Archive/straw-man/viterbi-tunings-8-24c
+      Now examine all the log files on the pod to see if the winners found any improvements
+            ssh one-footed-bride-pod 'grep -H "result is better" Repos/One-footed-bride-tuning/Archive/straw-man/*/straw-man-tuning-*.log' | python3 analyze_verdicts.py --winners Archive/straw-man/viterbi-tunings-8-24c
+                  Restricted to the 12 winners in Archive/straw-man/viterbi-tunings-8-24c.
+                  14 verdicts   improved: 6   unchanged: 8   kept a WORSE max gap: 0
+                  cell                     chorale            score          spread         max gap
+                  ------------------------ -------- --------------- --------------- ---------------
+                  t1_r1.375_lm17           bwv254     55.7→55.4       14.7→14.1       18.0→1.0
+                  t1_r1.25_lm17            bwv264     48.9→49.0       17.9→19.7       11.0→1.0
+                  t1_r1.5_lm19             bwv260     55.3→55.1       29.2→23.3        2.0→1.0
+                  t3_r1.5_lm19             bwv262     47.7→47.6       17.1→17.2       11.0→10.0
+                  t1_r1.25_lm17            bwv253     49.7→49.1       12.4→12.4        1.0→1.0
+                  t1_r1.25_lm17            bwv256     54.2→54.2       21.1→18.4        1.0→1.0
+                  4 cells reduced their worst gap, by 1-17¢ (mean 7.2¢)
+      I was expecting fewer, and got 3 times as many improvements as the previous run for the leading tunings. Makes me want to do it again. Take a look at just the winners:
+            source .venv/bin/activate
+            CHORALES=${1:-$(echo bwv{253..264})}
+            python select_best_and_render.py --numpy_dir_root Archive/straw-man/viterbi-tunings-8-24c --chorale_list $CHORALES --suffix="-opt.npy" | grep -E "Chorale|viterbi"
+                  Chorale  Directory              sfx  t ratio lm ChordAvg ChordMax | N GapSum  Avg  Med  p90  Max 
+                  bwv253   viterbi-tunings-8-24c  opt  1 1.250 17     49.1       93 | 0      0  0.0  0.0  0.0  0.0 
+                  bwv254   viterbi-tunings-8-24c  opt  1 1.375 17     55.4      140 | 0      0  0.0  0.0  0.0  0.0 
+                  bwv255   viterbi-tunings-8-24c  opt  1 1.250 17     50.8       82 | 0      0  0.0  0.0  0.0  0.0 
+                  bwv256   viterbi-tunings-8-24c  opt  1 1.250 17     54.2      145 | 0      0  0.0  0.0  0.0  0.0 
+                  bwv257   viterbi-tunings-8-24c  opt  1 1.250 17     57.7      140 | 0      0  0.0  0.0  0.0  0.0 
+                  bwv258   viterbi-tunings-8-24c  opt  1 1.250 17     58.0      140 | 0      0  0.0  0.0  0.0  0.0 
+                  bwv259   viterbi-tunings-8-24c  opt  1 1.250 17     54.8      125 | 0      0  0.0  0.0  0.0  0.0 
+                  bwv260   viterbi-tunings-8-24c  opt  1 1.500 19     55.1      147 | 0      0  0.0  0.0  0.0  0.0 
+                  bwv261   viterbi-tunings-8-24c  opt  1 1.250 19     57.1      145 | 0      0  0.0  0.0  0.0  0.0 
+                  
+                  bwv262   viterbi-tunings-8-24c  opt  3 1.500 19     47.8       82 | 5     27  5.4  3.0  9.6 10.0 - 24c
+                  bwv262   viterbi-tunings-8-24b  opt  3 1.500 19     47.8       82 | 5     27  5.4  3.0  9.6 10.0 - 24b
+                  bwv262   viterbi-tunings-8-24   opt  3 1.500 19     47.8       82 | 5     27  5.4  3.0  9.6 10.0 - 24
+                  bwv262   viterbi-tunings-8-23   opt  3 1.500 19     47.8       82 | 5     27  5.4  3.0  9.6 10.0  -23
+                  
+                  bwv263   viterbi-tunings-8-24c  opt  1 1.250 17     50.7      145 | 0      0  0.0  0.0  0.0  0.0 
+                  bwv264   viterbi-tunings-8-24c  opt  1 1.250 17     49.0      167 | 0      0  0.0  0.0  0.0  0.0 
+      Four runs today did nothing to bwv262. Even though it claimed to have done so. Bug somewhere. It was my mistake, changing generate-grid-search-jobs.sh by editing the ratios from 1.5 to 1.50. Claude fixed this my copying the better of the files in the 1.5 directories to the 1.50 directories on the pod. He parked the orphans in the pvc here: /home/prent/Repos/One-footed-bride-tuning/Archive/straw-man-orphan-r1.5. The ratchet is intact. 
+      
+      One more run now. 
+            rm k8s-jobs/*.yaml
+            k delete job -l app=grid-search
+            ./generate-grid-search-jobs.sh
+            INTERVAL=13 SKIP_SYNC=1 ./deploy-grid-search-jobs.sh # 12 had one near power crisis, so backing off to 13.
+      Monitor the active jobs:
+            watch -n 10 "kubectl get po -l app=grid-search   -o custom-columns=NAME:.metadata.name,PHASE:.status.phase,NODE:.spec.nodeName --sort-by=.status.phase | grep -E 'Running|Pending'"
+            watch -n 10 "kubectl get po -l app=grid-search --no-headers | grep Running -c"
+                  10
+      This outputs anywhere from 9 to 12. And after about 20 minutes I heard the UPS under stress in the server closet with 13 running at once. 
+      See if it's completed:
+            kubectl get po -l app=grid-search   -o custom-columns=NAME:.metadata.name,PHASE:.status.phase,NODE:.spec.nodeName --sort-by=.status.phase --no-headers | grep Succeeded -c
+                  288
+      When it finishes:
+            ssh one-footed-bride-pod 
+            TERM=xterm-256color
+            cd Repos/One-footed-bride-tuning 
+            CHORALES=${1:-$(echo bwv{253..264})}
+            python select_best_and_render.py --numpy_dir_root Archive/straw-man --chorale_list $CHORALES --suffix="-opt.npy" --sort_by p90 --copy_npy_to Archive/straw-man/viterbi-tunings-8-24c
+      Back on the host, copy the winning tuning numpy array files:
+            scp -r one-footed-bride-pod:Repos/One-footed-bride-tuning/Archive/straw-man/viterbi-tunings-8-24d Archive/straw-man/
+      Run the evaluation of the improvements on the pod (for the logs) then on the host for the evaluation
+            ssh one-footed-bride-pod 'grep -H "result is better" Repos/One-footed-bride-tuning/Archive/straw-man/*/straw-man-tuning-*.log' | python3 analyze_verdicts.py --winners Archive/straw-man/viterbi-tunings-8-24d
+     
+                  Restricted to the 12 winners in Archive/straw-man/viterbi-tunings-8-24d.
+                  12 verdicts   improved: 1   unchanged: 11   kept a WORSE max gap: 0
+                  cell                     chorale            score          spread         max gap
+                  t3_r1.50_lm19            bwv262     47.8→47.8       18.0→13.5       10.0→10.0
+     
+            source .venv/bin/activate
+            CHORALES=${1:-$(echo bwv{253..264})}
+            python select_best_and_render.py --numpy_dir_root Archive/straw-man/viterbi-tunings-8-24d --chorale_list $CHORALES --suffix="-opt.npy" | grep -E "Chorale|viterbi"
+                  Chorale  Directory              sfx  t ratio lm ChordAvg ChordMax | N GapSum  Avg  Med  p90  Max 
+                  bwv253   viterbi-tunings-8-24d  opt  1 1.250 17     49.1       93 | 0    0    0.0  0.0  0.0  0.0 
+                  bwv254   viterbi-tunings-8-24d  opt  1 1.375 17     55.4      140 | 0    0    0.0  0.0  0.0  0.0 
+                  bwv255   viterbi-tunings-8-24d  opt  1 1.250 17     50.8       82 | 0    0    0.0  0.0  0.0  0.0 
+                  bwv256   viterbi-tunings-8-24d  opt  1 1.250 17     54.2      145 | 0    0    0.0  0.0  0.0  0.0 
+                  bwv257   viterbi-tunings-8-24d  opt  1 1.250 17     57.7      140 | 0    0    0.0  0.0  0.0  0.0 
+                  bwv258   viterbi-tunings-8-24d  opt  1 1.250 17     58.0      140 | 0    0    0.0  0.0  0.0  0.0 
+                  bwv259   viterbi-tunings-8-24d  opt  1 1.250 17     54.8      125 | 0    0    0.0  0.0  0.0  0.0 
+                  bwv260   viterbi-tunings-8-24d  opt  2 1.250 17     53.8      140 | 0    0    0.0  0.0  0.0  0.0 
+                  bwv261   viterbi-tunings-8-24d  opt  1 1.250 19     57.1      145 | 0    0    0.0  0.0  0.0  0.0 
+                  bwv262   viterbi-tunings-8-24d  opt  3 1.500 19     47.8       82 | 5   27    5.4  3.0  9.6 10.0 
+                  bwv263   viterbi-tunings-8-24d  opt  1 1.250 17     50.7      145 | 0    0    0.0  0.0  0.0  0.0 
+                  bwv264   viterbi-tunings-8-24d  opt  1 1.250 17     49.0      167 | 0    0    0.0  0.0  0.0  0.0 
+
+      The only large gaps are in bwv262, which has been a challenge for a long time:
+                  Largest gaps — viterbi-tunings-8-24d [opt]
+                  chord     voice note      prev     curr     gap
+                        84      0 A♮       897.0    887.0    10.0 # this is the movement from chord 80 to 84
+                        84      2 B♮      1079.0   1088.0     9.0 # same
+                       182      1 C♯        82.0     79.0     3.0
+                        54      1 C♯        81.0     78.0     3.0
+                        86      3 E♮       388.0    386.0     2.0
+      Take a look at chord 84 for voice 0 A♮ and 2 B♮. 
+
+      ___________________________
+      I got tired of having to constantly make modifications to Chorale-info.ipynb and asked claude to simplify the process to just having to specify the file name and the chorale name:
+            python chord_report.py --input_numpy_file Archive/straw-man/viterbi-tunings-8-24d/bwv262_t3_r1.500_lm19-opt.npy  | grep 80: -A7
+                  80:  897  581 1079  195 A♮ F♯ B♮ D♮     64.0 # first quarter note in measure 10
+                  # Fr/To Cents Ratio     # Fr/To Cents Ratio     # Fr/To Cents Ratio
+                  1 A♮ F♯   316  6/5      2 A♮ B♮   182  10/9     3 A♮ D♮   498  4/3  
+                  4 F♯ B♮   498  4/3      5 F♯ D♮   386  5/4      6 B♮ D♮   316  6/5  
+                  84:  887  388 1088  388 A♮ E♮ B♮ E♮     45.0
+                  # Fr/To Cents Ratio     # Fr/To Cents Ratio     # Fr/To Cents Ratio
+                  1 A♮ E♮   499  4/3      2 A♮ B♮   201  9/8      3 A♮ E♮   499  4/3  
+                  4 E♮ B♮   500  4/3      5 E♮ E♮     0  1/1      6 B♮ E♮   500  4/3  
+                  --
+                  180:  398   82  896  896        E♮ C♯ A♮ A♮     43.0
+                  # Fr/To Cents Ratio     # Fr/To Cents Ratio     # Fr/To Cents Ratio
+                  1 E♮ C♯   316  6/5      2 E♮ A♮   498  4/3      3 E♮ A♮   498  4/3  
+                  4 C♯ A♮   386  5/4      5 C♯ A♮   386  5/4      6 A♮ A♮     0  1/1  
+                  182:  196   79  896  896        D♮ C♯ A♮ A♮     61.0
+                  # Fr/To Cents Ratio     # Fr/To Cents Ratio     # Fr/To Cents Ratio
+                  1 D♮ C♯   117 15/14     2 D♮ A♮   500  4/3      3 D♮ A♮   500  4/3  
+                  4 C♯ A♮   383  5/4      5 C♯ A♮   383  5/4      6 A♮ A♮     0  1/1  
+      
+      _________________
+      Listen to the short_repeats chorale bwv262 and see if chord 80 & 84 are really that tough. They aren't. It is an imperceptible shift. Even when I know it's coming I can't hear it. 
+            python WreckingCrew.py --numpy_dir Archive/straw-man/viterbi-tunings-8-24d --chorale_list $CHORALES --cent_file_partial=-opt.npy --album 4 --mod d --short_repeats
+      Then a full album:
+            python WreckingCrew.py --numpy_dir Archive/straw-man/viterbi-tunings-8-24d --chorale_list $CHORALES --auto_density --shuffle_density --deep_bass_backoff 0.25 --back_off_clicks 0.25 --album 5 --mod d --rondo_section_a 0 32 --rondo_insert_a_after 63 127
+
+____________________________
+8/25/26 Time to update a Substack post with the new tuning.
+      But first, here is the improved version of git push:
+            eval $(op signin)
+            GIT_PAT=$(op item get "GitHub PAT" --fields credential --reveal)
+            git push https://prentrodgers:${GIT_PAT}@github.com/prentrodgers/One-footed-bride-tuning.git $(git branch --show-current)
+            git fetch origin
+      Even better method is to create /home/prent/bin/git-credential-op:
+            nano /home/prent/bin/git-credential-op
+      Put this in that file
+            #!/bin/sh
+            [ "$1" = get ] || exit 0
+            echo username=prentrodgers
+            echo "password=$(op item get 'GitHub PAT' --fields credential --reveal)"
+      Then run this:
+            git config --global credential.helper /home/prent/bin/git-credential-op
+      Now the git push becomes this:
+            eval $(op signin)
+            git push
