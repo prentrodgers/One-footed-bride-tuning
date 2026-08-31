@@ -168,7 +168,10 @@ SORT_KEYS = {
     # t3_r1.375_lm19 (max 14¢, sum 32), and the 11¢ tuning was the one that sounded
     # right — so a lower total does not make up for a bigger lurch.
     'maxgap': lambda r: (r['g']['mx'], r['g']['total']),
-    'p90':    lambda r: r['g']['p90'],
+    # p90 ties are common on short chorales (bwv262 had two cells at 9.6), and the
+    # leading row is what --copy_npy_to and --render act on, so break the tie on the
+    # median rather than on alphabetical directory order.
+    'p90':    lambda r: (r['g']['p90'], r['g']['median'], r['g']['total']),
     'over20': lambda r: (r['g']['over20'], r['g']['total']),
     'name':   lambda r: r['dir'],
 }
@@ -234,9 +237,11 @@ def main():
     # Any subdirectory holding a matching file is reportable.  Directories whose
     # name does not encode tolerance/limit_max fall back to the CLI defaults so
     # ad-hoc result directories can be inspected too.
+    # `root` itself is a candidate, not just its children: a collection directory
+    # (Archive/straw-man/viterbi-tunings-8-22) holds the files directly, while a
+    # grid-search root holds them one level down.  Both are worth reporting on.
     dirs = []
-    for name in sorted(os.listdir(root)):
-        full = os.path.join(root, name)
+    for full in [root] + [os.path.join(root, n) for n in sorted(os.listdir(root))]:
         if not os.path.isdir(full):
             continue
         if any(find_tuning_files(full, v, s, {})

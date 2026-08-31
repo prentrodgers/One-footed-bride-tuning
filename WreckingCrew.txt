@@ -21154,3 +21154,99 @@ ____________________________
       Now the git push becomes this:
             eval $(op signin)
             git push
+            git status
+                  On branch main
+                  Your branch is up to date with 'origin/main'.
+
+      Ask claude to summarize all the changes to the tuning algorithms since the last Substack post to @microtonalnotes as of August 3. 
+
+      _____________________--
+      Just for grins, one more:
+            rm k8s-jobs/*.yaml
+            k delete job -l app=grid-search
+            ./generate-grid-search-jobs.sh
+            INTERVAL=13 SKIP_SYNC=1 ./deploy-grid-search-jobs.sh # 12 had one near power crisis, so backing off to 13.
+      Monitor the active jobs:
+            watch -n 10 "kubectl get po -l app=grid-search   -o custom-columns=NAME:.metadata.name,PHASE:.status.phase,NODE:.spec.nodeName --sort-by=.status.phase | grep -E 'Running|Pending'"
+            watch -n 10 "kubectl get po -l app=grid-search --no-headers | grep Running -c"
+                  10
+      This outputs anywhere from 9 to 12. 
+      See if it's completed:
+            kubectl get po -l app=grid-search   -o custom-columns=NAME:.metadata.name,PHASE:.status.phase,NODE:.spec.nodeName --sort-by=.status.phase --no-headers | grep Succeeded -c
+                  288
+      When it finishes:
+            ssh one-footed-bride-pod 
+            TERM=xterm-256color
+            cd Repos/One-footed-bride-tuning 
+            CHORALES=${1:-$(echo bwv{253..264})}
+            python select_best_and_render.py --numpy_dir_root Archive/straw-man --chorale_list $CHORALES --suffix="-opt.npy" --sort_by p90 --copy_npy_to Archive/straw-man/viterbi-tunings-8-25
+      Back on the host, copy the winning tuning numpy array files:
+            scp -r one-footed-bride-pod:Repos/One-footed-bride-tuning/Archive/straw-man/viterbi-tunings-8-25 Archive/straw-man/
+      Run the evaluation of the improvements on the pod (for the logs) then on the host for the evaluation
+            ssh one-footed-bride-pod 'grep -H "result is better" Repos/One-footed-bride-tuning/Archive/straw-man/*/straw-man-tuning-*.log' | python3 analyze_verdicts.py --winners Archive/straw-man/viterbi-tunings-8-25
+                  Restricted to the 12 winners in Archive/straw-man/viterbi-tunings-8-25.
+                  12 verdicts   improved: 2   unchanged: 10   kept a WORSE max gap: 0
+                  cell                     chorale            score          spread         max gap
+                  ------------------------ -------- --------------- --------------- ---------------
+                  t1_r1.50_lm19            bwv260     54.4→54.7       16.0→15.2        3.0→1.0
+                  t1_r1.25_lm17            bwv264     49.0→49.0       19.7→17.8        1.0→1.0
+                  1 cells reduced their worst gap, by 2-2¢ (mean 2.0¢)
+      I was hoping bwv260 would improve the first measure. It sounds really weird in the full version. 
+            python chord_report.py --chorale bwv260 --input_numpy_file Archive/straw-man/viterbi-tunings-8-24c/bwv262_t3_r1.500_lm19-opt.npy | grep "0:  894" -A11
+                  0:  894  192  578  192  A♮ D♮ F♯ D♮     43.0
+                  # Fr/To Cents Ratio     # Fr/To Cents Ratio     # Fr/To Cents Ratio
+                  1 A♮ D♮   498  4/3      2 A♮ F♯   316  6/5      3 A♮ D♮   498  4/3  
+                  4 D♮ F♯   386  5/4      5 D♮ D♮     0  1/1      6 F♯ D♮   386  5/4  
+                  4:  192  192  578 1076  D♮ D♮ F♯ B♮     47.0
+                  # Fr/To Cents Ratio     # Fr/To Cents Ratio     # Fr/To Cents Ratio
+                  1 D♮ D♮     0  1/1      2 D♮ F♯   386  5/4      3 D♮ B♮   316  6/5  
+                  4 D♮ F♯   386  5/4      5 D♮ B♮   316  6/5      6 F♯ B♮   498  4/3  
+                  6:  192  192  690 1076  D♮ D♮ G♮ B♮     45.0
+                  # Fr/To Cents Ratio     # Fr/To Cents Ratio     # Fr/To Cents Ratio
+                  1 D♮ D♮     0  1/1      2 D♮ G♮   498  4/3      3 D♮ B♮   316  6/5  
+                  4 D♮ G♮   498  4/3      5 D♮ B♮   316  6/5      6 G♮ B♮   386  5/4  
+      I think it's the A♮ @ 894 to the B♮ @ 1076 but I can't be certain. I would have to mask out the other voices. 
+            python chord_report.py --chorale bwv260 --input_numpy_file Archive/straw-man/viterbi-tunings-8-25/bwv262_t3_r1.500_lm19-opt.npy | grep "0:  898" -A11
+                  python chord_report.py --chorale bwv260 --input_numpy_file Archive/straw-man/viterbi-tunings-8-25/bwv262_t3_r1.500_lm19-opt.npy | grep "0:  898" -A11
+                  0:  898  196  582  196  A♮ D♮ F♯ D♮     43.0
+                  # Fr/To Cents Ratio     # Fr/To Cents Ratio     # Fr/To Cents Ratio
+                  1 A♮ D♮   498  4/3      2 A♮ F♯   316  6/5      3 A♮ D♮   498  4/3  
+                  4 D♮ F♯   386  5/4      5 D♮ D♮     0  1/1      6 F♯ D♮   386  5/4  
+                  4:  196  196  582 1080  D♮ D♮ F♯ B♮     47.0
+                  # Fr/To Cents Ratio     # Fr/To Cents Ratio     # Fr/To Cents Ratio
+                  1 D♮ D♮     0  1/1      2 D♮ F♯   386  5/4      3 D♮ B♮   316  6/5  
+                  4 D♮ F♯   386  5/4      5 D♮ B♮   316  6/5      6 F♯ B♮   498  4/3  
+                  6:  196  196  694 1080  D♮ D♮ G♮ B♮     45.0
+                  # Fr/To Cents Ratio     # Fr/To Cents Ratio     # Fr/To Cents Ratio
+                  1 D♮ D♮     0  1/1      2 D♮ G♮   498  4/3      3 D♮ B♮   316  6/5  
+                  4 D♮ G♮   498  4/3      5 D♮ B♮   316  6/5      6 G♮ B♮   386  5/4  
+            See if it's better now:
+                  python WreckingCrew.py --numpy_dir Archive/straw-man/viterbi-tunings-8-25 --chorale_list bwv260 --auto_density --shuffle_density --deep_bass_backoff 0.25 --back_off_clicks 0.25 --album 5 --mod d --rondo_section_a 0 32 --rondo_insert_a_after 63 127
+
+________________________
+8/26/26 Make one run of one chorale with primes set to a very low number of choioces.                  
+      Set the primes value to a more conventional amount:
+            primes = np.array([2,4,8,8,16,16])  # TEMP 8/26/26: short-repeat test, overrides the pick above. Delete to restore.
+
+            python WreckingCrew.py --numpy_dir Archive/straw-man/viterbi-tunings-8-25 --chorale_list bwv260 --density_level 4 --deep_bass_backoff 0.25 --back_off_clicks 0.25 --album 5 --mod d --rondo_section_a 0 32 --rondo_insert_a_after 63 127
+
+________________________
+8/31/26 Get engaged in the abandoned ComfyUI project.
+      You set up a ComfyUI environment to improve the blender videos. Notes on what has been done can be found in @/home/prent/Dropbox/Tutorials/Set-Up-Linux-on-Lenovo-Machines/Set_Up_kubeadm_cluster.txt at line 28661. This created a deployment based on this yaml file: @/home/prent/Dropbox/Tutorials/Set-Up-Linux-on-Lenovo-Machines/llm-scaler/llm-scaler-omni-comfyui-fs5.yaml. This created a deployment:
+            k get -n vllm deploy comfyui 
+                  NAME      READY   UP-TO-DATE   AVAILABLE   AGE
+                  comfyui   1/1     1            1           14d
+            k get -n vllm svc comfyui 
+                  NAME      TYPE       CLUSTER-IP       EXTERNAL-IP   PORT(S)          AGE
+                  comfyui   NodePort   10.107.121.166   <none>        8188:30034/TCP   14d
+      It's just waiting on models and some serious ComfyUI learning on my part. Do this in the One-footed-bride-tuning repo.
+
+      For example, this artist did it with ComfyUI.
+            Improve characters in blender CGI architecture video render using AI and ComfyU https://youtu.be/1ehJrhXADQQ?si=uUeOrTu5ZEcWkMvu
+      She shows the comfyui setup, and points to more detail here: 
+            How To Use LTX2.3 All-In-One Workflow in ComfyUI https://youtu.be/3HXCeSGnoq0?si=SxI0NmHXAS3Z1uLf
+      Moving any further development to a clone on fs2.
+            sudo dnf install -y git-lfs
+            git lfs install
+            mkdir -p ~/Repos && cd ~/Repos
+            git clone https://github.com/prentrodgers/One-footed-bride-tuning.git

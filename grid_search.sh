@@ -18,12 +18,12 @@ mkdir -p ~/Music/sflib
 
 # LIMIT_MAXES=(17 19)
 # TOLERANCES=(1 2)
-# RATIOS=(1.125 1.25 1.375 1.5)
+# RATIOS=(1.125 1.25 1.375 1.50)   # 1.50 not 1.5 — the literal is the cell dir name
 # STABILITY_FACTORS=(0)
 # MAX_DELTAS=(33)
 
 # test with just one:
-CHORALES="bwv261"
+CHORALES="bwv262"
 # replace the ones that I deleted due to scores in the thousands
 # rm -r Archive/straw-man/t3_r1.75_lm17 Archive/straw-man/t3_r1.75_lm19
 LIMIT_MAXES=(17 19)

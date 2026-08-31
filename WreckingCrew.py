@@ -2257,10 +2257,11 @@ def chorale_to_wave_v4(version, album, include_sections, ratio_factor, limit_max
         # all_primes = np.array([1, 3, 5, 11, 17, 31, 47, 71])
         # all_primes = np.array([1, 2, 4, 8, 16, 32, 48, 72])
         # all_primes = rng.choice([np.array([1, 2, 4, 8, 16, 32, 48, 72]), np.array([1, 3, 5, 11, 17, 31, 47, 71])])
-        all_primes = rng.choice([np.array([1, 2, 4, 8, 16, 32]), np.array([1, 3, 5, 11, 17, 31])])
+        all_primes = rng.choice([np.array([4,4,8,8,16,16]), np.array([1, 3, 5, 11, 17, 31])])
         
         primes = all_primes[:int(np.clip(prime_count, 1, all_primes.shape[0]))]
-        # the previous line is just a super-safe way to slice the all_primes array to the first prime_count elements of the prime_count array. 
+        # the previous line is just a super-safe way to slice the all_primes array to the first prime_count elements of the all_primes array. 
+        
         choral_octaves_repeated, repeats = create_repeat_array_pattern(chorale_in_cents_octaves, pattern=primes)
         logging.info(f'created repeats pattern using primes. {primes = }, {prime_count = }, {repeats[:primes.shape[0]] = }')
 
@@ -2369,7 +2370,7 @@ def mainline(chorale_override=None, short_repeats=False, just_triangle=False, in
       print(f'{platform.uname() = }')
       woodwinds_volume = 16 # only used if short_repeats = True
       # Set the instrument sections based on mode combinations
-      new_orch = True
+      new_orch = False
       # Priority: just_triangle determines instrument choice, short_repeats determines complexity
       if just_triangle and short_repeats:
             # Both flags: Triangle samples with straight chorale (no complex patterns)
