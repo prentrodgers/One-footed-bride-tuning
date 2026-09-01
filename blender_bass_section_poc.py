@@ -170,8 +170,12 @@ TINE_BOTTOM_OCTAVE = 1     # C1..C5 — bass notes sit well below marimba/finger
 TINE_RACK_W    = 1.05
 TINE_LEN_MAX   = 0.123    # lowest tine (left)
 TINE_LEN_MIN   = 0.085    # highest tine (right)
-TINE_WIDTH_MAX = 0.017
-TINE_WIDTH_MIN = 0.011
+# Widened with pitch_bucket's drop to 3 octaves (49 tines -> 37): the rack
+# is the same width with a quarter fewer tines in it, so each one takes the
+# room rather than leaving a wider gap. Thin tines at stage framing merge
+# into one comb.
+TINE_WIDTH_MAX = 0.022
+TINE_WIDTH_MIN = 0.015
 TINE_THICK     = 0.003
 SOLDER_R       = 0.0064   # blob of solder on every tine tip (real bass kalimba tuning trick)
 N_TINE_PTS     = 10
@@ -221,7 +225,7 @@ _SHARP_COL = {1: 0.5, 3: 1.5, 6: 3.5, 8: 4.5, 10: 5.5}
 
 def build_tine_layout(bottom_octave, rack_w, color_fn=bass_color, piano_layout=False):
     """One representative pitch per fixed rack position (pitch_bucket's
-    49-position window), low-to-high overall. Sharps/flats go in the front
+    window, 37 positions), low-to-high overall. Sharps/flats go in the front
     row, naturals in the back (see ROW_GAP_Y/SHARP_PITCH_CLASSES above).
 
     piano_layout=False (default): each row spaces its own notes evenly across

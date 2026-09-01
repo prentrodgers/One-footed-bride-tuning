@@ -5,7 +5,7 @@ section: a real 3D scene (camera, lighting, EEVEE render) instead of
 marimba_section_poc.py's matplotlib cabinet-projection trick.
 
 Reuses the same note-data pipeline as the matplotlib version —
-pitch_bucket.py for the 49-bar pitch-class folding, and marimba_poc.py for
+pitch_bucket.py for the pitch-class folding (37 bars), and marimba_poc.py for
 loading the features array and the amber->steel-blue bar coloring — only
 the geometry/rendering layer is new. No mallets yet (bar glow only): this
 is a first pass to validate the Blender workflow and measure render time
@@ -44,6 +44,14 @@ FPS = 30
 GLOW_DECAY = 0.24
 
 
+# How much of bar_base_color's pitch ramp survives in the wood. 1.0 is the
+# old fully-coloured bar; 0.0 is plain rosewood with pitch showing only in
+# the strike flash.
+TINT_STRENGTH = 0.22
+# Emission multiplier at the instant of a strike, before the glow decays.
+GLOW_STRENGTH = 4.0
+
+
 def bar_base_color(i, n):
     """Amber/warm (low, i=0) -> steel-blue (high, i=n-1). Copied from
     marimba_poc.py — see note above."""
@@ -54,6 +62,14 @@ def bar_base_color(i, n):
     else:
         s = (t - 0.5) * 2
         return (0.40 - s * 0.28, 0.66 - s * 0.22, 0.32 + s * 0.52)
+
+
+def bar_object_color(i, n, glow=0.0):
+    """The RGBA a bar's object colour carries for make_bar_material():
+    RGB is its pitch tint, ALPHA is how hard it was just struck. Two
+    per-bar values in one plain tuple, so 37 bars still animate without
+    touching a material."""
+    return (*bar_base_color(i, n), float(max(0.0, min(1.0, glow))))
 
 
 def blended(base, intensity):
@@ -88,12 +104,24 @@ def load_features_array(npy_file, tempo, voice=None):
 # G#, A#), the accidental row has the natural gaps at E-F and B-C — that
 # grouping IS what makes it read as a keyboard, and it aligns the two rows
 # into clean columns instead of an incommensurate moiré.
-WHITE_SPACING = 0.46   # m between adjacent naturals (white keys) in X
-BAR_WIDTH   = 0.24     # ring mesh bakes the real width in directly (the old
-                        # primitive_cube_add + scale path quietly halved it)
+# Widened from 0.46 when pitch_bucket dropped to 3 octaves: 22 white columns
+# instead of 28, so a wider pitch keeps the instrument the same size on stage
+# and spends the saved bars on making every remaining one bigger.
+WHITE_SPACING = 0.59   # m between adjacent naturals (white keys) in X
+# Real bars widen toward the bass rather than running at one width.
+BAR_WIDTH_LOW  = 0.36   # lowest bar
+BAR_WIDTH_HIGH = 0.26   # highest bar
+BAR_WIDTH   = (BAR_WIDTH_LOW + BAR_WIDTH_HIGH) / 2.0   # nominal, for callers
 BAR_THICK   = 0.18     # thick enough to read as 3D from a wide establishing shot
 BAR_LEN_MAX = 1.6       # lowest bar
 BAR_LEN_MIN = 0.7       # highest bar
+# The undercut: a real marimba bar has an arch cut out of its underside,
+# deep on the long low bars and shallow at the top. After the resonators it
+# is the strongest cue that this is a marimba and not a row of tiles, and it
+# is what a silhouette or an edge-detect pass actually sees.
+ARCH_DEPTH_LOW  = 0.55  # fraction of BAR_THICK removed at the centre, lowest bar
+ARCH_DEPTH_HIGH = 0.12  # .. and at the highest
+BAR_BEVEL = 0.012      # m — edges catch light instead of being razor sharp
 
 # Pitch-class -> keyboard column, in "white-key units" within an octave.
 # Naturals land on integer columns 0..6; accidentals land on the half
@@ -222,10 +250,9 @@ def clear_scene():
 
 
 def make_glow_material():
-    """One shared material for every bar: emission colour comes from each
-    object's own Object Color (obj.color), so we can animate 49 bars by
-    just setting a plain RGBA tuple per object per frame instead of
-    keyframing 49 separate materials."""
+    """Deprecated: the flat emission material the bars used before they were
+    given real wood. Kept because the standalone smoke tests in the other
+    section modules still build against it."""
     mat = bpy.data.materials.new("BarGlow")
     mat.use_nodes = True
     nt = mat.node_tree
@@ -239,18 +266,146 @@ def make_glow_material():
     return mat
 
 
-def make_bar_mesh(name, width, length, thick):
+ROSEWOOD_DARK  = (0.105, 0.036, 0.022, 1.0)   # the streaks
+ROSEWOOD_LIGHT = (0.330, 0.128, 0.068, 1.0)   # the body
+STRIKE_COLOR   = (1.0, 0.95, 0.86, 1.0)       # what the flash tends toward
+
+
+def _emission_sockets(bsdf):
+    """(colour socket, strength socket) — Blender renamed "Emission" to
+    "Emission Color" at 4.0, and this file has to build on both."""
+    ins = bsdf.inputs
+    colour = ins.get("Emission Color") or ins.get("Emission")
+    return colour, ins.get("Emission Strength")
+
+
+def make_bar_material():
+    """One shared material for every bar, reading two things off each
+    object: its COLOUR is the pitch tint mixed faintly into the rosewood,
+    and its ALPHA is the strike glow. That keeps the old one-tuple-per-bar
+    animation while the bars themselves become lit wood — diffuse, specular
+    and shadowed — instead of self-lit tiles.
+
+    Wood matters twice over. It is what makes the instrument read as a
+    marimba, and a shaded, grained surface gives comfy_restyle.py's canny
+    pass real edges to hold; a flat emissive bar gives it almost none.
+    """
+    mat = bpy.data.materials.new("BarRosewood")
+    mat.use_nodes = True
+    nt = mat.node_tree
+    nt.nodes.clear()
+    out = nt.nodes.new("ShaderNodeOutputMaterial")
+    bsdf = nt.nodes.new("ShaderNodeBsdfPrincipled")
+    nt.links.new(bsdf.outputs["BSDF"], out.inputs["Surface"])
+
+    # Grain, in the bar's own space: fast variation across the width,
+    # slow along the length, so it streaks the way sawn wood does.
+    coord = nt.nodes.new("ShaderNodeTexCoord")
+    mapping = nt.nodes.new("ShaderNodeMapping")
+    mapping.inputs["Scale"].default_value = (14.0, 1.1, 14.0)
+    nt.links.new(coord.outputs["Object"], mapping.inputs["Vector"])
+    noise = nt.nodes.new("ShaderNodeTexNoise")
+    noise.inputs["Scale"].default_value = 7.0
+    noise.inputs["Detail"].default_value = 6.0
+    noise.inputs["Roughness"].default_value = 0.62
+    nt.links.new(mapping.outputs["Vector"], noise.inputs["Vector"])
+
+    grain = nt.nodes.new("ShaderNodeValToRGB")
+    grain.color_ramp.elements[0].position = 0.35
+    grain.color_ramp.elements[0].color = ROSEWOOD_DARK
+    grain.color_ramp.elements[1].position = 0.68
+    grain.color_ramp.elements[1].color = ROSEWOOD_LIGHT
+    nt.links.new(noise.outputs["Fac"], grain.inputs["Fac"])
+
+    obj_info = nt.nodes.new("ShaderNodeObjectInfo")
+
+    # Base colour: the wood, nudged toward this bar's pitch tint.
+    tint = _mix_rgb(nt, TINT_STRENGTH, grain.outputs["Color"],
+                    obj_info.outputs["Color"])
+    nt.links.new(tint, bsdf.inputs["Base Color"])
+
+    # Rosewood is a hard, close-grained wood: fairly smooth, not glossy,
+    # with the grain showing up as a little roughness variation.
+    rough = nt.nodes.new("ShaderNodeMapRange")
+    rough.inputs["To Min"].default_value = 0.26
+    rough.inputs["To Max"].default_value = 0.44
+    nt.links.new(noise.outputs["Fac"], rough.inputs["Value"])
+    nt.links.new(rough.outputs["Result"], bsdf.inputs["Roughness"])
+
+    # The strike: object alpha drives emission strength, so a bar at rest
+    # (alpha 0) is pure wood and a struck one flashes in its own pitch hue.
+    em_colour, em_strength = _emission_sockets(bsdf)
+    if em_colour is not None:
+        flash = _mix_rgb(nt, 0.45, obj_info.outputs["Color"], STRIKE_COLOR)
+        nt.links.new(flash, em_colour)
+    alpha = obj_info.outputs.get("Alpha")
+    if alpha is not None and em_strength is not None:
+        mul = nt.nodes.new("ShaderNodeMath")
+        mul.operation = 'MULTIPLY'
+        mul.inputs[1].default_value = GLOW_STRENGTH
+        nt.links.new(alpha, mul.inputs[0])
+        nt.links.new(mul.outputs["Value"], em_strength)
+    else:
+        # Pre-3.0 Blender has no Alpha output on Object Info; rather than
+        # glow constantly, the bars simply stop flashing. Say so loudly.
+        print("[marimba] Object Info has no Alpha output — no strike glow. "
+              "Blender 3.0+ is needed for the flash.")
+        if em_strength is not None:
+            em_strength.default_value = 0.0
+    return mat
+
+
+def _mix_rgb(nt, factor, a, b):
+    """Mix two colours, returning the output socket. `a`/`b` may be sockets
+    or literal RGBA tuples. Uses the modern Mix node where it exists and the
+    legacy MixRGB where it doesn't, since this file has to build on both."""
+    if hasattr(bpy.types, "ShaderNodeMix"):
+        node = nt.nodes.new("ShaderNodeMix")
+        node.data_type = 'RGBA'
+        f, sa, sb = node.inputs["Factor"], node.inputs[6], node.inputs[7]
+        result = node.outputs[2]
+    else:
+        node = nt.nodes.new("ShaderNodeMixRGB")
+        f, sa, sb = node.inputs["Fac"], node.inputs["Color1"], node.inputs["Color2"]
+        result = node.outputs["Color"]
+    f.default_value = factor
+    for socket, value in ((sa, a), (sb, b)):
+        if hasattr(value, "node"):
+            nt.links.new(value, socket)
+        else:
+            socket.default_value = value
+    return result
+
+
+# mesh name -> the z of every vertex at rest. The bars are no longer flat
+# boxes, so the vibration can't reconstruct their rest shape from BAR_THICK
+# alone the way it used to; it has to be remembered per bar.
+_BAR_REST_Z = {}
+
+
+def arch_lift(arch_depth):
+    """How far the underside is cut away at each of the RING_FRACS rings:
+    nothing at the ends, deepest at the centre — the marimba's undercut."""
+    return [arch_depth * math.sin(math.pi * f) for f in RING_FRACS]
+
+
+def make_bar_mesh(name, width, length, thick, arch_depth=0.0):
     """A box built with 5 cross-section rings (at RING_FRACS along its
     length, in local space with y=0 at the bar's centre) instead of a
-    single primitive cube — undeformed it looks identical to a plain box
-    (the extra edge loops are coplanar), but apply_bar_vibration() can
-    later bend it ring-by-ring for the post-strike flex."""
-    verts = []
-    for frac in RING_FRACS:
+    single primitive cube — the extra edge loops let apply_bar_vibration()
+    bend it ring-by-ring for the post-strike flex, and let the underside
+    carry the tuning arch: the bottom face lifts toward the bar's middle,
+    so the bar is thin at its centre and full thickness at its ends."""
+    lift = arch_lift(arch_depth)
+    verts, rest_z = [], []
+    for ring, frac in enumerate(RING_FRACS):
         y = (frac - 0.5) * length
-        for x, z in ((-width / 2, -thick / 2), (width / 2, -thick / 2),
-                     (width / 2, thick / 2), (-width / 2, thick / 2)):
+        bottom = -thick / 2.0 + lift[ring]
+        top = thick / 2.0
+        for x, z in ((-width / 2, bottom), (width / 2, bottom),
+                     (width / 2, top), (-width / 2, top)):
             verts.append((x, y, z))
+            rest_z.append(z)
 
     faces = []
     for ring in range(len(RING_FRACS) - 1):
@@ -266,7 +421,17 @@ def make_bar_mesh(name, width, length, thick):
     mesh = bpy.data.meshes.new(name)
     mesh.from_pydata(verts, [], faces)
     mesh.update()
+    _BAR_REST_Z[mesh.name] = rest_z
     return mesh
+
+
+def bar_rest_z(mesh, v):
+    """Rest height of vertex v — the arched profile if this mesh was built
+    by make_bar_mesh, the old flat box if something else made it."""
+    rest = _BAR_REST_Z.get(mesh.name)
+    if rest is not None and v < len(rest):
+        return rest[v]
+    return -BAR_THICK / 2.0 if (v % 4) < 2 else BAR_THICK / 2.0
 
 
 def keyboard_column(cents, bottom_octave):
@@ -282,7 +447,7 @@ def keyboard_column(cents, bottom_octave):
 
 
 def build_bars():
-    reps = pb.representative_cents()   # 49 representative pitches, low->high
+    reps = pb.representative_cents()   # the fixed positions, low->high
     n = len(reps)
     bottom_octave = int(round(reps[0] / 1200.0))
     cols = [keyboard_column(c, bottom_octave) for c in reps]
@@ -292,7 +457,7 @@ def build_bars():
     x_of = [(c - centre_col) * WHITE_SPACING for c in col_vals]
     half_width = (max(col_vals) - centre_col) * WHITE_SPACING
 
-    mat = make_glow_material()
+    mat = make_bar_material()
     bars = []
     bar_info = []   # per-bar dict: x, y (rank centre), z, length, node_offset, is_sharp
     pitch_to_idx = {}
@@ -304,13 +469,17 @@ def build_bars():
         # (-Y, toward camera) and raised in Z so the ranks don't collide.
         y = (-RANK_GAP_Y / 2.0) if is_sharp[i] else (RANK_GAP_Y / 2.0)
         z = sag_z(x, half_width) + (SHARP_RAISE_Z if is_sharp[i] else 0.0)
-        mesh = make_bar_mesh(f"bar_{i:02d}_mesh", BAR_WIDTH, length, BAR_THICK)
+        width = BAR_WIDTH_LOW + (BAR_WIDTH_HIGH - BAR_WIDTH_LOW) * frac
+        arch = (ARCH_DEPTH_LOW + (ARCH_DEPTH_HIGH - ARCH_DEPTH_LOW) * frac) * BAR_THICK
+        mesh = make_bar_mesh(f"bar_{i:02d}_mesh", width, length, BAR_THICK, arch)
         obj = bpy.data.objects.new(f"bar_{i:02d}", mesh)
         bpy.context.scene.collection.objects.link(obj)
         obj.location = (x, y, z)
         obj.data.materials.append(mat)
-        base = bar_base_color(i, n)
-        obj.color = (*base, 1.0)
+        bevel = obj.modifiers.new("Bevel", 'BEVEL')
+        bevel.width = BAR_BEVEL
+        bevel.segments = 2
+        obj.color = bar_object_color(i, n)
         bars.append(obj)
         pitch_to_idx[int(round(cents))] = i
         node_offset = length * (0.5 - NODE_FRAC)
@@ -747,16 +916,14 @@ def apply_bar_vibration(obj, dt):
     amp = VIB_AMPLITUDE * math.exp(-dt / VIB_DECAY_TAU) * math.cos(2.0 * math.pi * VIB_FREQ * dt)
     mesh = obj.data
     for v, vert in enumerate(mesh.vertices):
-        ring = v // 4
-        base_z = -BAR_THICK / 2.0 if (v % 4) < 2 else BAR_THICK / 2.0
-        vert.co.z = base_z + VIB_MODE_SHAPE[ring] * amp
+        vert.co.z = bar_rest_z(mesh, v) + VIB_MODE_SHAPE[v // 4] * amp
     mesh.update()
 
 
 def reset_bar_mesh(obj):
     mesh = obj.data
     for v, vert in enumerate(mesh.vertices):
-        vert.co.z = -BAR_THICK / 2.0 if (v % 4) < 2 else BAR_THICK / 2.0
+        vert.co.z = bar_rest_z(mesh, v)
     mesh.update()
 
 
@@ -800,10 +967,7 @@ def main():
         t = fi / FPS
         glow = compute_bar_glow(t, notes, pitch_to_idx, n_bars)
         for i, obj in enumerate(bars):
-            base = bar_base_color(i, n_bars)
-            g = glow[i]
-            col = blended(base, g) if g > 0.02 else base
-            obj.color = (*col, 1.0)
+            obj.color = bar_object_color(i, n_bars, glow[i])
 
         last_onset = compute_last_onset(t, notes, pitch_to_idx, n_bars)
         still_vibrating = set()

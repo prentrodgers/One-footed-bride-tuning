@@ -4,7 +4,7 @@ blender_finger_piano_poc.py — the regular finger piano (kalimba, csound
 voice 1, register C4..C8) as a Blender stage section.
 
 Geometrically this IS the bass finger piano: the same consolidated
-49-position two-rank tine rack (pitch_bucket.py), the same cantilever pluck
+37-position two-rank tine rack (pitch_bucket.py), the same cantilever pluck
 vibration. So rather than duplicate ~200 lines of tine/mesh/animation code,
 this module reuses the machinery from blender_bass_section_poc, passing a
 higher register (bottom octave 4 instead of 1) and its own colour scheme,
@@ -29,7 +29,7 @@ import blender_bass_section_poc as bass
 import pitch_bucket as pb
 
 VOICES = (1,)                              # regular finger piano only
-BOTTOM_OCTAVE = pb.DEFAULT_BOTTOM_OCTAVE   # C4..C8
+BOTTOM_OCTAVE = pb.DEFAULT_BOTTOM_OCTAVE   # C4..C7
 
 
 def fp_color(i, n):
@@ -57,7 +57,7 @@ def update_finger_piano(t, geom, notes):
 
 
 def load_notes(npy, tempo):
-    """Voice-1 notes, bucketed onto the C4..C8 rack (same bottom octave the
+    """Voice-1 notes, bucketed onto the C4..C7 rack (same bottom octave the
     layout was built with, so pitch_to_idx keys line up)."""
     notes = bass.load_voices(npy, tempo, VOICES)
     if len(notes):

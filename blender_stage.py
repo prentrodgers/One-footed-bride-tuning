@@ -513,10 +513,9 @@ def setup_marimba(npy, tempo):
         nonlocal vibrating
         glow = marimba.compute_bar_glow(t, notes, pitch_to_idx, n_bars)
         for i, obj in enumerate(bars):
-            base = marimba.bar_base_color(i, n_bars)
-            g = glow[i]
-            col = marimba.blended(base, g) if g > 0.02 else base
-            obj.color = (*col, 1.0)
+            # RGB is the bar's pitch tint, alpha is how hard it was just
+            # struck — see blender_marimba_poc.make_bar_material.
+            obj.color = marimba.bar_object_color(i, n_bars, glow[i])
         last_onset = marimba.compute_last_onset(t, notes, pitch_to_idx, n_bars)
         still = set()
         for i in np.nonzero(~np.isnan(last_onset))[0]:
