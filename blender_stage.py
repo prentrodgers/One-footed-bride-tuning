@@ -160,30 +160,45 @@ CAM_SENSOR = 36.0
 # there are few entries to cut ON. Leans on shot-size variety instead, plus
 # the one real hole: bowed_strings drop out 2:50-3:15, which is where the
 # overhead goes.
+# bwv256 — Uploads/ball9-t56d_lm17_r1.25_df5_t1_d04_46_t104.{npy,mp3}
+# tempo 104, 281.7s (4:42) = 8451 frames.  Rebuilt 9/1/26 with the
+# instruments at 37 positions.
+#
+# NOT hand-authored: the bwv256 sheet from 8/1/26 was lost (see the note
+# above), and the sheet below it belongs to bwv257 — a different piece at a
+# different tempo, whose cuts would land nowhere in particular here.  So the
+# shots come from CAMERA_AUTOGEN instead, which is gated on the volume data
+# from this render's own npy: the generator will not cut to a player that
+# is not sounding.  Only the opening wide is by hand.
 CAMERA_CUES = [
     ("0:00", "wide"),
-    ("0:12", ("pizz", "bass")),
-    ("0:26", "marimba", 4),
-    ("0:40", "bowed_strings"),
-    ("0:52", "brass"),
-    ("1:06", "bass.guitar"),
-    ("1:18", "finger_piano"),
-    ("1:30", "wide"),
-    ("1:42", "melody.trumpet"),
-    ("1:56", "marimba", 3),
-    ("2:10", ("pizz", "finger_piano")),
-    ("2:24", "woodwind"),
-    ("2:38", "melody"),
-    ("2:52", ("overhead", "marimba", "bass.guitar")),
-    ("3:14", "bowed_strings"),
-    ("3:28", "brass", 3),
-    ("3:42", "melody.trumpet"),
-    ("3:56", "marimba", 4),
-    ("4:10", ("pizz", "bass")),
-    ("4:24", "woodwind", 3),
-    ("4:38", "bass.guitar"),
-    ("4:50", "wide", 3),
 ]
+
+# The bwv257 sheet, kept for when that chorale is rendered again:
+# CAMERA_CUES = [
+#     ("0:00", "wide"),
+#     ("0:12", ("pizz", "bass")),
+#     ("0:26", "marimba", 4),
+#     ("0:40", "bowed_strings"),
+#     ("0:52", "brass"),
+#     ("1:06", "bass.guitar"),
+#     ("1:18", "finger_piano"),
+#     ("1:30", "wide"),
+#     ("1:42", "melody.trumpet"),
+#     ("1:56", "marimba", 3),
+#     ("2:10", ("pizz", "finger_piano")),
+#     ("2:24", "woodwind"),
+#     ("2:38", "melody"),
+#     ("2:52", ("overhead", "marimba", "bass.guitar")),
+#     ("3:14", "bowed_strings"),
+#     ("3:28", "brass", 3),
+#     ("3:42", "melody.trumpet"),
+#     ("3:56", "marimba", 4),
+#     ("4:10", ("pizz", "bass")),
+#     ("4:24", "woodwind", 3),
+#     ("4:38", "bass.guitar"),
+#     ("4:50", "wide", 3),
+# ]
 
 # bwv259 — Uploads/ball9-t59c_lm19_r1.12_df2_t3_d05_21_t088.{npy,mp3}
 # tempo 88, 313.2s (5:13) = 9396 frames. Authored 8/8/26 against activity_bwv259.png.
@@ -283,7 +298,9 @@ CAMERA_CUES = [
 # Time ranges the shot generator fills in around the hand-authored cues:
 # (start_s, end_s, seed). Deterministic per seed, so a render repeats exactly.
 # Hand cues always win — generated shots are dropped near them.
-CAMERA_AUTOGEN = []
+# (start, end, seed) ranges the generator fills.  Starts at 0:10 so the
+# opening wide holds first; generated shots run 10-15s each.
+CAMERA_AUTOGEN = [(10.0, 281.7, 7)]
     # CAMERA_AUTOGEN = [
     # (50.0, 470.0, 7),
     # ]
@@ -648,7 +665,8 @@ def setup_bass(npy, tempo):
 
     tine_notes = bass.load_voices(npy, tempo, (24,)) if npy else np.zeros((0, 5))
     if len(tine_notes):
-        tine_notes[:, 1] = [pb.bucket_cents(p, bottom_octave=bass.TINE_BOTTOM_OCTAVE)
+        tine_notes[:, 1] = [pb.bucket_cents(p, bottom_octave=bass.TINE_BOTTOM_OCTAVE,
+                                            n_octaves=bass.TINE_N_OCTAVES)
                             for p in tine_notes[:, 1]]
     guitar_notes = bass.load_voices(npy, tempo, (20,)) if npy else np.zeros((0, 5))
 

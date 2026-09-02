@@ -47,8 +47,11 @@ def build_finger_piano(x0):
     # Stand height: this section is scaled 8.0 onto the shared stage, so this
     # small number is what puts the rack level with the marimba's bars — i.e.
     # at a standing player's hands rather than on the floor.
+    # pb.N_OCTAVES (3) explicitly: build_bass_finger_piano defaults to the
+    # BASS rack's wider 4-octave window, which this instrument does not want.
     return bass.build_bass_finger_piano(x0, bottom_octave=BOTTOM_OCTAVE,
                                         color_fn=fp_color, piano_layout=True,
+                                        n_octaves=pb.N_OCTAVES,
                                         stand_floor_z=-0.20)
 
 

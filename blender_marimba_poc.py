@@ -44,12 +44,17 @@ FPS = 30
 GLOW_DECAY = 0.24
 
 
-# How much of bar_base_color's pitch ramp survives in the wood. 1.0 is the
-# old fully-coloured bar; 0.0 is plain rosewood with pitch showing only in
-# the strike flash.
-TINT_STRENGTH = 0.22
+# How much of the pitch tint survives in the wood. 1.0 would be a solid
+# coloured bar; 0.0 is plain rosewood with pitch showing only in the strike.
+# Safe to run higher than it looks, because bar_tint stays inside the wood's
+# own colour range — mixing toward bar_base_color's full rainbow instead
+# turned the top of the row grey-blue, which read as concrete, not rosewood.
+TINT_STRENGTH = 0.35
 # Emission multiplier at the instant of a strike, before the glow decays.
-GLOW_STRENGTH = 4.0
+# 4.0 blew a struck bar clean out to white and 1.5 still did; the wood
+# vanished for the length of the flash. The mallet is visibly on the bar at
+# that moment anyway, so the glow only has to warm it, not announce it.
+GLOW_STRENGTH = 0.5
 
 
 def bar_base_color(i, n):
@@ -64,12 +69,26 @@ def bar_base_color(i, n):
         return (0.40 - s * 0.28, 0.66 - s * 0.22, 0.32 + s * 0.52)
 
 
+# The pitch ramp as WOOD: deep red-brown at the bass, honey at the top. A
+# real marimba's bars are near enough uniform, so this is the whole licence
+# taken with the instrument — enough gradient to see the register, never
+# enough to leave rosewood.
+TINT_LOW  = (0.40, 0.13, 0.05)
+TINT_HIGH = (0.55, 0.33, 0.15)
+
+
+def bar_tint(i, n):
+    """The faint low-to-high warmth mixed into a bar's wood."""
+    t = i / max(n - 1, 1)
+    return tuple(lo + (hi - lo) * t for lo, hi in zip(TINT_LOW, TINT_HIGH))
+
+
 def bar_object_color(i, n, glow=0.0):
     """The RGBA a bar's object colour carries for make_bar_material():
     RGB is its pitch tint, ALPHA is how hard it was just struck. Two
     per-bar values in one plain tuple, so 37 bars still animate without
     touching a material."""
-    return (*bar_base_color(i, n), float(max(0.0, min(1.0, glow))))
+    return (*bar_tint(i, n), float(max(0.0, min(1.0, glow))))
 
 
 def blended(base, intensity):
@@ -218,8 +237,11 @@ INCH = 0.0254
 # of four flat steps, and it is the ramp — not any absolute tuning — that
 # reads on screen. RESON_LEN_LOW is the lowest bar's tube.
 RESON_LEN_LOW    = 3.6         # metres, the longest tube (folds into a U)
-RESON_RAD_LOW    = 0.075       # tube radius at the lowest bar ..
-RESON_RAD_HIGH   = 0.022       # .. and at the highest
+# Widened with the bars (0.075/0.022 before). A resonator only reads as a
+# resonator if it is nearly as fat as the bar it hangs under; at the old
+# radii, against 0.36m bars, the tubes rendered as bare wire stilts.
+RESON_RAD_LOW    = 0.140       # tube radius at the lowest bar ..
+RESON_RAD_HIGH   = 0.055       # .. and at the highest
 RESON_BEND_RADIUS     = 0.05
 # A tube may hang until it is level with the bottom of the stand legs, then
 # it has to turn back up. Keeping the fold at exactly the stand bottom means
@@ -336,7 +358,9 @@ def make_bar_material():
     # (alpha 0) is pure wood and a struck one flashes in its own pitch hue.
     em_colour, em_strength = _emission_sockets(bsdf)
     if em_colour is not None:
-        flash = _mix_rgb(nt, 0.45, obj_info.outputs["Color"], STRIKE_COLOR)
+        # Mostly the bar's own hue: mixing far toward white made the flash
+        # read as a light being switched on behind the bar.
+        flash = _mix_rgb(nt, 0.25, obj_info.outputs["Color"], STRIKE_COLOR)
         nt.links.new(flash, em_colour)
     alpha = obj_info.outputs.get("Alpha")
     if alpha is not None and em_strength is not None:

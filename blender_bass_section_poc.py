@@ -161,7 +161,15 @@ def add_corner_bevel(obj, width, segments=3):
 # up out of the base (Z), clamped at the bottom (the node), free at the top
 # (the tip) — a cantilever that flaps forward/back (Y) when plucked, not a
 # standing wave.
-TINE_BOTTOM_OCTAVE = 1     # C1..C5 — bass notes sit well below marimba/finger-piano's C4..C8
+TINE_BOTTOM_OCTAVE = 1     # C1..C5 — bass notes sit well below marimba/finger-piano's C4..C7
+# The bass rack keeps FOUR octaves while the marimba and the regular finger
+# piano dropped to three. Measured over the 12 chorales built 9/1/26: at 3
+# octaves 32% of bass notes land on a tine an octave from where they sound,
+# against 5% at 4 — where the marimba pays only 17% against 8%. The bass
+# line simply covers more ground than the others, so this is the one rack
+# where thinning costs more than it returns. Its tines still read better
+# than before, because TINE_WIDTH_* grew and the widths now auto-fit.
+TINE_N_OCTAVES = 4
 # Total horizontal span of the whole rack. Sharps/flats (5/octave) and
 # naturals (7/octave, plus the lone extra top C) each spread their own
 # notes evenly across this same width independently (see build_tine_
@@ -176,6 +184,11 @@ TINE_LEN_MIN   = 0.085    # highest tine (right)
 # into one comb.
 TINE_WIDTH_MAX = 0.022
 TINE_WIDTH_MIN = 0.015
+# A rack with more tines in the same width gets thinner ones: the widths
+# above are what a 37-tine rack can afford, and build_tine_layout scales
+# them down if the tines would otherwise touch. Fraction of the gap between
+# neighbours that a tine may occupy.
+TINE_GAP_FILL = 0.72
 TINE_THICK     = 0.003
 SOLDER_R       = 0.0064   # blob of solder on every tine tip (real bass kalimba tuning trick)
 N_TINE_PTS     = 10
@@ -223,7 +236,8 @@ _WHITE_COL = {0: 0, 2: 1, 4: 2, 5: 3, 7: 4, 9: 5, 11: 6}
 _SHARP_COL = {1: 0.5, 3: 1.5, 6: 3.5, 8: 4.5, 10: 5.5}
 
 
-def build_tine_layout(bottom_octave, rack_w, color_fn=bass_color, piano_layout=False):
+def build_tine_layout(bottom_octave, rack_w, color_fn=bass_color,
+                      piano_layout=False, n_octaves=None):
     """One representative pitch per fixed rack position (pitch_bucket's
     window, 37 positions), low-to-high overall. Sharps/flats go in the front
     row, naturals in the back (see ROW_GAP_Y/SHARP_PITCH_CLASSES above).
@@ -233,7 +247,8 @@ def build_tine_layout(bottom_octave, rack_w, color_fn=bass_color, piano_layout=F
     — naturals on their columns, each accidental in the gap between its two
     neighbouring naturals (with the E-F and B-C gaps), so the rows line up
     like a piano."""
-    reps = pb.representative_cents(bottom_octave=bottom_octave)
+    reps = pb.representative_cents(bottom_octave=bottom_octave,
+                                   n_octaves=n_octaves)
     n = len(reps)
     is_sharp = [(int(round(c)) // 100) % 12 in SHARP_PITCH_CLASSES for c in reps]
 
@@ -255,13 +270,22 @@ def build_tine_layout(bottom_octave, rack_w, color_fn=bass_color, piano_layout=F
             for j, i in enumerate(row):
                 x_of[i] = (j - (m - 1) / 2.0) * step
 
+    # Widths are quoted for a thinned rack; if this one packs its tines
+    # closer than that, scale them down so neighbours never touch.
+    gap = min((abs(a - b) for row in ([i for i in range(n) if is_sharp[i]],
+                                      [i for i in range(n) if not is_sharp[i]])
+               for a, b in zip(sorted(x_of[i] for i in row),
+                               sorted(x_of[i] for i in row)[1:])), default=0.0)
+    fit = min(1.0, gap * TINE_GAP_FILL / TINE_WIDTH_MAX) if gap else 1.0
+    w_max, w_min = TINE_WIDTH_MAX * fit, TINE_WIDTH_MIN * fit
+
     tines = []
     pitch_to_idx = {}
     for i, cents in enumerate(reps):
         t = i / max(n - 1, 1)
         y = -ROW_GAP_Y / 2.0 if is_sharp[i] else ROW_GAP_Y / 2.0
         length = TINE_LEN_MAX + (TINE_LEN_MIN - TINE_LEN_MAX) * t
-        width = TINE_WIDTH_MAX + (TINE_WIDTH_MIN - TINE_WIDTH_MAX) * t
+        width = w_max + (w_min - w_max) * t
         tines.append(dict(x=x_of[i], y=y, length=length, width=width, base=color_fn(i, n)))
         pitch_to_idx[int(round(cents))] = i
     return tines, pitch_to_idx, n
@@ -362,9 +386,13 @@ def build_fp_stand(x0, base_w, base_depth, floor_z):
 
 
 def build_bass_finger_piano(x0, bottom_octave=TINE_BOTTOM_OCTAVE, color_fn=bass_color,
+                            n_octaves=TINE_N_OCTAVES,
                             piano_layout=False, stand_floor_z=None):
+    """The bass rack by default (4 octaves, 49 tines). The regular finger
+    piano builds through here too and passes the thinned window."""
     total_w = TINE_RACK_W
-    tines, pitch_to_idx, n = build_tine_layout(bottom_octave, TINE_RACK_W, color_fn, piano_layout)
+    tines, pitch_to_idx, n = build_tine_layout(bottom_octave, TINE_RACK_W, color_fn,
+                                               piano_layout, n_octaves)
     glow_mat = make_glow_material("TineGlow")
     node_mat = make_solid_material("TineNode", NODE_CLR, roughness=0.7)
     solder_mat = make_solid_material("TineSolder", SOLDER_CLR, roughness=0.35, metallic=0.6)
@@ -1079,7 +1107,9 @@ def main():
 
     tine_notes = load_voices(args.npy, args.tempo, (24,))
     if len(tine_notes):
-        tine_notes[:, 1] = [pb.bucket_cents(p, bottom_octave=TINE_BOTTOM_OCTAVE) for p in tine_notes[:, 1]]
+        tine_notes[:, 1] = [pb.bucket_cents(p, bottom_octave=TINE_BOTTOM_OCTAVE,
+                                            n_octaves=TINE_N_OCTAVES)
+                            for p in tine_notes[:, 1]]
     guitar_notes = load_voices(args.npy, args.tempo, (20,))
 
     out_dir = Path(args.out)
