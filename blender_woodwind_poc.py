@@ -55,6 +55,33 @@ SILVER = (0.72, 0.74, 0.78)
 REED_CLR = (0.62, 0.55, 0.35)
 
 GLOW_DECAY = 0.55
+
+# ── showing pitch, not just "sounding" ──────────────────────────────────────
+# A wind instrument that only glows and sways tells you WHEN it plays and
+# nothing about WHAT. These sections carry the same four voices the marimba
+# does, so the fingering is made to spell the pitch class out:
+#
+#   nine tone holes, all covered = C.  Half a hole opens per semitone, so
+#   C# is 8.5 covered and B is 3.5.  Holes uncover from the BOTTOM up, the
+#   way a real player lifts fingers to go higher.
+#
+# It is not a real fingering chart — no instrument works this way — but it is
+# monotonic, it reads at a glance, and a half-open hole means exactly what it
+# looks like: a pitch halfway between two semitones. That last part matters
+# here, because these chorales are not in 12-TET; HOLE_QUANTIZE = True snaps
+# every note to the nearest semitone instead, which reads more crisply but
+# throws the tuning away.
+N_HOLES = 9
+HOLE_QUANTIZE = False
+# The lift alone is only a few pixels at stage framing, so coverage is shown
+# twice over: the pad rises off the body AND changes colour. Dark is a finger
+# down on the hole, bright is the hole standing open — which reads at any
+# distance, where the movement does not.
+HOLE_LIFT = 0.045        # m a pad rises off the body when its hole opens
+HOLE_COVERED_CLR = (0.06, 0.055, 0.05)    # finger down
+HOLE_OPEN_CLR = (0.93, 0.94, 0.97)        # open hole
+# The horn has rotors, not holes: its three valve paddles swing instead.
+ROTOR_SWING_DEG = 42.0
 PLAY_LEAN_DEG = {'clarinet': 7.0, 'oboe': 7.0, 'horn': 10.0, 'bassoon': 6.0}
 PLAY_RELAX_T = 0.5
 # Sway is deliberately tiny now (~10% of the old ±5.6°) and fades out fast
@@ -69,6 +96,38 @@ LEAN_TAU = 0.12   # s — quick but smooth tip toward/away the mouthpiece (no on
 # Which instrument bodies are metal. Everything else (grenadilla clarinet and
 # oboe, maple bassoon) is wood and must not get the polished-metal response.
 METAL_KINDS = frozenset({'horn', 'flute', 'trumpet', 'vibraphone'})
+
+
+def hole_coverage(cents, n=N_HOLES):
+    """How many of `n` holes are covered for a pitch, 9.0 down to 3.5.
+
+    Cyclic in the octave, so it jumps back to fully covered at every C — a
+    sawtooth, which is what a pitch CLASS display has to be."""
+    pc = (cents % 1200.0) / 100.0            # semitones within the octave
+    if HOLE_QUANTIZE:
+        pc = float(round(pc) % 12)
+    return n - pc * 0.5
+
+
+def hole_states(covered, n=N_HOLES):
+    """Per-hole coverage 0..1, TOP hole first. The holes fill from the top
+    down and the boundary hole takes the fraction — that hole, sitting half
+    covered, is the one saying "between these two semitones"."""
+    return [min(1.0, max(0.0, covered - i)) for i in range(n)]
+
+
+def make_pad_material():
+    """Pads take their colour from each object, so nine of them per
+    instrument animate as plain tuples instead of nine materials."""
+    mat = bpy.data.materials.new("WWPad")
+    mat.use_nodes = True
+    nt = mat.node_tree
+    bsdf = nt.nodes["Principled BSDF"]
+    obj_info = nt.nodes.new("ShaderNodeObjectInfo")
+    nt.links.new(obj_info.outputs["Color"], bsdf.inputs["Base Color"])
+    bsdf.inputs["Metallic"].default_value = 0.55
+    bsdf.inputs["Roughness"].default_value = 0.28
+    return mat
 
 
 def make_body_material(name, metallic=0.7, roughness=0.15):
@@ -165,7 +224,7 @@ def _cone_dir(p0, p1, r0, r1, mat, verts=16):
     return o
 
 
-def _key_zs(top, bottom, n=10, power=1.25):
+def _key_zs(top, bottom, n=N_HOLES, power=1.25):
     """`n` key heights from `top` down to `bottom`, crowded at the top and
     spreading slightly toward the bell — real tone holes bunch up where the
     hand sits and open out down the bore. power=1 would space them evenly."""
@@ -176,7 +235,7 @@ def _key_zs(top, bottom, n=10, power=1.25):
 # Each returns (all_objs, body_objs): body_objs are the ones whose colour is
 # animated (glow); all_objs get parented to the seat empty for sway/lean.
 def build_clarinet(body_mat):
-    silver = make_solid("WWClarKey", SILVER, roughness=0.3, metallic=0.7)
+    silver = make_pad_material()
     body = [
         _cone(0.00, 0.16, 0.095, 0.055, body_mat),   # flared bell
         _cone(0.16, 1.45, 0.050, 0.042, body_mat),   # long body
@@ -184,22 +243,22 @@ def build_clarinet(body_mat):
     ]
     mp = _cone(1.60, 1.72, 0.026, 0.014, body_mat)   # mouthpiece
     body.append(mp)
-    keys = [_ball(0.035, z, 0.018, silver, y=-0.05, scale=(1, 0.5, 1))
-            for z in _key_zs(1.34, 0.30)]
-    return body + keys, body
+    holes = [_ball(0.035, z, 0.018, silver, y=-0.05, scale=(1, 0.5, 1))
+             for z in _key_zs(1.34, 0.30, n=N_HOLES)]
+    return body + holes, body, {"holes": holes, "hole_dir": (0.035, -0.05)}
 
 
 def build_oboe(body_mat):
-    silver = make_solid("WWOboeKey", SILVER, roughness=0.3, metallic=0.7)
+    silver = make_pad_material()
     reed = make_solid("WWReed", REED_CLR, roughness=0.6)
     body = [
         _cone(0.00, 0.14, 0.075, 0.045, body_mat),   # small bell
         _cone(0.14, 1.35, 0.030, 0.050, body_mat),   # conical body (widens upward)
     ]
     r = _cone(1.35, 1.50, 0.018, 0.006, reed)        # double-reed staple
-    keys = [_ball(0.032, z, 0.015, silver, y=-0.045, scale=(1, 0.5, 1))
-            for z in _key_zs(1.26, 0.26)]
-    return body + [r] + keys, body
+    holes = [_ball(0.032, z, 0.015, silver, y=-0.045, scale=(1, 0.5, 1))
+             for z in _key_zs(1.26, 0.26, n=N_HOLES)]
+    return body + [r] + holes, body, {"holes": holes, "hole_dir": (0.032, -0.045)}
 
 
 def build_bassoon(body_mat):
@@ -231,7 +290,11 @@ def build_bassoon(body_mat):
     bocal = _curve_tube([(0.07, 0.0, 1.68), (0.11, -0.05, 1.80),
                          (0.10, -0.13, 1.90), (0.02, -0.18, 1.95)], 0.009, metal)
     reed_o = _cone_dir((0.02, -0.18, 1.95), (-0.02, -0.21, 1.99), 0.008, 0.004, reed)
-    return body + [bell_ring, bocal, reed_o], body
+    # Nine tone holes down the wing joint, on the camera side of the bore.
+    holes = [_ball(bore_x + 0.045, z, 0.020, make_pad_material(), y=-0.052, scale=(1, 0.5, 1))
+             for z in _key_zs(1.58, 0.52, n=N_HOLES)]
+    return body + [bell_ring, bocal, reed_o] + holes, body,\
+        {"holes": holes, "hole_dir": (0.045, -0.052)}
 
 
 def build_horn(body_mat):
@@ -260,12 +323,21 @@ def build_horn(body_mat):
     mpc = _cone_dir((0.33, -0.06, 1.54), (0.34, -0.07, 1.66), 0.016, 0.032, silver)
     # Rotor valves threaded onto the innermost coil's lower arc, where a
     # player's left hand would sit — not hanging in the middle of the loop.
-    rotors = []
+    rotors, paddles = [], []
     for vx in (-0.11, 0.0, 0.11):
         vz = cz - math.sqrt(max(0.0, coil_r[-1] ** 2 - vx ** 2))
         rotors.append(_torus(vx, vz, 0.055, 0.030, silver))
+        # A paddle riding the rotor. The rotor itself is a torus, so turning
+        # it on its own axis is invisible; this orbits the rotor centre
+        # instead, and reads as the valve being thrown.
+        paddles.append(_ball(vx + 0.075, vz, 0.022, make_pad_material(),
+                             y=-0.035, scale=(1.6, 0.6, 1)))
     body = coils + [bell, lead]
-    return body + [mpc] + rotors, body
+    return body + [mpc] + rotors + paddles, body, {"rotors": paddles,
+                                                   "centres": [(vx, vz) for vx, vz in
+                                                               ((-0.11, cz - math.sqrt(max(0.0, coil_r[-1] ** 2 - 0.11 ** 2))),
+                                                                (0.0, cz - coil_r[-1]),
+                                                                (0.11, cz - math.sqrt(max(0.0, coil_r[-1] ** 2 - 0.11 ** 2))))]}
 
 
 BUILDERS = {'clarinet': build_clarinet, 'oboe': build_oboe,
@@ -301,7 +373,9 @@ def build_woodwinds(x0):
     for i, (sid, kind, voices, sx, sy, sc) in enumerate(SEATS_SPEC):
         before = set(bpy.data.objects)
         body_mat = metal_mat if kind in METAL_KINDS else wood_mat
-        all_objs, body_objs = BUILDERS[kind](body_mat)
+        built = BUILDERS[kind](body_mat)
+        all_objs, body_objs = built[0], built[1]
+        moving = built[2] if len(built) > 2 else {}
         for o in body_objs:
             o.color = (*BODY_CLR[kind], 1.0)
         # Parent everything to a base empty at the seat position; scale/rotate
@@ -318,11 +392,67 @@ def build_woodwinds(x0):
         for o in all_objs:
             if o.parent is None:
                 o.parent = empty
-        seats.append(dict(id=sid, kind=kind, voices=voices, empty=empty,
-                          body=body_objs, sway_freq=SWAY_FREQS[i],
-                          sway_phase=SWAY_PHASES[i], sway_env=0.0,
-                          base_roll=roll))
+        seat = dict(id=sid, kind=kind, voices=voices, empty=empty,
+                    body=body_objs, sway_freq=SWAY_FREQS[i],
+                    sway_phase=SWAY_PHASES[i], sway_env=0.0,
+                    base_roll=roll)
+        _arm_fingering(seat, moving)
+        seats.append(seat)
     return dict(seats=seats)
+
+
+def _arm_fingering(seat, moving):
+    """Record what a seat needs to show its pitch: each pad's rest position
+    and the direction it lifts, or each rotor paddle's centre of swing.
+    Seats whose builder offers neither simply keep glowing and swaying."""
+    holes = moving.get("holes")
+    if holes:
+        dx, dy = moving.get("hole_dir", (1.0, 0.0))
+        n = math.hypot(dx, dy) or 1.0
+        seat["holes"] = [(o, tuple(o.location), (dx / n, dy / n)) for o in holes]
+        for o in holes:
+            o.color = (*HOLE_COVERED_CLR, 1.0)
+    rotors = moving.get("rotors")
+    if rotors:
+        seat["rotors"] = [(o, tuple(o.location), c)
+                          for o, c in zip(rotors, moving["centres"])]
+        for o in rotors:
+            o.color = (*HOLE_OPEN_CLR, 1.0)
+
+
+def apply_fingering(seat, cents):
+    """Put the pads (or the rotor paddles) where this pitch says they go.
+
+    A section with a different mechanism — brass valves, a trombone slide —
+    hands in its own closure instead, so its geometry stays in its own
+    module while this shared driver still runs it once per frame."""
+    if cents is None:
+        return
+    own = seat.get("fingering")
+    if own:
+        own(cents)
+        return
+    states = hole_states(hole_coverage(cents))
+    for i, (obj, rest, (dx, dy)) in enumerate(seat.get("holes", [])):
+        open_frac = 1.0 - states[i]          # 0 covered, 1 wide open
+        obj.location = (rest[0] + dx * HOLE_LIFT * open_frac,
+                        rest[1] + dy * HOLE_LIFT * open_frac,
+                        rest[2])
+        obj.color = (*(c + open_frac * (o - c) for c, o in
+                       zip(HOLE_COVERED_CLR, HOLE_OPEN_CLR)), 1.0)
+    # The horn has three rotors, not nine holes: the same coverage drives
+    # how far round each paddle has swung, thirds of the octave apiece.
+    rotors = seat.get("rotors", [])
+    if rotors:
+        pc = (cents % 1200.0) / 100.0
+        for i, (obj, rest, (cx, cz)) in enumerate(rotors):
+            throw = min(1.0, max(0.0, pc / 4.0 - i))
+            a = math.radians(ROTOR_SWING_DEG) * throw
+            rx, rz = rest[0] - cx, rest[2] - cz
+            obj.location = (cx + rx * math.cos(a) - rz * math.sin(a), rest[1],
+                            cz + rx * math.sin(a) + rz * math.cos(a))
+            obj.color = (*(o + throw * (c - o) for c, o in
+                           zip(HOLE_COVERED_CLR, HOLE_OPEN_CLR)), 1.0)
 
 
 # ── notes + animation ────────────────────────────────────────────────────────
@@ -336,10 +466,18 @@ def load_seat_notes(npy, tempo, seats):
 
 
 def _seat_state(t, notes):
+    """(glow, playing, last_off, cents) for one seat at time t.
+
+    cents is the pitch of the note sounding now, or of the last one that
+    sounded — a rest holds the fingering rather than flapping every pad open,
+    which is both what a player does and much calmer to look at."""
     glow, playing, last_off = 0.0, False, -999.0
+    cents, latest = None, -1e9
     for row in notes:
         onset, dur = row[0], row[2]
         end = onset + dur
+        if onset <= t and onset >= latest:
+            latest, cents = onset, float(row[1])
         if onset <= t <= end:
             playing = True
             glow = 1.0
@@ -348,7 +486,7 @@ def _seat_state(t, notes):
             if decay < 1.0:
                 glow = max(glow, 1.0 - decay)
             last_off = max(last_off, end)
-    return glow, playing, last_off
+    return glow, playing, last_off, cents
 
 
 def update_wind_seats(t, seats, seat_note_sets, body_clr, glow_clr, lean_deg,
@@ -360,7 +498,8 @@ def update_wind_seats(t, seats, seat_note_sets, body_clr, glow_clr, lean_deg,
     lean_alpha = 1.0 - math.exp(-(1.0 / FPS) / LEAN_TAU)
     for s in seats:
         s.setdefault('lean_state', 0.0)
-        glow, playing, last_off = _seat_state(t, seat_note_sets[s['id']])
+        glow, playing, last_off, cents = _seat_state(t, seat_note_sets[s['id']])
+        apply_fingering(s, cents)
 
         # sway envelope (fade in when playing, out when silent). A seat can
         # override the amplitude (e.g. the vibraphone sets it to 0 — a struck

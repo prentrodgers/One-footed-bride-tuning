@@ -45,6 +45,30 @@ SWAY_AMP_DEG = 0.5   # ~10% of the old ±5° — a faint breath, not a big idle 
 SWAY_FREQS = [0.24, 0.21, 0.27, 0.255]
 SWAY_PHASES = [0.5, 1.7, 0.0, 2.1]
 
+# ── showing pitch, not just "sounding" ──────────────────────────────────────
+# Same problem the woodwinds had: glow and sway say WHEN, never WHAT. Brass
+# has no tone holes, so the pitch class is spelled by the mechanism each
+# instrument actually has.
+#
+#   valves   the three (four, on the tuba) pistons go down in turn as the
+#            pitch class rises — a thermometer, not a real fingering chart.
+#            All up is C; all down is the top of the octave.
+#   slide    the trombone's outer slide runs out as the pitch class rises,
+#            closed at C. A real player moves it the other way (further out
+#            is LOWER), but reversing it here keeps the travel monotonic, so
+#            a rising line reads as one continuous movement instead of
+#            snapping back to first position every semitone.
+#
+# Both are continuous in cents, so a note between two semitones sits between
+# two positions — which is the point, in this tuning.
+# The travel alone is a handful of pixels at stage framing, so a pressed
+# piston also darkens — the same language the woodwind pads use, where dark
+# means "this one is down".
+VALVE_TRAVEL = 0.040     # m a piston sinks when fully pressed
+VALVE_UP_CLR = (0.93, 0.94, 0.97)
+VALVE_DOWN_CLR = (0.07, 0.065, 0.06)
+SLIDE_TRAVEL = 0.45      # m from closed to fully out
+
 
 def _tube(p0, p1, r0, r1, mat, verts=16):
     """A (possibly tapered) tube between two arbitrary 3D points."""
@@ -89,6 +113,37 @@ def _uloop(a, b, bulge, radius, mat, n=12):
 
 # ── the three brass instruments (built held-up at ~player height) ─────────────
 # All bores run along X so the recognisable side profile faces the camera.
+def valve_throws(cents, n):
+    """How far each of `n` pistons is pressed, 0..1, first one first."""
+    total = ((cents % 1200.0) / 1200.0) * n
+    return [min(1.0, max(0.0, total - i)) for i in range(n)]
+
+
+def arm_pitch_mechanism(seat, moving):
+    """Give a seat the closure that shows its pitch — pistons or slide."""
+    if moving.get("valves"):
+        objs = moving["valves"]
+        rest = [tuple(o.location) for o in objs]
+
+        def press(cents, objs=objs, rest=rest):
+            for o, r, d in zip(objs, rest, valve_throws(cents, len(objs))):
+                o.location = (r[0], r[1], r[2] - VALVE_TRAVEL * d)
+                o.color = (*(u + d * (dn - u) for u, dn in
+                             zip(VALVE_UP_CLR, VALVE_DOWN_CLR)), 1.0)
+        seat["fingering"] = press
+        for o in objs:
+            o.color = (*VALVE_UP_CLR, 1.0)
+    elif moving.get("slide"):
+        objs = moving["slide"]
+        rest = [tuple(o.location) for o in objs]
+
+        def extend(cents, objs=objs, rest=rest):
+            out = SLIDE_TRAVEL * ((cents % 1200.0) / 1200.0)
+            for o, r in zip(objs, rest):
+                o.location = (r[0] + out, r[1], r[2])
+        seat["fingering"] = extend
+
+
 def build_trumpet(body_mat):
     silver = ww.make_solid("BrTrpValve", SILVER, roughness=0.3, metallic=0.8)
     mpc_mat = ww.make_solid("BrTrpMpc", (0.72, 0.73, 0.75), roughness=0.3, metallic=0.7)
@@ -99,7 +154,7 @@ def build_trumpet(body_mat):
     mpc = ww._ball(-0.55, z, 0.032, mpc_mat, scale=(1.4, 1.0, 1.0))
     # Three valve casings up + finger buttons.
     valves = [_tube((x, 0.0, z + 0.01), (x, 0.0, z + 0.21), 0.026, 0.026, silver) for x in vx]
-    buttons = [ww._ball(x, z + 0.235, 0.03, silver) for x in vx]
+    buttons = [ww._ball(x, z + 0.235, 0.03, ww.make_pad_material()) for x in vx]
     # Valve slides — the little U-loops hanging DOWN below each valve ("bottom
     # coils"): pressing a valve routes air through these to lengthen the tube.
     vslides = [_uloop((x - 0.022, 0.0, z), (x + 0.022, 0.0, z), (0.0, 0.0, -0.17), 0.018, body_mat)
@@ -112,7 +167,7 @@ def build_trumpet(body_mat):
     # body = every brass-coloured (glowing) part; extras keep fixed materials
     body = [bore, bell_tube, bell, tuning] + vslides
     extras = valves + buttons + [mpc]
-    return body + extras, body
+    return body + extras, body, {"valves": buttons}
 
 
 def build_trombone(body_mat):
@@ -132,9 +187,14 @@ def build_trombone(body_mat):
     bell = _tube((0.45, 0.0, z + 0.22), (0.86, 0.0, z + 0.20), 0.05, 0.21, body_mat, verts=26)
     braces = [_tube((0.15, 0.0, z + 0.045), (0.15, 0.0, z + 0.235), 0.008, 0.008, body_mat),
               _tube((0.55, 0.0, z + 0.045), (0.55, 0.0, z + 0.19), 0.008, 0.008, body_mat)]
+    # Inner slide: the short fixed stubs the outer slide runs out along. The
+    # outer slide used to start flush against the bell section, so extending
+    # it would have torn a hole in the instrument.
+    inner = [_tube((-0.05, 0.0, z + 0.045), (0.62, 0.0, z + 0.045), 0.014, 0.014, slide),
+             _tube((-0.05, 0.0, z - 0.045), (0.62, 0.0, z - 0.045), 0.014, 0.014, slide)]
     body = [up, tuning, bell_tube, bell] + braces
-    extras = [sl_a, sl_b, crook, mpc]
-    return body + extras, body
+    extras = [sl_a, sl_b, crook, mpc] + inner
+    return body + extras, body, {"slide": [sl_a, sl_b, crook]}
 
 
 def build_tuba(body_mat):
@@ -164,14 +224,14 @@ def build_tuba(body_mat):
     valves, buttons = [], []
     for vx in (cx - 0.02, cx + 0.08, cx + 0.18, cx + 0.28):
         valves.append(_tube((vx, -0.05, cz + 0.10), (vx, -0.05, cz + 0.34), 0.028, 0.028, silver))
-        buttons.append(ww._ball(vx, cz + 0.365, 0.032, silver, y=-0.05))
+        buttons.append(ww._ball(vx, cz + 0.365, 0.032, ww.make_pad_material(), y=-0.05))
     # Leadpipe curving from an upper-right mouthpiece down to the valves.
     lead = _curve_tube([(0.46, -0.06, 1.18), (0.40, -0.05, 1.02),
                         (0.34, -0.04, 0.90), (cx + 0.28, -0.05, cz + 0.30)], 0.022, body_mat)
     mpc = ww._ball(0.48, 1.20, 0.032, mpc_mat, scale=(1.2, 1.0, 1.0), y=-0.06)
     body = [main, bell_neck, bell, lead] + vtubes
     extras = valves + buttons + [mpc]
-    return body + extras, body
+    return body + extras, body, {"valves": buttons}
 
 
 BUILDERS = {'trumpet': build_trumpet, 'trombone': build_trombone, 'tuba': build_tuba}
@@ -196,7 +256,9 @@ def build_brass(x0):
     body_mat = ww.make_body_material("BrBody")
     seats = []
     for i, (sid, kind, voices, sx, sy, sc) in enumerate(SEATS_SPEC):
-        all_objs, body_objs = BUILDERS[kind](body_mat)
+        built = BUILDERS[kind](body_mat)
+        all_objs, body_objs = built[0], built[1]
+        moving = built[2] if len(built) > 2 else {}
         for o in body_objs:
             o.color = (*BODY_CLR[kind], 1.0)
         empty = bpy.data.objects.new(f"brass_{sid}", None)
@@ -206,9 +268,11 @@ def build_brass(x0):
         for o in all_objs:
             if o.parent is None:
                 o.parent = empty
-        seats.append(dict(id=sid, kind=kind, voices=voices, empty=empty,
-                          body=body_objs, sway_freq=SWAY_FREQS[i],
-                          sway_phase=SWAY_PHASES[i], sway_env=0.0))
+        seat = dict(id=sid, kind=kind, voices=voices, empty=empty,
+                    body=body_objs, sway_freq=SWAY_FREQS[i],
+                    sway_phase=SWAY_PHASES[i], sway_env=0.0)
+        arm_pitch_mechanism(seat, moving)
+        seats.append(seat)
     return dict(seats=seats)
 
 

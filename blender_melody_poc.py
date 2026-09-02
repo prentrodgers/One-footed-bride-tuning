@@ -148,7 +148,9 @@ def build_melody(x0):
         # Silver flute, aluminium vibraphone bars and brass trumpet take the
         # metal response; the clarinet, oboe and bassoon are wood.
         body_mat = metal_mat if kind in ww.METAL_KINDS else wood_mat
-        all_objs, body_objs = BUILDERS[kind](body_mat)
+        built = BUILDERS[kind](body_mat)
+        all_objs, body_objs = built[0], built[1]
+        moving = built[2] if len(built) > 2 else {}
         for o in body_objs:
             o.color = (*BODY_CLR[kind], 1.0)
         empty = bpy.data.objects.new(f"mel_{sid}", None)
@@ -162,6 +164,13 @@ def build_melody(x0):
         seat = dict(id=sid, kind=kind, voice=voice, empty=empty, body=body_objs,
                     sway_freq=SWAY_FREQS[i], sway_phase=SWAY_PHASES[i],
                     sway_env=0.0, base_roll=roll)
+        # These are the woodwind and brass builders, so the same pitch
+        # mechanisms come free here — and this is the front row, where they
+        # are most likely to be seen.
+        if moving.get("valves") or moving.get("slide"):
+            brass.arm_pitch_mechanism(seat, moving)
+        else:
+            ww._arm_fingering(seat, moving)
         if kind == 'vibraphone':
             seat['sway_amp'] = 0.0   # struck instrument — no tilt, no rock
         seats.append(seat)
