@@ -363,6 +363,15 @@ FOLLOW_CONE_MARGIN = 1.4              # cone spread relative to the shot's size
 # sway, so it says nothing about why you are hearing what you hear. Weights
 # apply to a section and to every player in it; an exact name wins over its
 # section, which is how the vibraphone is singled out of the melody row.
+# What a section has to SHOW, which is not the same as how loud it is. The
+# generator weights its picks by this, so a 3.0 section comes up three times
+# as often as a 1.0 one.
+#
+# brass and woodwind were 1.0 while all they did was glow and sway. Now that
+# their tone holes, pistons and slide spell out the pitch class (see
+# blender_woodwind_poc.hole_coverage and blender_brass_poc.valve_throws),
+# they have as much to say as anything except the mallet instruments, and
+# they are raised to 2.0 to match.
 VISUAL_INTEREST = {
     "pizz": 3.0,            # plucking and martele bowing
     "bowed_strings": 3.0,   # sustained bows travelling the string
@@ -370,6 +379,8 @@ VISUAL_INTEREST = {
     "bass": 3.0,            # baritone guitar + finger-piano tines
     "finger_piano": 3.0,
     "melody.vibraphone": 3.0,
+    "brass": 2.0,           # pistons and the trombone slide, since 9/2/26
+    "woodwind": 2.0,        # nine tone holes apiece, since 9/2/26
 }
 DEFAULT_INTEREST = 1.0
 
