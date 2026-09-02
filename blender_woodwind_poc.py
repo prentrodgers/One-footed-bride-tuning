@@ -73,15 +73,17 @@ GLOW_DECAY = 0.55
 # throws the tuning away.
 N_HOLES = 9
 HOLE_QUANTIZE = False
-# The lift alone is only a few pixels at stage framing, so coverage is shown
-# twice over: the pad rises off the body AND changes colour. Dark is a finger
-# down on the hole, bright is the hole standing open — which reads at any
-# distance, where the movement does not.
-HOLE_LIFT = 0.045        # m a pad rises off the body when its hole opens
-HOLE_COVERED_CLR = (0.06, 0.055, 0.05)    # finger down
-HOLE_OPEN_CLR = (0.93, 0.94, 0.97)        # open hole
-# The horn has rotors, not holes: its three valve paddles swing instead.
-ROTOR_SWING_DEG = 42.0
+# Coverage is shown by COLOUR ALONE, with every pad fixed to the body. An
+# earlier version also lifted the open pads clear of the instrument, which
+# read as loose beads floating beside it rather than as holes: the eye lost
+# track of which dot was which. Held still, the same nine dots simply darken
+# and brighten in place, and the fingering is legible as a pattern.
+HOLE_COVERED_CLR = (0.06, 0.055, 0.05)    # finger down on the hole
+HOLE_OPEN_CLR = (0.93, 0.94, 0.97)        # hole standing open
+# The horn has three rotors rather than nine holes, so it shows the same
+# thing at coarser resolution: one dot per rotor, dark when that valve is
+# thrown. They used to swing round the rotor as well, which at stage framing
+# just smeared into the coiled tubing behind them.
 PLAY_LEAN_DEG = {'clarinet': 7.0, 'oboe': 7.0, 'horn': 10.0, 'bassoon': 6.0}
 PLAY_RELAX_T = 0.5
 # Sway is deliberately tiny now (~10% of the old ±5.6°) and fades out fast
@@ -245,7 +247,7 @@ def build_clarinet(body_mat):
     body.append(mp)
     holes = [_ball(0.035, z, 0.018, silver, y=-0.05, scale=(1, 0.5, 1))
              for z in _key_zs(1.34, 0.30, n=N_HOLES)]
-    return body + holes, body, {"holes": holes, "hole_dir": (0.035, -0.05)}
+    return body + holes, body, {"holes": holes}
 
 
 def build_oboe(body_mat):
@@ -258,7 +260,7 @@ def build_oboe(body_mat):
     r = _cone(1.35, 1.50, 0.018, 0.006, reed)        # double-reed staple
     holes = [_ball(0.032, z, 0.015, silver, y=-0.045, scale=(1, 0.5, 1))
              for z in _key_zs(1.26, 0.26, n=N_HOLES)]
-    return body + [r] + holes, body, {"holes": holes, "hole_dir": (0.032, -0.045)}
+    return body + [r] + holes, body, {"holes": holes}
 
 
 def build_bassoon(body_mat):
@@ -293,8 +295,7 @@ def build_bassoon(body_mat):
     # Nine tone holes down the wing joint, on the camera side of the bore.
     holes = [_ball(bore_x + 0.045, z, 0.020, make_pad_material(), y=-0.052, scale=(1, 0.5, 1))
              for z in _key_zs(1.58, 0.52, n=N_HOLES)]
-    return body + [bell_ring, bocal, reed_o] + holes, body,\
-        {"holes": holes, "hole_dir": (0.045, -0.052)}
+    return body + [bell_ring, bocal, reed_o] + holes, body, {"holes": holes}
 
 
 def build_horn(body_mat):
@@ -323,21 +324,19 @@ def build_horn(body_mat):
     mpc = _cone_dir((0.33, -0.06, 1.54), (0.34, -0.07, 1.66), 0.016, 0.032, silver)
     # Rotor valves threaded onto the innermost coil's lower arc, where a
     # player's left hand would sit — not hanging in the middle of the loop.
+    # Three rotors, spread wide along the lower arc of the inner coil. They
+    # used to sit at ±0.11 with fat 0.030 rings, which at stage framing piled
+    # into one blob of overlapping tubing; spread to ±0.17 with thinner rings
+    # they read as three separate valves, and the indicator disc in each one
+    # stands proud of the coil rather than tangling with it.
     rotors, paddles = [], []
-    for vx in (-0.11, 0.0, 0.11):
+    for vx in (-0.17, 0.0, 0.17):
         vz = cz - math.sqrt(max(0.0, coil_r[-1] ** 2 - vx ** 2))
-        rotors.append(_torus(vx, vz, 0.055, 0.030, silver))
-        # A paddle riding the rotor. The rotor itself is a torus, so turning
-        # it on its own axis is invisible; this orbits the rotor centre
-        # instead, and reads as the valve being thrown.
-        paddles.append(_ball(vx + 0.075, vz, 0.022, make_pad_material(),
-                             y=-0.035, scale=(1.6, 0.6, 1)))
+        rotors.append(_torus(vx, vz, 0.058, 0.020, silver))
+        paddles.append(_ball(vx, vz, 0.045, make_pad_material(), y=-0.085,
+                             scale=(1, 0.45, 1)))
     body = coils + [bell, lead]
-    return body + [mpc] + rotors + paddles, body, {"rotors": paddles,
-                                                   "centres": [(vx, vz) for vx, vz in
-                                                               ((-0.11, cz - math.sqrt(max(0.0, coil_r[-1] ** 2 - 0.11 ** 2))),
-                                                                (0.0, cz - coil_r[-1]),
-                                                                (0.11, cz - math.sqrt(max(0.0, coil_r[-1] ** 2 - 0.11 ** 2))))]}
+    return body + [mpc] + rotors + paddles, body, {"rotors": paddles}
 
 
 BUILDERS = {'clarinet': build_clarinet, 'oboe': build_oboe,
@@ -407,15 +406,12 @@ def _arm_fingering(seat, moving):
     Seats whose builder offers neither simply keep glowing and swaying."""
     holes = moving.get("holes")
     if holes:
-        dx, dy = moving.get("hole_dir", (1.0, 0.0))
-        n = math.hypot(dx, dy) or 1.0
-        seat["holes"] = [(o, tuple(o.location), (dx / n, dy / n)) for o in holes]
+        seat["holes"] = list(holes)
         for o in holes:
             o.color = (*HOLE_COVERED_CLR, 1.0)
     rotors = moving.get("rotors")
     if rotors:
-        seat["rotors"] = [(o, tuple(o.location), c)
-                          for o, c in zip(rotors, moving["centres"])]
+        seat["rotors"] = list(rotors)
         for o in rotors:
             o.color = (*HOLE_OPEN_CLR, 1.0)
 
@@ -433,26 +429,17 @@ def apply_fingering(seat, cents):
         own(cents)
         return
     states = hole_states(hole_coverage(cents))
-    for i, (obj, rest, (dx, dy)) in enumerate(seat.get("holes", [])):
+    for i, obj in enumerate(seat.get("holes", [])):
         open_frac = 1.0 - states[i]          # 0 covered, 1 wide open
-        obj.location = (rest[0] + dx * HOLE_LIFT * open_frac,
-                        rest[1] + dy * HOLE_LIFT * open_frac,
-                        rest[2])
         obj.color = (*(c + open_frac * (o - c) for c, o in
                        zip(HOLE_COVERED_CLR, HOLE_OPEN_CLR)), 1.0)
     # The horn has three rotors, not nine holes: the same coverage drives
     # how far round each paddle has swung, thirds of the octave apiece.
-    rotors = seat.get("rotors", [])
-    if rotors:
-        pc = (cents % 1200.0) / 100.0
-        for i, (obj, rest, (cx, cz)) in enumerate(rotors):
-            throw = min(1.0, max(0.0, pc / 4.0 - i))
-            a = math.radians(ROTOR_SWING_DEG) * throw
-            rx, rz = rest[0] - cx, rest[2] - cz
-            obj.location = (cx + rx * math.cos(a) - rz * math.sin(a), rest[1],
-                            cz + rx * math.sin(a) + rz * math.cos(a))
-            obj.color = (*(o + throw * (c - o) for c, o in
-                           zip(HOLE_COVERED_CLR, HOLE_OPEN_CLR)), 1.0)
+    pc = (cents % 1200.0) / 100.0
+    for i, obj in enumerate(seat.get("rotors", [])):
+        throw = min(1.0, max(0.0, pc / 4.0 - i))     # a third of the octave each
+        obj.color = (*(o + throw * (c - o) for c, o in
+                       zip(HOLE_COVERED_CLR, HOLE_OPEN_CLR)), 1.0)
 
 
 # ── notes + animation ────────────────────────────────────────────────────────
