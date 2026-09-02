@@ -1,5 +1,5 @@
 {
- "dumped": "Sep 02 10:53:48",
+ "dumped": "Sep 02 16:38:19",
  "cue_count": 1,
  "targets": {
   "bass": [
@@ -639,29 +639,44 @@
   },
   {
    "t": 126.66,
-   "move": 2.5,
+   "move": 0.0,
    "focus": [
-    "bass.fp_group",
-    "bass.guitar"
+    "bowed_strings.viola",
+    "bowed_strings.violin_i"
    ]
   },
   {
    "t": 138.46,
    "move": 0.0,
    "focus": [
-    "bass",
-    "finger_piano"
+    "brass"
    ]
   },
   {
-   "t": 149.96,
+   "t": 148.87,
+   "move": 0.0,
+   "focus": [
+    "wide"
+   ]
+  },
+  {
+   "t": 159.46,
    "move": 2.5,
    "focus": [
+    "bowed_strings",
     "finger_piano"
    ]
   },
   {
-   "t": 160.72,
+   "t": 173.25,
+   "move": 0.0,
+   "focus": [
+    "pizz.viola",
+    "pizz.martele"
+   ]
+  },
+  {
+   "t": 186.59,
    "move": 0.0,
    "focus": [
     "overhead",
@@ -670,59 +685,36 @@
    ]
   },
   {
-   "t": 174.07,
+   "t": 199.56,
    "move": 0.0,
    "focus": [
-    "bowed_strings.violin_i",
-    "bowed_strings.violin_ii"
+    "woodwind.horn"
    ]
   },
   {
-   "t": 188.44,
-   "move": 2.5,
-   "focus": [
-    "bass.guitar"
-   ]
-  },
-  {
-   "t": 202.43,
+   "t": 213.76,
    "move": 0.0,
    "focus": [
-    "wide"
+    "woodwind.bassoon"
    ]
   },
   {
-   "t": 213.78,
+   "t": 227.08,
    "move": 0.0,
    "focus": [
     "brass"
    ]
   },
   {
-   "t": 224.1,
-   "move": 2.5,
+   "t": 241.79,
+   "move": 0.0,
    "focus": [
-    "marimba",
+    "bowed_strings",
     "conductor"
    ]
   },
   {
-   "t": 235.88,
-   "move": 0.0,
-   "focus": [
-    "pizz.violin",
-    "pizz.martele"
-   ]
-  },
-  {
-   "t": 247.32,
-   "move": 0.0,
-   "focus": [
-    "bowed_strings.cello"
-   ]
-  },
-  {
-   "t": 259.8,
+   "t": 254.25,
    "move": 2.5,
    "focus": [
     "woodwind.oboe",
@@ -730,11 +722,19 @@
    ]
   },
   {
-   "t": 271.19,
+   "t": 266.24,
    "move": 0.0,
    "focus": [
-    "bowed_strings",
-    "brass"
+    "wide"
+   ]
+  },
+  {
+   "t": 278.25,
+   "move": 0.0,
+   "focus": [
+    "overhead",
+    "marimba",
+    "finger_piano"
    ]
   }
  ]
