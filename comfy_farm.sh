@@ -83,7 +83,8 @@ echo "restyle: $TOTAL frames over $N ComfyUI workers"
 i=0; lo=$START
 for row in "${W[@]}"; do
   name=${row%%$'\t'*}; ip=${row##*$'\t'}
-  share=$(( (TOTAL + N - 1 - i) / (N - i) ))
+  remaining=$(( END - lo + 1 ))
+  share=$(( (remaining + (N - i) - 1) / (N - i) ))
   hi=$(( lo + share - 1 )); [ $hi -gt "$END" ] && hi=$END
   printf "  %-4s %-15s frames %6d..%-6d (%d)\n" "$name" "$ip" "$lo" "$hi" "$share"
   kubectl -n "$POD_NS" exec "$POD" -c pod-ssh -- bash -c "
