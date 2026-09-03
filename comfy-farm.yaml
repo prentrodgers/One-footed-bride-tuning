@@ -1,0 +1,167 @@
+# ComfyUI render workers — one per GPU, cloned from the comfyui deployment.
+# Each pins to a node; on fs5, where two B70s share the box, ONEAPI_DEVICE_SELECTOR
+# gives each pod its own card.
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: comfyui-w1
+  namespace: vllm
+  labels: {app: comfyui-farm, worker: "w1"}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: comfyui-farm, worker: "w1"}}
+  template:
+    metadata:
+      labels: {app: comfyui-farm, worker: "w1"}
+    spec:
+      nodeSelector: {kubernetes.io/hostname: fs5}
+      volumes:
+        - {name: pvc, persistentVolumeClaim: {claimName: vllm-pvc}}
+        - {name: dri, hostPath: {path: /dev/dri, type: Directory}}
+        - {name: dshm, emptyDir: {medium: Memory, sizeLimit: 8Gi}}
+      containers:
+        - name: comfyui
+          image: docker.io/intel/llm-scaler-omni:0.2.0-b1
+          imagePullPolicy: IfNotPresent
+          workingDir: /llm/ComfyUI
+          command: ["python"]
+          args: ["main.py", "--listen", "0.0.0.0", "--enable-manager"]
+          securityContext: {privileged: true}
+          ports: [{containerPort: 8188}]
+          env:
+            - {name: ONEAPI_DEVICE_SELECTOR, value: "level_zero:1"}
+            - {name: http_proxy, value: ""}
+            - {name: https_proxy, value: ""}
+          resources:
+            requests: {cpu: "2", memory: 4Gi}
+            limits: {cpu: "16", memory: 16Gi}
+          volumeMounts:
+            - {name: pvc, mountPath: /llm/ComfyUI/models, subPath: comfyui-models}
+            - {name: pvc, mountPath: /llm/ComfyUI/output, subPath: comfyui-output}
+            - {name: pvc, mountPath: /llm/ComfyUI/input,  subPath: comfyui-input}
+            - {name: dri, mountPath: /dev/dri}
+            - {name: dshm, mountPath: /dev/shm}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: comfyui-w2
+  namespace: vllm
+  labels: {app: comfyui-farm, worker: "w2"}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: comfyui-farm, worker: "w2"}}
+  template:
+    metadata:
+      labels: {app: comfyui-farm, worker: "w2"}
+    spec:
+      nodeSelector: {kubernetes.io/hostname: fs6}
+      volumes:
+        - {name: pvc, persistentVolumeClaim: {claimName: vllm-pvc}}
+        - {name: dri, hostPath: {path: /dev/dri, type: Directory}}
+        - {name: dshm, emptyDir: {medium: Memory, sizeLimit: 8Gi}}
+      containers:
+        - name: comfyui
+          image: docker.io/intel/llm-scaler-omni:0.2.0-b1
+          imagePullPolicy: IfNotPresent
+          workingDir: /llm/ComfyUI
+          command: ["python"]
+          args: ["main.py", "--listen", "0.0.0.0", "--enable-manager"]
+          securityContext: {privileged: true}
+          ports: [{containerPort: 8188}]
+          env:
+
+            - {name: http_proxy, value: ""}
+            - {name: https_proxy, value: ""}
+          resources:
+            requests: {cpu: "2", memory: 4Gi}
+            limits: {cpu: "16", memory: 16Gi}
+          volumeMounts:
+            - {name: pvc, mountPath: /llm/ComfyUI/models, subPath: comfyui-models}
+            - {name: pvc, mountPath: /llm/ComfyUI/output, subPath: comfyui-output}
+            - {name: pvc, mountPath: /llm/ComfyUI/input,  subPath: comfyui-input}
+            - {name: dri, mountPath: /dev/dri}
+            - {name: dshm, mountPath: /dev/shm}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: comfyui-w3
+  namespace: vllm
+  labels: {app: comfyui-farm, worker: "w3"}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: comfyui-farm, worker: "w3"}}
+  template:
+    metadata:
+      labels: {app: comfyui-farm, worker: "w3"}
+    spec:
+      nodeSelector: {kubernetes.io/hostname: fs9}
+      volumes:
+        - {name: pvc, persistentVolumeClaim: {claimName: vllm-pvc}}
+        - {name: dri, hostPath: {path: /dev/dri, type: Directory}}
+        - {name: dshm, emptyDir: {medium: Memory, sizeLimit: 8Gi}}
+      containers:
+        - name: comfyui
+          image: docker.io/intel/llm-scaler-omni:0.2.0-b1
+          imagePullPolicy: IfNotPresent
+          workingDir: /llm/ComfyUI
+          command: ["python"]
+          args: ["main.py", "--listen", "0.0.0.0", "--enable-manager"]
+          securityContext: {privileged: true}
+          ports: [{containerPort: 8188}]
+          env:
+
+            - {name: http_proxy, value: ""}
+            - {name: https_proxy, value: ""}
+          resources:
+            requests: {cpu: "2", memory: 4Gi}
+            limits: {cpu: "16", memory: 16Gi}
+          volumeMounts:
+            - {name: pvc, mountPath: /llm/ComfyUI/models, subPath: comfyui-models}
+            - {name: pvc, mountPath: /llm/ComfyUI/output, subPath: comfyui-output}
+            - {name: pvc, mountPath: /llm/ComfyUI/input,  subPath: comfyui-input}
+            - {name: dri, mountPath: /dev/dri}
+            - {name: dshm, mountPath: /dev/shm}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: comfyui-w4
+  namespace: vllm
+  labels: {app: comfyui-farm, worker: "w4"}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: comfyui-farm, worker: "w4"}}
+  template:
+    metadata:
+      labels: {app: comfyui-farm, worker: "w4"}
+    spec:
+      nodeSelector: {kubernetes.io/hostname: fs3}
+      volumes:
+        - {name: pvc, persistentVolumeClaim: {claimName: vllm-pvc}}
+        - {name: dri, hostPath: {path: /dev/dri, type: Directory}}
+        - {name: dshm, emptyDir: {medium: Memory, sizeLimit: 8Gi}}
+      containers:
+        - name: comfyui
+          image: docker.io/intel/llm-scaler-omni:0.2.0-b1
+          imagePullPolicy: IfNotPresent
+          workingDir: /llm/ComfyUI
+          command: ["python"]
+          args: ["main.py", "--listen", "0.0.0.0", "--enable-manager"]
+          securityContext: {privileged: true}
+          ports: [{containerPort: 8188}]
+          env:
+
+            - {name: http_proxy, value: ""}
+            - {name: https_proxy, value: ""}
+          resources:
+            requests: {cpu: "2", memory: 4Gi}
+            limits: {cpu: "16", memory: 16Gi}
+          volumeMounts:
+            - {name: pvc, mountPath: /llm/ComfyUI/models, subPath: comfyui-models}
+            - {name: pvc, mountPath: /llm/ComfyUI/output, subPath: comfyui-output}
+            - {name: pvc, mountPath: /llm/ComfyUI/input,  subPath: comfyui-input}
+            - {name: dri, mountPath: /dev/dri}
+            - {name: dshm, mountPath: /dev/shm}

@@ -168,7 +168,8 @@ UNION_TYPE = "canny/lineart/anime_lineart/mlsd"
 
 
 def workflow(image_name, denoise, seed, prompt, negative, regions=(),
-             steps=20, cfg=6.5, scale=None, orig=None, control=None):
+             steps=20, cfg=6.5, scale=None, orig=None, control=None,
+             prefix="restyle"):
     """SDXL img2img graph in ComfyUI's /prompt API format.
 
     `scale` is (w, h) to resample the frame to before encoding. SDXL was
@@ -194,9 +195,13 @@ def workflow(image_name, denoise, seed, prompt, negative, regions=(),
                "inputs": {"text": negative, "clip": ["4", 1]}},
         "8":  {"class_type": "VAEDecode",
                "inputs": {"samples": ["3", 0], "vae": ["4", 2]}},
+        # The prefix is per-worker. Every ComfyUI instance mounts the SAME
+        # CephFS output directory and numbers its files from its own in-memory
+        # counter, so two workers both writing restyle_00001_.png will
+        # overwrite each other's frame between generation and fetch.
         "9":  {"class_type": "SaveImage",
                "inputs": {"images": ["13" if scale else "8", 0],
-                          "filename_prefix": "restyle"}},
+                          "filename_prefix": prefix}},
     }
     if scale:
         wf["11"] = {"class_type": "ImageScale",
@@ -247,6 +252,12 @@ def png_size(path):
     """(width, height) from the PNG's IHDR — no image library needed."""
     b = pathlib.Path(path).read_bytes()[16:24]
     return int.from_bytes(b[:4], "big"), int.from_bytes(b[4:], "big")
+
+
+def _frame_no(png):
+    """The frame number in frame_000123.png, or -1 if it has none."""
+    m = re.search(r"(\d+)", png.stem)
+    return int(m.group(1)) if m else -1
 
 
 def frame_time(png, fps=FPS):
@@ -300,8 +311,12 @@ def regions_for(layout, t, pad, strength, min_area,
     for n, b in named:
         r = {"text": LABELS[n], "box": b, "strength": strength}
         if sil is not None:
+            # Named per FRAME as well as per section: the workers share one
+            # ComfyUI input directory, so a bare mask_marimba.png from worker
+            # A would be overwritten by worker B's before A's job ran.
             r["mask"] = _mask_for(sil, b, size or sil.size,
-                                  pathlib.Path(mask_dir) / f"mask_{n}.png")
+                                  pathlib.Path(mask_dir) /
+                                  f"mask_{frame.stem}_{n}.png")
         out.append(r)
     return out
 
@@ -376,8 +391,17 @@ def run(wf):
 
 
 def main():
+    global SERVER
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--frames", default="stage_proto.png", help="input frame dir")
+    p.add_argument("--server", default=SERVER,
+                   help="ComfyUI base URL; one worker per GPU (see comfy_farm.sh)")
+    p.add_argument("--frame-start", type=int,
+                   help="first frame NUMBER to restyle (from the filename)")
+    p.add_argument("--frame-end", type=int, help="last frame number, inclusive")
+    p.add_argument("--prefix", default="restyle",
+                   help="SaveImage prefix; must differ per worker, since they "
+                        "share one output directory")
     p.add_argument("--out", default="styled_frames", help="output frame dir")
     p.add_argument("--every", type=int, default=1,
                    help="restyle every Nth frame (use a big N to preview)")
@@ -443,7 +467,14 @@ def main():
                    help="also write frame_NNNNNN.boxes.png showing the labels")
     a = p.parse_args()
 
-    frames = sorted(pathlib.Path(a.frames).glob("*.png"))[::a.every]
+    SERVER = a.server.rstrip("/")
+
+    frames = sorted(pathlib.Path(a.frames).glob("*.png"))
+    if a.frame_start is not None or a.frame_end is not None:
+        lo = a.frame_start if a.frame_start is not None else -1
+        hi = a.frame_end if a.frame_end is not None else 10 ** 9
+        frames = [f for f in frames if lo <= _frame_no(f) <= hi]
+    frames = frames[::a.every]
     if a.limit:
         frames = frames[:a.limit]
     if not frames:
@@ -488,7 +519,7 @@ def main():
             stage_boxes.overlay(f, out / f"{f.stem}.boxes.png", layout, t, a.pad)
         png = run(workflow(upload(f), a.denoise, a.seed, a.prompt, a.negative,
                            regions, steps=a.steps, scale=scale,
-                           orig=png_size(f), control=control))
+                           orig=png_size(f), control=control, prefix=a.prefix))
         dest.write_bytes(png)
         rate = (time.time() - t0) / i
         print(f"[{i}/{len(frames)}] {f.name}  {rate:.1f}s/frame  "
