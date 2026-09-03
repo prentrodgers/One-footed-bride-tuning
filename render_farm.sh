@@ -30,31 +30,41 @@
 # deadline exceeded" while a single pod was fine.
 #
 # Needs: kubectl context on this cluster, and the repo present on the PVC.
+# Anything else on the command line that starts with -- is passed straight
+# through to blender_stage.py, so a Cycles render is
+#   IMAGE=quay.io/prentrodgers/python-music:0.10 ./render_farm.sh ... --engine cycles
+# (0.10 is the first image with the Level Zero stack Cycles needs; 0.9 has
+# only Vulkan EEVEE, and blender_stage.py will say so and stop.)
 set -euo pipefail
 
 NS=default
-IMAGE=quay.io/prentrodgers/python-music:0.9
+IMAGE=${IMAGE:-quay.io/prentrodgers/python-music:0.9}
 PULL_SECRET=regcred
 REPO=/home/prent/Repos/One-footed-bride-tuning
 FPS=30
 RES_X=1280
 RES_Y=720
 
-# label   node  device-select  hide-device  seconds/frame
+# label   node  device-select  card-ordinal  seconds/frame
 #
 # The two B70s share a PCI id, so MESA_VK_DEVICE_SELECT cannot tell them
-# apart; each of those two pods hides the OTHER render node instead, with a
-# bind mount over /dev/null that only exists inside its own container.
+# apart, and Cycles would happily take both. Each pod therefore keeps ONE
+# render node and bind-mounts /dev/null over every other one, inside its own
+# container. The node to keep is found by PCI device id at pod start, not
+# named here: an earlier version named renderD129/renderD130, but on fs5
+# those are the iGPU and one B70 (the B70s are D128 and D130), so the pod
+# that "hid" D129 was hiding the iGPU and could see both cards. The
+# card-ordinal column says which matching card a pod takes, in sysfs order.
 WORKERS=(
-  "b70a   fs5  8086:e223  renderD130  1.701"
-  "b70b   fs5  8086:e223  renderD129  1.751"
+  "b70a   fs5  8086:e223  0           1.701"
+  "b70b   fs5  8086:e223  1           1.751"
   "b580f6 fs6  8086:e20b  -           1.651"
   "b580f9 fs9  8086:e20b  -           1.829"
   "b50f3  fs3  8086:e212  -           2.129"
 )
 
 STAGGER=${STAGGER:-45}
-NPY=""; TEMPO=""; DURATION=""; OUT=""; DRYRUN=0; ONLY=""
+NPY=""; TEMPO=""; DURATION=""; OUT=""; DRYRUN=0; ONLY=""; EXTRA=()
 while [ $# -gt 0 ]; do
   case "$1" in
     --npy) NPY=$2; shift 2;;
@@ -103,6 +113,10 @@ while [ $# -gt 0 ]; do
           done
       exit 0;;
     --stop) kubectl -n "$NS" delete po -l job=blender-farm --wait=false; exit 0;;
+    # Pass-through for blender_stage.py: the flag, plus its value if the next
+    # token is not itself a flag (--engine cycles, --samples 96, --cycles-hw-rt).
+    --*) EXTRA+=("$1"); shift
+         if [ $# -gt 0 ] && [[ "$1" != --* ]]; then EXTRA+=("$1"); shift; fi;;
     *) echo "unknown argument: $1" >&2; exit 2;;
   esac
 done
@@ -126,7 +140,7 @@ echo "render: $TOTAL frames over ${#WORKERS[@]} GPUs  ($(awk -v w="$total_w" 'BE
 
 start=0
 for i in "${!WORKERS[@]}"; do
-  read -r label node select hide rate <<<"${WORKERS[$i]}"
+  read -r label node select ordinal rate <<<"${WORKERS[$i]}"
   if [ "$i" -eq $((${#WORKERS[@]} - 1)) ]; then
     end=$((TOTAL - 1))
   else
@@ -137,11 +151,16 @@ for i in "${!WORKERS[@]}"; do
     start=$((end + 1))
     continue
   fi
-  printf "  %-7s %-4s %-11s frames %6d..%-6d (%d)\n" "$label" "$node" "$select" "$start" "$end" $((end - start + 1))
+  printf "  %-7s %-4s %-11s frames %6d..%-6d (%d)%s\n" "$label" "$node" "$select" "$start" "$end" $((end - start + 1)) \
+         "${EXTRA[*]:+  ${EXTRA[*]}}"
 
   if [ "$DRYRUN" -eq 0 ]; then
-    hide_cmd=""
-    [ "$hide" != "-" ] && hide_cmd="mount --bind /dev/null /dev/dri/$hide; "
+    # Keep the Nth render node whose PCI device id matches this worker's
+    # card; hide all the others (dGPU siblings and iGPUs alike). Runs inside
+    # the pod, where sysfs is the host's and /dev/dri is the passed-through
+    # directory, so the choice is made against what is actually there.
+    [ "$ordinal" = "-" ] && ordinal=0
+    hide_cmd="dev=0x${select#*:}; keep=''; n=0; for s in /sys/class/drm/renderD*; do [ \"\$(cat \$s/device/device)\" = \"\$dev\" ] || continue; [ \$n -eq $ordinal ] && keep=\$(basename \$s); n=\$((n+1)); done; [ -n \"\$keep\" ] || { echo \"[farm] no card \$dev ordinal $ordinal on this node\" >&2; exit 3; }; for d in /dev/dri/renderD*; do [ \"\$(basename \$d)\" = \"\$keep\" ] || mount --bind /dev/null \$d; done; echo \"[farm] rendering on \$keep\"; "
     kubectl apply -f - >/dev/null <<YAML
 apiVersion: v1
 kind: Pod
@@ -163,7 +182,7 @@ spec:
     args:
     - ${hide_cmd}cd $REPO && exec blender --background --gpu-backend vulkan
       --python blender_stage.py -- --npy $NPY --tempo $TEMPO --duration $DURATION
-      --res-x $RES_X --res-y $RES_Y --out $OUT --frame-start $start --frame-end $end
+      --res-x $RES_X --res-y $RES_Y --out $OUT --frame-start $start --frame-end $end ${EXTRA[*]:-}
     volumeMounts:
     - {name: ceph, mountPath: /home/prent}
     - {name: dri, mountPath: /dev/dri}
