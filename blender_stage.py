@@ -412,6 +412,39 @@ def _pick_eevee_engine():
     return bpy.context.scene.render.engine
 
 
+def _configure_engine(scene, args):
+    """The render engine enum for this run, with Cycles set up for the Intel
+    GPUs when asked for. Fails loudly rather than falling back to the CPU:
+    a CPU Cycles render on the farm would run for days without saying why."""
+    if args.engine != "cycles":
+        return _pick_eevee_engine()
+    prefs = bpy.context.preferences.addons["cycles"].preferences
+    try:
+        prefs.compute_device_type = "ONEAPI"
+    except TypeError:
+        raise SystemExit("[stage] this Blender has no oneAPI Cycles backend")
+    prefs.refresh_devices()
+    if hasattr(prefs, "use_oneapirt"):
+        prefs.use_oneapirt = bool(args.cycles_hw_rt)
+    chosen = []
+    for d in prefs.devices:
+        d.use = d.type == "ONEAPI" and args.gpu_name in d.name
+        if d.use:
+            chosen.append(d.name)
+    if not chosen:
+        seen = [f"{d.type}:{d.name}" for d in prefs.devices]
+        raise SystemExit(f"[stage] no oneAPI GPU matching {args.gpu_name!r} "
+                         f"— Cycles saw {seen}. Is the Level Zero stack "
+                         f"installed (python-music:0.10) and /dev/dri passed in?")
+    scene.cycles.device = "GPU"
+    scene.cycles.samples = args.samples
+    scene.cycles.use_denoising = True
+    scene.cycles.denoiser = "OPENIMAGEDENOISE"
+    print(f"[stage] Cycles on {chosen}, {args.samples} samples, "
+          f"{'hardware' if args.cycles_hw_rt else 'software'} ray tracing")
+    return "CYCLES"
+
+
 def parse_args():
     argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
     p = argparse.ArgumentParser()
@@ -427,6 +460,23 @@ def parse_args():
     p.add_argument("--mp4", default=None)
     p.add_argument("--res-x", type=int, default=1280)
     p.add_argument("--res-y", type=int, default=720)
+    # Which renderer. EEVEE is the default and what every render so far used.
+    # Cycles runs on the Intel GPUs through oneAPI — python-music:0.10 carries
+    # the Level Zero loader, Intel's driver and the hardware ray-tracing
+    # library it needs. Measured on a B70 at 1280x720, 64 samples + denoise:
+    # EEVEE 1.50 s/frame, Cycles 2.39 (software BVH), 2.95 (hardware RT). The
+    # hardware path loses on this scene because its per-frame BVH setup
+    # outweighs the tracing it saves; it should win once the geometry is
+    # richer, which is why it is a flag and not a fact.
+    p.add_argument("--engine", choices=("eevee", "cycles"), default="eevee")
+    p.add_argument("--samples", type=int, default=64,
+                   help="Cycles samples per pixel (denoised)")
+    p.add_argument("--cycles-hw-rt", action="store_true",
+                   help="use Intel's hardware ray tracing (Embree on GPU)")
+    # Substring of the device name Cycles should use. "Arc" matches the B70,
+    # B580 and B50 and skips the Arrow Lake iGPU, which shows up as plain
+    # "Intel(R) Graphics" and would otherwise be picked too.
+    p.add_argument("--gpu-name", default="Arc")
     # Render only part of the clip, so two Blender processes (one per GPU) can
     # split the work. Frame numbers and the animation clock stay absolute —
     # frame N is at t = N/FPS whichever process renders it — so both halves
@@ -1373,7 +1423,7 @@ def main():
     updates.append(lambda t: update_follow(follow, t, cues, targets))
 
     scene = bpy.context.scene
-    scene.render.engine = _pick_eevee_engine()
+    scene.render.engine = _configure_engine(scene, args)
     scene.render.resolution_x = args.res_x
     scene.render.resolution_y = args.res_y
     scene.render.fps = FPS

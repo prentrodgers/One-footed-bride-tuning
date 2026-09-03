@@ -1,14 +1,21 @@
-# Containerfile — python-music:0.9
-# Adds headless Blender 5.2.0 LTS + Intel Arc (Battlemage B70) GPU rendering,
-# relative to 0.7 (which added sox + libsox-fmt-mp3).
+# Containerfile — python-music:0.10
+# Adds Cycles-on-the-GPU (oneAPI / Level Zero) for Intel Arc, relative to 0.9
+# (which added headless Blender 5.2.0 LTS with Vulkan EEVEE).
 #
-# GPU rendering uses Blender's Vulkan backend (Intel ANV) against a passed-
-# through DRM render node — no Xvfb (that gives a software/CPU context). Two
-# things beyond this image are required and live in the pod YAML:
-#   1. pass a render node through: /dev/dri/renderD129 (hostPath CharDevice)
+# EEVEE uses Blender's Vulkan backend (Intel ANV); Cycles uses oneAPI over
+# Level Zero. Both talk to a passed-through DRM render node — no Xvfb (that
+# gives a software/CPU context). Two things beyond this image are required
+# and live in the pod YAML:
+#   1. pass the render nodes through (/dev/dri as hostPath, or the individual
+#      renderD* CharDevices)
 #   2. securityContext.privileged: true on the render container — otherwise
 #      the k8s device cgroup denies open() on the node with EPERM and Blender
 #      silently falls back to llvmpipe (software). This was THE blocker.
+# Node numbers are not stable across hosts or reboots — inside the pod on fs5
+# the two B70s were renderD128 and renderD130 and renderD129 was the Arrow
+# Lake iGPU (i915, 0x7d67). Select GPUs by identity, not by node: for EEVEE
+# MESA_VK_DEVICE_SELECT=8086:e223; for Cycles the device name in the Cycles
+# preferences, or ONEAPI_DEVICE_SELECTOR=level_zero:N to pin one card per pod.
 # Then render with the vulkan backend:
 #   blender --background --gpu-backend vulkan --python blender_stage.py -- \
 #       --npy bwv253_features_array.npy --tempo 110 --duration 49.0 \
@@ -30,6 +37,7 @@ RUN apt-get update && \
         libsox-fmt-mp3 \
         libstdc++6 \
         libgomp1 \
+        libtbb12 \
         libfreetype6 \
         libpng16-16 \
         fonts-dejavu-core \
@@ -58,10 +66,62 @@ RUN echo 'deb http://deb.debian.org/debian trixie-backports main' \
         mesa-vulkan-drivers libgl1-mesa-dri libglx-mesa0 libegl-mesa0 libgbm1 && \
     rm -rf /var/lib/apt/lists/*
 
-# NOTE: Cycles GPU rendering (oneAPI/Level-Zero) is NOT installed — this
-# image targets EEVEE, which only needs Mesa above. If you ever switch a
-# scene to Cycles-on-GPU, enable Debian contrib + non-free and add:
-# intel-opencl-icd intel-level-zero-gpu libze1  (they're not in main).
+# ── Cycles on the GPU: oneAPI / Level Zero ──────────────────────────────────
+# Blender 5.2 ships its whole oneAPI side (libsycl, the Level Zero adapter,
+# AOT-compiled Cycles kernels, even an OpenImageDenoise SYCL device). What it
+# does NOT ship is the system half: the Level Zero LOADER and Intel's GPU
+# DRIVER behind it.
+#
+# Debian trixie provides neither. The driver (intel-compute-runtime) is not
+# in the archive under any component — the old note here about contrib and
+# non-free was wrong. And trixie's loader, libze1 1.20.6, is too old: it
+# lacks zelSetDelayLoaderContextTeardown, which Blender's bundled adapter
+# imports, so the adapter fails to load and Cycles silently lists only the
+# CPU. (Diagnosed with UR_LOG_LOADER='level:debug;output:stdout'; Level Zero
+# itself saw both B70s the whole time.)
+#
+# So both halves come from Intel's GitHub releases, pinned. The .debs are
+# built for Ubuntu 24.04 and install cleanly on trixie (glibc 2.41 >= 2.39).
+# Fetched in the build, unlike the Blender tarball: ~105 MB all told, and a
+# release-tagged GitHub URL does not drift. Intel's libze1 carries the same
+# package name as Debian's, so it upgrades in place and nothing conflicts.
+# intel-opencl-icd is not needed by Cycles; it is here so `clinfo -l` can
+# confirm the driver sees the cards without involving Blender.
+#
+# The last piece is Intel's hardware ray-tracing library. Cycles on Arc runs
+# Embree on the GPU and refuses to start a oneAPI queue without it
+# ("Hardware Raytracing is not available; please install
+# intel-level-zero-gpu-raytracing"). It is not in the GitHub releases at all
+# — only in Intel's apt repository — so it is fetched straight from that
+# repository's pool. It needs libtbb12, which is in the apt list above.
+ARG CR_VER=26.31.39395.13
+ARG IGC_VER=2.40.13+22418
+ARG IGC_TAG=v2.40.13
+ARG GMM_VER=22.10.0
+ARG ZE_VER=1.32.0
+ARG RT_VER=1.1.0-97~u24.04
+RUN set -eu && cd /tmp && \
+    cr=https://github.com/intel/compute-runtime/releases/download/${CR_VER} && \
+    igc=https://github.com/intel/intel-graphics-compiler/releases/download/${IGC_TAG} && \
+    ze=https://github.com/oneapi-src/level-zero/releases/download/v${ZE_VER} && \
+    rt=https://repositories.intel.com/gpu/ubuntu/pool/unified/i/intel-level-zero-gpu-raytracing && \
+    curl -fsSLO ${ze}/libze1_${ZE_VER}+u24.04_amd64.deb && \
+    curl -fsSLO ${cr}/libigdgmm12_${GMM_VER}_amd64.deb && \
+    curl -fsSLO ${igc}/intel-igc-core-2_${IGC_VER}_amd64.deb && \
+    curl -fsSLO ${igc}/intel-igc-opencl-2_${IGC_VER}_amd64.deb && \
+    curl -fsSLO ${cr}/libze-intel-gpu1_${CR_VER}-0_amd64.deb && \
+    curl -fsSLO ${cr}/intel-opencl-icd_${CR_VER}-0_amd64.deb && \
+    curl -fsSLO ${rt}/intel-level-zero-gpu-raytracing_${RT_VER}_amd64.deb && \
+    apt-get update && apt-get install -y --no-install-recommends clinfo && \
+    dpkg -i ./*.deb && rm -f ./*.deb && ldconfig && \
+    rm -rf /var/lib/apt/lists/*
+
+# Blender's AOT kernel set did not cover Battlemage: the first Cycles render
+# on a B70 JIT-compiled ~180 MB of kernels (a couple of minutes), after which
+# it is fast. Keep what it builds. /tmp is per-pod, so a Job that wants the
+# cache to outlive the pod points SYCL_CACHE_DIR at the PVC in its YAML.
+ENV SYCL_CACHE_PERSISTENT=1 \
+    SYCL_CACHE_DIR=/tmp/sycl-cache
 
 # Blender 5.2.0 LTS. blender_stage.py picks its EEVEE engine enum at runtime
 # (see _pick_eevee_engine), so it tolerates the 5.1->5.2 version difference.
