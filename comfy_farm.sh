@@ -76,15 +76,32 @@ TOTAL=$((END - START + 1))
 N=${#W[@]}
 echo "restyle: $TOTAL frames over $N ComfyUI workers"
 
-# Even split. The GPUs are within a factor of two of each other and a restyle
-# frame costs far more than a Blender frame, so a measured-rate split like the
-# Blender farm's would be refining the wrong end; --progress shows the spread
-# and the slowest worker sets the finish.
+# Rate-weighted split. Unlike the Blender render, where every card lands
+# within 30% because the work is paced by Python, a restyle frame is pure GPU
+# and the spread is wide - measured on the marimba push-in, 1920x1088, denoise
+# 0.70, SDXL + union ControlNet:
+#
+#   w0 w1  fs5  B70    83 s/frame
+#   w2 w3  fs6/fs9  B580  130 s/frame
+#   w4     fs3  B50   120 s/frame
+#
+# An even split leaves the B70s idle for half an hour at the end of a
+# 309-frame shot. Weighting by 1/rate finishes them together.
+rate_of() { case "$1" in w0|w1) echo 83;; w4) echo 120;; *) echo 130;; esac; }
+WSUM=0
+for row in "${W[@]}"; do WSUM=$(( WSUM + 100000 / $(rate_of "${row%%$'\t'*}") )); done
+
 i=0; lo=$START
 for row in "${W[@]}"; do
   name=${row%%$'\t'*}; ip=${row##*$'\t'}
   remaining=$(( END - lo + 1 ))
-  share=$(( (remaining + (N - i) - 1) / (N - i) ))
+  if [ $((i + 1)) -eq "$N" ]; then
+    share=$remaining
+  else
+    share=$(( TOTAL * (100000 / $(rate_of "$name")) / WSUM ))
+    [ "$share" -lt 1 ] && share=1
+    [ "$share" -gt "$remaining" ] && share=$remaining
+  fi
   hi=$(( lo + share - 1 )); [ $hi -gt "$END" ] && hi=$END
   printf "  %-4s %-15s frames %6d..%-6d (%d)\n" "$name" "$ip" "$lo" "$hi" "$share"
   kubectl -n "$POD_NS" exec "$POD" -c pod-ssh -- bash -c "
