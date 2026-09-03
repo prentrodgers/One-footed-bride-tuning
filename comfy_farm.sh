@@ -15,7 +15,16 @@
 #              prefix means two workers overwrite each other's output.
 #   mask names comfy_restyle names masks per frame for the same reason.
 #
+# POWER. On 3 Sep 2026 a restyle with all five GPUs loaded for two hours
+# tripped the UPS carrying fs5, fs6 and fs9, taking three nodes and nine Ceph
+# OSDs down with it. A Blender render across the same machines had been fine,
+# being shorter and paced by Python rather than by the card. --workers limits
+# the run to named workers so the draw can be kept inside one UPS's envelope:
+# w0 and w1 are both on fs5, so "--workers w0,w1,w4" loads one GPU box plus
+# fs3 and leaves fs6 and fs9 alone.
+#
 #   ./comfy_farm.sh --frames stage_frames_v3 --out styled --frame-start 1665 --frame-end 1973
+#   ./comfy_farm.sh --workers w0,w1,w4 --frames ... --frame-start ... --frame-end ...
 #   ./comfy_farm.sh --progress
 #   ./comfy_farm.sh --stop
 set -euo pipefail
@@ -26,7 +35,7 @@ POD=deploy/one-footed-bride
 REPO=/home/prent/Repos/One-footed-bride-tuning
 FRAMES=stage_frames_v3
 OUT=styled_frames
-START=""; END=""
+START=""; END=""; ONLY=""
 EXTRA=()
 
 usage() { sed -n '2,25p' "$0"; exit 1; }
@@ -64,12 +73,20 @@ while [ $# -gt 0 ]; do
     --out) OUT=$2; shift 2;;
     --frame-start) START=$2; shift 2;;
     --frame-end) END=$2; shift 2;;
+    --workers) ONLY=$2; shift 2;;
     *) EXTRA+=("$1"); shift;;
   esac
 done
 [ -n "$START" ] && [ -n "$END" ] || { echo "need --frame-start and --frame-end" >&2; exit 1; }
 
 mapfile -t W < <(workers)
+if [ -n "$ONLY" ]; then
+  keep=()
+  for row in "${W[@]}"; do
+    case ",$ONLY," in *",${row%%$'\t'*},"*) keep+=("$row");; esac
+  done
+  W=("${keep[@]}")
+fi
 [ ${#W[@]} -gt 0 ] || { echo "no ready ComfyUI workers — check ./comfy_farm.sh --status" >&2; exit 1; }
 
 TOTAL=$((END - START + 1))
