@@ -110,7 +110,7 @@ spec:
             topologyKey: kubernetes.io/hostname
       initContainers:
       - name: git-sync
-        image: quay.io/prentrodgers/python-music:0.9
+        image: quay.io/prentrodgers/python-music:0.10
         imagePullPolicy: IfNotPresent
         command: ["/bin/bash", "-c"]
         args:
@@ -140,7 +140,7 @@ spec:
           value: "/home/prent"
       containers:
       - name: one-footed-bride
-        image: quay.io/prentrodgers/python-music:0.9
+        image: quay.io/prentrodgers/python-music:0.10
         imagePullPolicy: IfNotPresent
         workingDir: /home/prent/Repos/One-footed-bride-tuning
         securityContext:
@@ -183,7 +183,7 @@ spec:
             cpu: "30"
             memory: "16Gi"
       - name: pod-ssh
-        image: quay.io/prentrodgers/python-music:0.9
+        image: quay.io/prentrodgers/python-music:0.10
         imagePullPolicy: IfNotPresent
         securityContext:
           # privileged so the container's device cgroup lets processes OPEN

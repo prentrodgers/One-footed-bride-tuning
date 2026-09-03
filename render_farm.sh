@@ -31,14 +31,15 @@
 #
 # Needs: kubectl context on this cluster, and the repo present on the PVC.
 # Anything else on the command line that starts with -- is passed straight
-# through to blender_stage.py, so a Cycles render is
-#   IMAGE=quay.io/prentrodgers/python-music:0.10 ./render_farm.sh ... --engine cycles
-# (0.10 is the first image with the Level Zero stack Cycles needs; 0.9 has
-# only Vulkan EEVEE, and blender_stage.py will say so and stop.)
+# through to blender_stage.py, so a Cycles render is just
+#   ./render_farm.sh ... --engine cycles
+# IMAGE can be overridden from the environment to try another tag. 0.10 is
+# the first image with the Level Zero stack Cycles needs; on 0.9 (Vulkan
+# EEVEE only) blender_stage.py says so and stops.
 set -euo pipefail
 
 NS=default
-IMAGE=${IMAGE:-quay.io/prentrodgers/python-music:0.9}
+IMAGE=${IMAGE:-quay.io/prentrodgers/python-music:0.10}
 PULL_SECRET=regcred
 REPO=/home/prent/Repos/One-footed-bride-tuning
 FPS=30
