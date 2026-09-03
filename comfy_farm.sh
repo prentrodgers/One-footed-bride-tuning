@@ -104,7 +104,7 @@ echo "restyle: $TOTAL frames over $N ComfyUI workers"
 #
 # An even split leaves the B70s idle for half an hour at the end of a
 # 309-frame shot. Weighting by 1/rate finishes them together.
-rate_of() { case "$1" in w0|w1) echo 83;; w4) echo 120;; *) echo 130;; esac; }
+rate_of() { case "$1" in w0|w1) echo 52;; w4) echo 120;; *) echo 67;; esac; }
 WSUM=0
 for row in "${W[@]}"; do WSUM=$(( WSUM + 100000 / $(rate_of "${row%%$'\t'*}") )); done
 
