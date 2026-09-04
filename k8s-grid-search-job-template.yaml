@@ -48,7 +48,7 @@ spec:
       # checkout serialised them on .git/index.lock and killed 23 of them.
       containers:
       - name: grid-search
-        image: quay.io/prentrodgers/python-music:0.7
+        image: quay.io/prentrodgers/python-music:0.10
         imagePullPolicy: IfNotPresent
         securityContext:
           runAsUser: 1000
