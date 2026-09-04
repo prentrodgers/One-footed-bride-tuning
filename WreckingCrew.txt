@@ -21549,18 +21549,6 @@ ______________________
 ————————————————————————————————————
 9/4/26 Claude Fable 5.1 is busy now.
       Fixing all the instruments in blender to look more like the prototypes. 
-      Files in Uploads are out of sync.
-
+      Files in the Repos/One-footed-bride-tuning/Uploads on fs2 are out of sync.
       Need to retrieve these from the pvc:
-ball9-t64d_lm17_r1.25_df4_t1_d04_42_t114.npy
-ball9-t63d_lm17_r1.25_df2_t1_d07_46_t122.npy
-ball9-t62d_lm19_r1.50_df3_t3_d06_37_t092.npy
-ball9-t61d_lm19_r1.25_df1_t1_d05_20_t092.npy
-ball9-t60d_lm19_r1.50_df3_t1_d06_22_t084.npy
-ball9-t59d_lm17_r1.25_df0_t1_d04_33_t072.npy
-ball9-t58d_lm17_r1.25_df4_t1_d04_22_t080.npy
-ball9-t57d_lm17_r1.25_df5_t1_d06_42_t114.npy
-ball9-t56d_lm17_r1.25_df5_t1_d04_46_t104.npy
-ball9-t55d_lm17_r1.25_df0_t1_d03_17_t088.npy
-ball9-t54d_lm17_r1.38_df2_t1_d05_47_t084.npy
-ball9-t53d_lm17_r1.25_df1_t1_d05_14_t080.npy
+            scp one-footed-bride-pod:/home/prent/Repos/One-footed-bride-tuning/Uploads/ball9-t64d_lm17_r1.25_df4_t1_d04_42_t114.mp3 Repos/One-footed-bride-tuning/Uploads
