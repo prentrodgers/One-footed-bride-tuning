@@ -219,7 +219,15 @@ MALLET_LEN      = 1.00   # fixed rod length, pivot to head
 # number. More negative = lifted higher and further back.
 MALLET_STRIKE_ANGLE = -45.0   # degrees: the stick at the moment of contact
 MALLET_REST_ANGLE   = -75.0   # degrees: lifted clear, waiting to come down
-MALLET_OVER_REACH = 0.22  # fractional overshoot past vertical on follow-through
+# Follow-through past the contact angle, as a fraction of the rest->strike
+# swing. Was 0.22 (6.6 degrees), which drove the head centre ~9cm below the
+# bar top: with the contact height ALSO set at the head's centre rather than
+# its surface, the 10.5cm head went clean through an 18cm bar on every hit.
+# The flat emissive look hid it; the shadowed, reflective one did not.
+# 0.05 is 1.5 degrees, about 2cm of sink - what a wound yarn head can
+# plausibly compress on impact, and no more. Anything past that belongs to
+# the bar flex (apply_bar_vibration), not to the mallet.
+MALLET_OVER_REACH = 0.05
 MALLET_APPROACH_POWER = 2.6   # >1: velocity builds through the approach, peaking at contact
 MALLET_REBOUND_POWER  = 2.2   # >1 ease-out: fast off the bar, slows into rest
 APPROACH_T = 0.050
@@ -631,7 +639,10 @@ def update_mallet_pool(t, assignments, n_slots, pivots, sticks, heads, bar_info)
             continue
         onset, idx = active[s]
         info = bar_info[idx]
-        bar_top = info["z"] + BAR_THICK / 2.0
+        # Contact is where the head's SURFACE meets the bar's top, so the
+        # pivot is placed one head radius higher than the top face. Placing it
+        # at the top face itself put the head's centre there, half-buried.
+        bar_top = info["z"] + BAR_THICK / 2.0 + MALLET_HEAD_R
 
         # Pivot — the player's hand — sits BEHIND and above the bar, placed
         # so that at MALLET_STRIKE_ANGLE the head lands on the bar's centre.
