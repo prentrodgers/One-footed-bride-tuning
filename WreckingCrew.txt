@@ -10858,16 +10858,14 @@ cent_value_chord_prev = array([914, 100, 416, 914]) # this is not the previous c
         cmake ..
         make
     This is what I did on Fedora. There is duplication here. Live with it. 
-        cd /tmp && git clone https://github.com/csound/csound.git && cd csound && mkdir build && cd build && cmake .. && make -j 4
         
-        sudo dnf install -y cmake gcc gcc-c++ flex bison libsndfile-devel alsa-lib-devel jack-audio-connection-kit-devel portaudio-devel portmidi-devel pulseaudio-libs-devel swig lua-devel java-latest-openjdk-devel fltk-devel fluidsynth-devel liblo-devel fluid-soundfont-gm libpng-devel ladspa-devel stk-devel eigen3-devel CUnit-devel gettext libsamplerate-devel portsmf-devel git
+        sudo dnf install -y cmake gcc gcc-c++ flex bison libsndfile-devel alsa-lib-devel jack-audio-connection-kit-devel portaudio-devel portmidi-devel pulseaudio-libs-devel swig lua-devel java-latest-openjdk-devel fltk-devel fluidsynth-devel liblo-devel fluid-soundfont-gm libpng-devel ladspa-devel stk-devel eigen3-devel CUnit-devel gettext libsamplerate-devel portsmf-devel git --skip-unavailable
         
-        sudo dnf install -y --skip-unavailable libsndfile-devel alsa-lib-devel jack-audio-connection-kit-devel portaudio-devel portmidi-devel pulseaudio-libs-devel swig java-latest-openjdk-devel fltk-devel fluidsynth-devel liblo-devel fluid-soundfont-gm libpng-devel ladspa-devel stk-devel eigen3-devel CUnit-devel gettext libsamplerate-devel git
-
         sudo dnf install -y gcc-c++ flex bison curl-devel
 
-        cd /tmp && git clone https://github.com/csound/csound.git && cd csound && mkdir build && cd build && cmake .. && make -j 4
-        cd /tmp/csound/build && sudo make install 2>&1 | tail -20
+        git clone https://github.com/csound/csound.git && cd csound && mkdir build && cd build && cmake .. && make -j 4
+
+        sudo make install 2>&1 | tail -20
         csound --version && which csound
         csound --version
 
@@ -10977,7 +10975,7 @@ cent_value_chord_prev = array([914, 100, 416, 914]) # this is not the previous c
 
         # Add it to your GitHub account at https://github.com/settings/keys
         cat ~/.ssh/id_ed25519.pub
-            ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE/kN+/JSDCiccIlH/1Il4WHABGOiDZNQiJu9H5XDvn4
+            ssh-ed25519 AAAAC...4
 
         # Change your repo to use SSH instead of HTTPS
         git remote set-url origin git@github.com:prentrodgers/One-footed-bride-tuning.git
@@ -21242,7 +21240,7 @@ ________________________
       It's just waiting on models and some serious ComfyUI learning on my part. Do this in the One-footed-bride-tuning repo.
 
       For example, this artist did it with ComfyUI.
-            Improve characters in blender CGI architecture video render using AI and ComfyU https://youtu.be/1ehJrhXADQQ?si=uUeOrTu5ZEcWkMvu
+            Improve characters in blender CGI architecture video render using AI and ComfyUI https://youtu.be/1ehJrhXADQQ?si=uUeOrTu5ZEcWkMvu
       She shows the comfyui setup, and points to more detail here: 
             How To Use LTX2.3 All-In-One Workflow in ComfyUI https://youtu.be/3HXCeSGnoq0?si=SxI0NmHXAS3Z1uLf
       Moving any further development to a clone on fs2.
@@ -21250,3 +21248,319 @@ ________________________
             git lfs install
             mkdir -p ~/Repos && cd ~/Repos
             git clone https://github.com/prentrodgers/One-footed-bride-tuning.git
+
+______________
+9/1/26 Back to the comfyUI
+      I'm thinking I need to scale back the number bars and tines to enable more realistic final results. Cut them down by half to start, then 1/4 if that's not enough. 
+
+      I asked Claude to go back to the render to reduce the keyboards to 37 tines/bars, just to reduce the smearing in the ComfyUI modifications. He had been working in an old set of images. I told him to use the newer ones.
+
+      He's stalled until I give him the choice from Uploads to use. None of them. I need to copy them in from whereever I created the ones in 
+            cd ~/Dropbox/Uploads/d6-08-29-26
+            ls -1 *.mp3
+                  ball9-t53d_lm17_r1.25_df2_t1_d03_27_t100.mp3
+                  ball9-t54d_lm17_r1.38_df2_t1_d07_41_t114.mp3
+                  ball9-t55d_lm17_r1.25_df3_t1_d04_40_t110.mp3
+                  ball9-t56d_lm17_r1.25_df5_t1_d08_03_t114.mp3
+                  ball9-t57d_lm17_r1.25_df4_t1_d06_03_t088.mp3
+                  ball9-t58d_lm17_r1.25_df0_t1_d04_18_t060.mp3
+                  ball9-t59d_lm17_r1.25_df3_t1_d05_01_t088.mp3
+                  ball9-t60d_lm19_r1.50_df4_t1_d07_34_t106.mp3
+                  ball9-t61d_lm19_r1.25_df5_t1_d05_09_t060.mp3
+                  ball9-t62d_lm19_r1.50_df1_t3_d04_55_t096.mp3
+                  ball9-t63d_lm17_r1.25_df0_t1_d04_26_t096.mp3
+                  ball9-t64d_lm17_r1.25_df1_t1_d05_19_t092.mp3
+      The ones on fs3 are from August 24, 25, & 26. 
+      Here are the ones in the pvc:
+            ssh one-footed-bride-pod
+            hostname
+                  one-footed-bride-697894978f-jmfqz
+            pwd 
+                  /home/prent
+            cd Repos/One-footed-bride-tuning/Uploads/
+            ls -1 *.mp3
+                  ball9-t53d_lm17_r1.25_df2_t1_d03_27_t100.mp3
+                  ...
+                  ball9-t64d_lm17_r1.25_df1_t1_d05_19_t092.mp3
+            hostname
+                  fs2
+            cd ~/Dropbox/Uploads/d6-08-29-26
+            ls -1 *.mp3
+                  ball9-t53d_lm17_r1.25_df2_t1_d03_27_t100.mp3
+                  ...
+                  ball9-t64d_lm17_r1.25_df1_t1_d05_19_t092.mp3
+      These are the same on the PCV as on the Dropbox account. Now copy them into the Repo on the fs2. 
+            cd ~/Repos/One-footed-bride-tuning/Uploads
+            scp one-footed-bride-pod:~/Repos/One-footed-bride-tuning/Uploads/*.mp3 .
+            scp one-footed-bride-pod:~/Repos/One-footed-bride-tuning/Uploads/*.npy .
+      These sound bad. I think there is a discrepancy in WreckingCrew.py on the pvc repo. 
+            1. It has the old all_primes value 
+            2. It has new_orc = True 
+            3. It also has all the old viterbi-tunings I got rid of on fs2. And it has the one I want to keep viterbi-tunings-8-25. I hope claude can sort it out. 
+      He stashed the changes in the pvc and did a git pull. We are now in good condition to run another album. 
+            CHORALES=${1:-$(echo bwv{253..264})}
+            python WreckingCrew.py --numpy_dir Archive/straw-man/viterbi-tunings-8-25 --chorale_list $CHORALES --auto_density --shuffle_density --deep_bass_backoff 0.25 --back_off_clicks 0.25 --album 7 --mod d --rondo_section_a 0 32 --rondo_insert_a_after 63 127
+      Then copy them to dropbox in the pvc. 
+            scp Uploads/*.mp3 /home/prent/Dropbox/Uploads/d7-09-01-26/
+            cd /home/prent/Dropbox/Uploads/d7-09-01-26
+            ls -1Sr *.mp3 > Playlist.m3u
+            cd ~ 
+            pwd
+                  /home/prent
+            
+______________________--
+9/2/26 We have development going on in fs2 and fs3. 
+      I've done the necessaries on fs2 
+            opsignin # <-- the new alias for eval $(op signin)
+            git push origin main
+            git add -A Uploads
+            git commit -m "Replace the Uploads npy after the WreckingCrew fix"
+            git push origin main     
+      The git changes for fs3 have to wait until the render is complete.        
+            ssh fs3
+            cd ~/Repos/One-footed-bride-tuning
+            tail -2 /tmp/render_t56d.log        # wait for "[stage] done: 8451 frames"
+
+            git checkout -- pitch_bucket.py blender_marimba_poc.py blender_bass_section_poc.py blender_finger_piano_poc.py blender_stage.py comfy_restyle.py
+
+            rm Uploads/ball9-t56d_lm17_r1.25_df5_t1_d04_46_t104.npy
+            git pull --ff-only
+            git lfs pull
+      Then do this on one-footed-bride-pod:
+            kubectl -n default exec -it deploy/one-footed-bride -c pod-ssh -- bash
+            cd ~/Repos/One-footed-bride-tuning
+            rm -f Uploads/*.npy          # ONLY if you did step 2
+      The following two commands require prent.rodgers@gmail.com and the Github Personal password from 1password.
+            git pull --ff-only
+      
+            git lfs pull
+      After the render, one more thing that isn't git: stage_layout.json still describes the old instruments and the old cue sheet, so the restyle labels would land wrong. It needs re-dumping with this exact npy, since the generated cues come from its activity data — I'll run that and verify the boxes once the GPU is free.
+
+______________________
+9/3/26 What if we ran the blender render on more GPU?
+      Split it into four or five parts, favoring the fs5 with two B70's over fs6 and fs9 each with one B580, and the fs3 with one B50. We could run the one-footed-bride deployment across four nodes, and assign five different blender processes. 
+      Claude produced:
+      Running at 2.75 frames/s across all five GPUs — close to the predicted 2.89, so about 44 minutes left. That's a 2.4× speedup: 2 hours → under one.
+
+      The measurement that surprised me is the useful finding here. All five cards land within 8% of each other (B70 1.66, B580 1.73/1.75, B50 1.81), which means this render is not GPU-bound — it's paced by the per-frame Python: mallet slot assignment, tine bends, sway, and the direct mesh edits for bar vibration. So a B580 is as good as a B70 for it, and adding nodes helps far more than adding better cards. If you ever want more than 2.75 frames/s, the lever is that Python, not hardware.
+
+      New: render_farm.sh — reusable, with the rate table baked in from these measurements:
+
+            ./render_farm.sh --npy Uploads/x.npy --tempo 104 --duration 281.7 --out frames
+            ./render_farm.sh --status
+            ./render_farm.sh --stop
+            ./render_farm.sh ... --dry-run          # just print the frame ranges
+            ./render_farm.sh ... --only b580f6      # relaunch one slice
+
+      It splits frames in proportion to each GPU's measured rate, contiguous and non-overlapping, and every pod mounts dropbox-pvc so all five write into one directory and run the one copy of the repo on the PVC — no merge step, because the animation is procedural and frame N is at t = N/FPS whoever renders it.
+
+      Two things I hit that are now handled in the script:
+
+      The private image needs imagePullSecrets: regcred — the probes failed on that first.
+      Mounting the 2 TB CephFS volume takes 60–90 s per pod, and five at once put every single one past the kubelet's CreateContainer deadline. All five died with context deadline exceeded while a lone pod was fine. Pods now launch 45 s apart (STAGGER), and --only exists because fs6 still lost the race once even staggered.
+      This render is v3, so it also picks up the pad and horn fixes. I'll mux it and report when it lands. render_farm.sh is untracked so far — I'll commit it with the render results unless you'd rather look it over first.
+
+            k get po -owide -l job=blender-farm
+                  NAME                 READY STATUS    RESTARTS AGE   IP             NODE  
+                  blender-farm-b50f3   1/1   Running   0        29m   10.244.11.15   fs3   
+                  blender-farm-b580f6  1/1   Running   0        25m   10.244.9.26    fs6   
+                  blender-farm-b580f9  1/1   Running   0        30m   10.244.6.26    fs9   
+                  blender-farm-b70a    1/1   Running   0        32m   10.244.4.19    fs5   
+                  blender-farm-b70b    1/1   Running   0        32m   10.244.4.20    fs5   
+      The architecture is a script that launches pods based on where each will run. They are staggered to avoid timeouts based on how long the rook-ceph pvc mounts are taking. Notice two separate instances on fs5. The image is my python-music one:
+            Image: quay.io/prentrodgers/python-music:0.9
+            
+            k logs -l job=blender-farm | wc -l
+                  50 # tail is built into that k command. 
+            kubectl -n default logs -l job=blender-farm --tail=1 --prefix   # each worker's latest frame
+                  [pod/blender-farm-b50f3/blender] 46:31.609  render           | Saved: 'stage_frames_v3/frame_008110.png'
+                  [pod/blender-farm-b580f6/blender] 41:13.645  render           | Saved: 'stage_frames_v3/frame_004948.png'
+                  [pod/blender-farm-b580f9/blender] 46:30.898  render           | Saved: 'stage_frames_v3/frame_006668.png'
+                  [pod/blender-farm-b70a/blender] Blender quit
+                  [pod/blender-farm-b70b/blender] 48:23.966  render           | Saved: 'stage_frames_v3/frame_003356.png'
+            kubectl -n default logs -l job=blender-farm --tail=-1 | wc -l   # everything (6,364 lines)
+                  8953
+            ./render_farm.sh --progress
+                  b50f3   fs3  Succeeded      1620 frames, not started
+                  b580f6  fs6  Succeeded      1688 frames, not started
+                  b580f9  fs9  Succeeded      1674 frames, not started
+                  b70a    fs5  Succeeded      1711 frames, not started
+                  b70b    fs5  Succeeded      1758 frames, not started
+      I just discovered that my readme was switched to the k8sgpt readme on 7/23/26. I don't see any notes in this file from that date, but it happened. Claude was able to restore it to the last-known-good version. 
+      But README.md still very out of date. Here's what I'd like it to cover:
+      Brief set of command lines that use Straw_man_tuning_v2.py with a few typical options.
+
+      1. Run a quick test of the tuning algorithm at it's most basic
+            python Straw_man_tuning_v2.py --tolerance 1 --chorale_list bwv255 --numpy_dir numpy-test --no-print_values 
+      Results:
+            mean: 398.7,  median: 127.5,  min: 43.0,  max: 5135.0,  argmax: 12,  deciles: [  43.    59.    73.8   97.   120.   127.5  135.   157.   184.  1121. ]
+      2. Check the tuning with a report on the results. You will see that some chords were not able to tune very well. 
+            python chord_report.py --input_numpy_file numpy-test/bwv255-opt.npy 
+      Results: 
+                  bwv255  bwv255-opt.npy
+                  /home/prent/Repos/One-footed-bride-tuning/numpy-test
+                  tolerance: 1, limit_max: 17, tonal diamond: (66, 3), chords: 128
+                  Average score: 1228.1, max score: 5056.0, max chord: 12
+                  Key: G♮ major
+
+      3. Try a more thorough test with more aggressive simulated annealing. 
+            python Straw_man_tuning_v2.py \
+                --no-print_values --no-print_finals --no-print_initial \
+                --rolls 4 --workers 1 --runs 1 \
+                --limit_max 17 \
+                --chorale_list bwv255 \
+                --ratio_factor 1.25 \
+                --tolerance 1 \
+                --max_delta 35 \
+                --numpy_dir numpy-test \
+                --max_gap 25 --retune_on_gaps 5 \
+                --no-keep_previous \
+                --sa_iterations 1000 \
+                --cooling_rate 0.999 \
+                --initial_temp 3.5 \
+                --spread 7 \
+                --use_viterbi \
+                --k_candidates 15 \
+                --viterbi_vertical_weight 1.0 \
+                --viterbi_verbose \
+                --viterbi_verbose_threshold 80 \
+                --detect_phrases \
+                --phrase_horizontal_weight 8.0 \
+                --viterbi_workers 4
+      Result of more aggressive annealing and viterbi optimization:
+                  mean: 50.8,  median: 43.0,  min: 43.0,  max: 82.0,  argmax: 42,  deciles: [43.  43.  43.  43.  43.  43.  45.  60.  62.8 67. ]
+      4. Check the new results
+                  bwv255  bwv255-opt.npy
+                  /home/prent/Repos/One-footed-bride-tuning/numpy-test
+                  tolerance: 1, limit_max: 17, tonal diamond: (66, 3), chords: 128
+                  Average score: 50.8, max score: 82.0, max chord: 42
+                  Key: G♮ major
+      Pretty good reduction in the mean score of 50.8, compared to 1228.1 before the more aggressive arguments. Took longer, but worth it. 
+
+      5. Run it against a set of related chorales, in this case 12 of Bach's "Wedding Chorales". This can take hours, because it tries different tolerances, ratio_factors, and tonality diamond limits. It compares all the results and nominates the best of the tuning methods.
+            ./grid_search.sh 
+      If you happen to have access to a kubernetes cluster, you can run this chain of command scripts:
+            ./generate-grid-search-jobs.sh # create kubernetes batch jobs  
+            ./deploy-grid-search-jobs.sh # start the jobs in the cluster
+      Then pick the best of the results
+            CHORALES=${1:-$(echo bwv{253..264})}
+            python select_best_and_render.py --numpy_dir_root Archive/straw-man --chorale_list $CHORALES --suffix="-opt.npy" --sort_by p90 --copy_npy_to Archive/straw-man/viterbi-tunings-8-25
+
+      6. Listen to the results of your tuning. You have to have csound installed for this to work:
+            python WreckingCrew.py --numpy_dir numpy-test --chorale_list bwv255 --cent_file_partial=-opt.npy --short_repeats
+
+      ______________________
+      ComfyUI pods are running now. 
+            k get -n vllm po -owide
+                  NAME                        READY STATUS  RESTARTS AGE IP           NODE 
+                  comfyui-7684d7779-qssxc     1/1   Running 0        99s 10.244.4.13  fs5  
+                  comfyui-w1-76bc6d5ddd-j4rk8 1/1   Running 0        99s 10.244.4.14  fs5  
+                  comfyui-w4-67c8fd7f87-zjws4 1/1   Running 0        99s 10.244.11.26 fs3  
+      We can bring up the workers on fs6 and fs9 later. 
+            ./comfy_farm.sh --progress
+                  w0   [50/50] frame_001784.png  47.0s/frame  eta 0.0m
+                  w1   [48/49] frame_001712.png  65.1s/frame  eta 1.1m
+                  w4   [21/21] frame_001734.png  124.7s/frame  eta 0.0m
+            kubectl logs -n vllm -l 'app in (comfyui,comfyui-farm)' --tail=3 --prefix
+                  100%|██████████| 20/20 [00:43<00:00,  2.18s/it]
+                  [pod/comfyui-7684d7779-qssxc/comfyui] [INFO] Prompt executed in 44.73 seconds
+                  100%|██████████| 20/20 [00:47<00:00,  2.38s/it]
+                  [pod/comfyui-w1-76bc6d5ddd-j4rk8/comfyui] [INFO] Prompt executed in 48.64 seconds
+                  100%|██████████| 20/20 [01:52<00:00,  5.64s/it]
+                  [pod/comfyui-w4-67c8fd7f87-zjws4/comfyui] [INFO] Unloaded partially: 309.63 MB freed, 4587.46 MB remains loaded, 3.12 MB buffer reserved, lowvram patches: 0
+                  [pod/comfyui-w4-67c8fd7f87-zjws4/comfyui] [INFO] Prompt executed in 115.18 seconds
+      The results are in: shot5_d055_compare.mp4 and shot5_d055.mp4 and they really suck. I asked Fable to give his advice: 
+      Can you audit these recommendations from Opus for me? I'm trying to improve my blender video renders of musical instruments being played by invisible musicians. Each song is built from a numpy array of notes with features like cents, instrument, envelope, volume, velocity, octave, cents values, and glissando, among others. This is fed into a blender pipeline that creates frames, which are then assembled into videos. Examples include this latest produced today: @stage_full_bwv256_v3.mp4 . We hoped that with the right video enhancement pipeline we could make greater realisim in the instruments, and more interesting actions the instruments could take. The stylized violins would look less like fake boxes and more like real violins with real strings vibration, and real flutes with real fingerings, marimbas with real mallets stringing the bars, and real finger pianos with spring steel tines.  The problem with the current ComfyUI pipeline is that it enhances each frame independently, so the image flashes like a strobe with camera movements. But the bigger problem is that the instruments still don't look real.
+      After some throat clearing, Fable focuses on making Blender better.
+      - Motion blur and depth of field. Cheap and disproportionately effective. Mallets striking, tines snapping back and a slide moving read as real fast objects only when they blur; a razor-sharp mallet mid-strike is what screams CGI. Depth of field (DOF) on the close shots does the rest.
+      - Materials and lighting. PBR with normal maps for wood grain, Principled's clearcoat for varnish, anisotropic brass, an HDRI environment instead of coloured wash lights. Here's where AI does belong: generate a rosewood texture, a lacquered-brass texture, a spring-steel texture once as stills — the thing SDXL is genuinely good at — and bake them into materials. AI for textures, Blender for frames. All the realism, none of the strobing.
+      - Geometry. The violins need to stop being boxes: body, f-holes, bridge, tailpiece, scroll, strings as separate curves. Flutes need keys. Kalimbas need a soundbox and real tine geometry. Some of this is importable — CC0 instrument models exist — and the rest is the same procedural work you've already done for the marimba.
+      - Behaviour driven by your note array. You already have the pattern: bars flex on strike, tines bend on pluck, holes cover by pitch. Extend it — strings as curves with a wave displacement whose amplitude follows the note's envelope; bows that travel; flute keys that close. Every one of these is deterministic and note-accurate, which is the property no diffusion model can offer.
+      - Hands, eventually. Invisible musicians is a legitimate choice, but if you ever want "being played" rather than "playing itself", hands are the biggest single lever — and the biggest single cost, since it's a rigging project.
+
+      One practical note if you go towards Cycles: your Containerfile deliberately leaves out the oneAPI/Level Zero runtime, so Cycles on the farm is CPU-only until that's added. EEVEE Next with ray tracing enabled may get you most of the way without it, and render_farm.sh already spreads either across five GPUs.
+
+      Your hope for the approach wasn't naive — the stills really are convincing, and they're what these pipelines are demoed on. The lesson from today is narrower than "AI enhancement doesn't work": it's that per-frame enhancement can't add geometry or coherence, and geometry and coherence are exactly what you're after. The tool for those is the one you've been using all along.
+
+      ——————————————————————
+      If you ever get locked out of this command:
+            ssh one-footed-bride-pod
+                  prent@192.168.68.8: Permission denied (publickey).
+      It's because your public key has vanished from the PVC where this is:
+            k exec -it deploy/one-footed-bride -c pod-ssh -- bash # root access
+            cd $HOME
+            ls -lth .ssh
+                  total 6.0K
+                  -rw-------. 1 prent prent  370 Sep  3 14:26 authorized_keys
+            cat .ssh/authorized_keys
+                  ssh-ed25519 AA...CKI prent@ASUS-A16
+                  ssh-ed25519 AAA...le prent@fs3
+                  ssh-ed25519 AAA...4om prent@fs9
+                  ssh-ed25519 AAA...xT prent@M70q
+      No fs2.
+      on fs2:
+            cat  ~/.ssh/*.pub
+                  ssh-ed...3w prent@fs2
+      In the pod with root access:
+            echo ssh-ed...3w prent@fs2 >> .ssh/authorized_keys
+            cat .ssh/authorized_keys
+                  ssh-ed...3w prent@fs2
+      Now I have to do this every time the one-footed-bride pod restarts. Why? 
+      Now it works. Why it vanished, while the other ones did not is a mystery. Ask Claude when he finishes what he's doing now. That Fable is a token eating monster. Always coming up with ideas that don't quite work. He's now rediscovering things that Opus already knew. Oh well. 
+
+      Working on revising the container to use for future Blender work:
+      That's the answer to "how can we fix this" — fixed, built, and one login away from the cluster.
+
+      What was actually wrong (it wasn't what the Containerfile note said): Debian trixie doesn't package Intel's compute runtime at all, and its Level Zero loader is too old — libze1 1.20.6 lacks zelSetDelayLoaderContextTeardown, which Blender 5.2's bundled adapter imports. The adapter fails to load and Cycles silently lists only the CPU, even though Level Zero itself could see both B70s the whole time. Cycles then also needs Intel's hardware ray-tracing library, which lives only in Intel's apt pool.
+
+      python-music:0.10 is built and smoke-tested on fs2 (3.67 GB): the adapter now loads, and all seven Intel packages are in at pinned versions. The image can only reach the nodes via quay, and fs2 has no quay login, so this part is yours:
+
+
+            podman login quay.io
+            podman push quay.io/prentrodgers/python-music:0.10      # new tag; 0.9 is untouched
+      Done. 
+      
+      Then tell me it's up and I'll bump the pins (one-footed-bride-jupyter.yaml, render_farm.sh), roll the deployment, and run a short Cycles pass across the farm to get real per-card rates.
+
+      What Cycles costs, measured on one B70 at 1280×720, 64 samples + denoise: EEVEE 1.50 s/frame, Cycles 2.39 with its software BVH, 2.95 with hardware RT. Hardware RT loses on this scene because its per-frame setup outweighs the tracing it saves; it should win once the instruments have real geometry, which is why it's a flag. A full chorale on Cycles across the farm would be roughly 90–100 minutes. blender_stage.py --engine cycles is the switch; the default stays EEVEE.
+
+      One bug found on the way, and it matters more for Cycles than it ever did for EEVEE: the farm named the render node each fs5 pod should hide, but on fs5 renderD129 is the iGPU — so one pod was hiding the iGPU and seeing both B70s, and both pods were almost certainly sharing D128 with D130 idle. EEVEE here is CPU-paced, so it never showed. Cards are now found by PCI id at pod start, verified on fs5 to give each pod exactly one B70.
+
+      Nine commits are waiting on your git push. The uncommitted files in the tree (WreckingCrew.txt, plots/bwv255.jpg, Archive/straw-man/*-opt.*, numpy-test/) are all from your own walkthrough runs — I left them alone.
+
+      Done — the Cycles gap is closed end to end, and the farm bug it exposed is fixed too.
+
+      What was actually wrong (the Containerfile's note was mistaken twice): Debian trixie doesn't package Intel's compute runtime under any component, and even with the runtime present Cycles still listed only the CPU. Level Zero itself saw both B70s the whole time; the break was a single symbol — Blender 5.2's bundled Level Zero adapter imports zelSetDelayLoaderContextTeardown, trixie's libze1 1.20.6 doesn't export it, so the adapter fails to load and Cycles says nothing. Cycles then also refuses to open a oneAPI queue without Intel's hardware ray-tracing library, which exists only in Intel's apt pool.
+
+      python-music:0.10 takes both halves from Intel, pinned: loader 1.32.0, compute-runtime 26.31, IGC 2.40.13, gmmlib 22.10, the ray-tracing library (plus libtbb12 it depends on). You pushed it; it's now live in the one-footed-bride deployment, and the replacement pod — with nothing installed by hand — lists both B70s under ONEAPI.
+
+      blender_stage.py --engine cycles, with --samples, --cycles-hw-rt and --gpu-name (default Arc, which skips the iGPUs). EEVEE stays the default; a bad GPU name fails loudly rather than rendering on the CPU for days.
+
+      The farm bug, found on the way: it named render nodes to hide, but on fs5 renderD129 is the iGPU, so the second pod saw both B70s — and both pods were almost certainly sharing D128. EEVEE is CPU-paced here, which is why it never showed. Cards are now found by PCI id at pod start; the 150-frame Cycles pass confirmed each pod kept exactly one card, including the B580 pods skipping their AMD iGPUs.
+
+      Measured Cycles rates, 64 samples + denoise: B70 2.74 s/frame, B50 3.55, B580 3.8–4.1 — a different spread from EEVEE's, so the farm now splits by a Cycles column when --engine cycles is passed. A full chorale on Cycles: ~93 minutes across the five GPUs, against 51 on EEVEE. Farm pods also share a SYCL cache on the PVC so each GPU model JIT-compiles once.
+
+      Pins: render_farm.sh, one-footed-bride-jupyter.yaml and, as you asked, k8s-grid-search-job-template.yaml → 0.10. Two siblings still say 0.7 (k8s-grid-search-aggregation-job.yaml ×2, k8s-git-sync-job.yaml) and an unread IMAGE_VERSION env in the jupyter YAML says 0.8 — I left those, since nothing there needs Blender; say the word and they follow.
+
+      Eleven commits are waiting on your git push. The 150 cycles_test/ frames are on the PVC if you want to see Cycles' take on the opening wide shot; otherwise they're safe to delete.
+
+      One honest caveat on what this buys: with the current materials, Cycles and EEVEE render this scene almost identically — I compared the stills. Cycles is the enabler for the material and lighting work we discussed (glossy varnish, real reflections, an HDRI, motion blur), not a visual upgrade on its own. That's the next step if you want the instruments to stop looking like tiles.
+
+————————————————————————————————————
+9/4/26 Claude Fable 5.1 is busy now.
+      Fixing all the instruments in blender to look more like the prototypes. 
+      Files in Uploads are out of sync.
+
+      Need to retrieve these from the pvc:
+ball9-t64d_lm17_r1.25_df4_t1_d04_42_t114.npy
+ball9-t63d_lm17_r1.25_df2_t1_d07_46_t122.npy
+ball9-t62d_lm19_r1.50_df3_t3_d06_37_t092.npy
+ball9-t61d_lm19_r1.25_df1_t1_d05_20_t092.npy
+ball9-t60d_lm19_r1.50_df3_t1_d06_22_t084.npy
+ball9-t59d_lm17_r1.25_df0_t1_d04_33_t072.npy
+ball9-t58d_lm17_r1.25_df4_t1_d04_22_t080.npy
+ball9-t57d_lm17_r1.25_df5_t1_d06_42_t114.npy
+ball9-t56d_lm17_r1.25_df5_t1_d04_46_t104.npy
+ball9-t55d_lm17_r1.25_df0_t1_d03_17_t088.npy
+ball9-t54d_lm17_r1.38_df2_t1_d05_47_t084.npy
+ball9-t53d_lm17_r1.25_df1_t1_d05_14_t080.npy
