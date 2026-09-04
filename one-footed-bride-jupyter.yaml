@@ -83,6 +83,11 @@ metadata:
   name: one-footed-bride
 spec:
   replicas: 1
+  # One pod, pinned to fs5, holding 16Gi: a rolling update can't fit the new
+  # pod beside the old one (Insufficient memory, 4 Sep 2026), so stop the
+  # old pod first.
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: one-footed-bride
@@ -145,6 +150,11 @@ spec:
         workingDir: /home/prent/Repos/One-footed-bride-tuning
         securityContext:
           runAsUser: 1000
+          # privileged for the same reason as pod-ssh below: without it the
+          # device cgroup refuses open() on the render nodes, Level Zero's
+          # zeInit fails with INSUFFICIENT_PERMISSIONS and Cycles lists only
+          # the CPU (found 4 Sep 2026).
+          privileged: true
         command: ["jupyter", "lab"]
         args:
           - "--ip=0.0.0.0"
@@ -157,12 +167,13 @@ spec:
         volumeMounts:
         - mountPath: /home/prent
           name: ceph-files
-        # Arc B70 render nodes (headless EGL GPU rendering, see draft Containerfile)
-        - name: dri-render129
-          mountPath: /dev/dri/renderD129
-        - name: dri-render130
-          mountPath: /dev/dri/renderD130
+        # The whole of /dev/dri: the render-node numbering moves on reboot
+        # (see the volume below), so pick the card by PCI id at run time.
+        - name: dri
+          mountPath: /dev/dri
         env:
+        - name: MESA_VK_DEVICE_SELECT           # EEVEE (Vulkan): a B70, not the iGPU
+          value: "8086:e223"
         - name: SFDIR
           value: "/home/prent/Music/sflib"
         - name: SSDIR
@@ -239,12 +250,12 @@ spec:
           mountPath: /etc/ssh/sshd_config
           subPath: sshd_config
           readOnly: true
-        # Arc B70 render nodes — this is the container you SSH into to render
-        - name: dri-render129
-          mountPath: /dev/dri/renderD129
-        - name: dri-render130
-          mountPath: /dev/dri/renderD130
+        # The whole of /dev/dri — this is the container you SSH into to render
+        - name: dri
+          mountPath: /dev/dri
         env:
+        - name: MESA_VK_DEVICE_SELECT           # EEVEE (Vulkan): a B70, not the iGPU
+          value: "8086:e223"
         - name: HOME
           value: "/home/prent"
         - name: TZ
@@ -261,18 +272,17 @@ spec:
         persistentVolumeClaim:
           claimName: dropbox-pvc
           readOnly: false
-      # Arc Pro B70 render nodes on fs5 (verified 2026-07-14 in the llm-scaler
-      # deployment): renderD129 -> PCI 0000:04:00.0 (GPU #0),
-      # renderD130 -> 0000:08:00.0 (GPU #1). The iGPU (renderD128) is left out
-      # on purpose so Blender's EGL only ever enumerates the two Arc cards.
-      - name: dri-render129
+      # All of fs5's DRM nodes. Which renderD* is which card changes across
+      # reboots (on 2026-07-14 the B70s were renderD129/130 and the iGPU
+      # renderD128; by 2026-09-04 the B70s were renderD128/130 and the iGPU
+      # renderD129), so mounting two named nodes silently handed the pod the
+      # iGPU. Choose the card by PCI id instead: MESA_VK_DEVICE_SELECT above
+      # for EEVEE, blender_stage.py --gpu-name (default Arc) for Cycles, and
+      # ls /sys/class/drm/renderD*/device/device (0xe223 = B70) by hand.
+      - name: dri
         hostPath:
-          path: /dev/dri/renderD129
-          type: CharDevice
-      - name: dri-render130
-        hostPath:
-          path: /dev/dri/renderD130
-          type: CharDevice
+          path: /dev/dri
+          type: Directory
       - name: ssh-authorized-keys
         secret:
           secretName: one-footed-bride-ssh-authorized-keys
