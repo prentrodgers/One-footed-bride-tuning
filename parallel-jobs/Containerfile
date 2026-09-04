@@ -117,9 +117,10 @@ RUN set -eu && cd /tmp && \
     rm -rf /var/lib/apt/lists/*
 
 # Blender's AOT kernel set did not cover Battlemage: the first Cycles render
-# on a B70 JIT-compiled ~180 MB of kernels (a couple of minutes), after which
-# it is fast. Keep what it builds. /tmp is per-pod, so a Job that wants the
-# cache to outlive the pod points SYCL_CACHE_DIR at the PVC in its YAML.
+# on a B70 JIT-compiled ~180 MB of kernels — about ten seconds, measured —
+# after which it is fast. Keep what it builds. /tmp is per-pod, so a Job
+# that wants the cache to outlive the pod points SYCL_CACHE_DIR at the PVC
+# in its YAML (render_farm.sh does).
 ENV SYCL_CACHE_PERSISTENT=1 \
     SYCL_CACHE_DIR=/tmp/sycl-cache
 

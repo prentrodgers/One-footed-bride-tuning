@@ -46,7 +46,13 @@ FPS=30
 RES_X=1280
 RES_Y=720
 
-# label   node  device-select  card-ordinal  seconds/frame
+# label   node  device-select  card-ordinal  s/frame-eevee  s/frame-cycles
+#
+# The Cycles column is used when --engine cycles is passed through. Its
+# spread is not EEVEE's: EEVEE is paced by the per-frame Python and the
+# cards land within 30%, while Cycles is paced by the card and the B580s
+# fall 40% behind the B70s. Measured 3 Sep 2026, 1280x720, 64 samples +
+# OpenImageDenoise, ~30 frames per pod including each pod's first-frame JIT.
 #
 # The two B70s share a PCI id, so MESA_VK_DEVICE_SELECT cannot tell them
 # apart, and Cycles would happily take both. Each pod therefore keeps ONE
@@ -57,11 +63,11 @@ RES_Y=720
 # that "hid" D129 was hiding the iGPU and could see both cards. The
 # card-ordinal column says which matching card a pod takes, in sysfs order.
 WORKERS=(
-  "b70a   fs5  8086:e223  0           1.701"
-  "b70b   fs5  8086:e223  1           1.751"
-  "b580f6 fs6  8086:e20b  -           1.651"
-  "b580f9 fs9  8086:e20b  -           1.829"
-  "b50f3  fs3  8086:e212  -           2.129"
+  "b70a   fs5  8086:e223  0           1.701  2.738"
+  "b70b   fs5  8086:e223  1           1.751  2.750"
+  "b580f6 fs6  8086:e20b  -           1.651  3.827"
+  "b580f9 fs9  8086:e20b  -           1.829  4.059"
+  "b50f3  fs3  8086:e212  -           2.129  3.554"
 )
 
 STAGGER=${STAGGER:-45}
@@ -122,6 +128,9 @@ while [ $# -gt 0 ]; do
   esac
 done
 [ -n "$NPY$TEMPO$DURATION$OUT" ] || { sed -n '2,20p' "$0"; exit 2; }
+# Which rate column to split by: 6 (Cycles) when the pass-through asks for
+# it, else 5 (EEVEE).
+RATE_COL=5; case " ${EXTRA[*]:-} " in *" cycles "*) RATE_COL=6;; esac
 
 # Frame count exactly as blender_stage.py computes it: ceil(duration * FPS).
 TOTAL=$(awk -v d="$DURATION" -v f="$FPS" 'BEGIN{t=d*f; c=int(t); if (t-c>1e-9) c++; print c}')
@@ -130,7 +139,8 @@ TOTAL=$(awk -v d="$DURATION" -v f="$FPS" 'BEGIN{t=d*f; c=int(t); if (t-c>1e-9) c
 # last one taking the remainder so no frame is missed or rendered twice.
 weights=(); total_w=0
 for w in "${WORKERS[@]}"; do
-  read -r _ _ _ _ rate <<<"$w"
+  read -r _ _ _ _ rate_eevee rate_cycles <<<"$w"
+  rate=$rate_eevee; [ "$RATE_COL" -eq 6 ] && rate=$rate_cycles
   weight=$(awk -v r="$rate" 'BEGIN{print 1/r}')
   weights+=("$weight")
   total_w=$(awk -v a="$total_w" -v b="$weight" 'BEGIN{print a+b}')
@@ -141,7 +151,7 @@ echo "render: $TOTAL frames over ${#WORKERS[@]} GPUs  ($(awk -v w="$total_w" 'BE
 
 start=0
 for i in "${!WORKERS[@]}"; do
-  read -r label node select ordinal rate <<<"${WORKERS[$i]}"
+  read -r label node select ordinal _ _ <<<"${WORKERS[$i]}"
   if [ "$i" -eq $((${#WORKERS[@]} - 1)) ]; then
     end=$((TOTAL - 1))
   else
@@ -178,7 +188,9 @@ spec:
   - name: blender
     image: $IMAGE
     securityContext: {privileged: true, runAsUser: 0}
-    env: [{name: MESA_VK_DEVICE_SELECT, value: "$select"}]
+    env:
+    - {name: MESA_VK_DEVICE_SELECT, value: "$select"}
+    - {name: SYCL_CACHE_DIR, value: /home/prent/.cache/sycl}
     command: ["bash","-c"]
     args:
     - ${hide_cmd}cd $REPO && exec blender --background --gpu-backend vulkan
