@@ -70,7 +70,7 @@ VALVE_DOWN_CLR = (0.07, 0.065, 0.06)
 SLIDE_TRAVEL = 0.45      # m from closed to fully out
 
 
-def _tube(p0, p1, r0, r1, mat, verts=16):
+def _tube(p0, p1, r0, r1, mat, verts=24):
     """A (possibly tapered) tube between two arbitrary 3D points."""
     p0v, p1v = mathutils.Vector(p0), mathutils.Vector(p1)
     d = p1v - p0v
@@ -79,7 +79,7 @@ def _tube(p0, p1, r0, r1, mat, verts=16):
     o = bpy.context.object
     o.rotation_euler = d.to_track_quat('Z', 'Y').to_euler()
     o.data.materials.append(mat)
-    return o
+    return ww._smooth(o)
 
 
 def _curve_tube(points, radius, mat, name="brtube"):
@@ -88,7 +88,7 @@ def _curve_tube(points, radius, mat, name="brtube"):
     cu = bpy.data.curves.new(name, 'CURVE')
     cu.dimensions = '3D'
     cu.bevel_depth = radius
-    cu.bevel_resolution = 3
+    cu.bevel_resolution = 6
     sp = cu.splines.new('POLY')
     sp.points.add(len(points) - 1)
     for i, (x, y, z) in enumerate(points):
@@ -99,7 +99,7 @@ def _curve_tube(points, radius, mat, name="brtube"):
     return o
 
 
-def _uloop(a, b, bulge, radius, mat, n=12):
+def _uloop(a, b, bulge, radius, mat, n=16):
     """A smooth U-shaped tube from point a to point b, bowing out in the
     `bulge` direction (a half-sine) — a valve slide or tuning-slide crook."""
     a, b, bulge = mathutils.Vector(a), mathutils.Vector(b), mathutils.Vector(bulge)
@@ -109,6 +109,34 @@ def _uloop(a, b, bulge, radius, mat, n=12):
         p = a.lerp(b, s) + bulge * math.sin(math.pi * s)
         pts.append((p.x, p.y, p.z))
     return _curve_tube(pts, radius, mat)
+
+
+def _bell(p0, p1, r0, r1, mat, power=3.0, name="brbell"):
+    """A bell with a real flare profile and a garland ring at the mouth."""
+    bell = ww._flare(p0, p1, r0, r1, mat, power=power, name=name)
+    axis = mathutils.Vector(p1) - mathutils.Vector(p0)
+    garland = ww._torus(0.0, 0.0, r1, r1 * 0.025, mat)
+    garland.location = p1
+    garland.rotation_euler = axis.to_track_quat('Z', 'Y').to_euler()
+    return bell, garland
+
+
+def _mouthpiece(tip, back, mat):
+    """Cup at `tip` (the player's end) tapering to the receiver at `back`."""
+    cup = ww._cone_dir(tip, back, 0.022, 0.011, mat, verts=20)
+    rim = ww._torus(0.0, 0.0, 0.020, 0.005, mat)
+    rim.location = tip
+    rim.rotation_euler = (mathutils.Vector(back) - mathutils.Vector(tip)).to_track_quat('Z', 'Y').to_euler()
+    return [cup, rim]
+
+
+def _pistons(xs, y, z_top, mat, pad_mat, stem_h=0.045, r_button=0.024):
+    """Valve buttons on stems above the casings' tops; the buttons are the
+    pitch indicators the stage presses (see arm_pitch_mechanism)."""
+    stems = [_tube((x, y, z_top), (x, y, z_top + stem_h), 0.006, 0.006, mat) for x in xs]
+    buttons = [ww._ball(x, z_top + stem_h + r_button * 0.5, r_button, pad_mat, y=y, scale=(1, 1, 0.45))
+               for x in xs]
+    return stems, buttons
 
 
 # ── the three brass instruments (built held-up at ~player height) ─────────────
@@ -145,92 +173,124 @@ def arm_pitch_mechanism(seat, moving):
 
 
 def build_trumpet(body_mat):
+    """Laid out from Trumpet.jpg, mouthpiece left, bell right: the leadpipe
+    runs right along the middle into the main tuning slide (the crook at
+    the front, under the bell), back along the bottom into the valves,
+    and out of the first valve to the rear bow at the left, which turns
+    up into the bell tube along the top. First and third valve slides lie
+    flat at the bottom, the second hangs down."""
     silver = ww.make_solid("BrTrpValve", SILVER, roughness=0.3, metallic=0.8)
     mpc_mat = ww.make_solid("BrTrpMpc", (0.72, 0.73, 0.75), roughness=0.3, metallic=0.7)
-    z = 1.05
-    vx = (-0.10, 0.0, 0.10)   # the three valve x positions
-    # Bottom bore: mouthpiece (left) -> leadpipe -> straight through the valves.
-    bore = _tube((-0.52, 0.0, z), (0.40, 0.0, z), 0.03, 0.03, body_mat)
-    mpc = ww._ball(-0.55, z, 0.032, mpc_mat, scale=(1.4, 1.0, 1.0))
-    # Three valve casings up + finger buttons.
-    valves = [_tube((x, 0.0, z + 0.01), (x, 0.0, z + 0.21), 0.026, 0.026, silver) for x in vx]
-    buttons = [ww._ball(x, z + 0.235, 0.03, ww.make_pad_material()) for x in vx]
-    # Valve slides — the little U-loops hanging DOWN below each valve ("bottom
-    # coils"): pressing a valve routes air through these to lengthen the tube.
-    vslides = [_uloop((x - 0.022, 0.0, z), (x + 0.022, 0.0, z), (0.0, 0.0, -0.17), 0.018, body_mat)
-               for x in vx]
-    # Main tuning slide: a U-loop bowing right, off the end of the bore, then
-    # the bell tube runs back and flares out to the right.
-    tuning = _uloop((0.40, 0.0, z), (0.40, 0.0, z + 0.14), (0.20, 0.0, 0.0), 0.026, body_mat)
-    bell_tube = _tube((0.40, 0.0, z + 0.14), (0.18, 0.0, z + 0.14), 0.028, 0.03, body_mat)
-    bell = _tube((0.18, 0.0, z + 0.14), (0.70, 0.0, z + 0.17), 0.045, 0.20, body_mat, verts=26)
-    # body = every brass-coloured (glowing) part; extras keep fixed materials
-    body = [bore, bell_tube, bell, tuning] + vslides
-    extras = valves + buttons + [mpc]
+    z0 = 1.05
+    z_top, z_lead, z_bot = z0 + 0.085, z0 + 0.025, z0 - 0.065
+    vx = (-0.10, 0.0, 0.10)
+    r_tube = 0.015
+    lead = _tube((-0.50, 0.0, z_lead), (0.36, 0.0, z_lead), 0.011, 0.015, body_mat)
+    mpc = _mouthpiece((-0.58, 0.0, z_lead), (-0.50, 0.0, z_lead), mpc_mat)
+    tuning = _uloop((0.36, 0.0, z_lead), (0.36, 0.0, z_bot), (0.14, 0.0, 0.0), r_tube, body_mat)
+    bottom = _tube((0.36, 0.0, z_bot), (-0.10, 0.0, z_bot), r_tube, r_tube, body_mat)
+    rear = _tube((-0.10, 0.0, z_bot), (-0.38, 0.0, z_bot), r_tube, r_tube, body_mat)
+    bow = _uloop((-0.38, 0.0, z_bot), (-0.38, 0.0, z_top), (-0.11, 0.0, 0.0), r_tube, body_mat)
+    bell_tube = _tube((-0.38, 0.0, z_top), (0.30, 0.0, z_top), 0.016, 0.022, body_mat)
+    bell, garland = _bell((0.30, 0.0, z_top), (0.80, 0.0, z_top), 0.022, 0.17, body_mat, name="trumpet_bell")
+    casings = [_tube((x, 0.0, z_bot - 0.03), (x, 0.0, z0 + 0.07), 0.025, 0.025, silver) for x in vx]
+    stems, buttons = _pistons(vx, 0.0, z0 + 0.07, silver, ww.make_pad_material())
+    vslides = [
+        _uloop((vx[0] - 0.02, 0.0, z_bot + 0.028), (vx[0] - 0.02, 0.0, z_bot - 0.028), (-0.17, 0.0, 0.0), 0.012, body_mat),
+        _uloop((vx[1] - 0.018, 0.0, z_bot - 0.02), (vx[1] + 0.018, 0.0, z_bot - 0.02), (0.0, 0.0, -0.10), 0.012, body_mat),
+        _uloop((vx[2] + 0.02, 0.0, z_bot + 0.028), (vx[2] + 0.02, 0.0, z_bot - 0.028), (0.20, 0.0, 0.0), 0.012, body_mat),
+    ]
+    ring = ww._torus(0.26, z_bot - 0.045, 0.022, 0.004, body_mat)     # third-valve slide ring
+    braces = [_tube((0.20, 0.0, z_lead), (0.20, 0.0, z_top), 0.005, 0.005, body_mat),
+              _tube((-0.30, 0.0, z_bot), (-0.30, 0.0, z_top), 0.005, 0.005, body_mat)]
+    body = [lead, tuning, bottom, rear, bow, bell_tube, bell, garland, ring] + vslides + braces
+    extras = casings + stems + buttons + mpc
     return body + extras, body, {"valves": buttons}
 
 
 def build_trombone(body_mat):
+    """From trombone.webp: the slide runs right along the bottom, the bell
+    section above it. The lower slide tube runs left past the mouthpiece
+    and turns up in ONE continuous curve — through the tuning-slide crook
+    at the instrument's left edge — into the top tube, which runs right
+    to the bell. Two slide braces sit between the mouthpiece and the
+    slide's long run (one on the inner slide, one the outer slide's
+    grip); two bell braces tie the top tube down to the slide."""
     slide = ww.make_solid("BrTbnSlide", SILVER, roughness=0.22, metallic=0.85)
     mpc_mat = ww.make_solid("BrTbnMpc", (0.72, 0.73, 0.75), roughness=0.3, metallic=0.7)
-    z = 1.12
-    # Long outer slide: two parallel tubes reaching right, joined by a crook.
-    sl_a = _tube((-0.05, 0.0, z + 0.045), (1.15, 0.0, z + 0.045), 0.02, 0.02, slide)
-    sl_b = _tube((-0.05, 0.0, z - 0.045), (1.15, 0.0, z - 0.045), 0.02, 0.02, slide)
-    crook = _uloop((1.15, 0.0, z + 0.045), (1.15, 0.0, z - 0.045), (0.09, 0.0, 0.0), 0.02, slide)
-    mpc = ww._ball(-0.10, z + 0.045, 0.03, mpc_mat, scale=(1.4, 1.0, 1.0))
-    # Bell section (upper): tube back from the slide, a tuning-slide U-crook at
-    # the far left, then the bell flares out to the right, above the slide.
-    up = _tube((-0.05, 0.0, z + 0.045), (-0.05, 0.0, z + 0.20), 0.024, 0.024, body_mat)
-    tuning = _uloop((-0.05, 0.0, z + 0.20), (0.10, 0.0, z + 0.24), (-0.14, 0.0, 0.06), 0.024, body_mat)
-    bell_tube = _tube((0.10, 0.0, z + 0.24), (0.45, 0.0, z + 0.22), 0.028, 0.032, body_mat)
-    bell = _tube((0.45, 0.0, z + 0.22), (0.86, 0.0, z + 0.20), 0.05, 0.21, body_mat, verts=26)
-    braces = [_tube((0.15, 0.0, z + 0.045), (0.15, 0.0, z + 0.235), 0.008, 0.008, body_mat),
-              _tube((0.55, 0.0, z + 0.045), (0.55, 0.0, z + 0.19), 0.008, 0.008, body_mat)]
-    # Inner slide: the short fixed stubs the outer slide runs out along. The
-    # outer slide used to start flush against the bell section, so extending
-    # it would have torn a hole in the instrument.
-    inner = [_tube((-0.05, 0.0, z + 0.045), (0.62, 0.0, z + 0.045), 0.014, 0.014, slide),
-             _tube((-0.05, 0.0, z - 0.045), (0.62, 0.0, z - 0.045), 0.014, 0.014, slide)]
-    body = [up, tuning, bell_tube, bell] + braces
-    extras = [sl_a, sl_b, crook, mpc] + inner
-    return body + extras, body, {"slide": [sl_a, sl_b, crook]}
+    z0 = 1.12
+    za, zb = z0 + 0.045, z0 - 0.045          # the two slide tubes
+    z_hi = z0 + 0.24                         # the bell section's top tube
+    # Inner slide: fixed, from the mouthpiece receiver.
+    # It reaches left so the mouthpiece tip lines up with the crook: the
+    # slide is the full length of the instrument.
+    inner = [_tube((-0.32, 0.0, za), (0.62, 0.0, za), 0.013, 0.013, slide),
+             _tube((-0.32, 0.0, zb), (0.62, 0.0, zb), 0.013, 0.013, slide),
+             _tube((-0.25, 0.0, zb), (-0.25, 0.0, za), 0.006, 0.006, slide)]   # inner slide brace
+    # Outer slide: what the pitch moves.
+    sl_a = _tube((-0.05, 0.0, za), (1.15, 0.0, za), 0.017, 0.017, slide)
+    sl_b = _tube((-0.05, 0.0, zb), (1.15, 0.0, zb), 0.017, 0.017, slide)
+    crook = _uloop((1.15, 0.0, za), (1.15, 0.0, zb), (0.09, 0.0, 0.0), 0.017, slide)
+    grip = _tube((-0.03, 0.0, zb), (-0.03, 0.0, za), 0.006, 0.006, slide)       # outer slide brace
+    bumper = ww._ball(1.24, z0, 0.014, ww.make_solid("BrTbnBumper", (0.05, 0.05, 0.05), roughness=0.6))
+    mpc = _mouthpiece((-0.41, 0.0, za), (-0.32, 0.0, za), mpc_mat)
+    # Bell section: one smooth run from the lower slide tube, up round the
+    # crook at the left edge, into the top tube.
+    bend = _curve_tube(ww._smooth_points([(-0.24, 0.0, zb), (-0.32, 0.0, zb), (-0.39, 0.0, zb + 0.03),
+                                          (-0.43, 0.0, z0 + 0.05), (-0.43, 0.0, z0 + 0.14),
+                                          (-0.39, 0.0, z_hi - 0.03), (-0.31, 0.0, z_hi), (-0.22, 0.0, z_hi)], 8),
+                       0.015, body_mat, name="tbn_bend")
+    weight = ww._ball(-0.46, z0 + 0.10, 0.035, ww.make_solid("BrTbnWeight", (0.06, 0.06, 0.06), roughness=0.5),
+                      scale=(0.5, 1.0, 1.0))
+    upper = _tube((-0.22, 0.0, z_hi), (0.30, 0.0, z_hi), 0.015, 0.024, body_mat)
+    bell, garland = _bell((0.30, 0.0, z_hi), (0.84, 0.0, z_hi), 0.024, 0.19, body_mat, name="tbn_bell")
+    braces = [_tube((-0.12, 0.0, za), (-0.12, 0.0, z_hi), 0.006, 0.006, body_mat),
+              _tube((0.12, 0.0, za), (0.12, 0.0, z_hi), 0.006, 0.006, body_mat)]
+    body = [bend, upper, bell, garland] + braces
+    extras = inner + [sl_a, sl_b, crook, grip, bumper, weight] + mpc
+    return body + extras, body, {"slide": [sl_a, sl_b, crook, grip, bumper]}
 
 
 def build_tuba(body_mat):
+    """From tuba.webp, side on, bell up-left: the main tube wraps in a big
+    oval with a second branch inside it, the bell rises off the top-left
+    and flares, four pistons stand at the front with their valve slides
+    looping below, the leadpipe curls down from the mouthpiece at the top
+    to the first valve, and the main tuning slide sticks out on the right."""
     silver = ww.make_solid("BrTubaValve", SILVER, roughness=0.3, metallic=0.8)
     mpc_mat = ww.make_solid("BrTubaMpc", (0.72, 0.73, 0.75), roughness=0.3, metallic=0.7)
-    # Real-tuba silhouette (side profile faces the camera): a rounded oval
-    # body of wrapped tubing, a huge bell flaring UP off the top, pistons on
-    # top-centre, and a leadpipe curving down from the mouthpiece.
-    cx, cz = 0.10, 0.60
-    rx, rz = 0.34, 0.40
-    n = 30
+    cx, cz = 0.10, 0.80          # the wrap's bottom, and the valve slides under it, clear the floor
+    rx, rz = 0.34, 0.38
+    n = 64
     oval = [(cx + rx * math.cos(2 * math.pi * k / n), 0.0, cz + rz * math.sin(2 * math.pi * k / n))
             for k in range(n + 1)]
-    main = _curve_tube(oval, 0.065, body_mat, name="tuba_main")
-    # Valve tubes: horizontal runs stacked across the lower body (the
-    # characteristic wrapped look), joined by U-crooks at alternating ends.
-    vtubes = []
-    for i, vz in enumerate((cz - 0.24, cz - 0.10, cz + 0.04)):
-        vtubes.append(_tube((cx - 0.24, 0.0, vz), (cx + 0.26, 0.0, vz), 0.045, 0.045, body_mat))
-        end_x = cx + 0.26 if i % 2 == 0 else cx - 0.24
-        vtubes.append(_uloop((end_x, 0.0, vz), (end_x, 0.0, vz + 0.14),
-                             (0.10 if i % 2 == 0 else -0.10, 0.0, 0.0), 0.045, body_mat))
-    # Bell: a wide neck rising from the top of the body, then a big flare up.
-    bell_neck = _tube((cx - 0.06, 0.0, cz + rz - 0.04), (cx - 0.12, 0.0, 1.40), 0.10, 0.13, body_mat, verts=24)
-    bell = _tube((cx - 0.12, 0.0, 1.40), (cx - 0.20, 0.03, 2.00), 0.14, 0.40, body_mat, verts=32)
-    # Four pistons standing up from the top-centre of the body + buttons.
-    valves, buttons = [], []
-    for vx in (cx - 0.02, cx + 0.08, cx + 0.18, cx + 0.28):
-        valves.append(_tube((vx, -0.05, cz + 0.10), (vx, -0.05, cz + 0.34), 0.028, 0.028, silver))
-        buttons.append(ww._ball(vx, cz + 0.365, 0.032, ww.make_pad_material(), y=-0.05))
-    # Leadpipe curving from an upper-right mouthpiece down to the valves.
-    lead = _curve_tube([(0.46, -0.06, 1.18), (0.40, -0.05, 1.02),
-                        (0.34, -0.04, 0.90), (cx + 0.28, -0.05, cz + 0.30)], 0.022, body_mat)
-    mpc = ww._ball(0.48, 1.20, 0.032, mpc_mat, scale=(1.2, 1.0, 1.0), y=-0.06)
-    body = [main, bell_neck, bell, lead] + vtubes
-    extras = valves + buttons + [mpc]
+    main = _curve_tube(oval, 0.060, body_mat, name="tuba_main")
+    inner = [(cx + 0.02 + 0.22 * math.cos(2 * math.pi * k / n), 0.045, cz - 0.02 + 0.25 * math.sin(2 * math.pi * k / n))
+             for k in range(n + 1)]
+    branch = _curve_tube(inner, 0.042, body_mat, name="tuba_branch")
+    tuning = _uloop((cx + rx, 0.0, cz + 0.07), (cx + rx, 0.0, cz - 0.07), (0.13, 0.0, 0.0), 0.045, body_mat)
+    # Bell: a conical stem off the top-left of the wrap, then the flare.
+    stem = _tube((cx - 0.12, 0.0, cz + rz - 0.06), (cx - 0.24, 0.0, 1.46), 0.070, 0.105, body_mat)
+    bell, garland = _bell((cx - 0.24, 0.0, 1.46), (cx - 0.40, 0.05, 2.02), 0.105, 0.40, body_mat,
+                          power=2.6, name="tuba_bell")
+    # Valve cluster at the front.
+    vy = -0.075
+    vxs = (cx - 0.08, cx + 0.03, cx + 0.14, cx + 0.25)
+    z_cas0, z_cas1 = cz - 0.10, cz + 0.12
+    casings = [_tube((x, vy, z_cas0), (x, vy, z_cas1), 0.028, 0.028, silver) for x in vxs]
+    knuckle = _tube((vxs[0] - 0.05, vy, cz + 0.01), (vxs[-1] + 0.05, vy, cz + 0.01), 0.022, 0.022, body_mat)
+    stems, buttons = _pistons(vxs, vy, z_cas1, silver, ww.make_pad_material(), stem_h=0.05, r_button=0.03)
+    vslides = []
+    for i, x in enumerate(vxs):
+        h = (0.15, 0.10, 0.19, 0.23)[i]
+        vslides.append(_uloop((x - 0.022, vy, z_cas0), (x + 0.022, vy, z_cas0), (0.0, 0.0, -h), 0.020, body_mat))
+    # Leadpipe from the mouthpiece at the top down the front to the first valve.
+    lead = _curve_tube(ww._smooth_points([(0.40, -0.05, 1.46), (0.44, -0.06, 1.30), (0.38, -0.08, 1.10),
+                                          (vxs[0] - 0.02, vy, z_cas1 + 0.02)], 8), 0.018, body_mat,
+                       name="tuba_leadpipe")
+    mpc = _mouthpiece((0.36, -0.045, 1.54), (0.40, -0.05, 1.46), mpc_mat)
+    body = [main, branch, tuning, stem, bell, garland, knuckle, lead] + vslides
+    extras = casings + stems + buttons + mpc
     return body + extras, body, {"valves": buttons}
 
 
