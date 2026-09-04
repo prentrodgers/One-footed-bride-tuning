@@ -123,6 +123,30 @@ def make_solid_material(name, color, roughness=0.5, metallic=0.0):
     return mat
 
 
+def make_string_metal_material(name, glow_strength=3.0):
+    """Guitar strings: metal coloured by the object's Object Color, with
+    emission driven by that colour's alpha (0 at rest, 1 on a note), as in
+    blender_pizzicato_poc.make_string_glow_material."""
+    mat = bpy.data.materials.new(name)
+    mat.use_nodes = True
+    nt = mat.node_tree
+    nt.nodes.clear()
+    out = nt.nodes.new("ShaderNodeOutputMaterial")
+    bsdf = nt.nodes.new("ShaderNodeBsdfPrincipled")
+    info = nt.nodes.new("ShaderNodeObjectInfo")
+    mul = nt.nodes.new("ShaderNodeMath")
+    mul.operation = 'MULTIPLY'
+    mul.inputs[1].default_value = glow_strength
+    nt.links.new(info.outputs["Color"], bsdf.inputs["Base Color"])
+    nt.links.new(info.outputs["Color"], bsdf.inputs["Emission Color"])
+    nt.links.new(info.outputs["Alpha"], mul.inputs[0])
+    nt.links.new(mul.outputs["Value"], bsdf.inputs["Emission Strength"])
+    bsdf.inputs["Metallic"].default_value = 1.0
+    bsdf.inputs["Roughness"].default_value = 0.32
+    nt.links.new(bsdf.outputs["BSDF"], out.inputs["Surface"])
+    return mat
+
+
 def make_glow_material(name):
     """Shared material: emission colour from each object's own Object
     Color, same trick as marimba's bars / pizzicato's strings."""
@@ -552,13 +576,20 @@ GUITAR_STRING_REACH = 2400
 # Offset single-cutaway solid body (Reverend Descent-style): one horn near
 # the neck joint, smooth rounded lower bout with no matching horn, a
 # Fender-style paddle headstock with all 6 pegs in a row along one edge.
-HEAD_LEN, HEAD_H = 0.11, 0.11
-NECK_LEN = 0.46
-BODY_W, BODY_H = 0.50, 0.40
+HEAD_LEN, HEAD_H = 0.195, 0.14  # long inline headstock, the strings running straight to their posts
+# Proportions from the photo: neck 1.4x the body's height, body 1.55x as
+# long (horn tip to tail) as it is tall — a trim body on a long neck.
+NECK_LEN = 0.52
+BODY_W, BODY_H = 0.46, 0.36
 BODY_DEPTH = 0.045
-STRING_SPACING = 0.016
+# Body centre in y. The neck is centred on y=0; setting the body back puts
+# its front face 3 mm behind the neck's, the fretboard 5 mm proud of it and
+# the strings 18 mm above it — room for real pickups and a bridge. (At
+# y=0 the strings were 1 mm off the body and the fretboard inside it.)
+BODY_Y = 0.012
+STRING_SPACING = 0.014
 PLUCK_X_FRAC = 0.80
-STRING_RADIUS = 0.0018
+STRING_RADIUS = 0.0012
 N_STRING_PTS = 24
 
 # primitive_cube_add(size=1.0) + object.scale = final extent directly
@@ -600,46 +631,61 @@ def _note_to_guitar_string(pitch_cents):
     return int(np.argmin([abs(pitch_cents - op) for op in GUITAR_OPEN_CENTS]))
 
 
+def _catmull_rom_closed(pts, n_per_seg=5):
+    """Sample a closed Catmull-Rom loop through pts (2-tuples)."""
+    P = [np.asarray(p, dtype=float) for p in pts]
+    m = len(P)
+    out = []
+    for i in range(m):
+        p0, p1, p2, p3 = P[i - 1], P[i], P[(i + 1) % m], P[(i + 2) % m]
+        for k in range(n_per_seg):
+            t = k / n_per_seg
+            q = 0.5 * (2.0 * p1 + (p2 - p0) * t
+                       + (2.0 * p0 - 5.0 * p1 + 4.0 * p2 - p3) * t * t
+                       + (3.0 * p1 - p0 - 3.0 * p2 + p3) * t * t * t)
+            out.append((float(q[0]), float(q[1])))
+    return out
+
+
+# (x/bw, z/bh) traced from 'baritone guitar.jpg' (a Reverend Descent): x=0
+# at the neck pocket, growing toward the tail; z=0 on the string centre
+# line. The upper horn overhangs the neck (negative x) and is a rounded
+# lobe, the lower side has no horn at all, and the tail is a full curve.
+GUITAR_OUTLINE_CTRL = [
+    (-0.005, -0.110),                     # neck pocket, bass side (x=0 here)
+    # Lower lobe: the edge drops almost straight down from the pocket and
+    # bulges a little left before turning along the bottom — the small
+    # mirror of the horn above.
+    (-0.020, -0.170), (-0.037, -0.270), (-0.016, -0.320),
+    (0.070, -0.380), (0.190, -0.460), (0.350, -0.520), (0.510, -0.530),
+    (0.665, -0.490), (0.820, -0.405), (0.930, -0.290), (0.990, -0.140),
+    (1.005, 0.005), (0.990, 0.160), (0.930, 0.300), (0.820, 0.405),
+    (0.660, 0.460), (0.510, 0.470), (0.300, 0.460), (0.090, 0.430),
+    (-0.120, 0.410), (-0.280, 0.395),     # top edge out to the horn
+    (-0.320, 0.360),                      # horn tip
+    (-0.280, 0.300), (-0.225, 0.200),     # inner edge of the horn
+    (-0.160, 0.130),                      # where it meets the neck, treble side
+]
+
+
 def guitar_body_outline_points(bw, bh, inflate=0.0):
-    """Local (x, z) offsets for an offset single-cutaway solid body — x=0
-    at the neck joint growing toward the tail, z centred on the string
-    plane. A pointed upper horn (the single cutaway) near the neck joint on
-    the +z side, then a deep waist notch, and a full rounded lower bout with
-    no matching horn on the -z side — the Reverend Descent / offset-Fender
-    silhouette. `inflate` pushes every point radially outward from the body
-    centroid (used to build the light binding rim a touch larger than the
-    body itself)."""
-    pts = [
-        (0.00 * bw, 0.12 * bh),
-        (0.04 * bw, 0.34 * bh),
-        (0.08 * bw, 0.50 * bh),   # upper-horn tip (cutaway)
-        (0.13 * bw, 0.44 * bh),
-        (0.20 * bw, 0.33 * bh),   # waist notch after the horn
-        (0.30 * bw, 0.40 * bh),
-        (0.44 * bw, 0.50 * bh),
-        (0.62 * bw, 0.50 * bh),
-        (0.80 * bw, 0.47 * bh),
-        (0.92 * bw, 0.38 * bh),
-        (1.00 * bw, 0.24 * bh),
-        (1.05 * bw, 0.10 * bh),
-        (1.06 * bw, 0.00 * bh),   # tail
-        (1.05 * bw, -0.12 * bh),
-        (1.00 * bw, -0.26 * bh),
-        (0.90 * bw, -0.40 * bh),
-        (0.70 * bw, -0.50 * bh),  # full lower bout
-        (0.48 * bw, -0.50 * bh),
-        (0.30 * bw, -0.44 * bh),
-        (0.16 * bw, -0.30 * bh),
-        (0.06 * bw, -0.16 * bh),
-        (0.00 * bw, -0.08 * bh),
-    ]
+    """Local (x, z) offsets of the body silhouette: a smooth closed spline
+    through GUITAR_OUTLINE_CTRL, so every curve is rounded — nothing on
+    it would poke the player. `inflate` pushes each point radially out
+    from the body's centre (the binding rim is built a touch larger)."""
+    pts = [(x * bw, z * bh) for x, z in _catmull_rom_closed(GUITAR_OUTLINE_CTRL, 5)]
     if inflate:
-        cx, cz0 = 0.5 * bw, 0.0
+        # Offset along the outline's own outward normal, so the rim is the
+        # same width everywhere (a radial push from the centre smeared it
+        # into a wide band along the horn, whose edges run toward the centre).
+        n = len(pts)
         out = []
-        for x, z in pts:
-            dx, dz = x - cx, z - cz0
-            d = math.hypot(dx, dz) or 1.0
-            out.append((x + inflate * dx / d, z + inflate * dz / d))
+        for i, (x, z) in enumerate(pts):
+            x0_, z0_ = pts[i - 1]
+            x1_, z1_ = pts[(i + 1) % n]
+            tx, tz = x1_ - x0_, z1_ - z0_
+            d = math.hypot(tx, tz) or 1.0
+            out.append((x + inflate * tz / d, z - inflate * tx / d))
         return out
     return pts
 
@@ -653,76 +699,63 @@ def make_guitar_body_mesh(name, bx, cz, bw, bh, depth, inflate=0.0):
     front_y, back_y = -depth / 2.0, depth / 2.0
     verts = [(bx + x, front_y, cz + z) for x, z in outline] + \
             [(bx + x, back_y, cz + z) for x, z in outline]
-    cx = bx + bw * 0.45
-    front_c, back_c = len(verts), len(verts) + 1
-    verts.append((cx, front_y, cz))
-    verts.append((cx, back_y, cz))
-
+    # Rim quads, then one n-gon per face: the outline is concave at the
+    # horn, which a fan from a centre vertex cannot triangulate correctly.
     faces = []
     for i in range(n):
         j = (i + 1) % n
         faces.append((i, j, n + j, n + i))
     edge_face_count = len(faces)
-    for i in range(n):
-        j = (i + 1) % n
-        faces.append((front_c, j, i))
-        faces.append((back_c, n + i, n + j))
+    faces.append(tuple(range(n - 1, -1, -1)))
+    faces.append(tuple(range(n, 2 * n)))
 
     mesh = bpy.data.meshes.new(name)
     mesh.from_pydata(verts, [], faces)
     mesh.update()
-    # Smooth-shade the rim (edge) faces only, to soften the low-poly
-    # outline into a rounded contour edge; the front/back caps stay flat,
-    # like a real flat-top solid body.
+    # Smooth-shade the rim (edge) faces only; the front/back caps stay
+    # flat, like a real flat-top solid body.
     for f in mesh.polygons[:edge_face_count]:
         f.use_smooth = True
     return mesh
 
 
-def guitar_headstock_outline_points(head_len, head_h, peg_fracs):
-    """Local (x, z) offsets for a paddle headstock, scalloped around each
-    tuning peg (peg_fracs, an x-fraction of head_len per peg) instead of a
-    plain rectangle — material is cut away between pegs the way the
-    Reverend Descent-style reference photo does, leaving a comb of bumps
-    only where a peg actually needs support."""
-    bottom = [
-        (0.00, -0.36), (0.20, -0.40), (0.55, -0.36), (0.85, -0.24), (1.02, -0.08),
-    ]
-    tip = [(1.08, 0.02)]
-    top = [(1.02, 0.14)]
-    for i in range(len(peg_fracs) - 1, -1, -1):
-        top.append((peg_fracs[i], 0.40))
-        if i > 0:
-            mid = (peg_fracs[i] + peg_fracs[i - 1]) / 2.0
-            top.append((mid, 0.14))
-    top.append((0.06, 0.30))
-    top.append((0.00, 0.36))
-    return [(x * head_len, z * head_h) for x, z in bottom + tip + top]
+def guitar_headstock_outline_points(head_len, peg_fracs, peg_zs):
+    """Local (x, z) offsets for the headstock, x=0 at the tip growing
+    toward the nut at head_len, z relative to the string centre line.
+    Each tuner post sits at its own string's height (peg_zs, low string
+    first, at peg_fracs of head_len from the tip), so the strings continue
+    dead straight from the nut to their posts — no bend a string could
+    break at — and the upper edge, drawn just above the posts, slopes
+    from the nut at upper right down to the tip at lower left."""
+    # At the nut the head is exactly as wide as the neck/fingerboard
+    # (NECK_H about the string centre), never outside it; the margins
+    # above the posts and below the low string are what fit inside that.
+    half_neck = NECK_H / 2.0
+    z_lo, z_hi = peg_zs[0], peg_zs[-1]
+    top_m = min(0.008, half_neck - z_hi)
+    pts = [(1.02 * head_len, half_neck)]                          # nut end, top corner
+    for frac, z in zip(reversed(peg_fracs), reversed(peg_zs)):   # along the posts toward the tip
+        pts.append((frac * head_len, z + top_m))
+    pts += [(0.03 * head_len, z_lo + 0.003), (0.0, z_lo - 0.006),      # rounded tip
+            (0.06 * head_len, z_lo - 0.016), (1.02 * head_len, -half_neck)]
+    return pts
 
 
-def make_guitar_headstock_mesh(name, x0, cz, head_len, head_h, depth, peg_fracs):
-    """Flat-slab extrusion of guitar_headstock_outline_points — same
-    fan-cap technique as make_guitar_body_mesh, smooth-shaded rim only."""
-    outline = guitar_headstock_outline_points(head_len, head_h, peg_fracs)
+def make_guitar_headstock_mesh(name, x0, cz, head_len, depth, peg_fracs, peg_zs):
+    """Flat-slab extrusion of guitar_headstock_outline_points: rim quads
+    and one n-gon per face, smooth-shaded rim only."""
+    outline = guitar_headstock_outline_points(head_len, peg_fracs, peg_zs)
     n = len(outline)
     front_y, back_y = -depth / 2.0, depth / 2.0
     verts = [(x0 + x, front_y, cz + z) for x, z in outline] + \
             [(x0 + x, back_y, cz + z) for x, z in outline]
-    cx = x0 + head_len * 0.45
-    front_c, back_c = len(verts), len(verts) + 1
-    verts.append((cx, front_y, cz))
-    verts.append((cx, back_y, cz))
-
     faces = []
     for i in range(n):
         j = (i + 1) % n
         faces.append((i, j, n + j, n + i))
     edge_face_count = len(faces)
-    for i in range(n):
-        j = (i + 1) % n
-        faces.append((front_c, j, i))
-        faces.append((back_c, n + i, n + j))
-
+    faces.append(tuple(range(n - 1, -1, -1)))
+    faces.append(tuple(range(n, 2 * n)))
     mesh = bpy.data.meshes.new(name)
     mesh.from_pydata(verts, [], faces)
     mesh.update()
@@ -758,8 +791,8 @@ def build_baritone_guitar(x0, cz):
     bw, bh = BODY_W, BODY_H
     x_nut = x0 + head_len
     bx = x0 + head_len + neck_len   # neck/body joint — body outline's local x=0
-    x_bridge = bx + bw * 0.86
-    total_len = bx + bw * 1.05 - x0   # tail tip, for camera/layout framing
+    x_bridge = bx + bw * 0.60        # the saddles; the plate runs on to 0.66
+    total_len = bx + bw * 1.01 - x0   # tail tip, for camera/layout framing
     pluck_x = x_nut + (x_bridge - x_nut) * PLUCK_X_FRAC
     front_y = -(BODY_DEPTH / 2.0 + 0.006)   # string/hardware plane, proud of the body's front face
 
@@ -780,6 +813,7 @@ def build_baritone_guitar(x0, cz):
     binding_mesh = make_guitar_body_mesh("guitar_binding", bx, cz, bw, bh, BODY_DEPTH, inflate=0.007)
     binding = bpy.data.objects.new("guitar_binding", binding_mesh)
     bpy.context.scene.collection.objects.link(binding)
+    binding.location = (0.0, BODY_Y + 0.005, 0.0)
     binding.data.materials.append(binding_mat)
 
     # Body — offset single-cutaway silhouette, flat-extruded from an
@@ -788,8 +822,16 @@ def build_baritone_guitar(x0, cz):
     body_mesh = make_guitar_body_mesh("guitar_body", bx, cz, bw, bh, BODY_DEPTH)
     body = bpy.data.objects.new("guitar_body", body_mesh)
     bpy.context.scene.collection.objects.link(body)
-    body.location = (0.0, -0.005, 0.0)
+    body.location = (0.0, BODY_Y, 0.0)
+    body_face_y = BODY_Y - BODY_DEPTH / 2.0
     body.data.materials.append(body_mat)
+    # Rounded edges all round — the comfort roll-over of a real solid body.
+    # Angle-limited so only the front/back corners are bevelled, not the
+    # nearly flat joins between the outline's own segments.
+    bev = body.modifiers.new("Bevel", 'BEVEL')
+    bev.width, bev.segments = 0.010, 4
+    bev.limit_method = 'ANGLE'
+    bev.angle_limit = math.radians(30.0)
 
     # Neck — spans the full gap between the headstock (x_nut) and the body
     # (bx), with a 2% overlap on each end so it visibly joins both instead
@@ -809,9 +851,12 @@ def build_baritone_guitar(x0, cz):
     # (which stays visible framing it on all sides) so there's a wood
     # surface for stopped strings to visibly press against.
     neck_front_y = -0.0075 - 0.004
-    bpy.ops.mesh.primitive_cube_add(size=1.0, location=(x_nut + neck_len * 0.5, neck_front_y, cz))
+    # The fingerboard carries on past the pocket onto the body, as in the
+    # photo (about 6% of the body length), with the neck pickup just beyond.
+    fb_end = bx + bw * 0.06
+    bpy.ops.mesh.primitive_cube_add(size=1.0, location=((x_nut + fb_end) / 2.0, neck_front_y, cz))
     fretboard = bpy.context.object
-    fretboard.scale = (neck_len * 0.96, 0.008, FRETBOARD_H)
+    fretboard.scale = (fb_end - x_nut, 0.008, FRETBOARD_H)
     fretboard.name = "guitar_fretboard"
     fretboard.data.materials.append(fretboard_mat)
 
@@ -824,28 +869,37 @@ def build_baritone_guitar(x0, cz):
     # The neck already overlaps back into the headstock's own span (its
     # 2% overlap trick above), so the headstock mesh itself just needs to
     # be exactly head_len — no separate stretch needed for the joint.
-    peg_fracs = np.linspace(0.10, 0.95, N_STRINGS)
-    head_mesh = make_guitar_headstock_mesh("guitar_head", x0, cz, head_len, head_h, 0.012, peg_fracs)
+    peg_fracs = np.linspace(0.10, 0.80, N_STRINGS)
+    szs = [cz - STRING_SPACING * (N_STRINGS - 1) / 2.0 + i * STRING_SPACING for i in range(N_STRINGS)]
+    head_mesh = make_guitar_headstock_mesh("guitar_head", x0, cz, head_len, 0.012, peg_fracs,
+                                           [sz - cz for sz in szs])
     head = bpy.data.objects.new("guitar_head", head_mesh)
     bpy.context.scene.collection.objects.link(head)
     head.data.materials.append(body_mat)
 
-    szs = [cz - STRING_SPACING * (N_STRINGS - 1) / 2.0 + i * STRING_SPACING for i in range(N_STRINGS)]
-
     peg_xs = x0 + peg_fracs * head_len
-    peg_z = cz + head_h * 0.32
+    # Each post at its own string's height, reaching from the head out to
+    # the string plane; its tuning button stands up from the head's back,
+    # above the sloping upper edge.
     route_mat = make_solid_material("GuitarRoute", (0.5, 0.5, 0.52), roughness=0.6)
     for i, (px, sz) in enumerate(zip(peg_xs, szs)):
-        bpy.ops.mesh.primitive_cylinder_add(radius=0.007, depth=0.026, location=(px, 0.0, peg_z))
+        post_len = -front_y + 0.004
+        bpy.ops.mesh.primitive_cylinder_add(radius=0.005, depth=post_len, location=(px, -post_len / 2.0, sz))
         peg = bpy.context.object
         peg.rotation_euler = (math.radians(90.0), 0.0, 0.0)
         peg.name = f"guitar_peg_{i}"
         peg.data.materials.append(chrome_mat)
-        bpy.ops.mesh.primitive_cylinder_add(radius=0.005, depth=0.026, location=(px, 0.0, peg_z + 0.016))
+        # Tuning machine on the back of the head: a short shaft rising
+        # past the sloped edge to a flat oval button a finger can turn.
+        bpy.ops.mesh.primitive_cylinder_add(radius=0.0028, depth=0.026, location=(px, 0.009, sz + 0.016))
+        shaft = bpy.context.object
+        shaft.name = f"guitar_peg_shaft_{i}"
+        shaft.data.materials.append(chrome_mat)
+        bpy.ops.mesh.primitive_uv_sphere_add(radius=1.0, location=(px, 0.009, sz + 0.036))
         knob = bpy.context.object
-        knob.rotation_euler = (math.radians(90.0), 0.0, 0.0)
+        knob.scale = (0.0075, 0.0035, 0.011)
         knob.name = f"guitar_peg_knob_{i}"
-        knob.data.materials.append(knob_mat)
+        knob.data.materials.append(chrome_mat)
 
         # Static routing line from the nut to this string's peg
         curve_data = bpy.data.curves.new(f"guitar_route_{i}", type='CURVE')
@@ -854,7 +908,7 @@ def build_baritone_guitar(x0, cz):
         spline = curve_data.splines.new('POLY')
         spline.points.add(1)
         spline.points[0].co = (x_nut, front_y, sz, 1.0)
-        spline.points[1].co = (px, front_y, peg_z, 1.0)
+        spline.points[1].co = (px, front_y, sz, 1.0)
         route = bpy.data.objects.new(f"guitar_route_{i}", curve_data)
         bpy.context.scene.collection.objects.link(route)
         route.data.materials.append(route_mat)
@@ -863,44 +917,79 @@ def build_baritone_guitar(x0, cz):
     # pickups in the reference). A plain bright slab reads better at stage
     # distance than a fussy surround-plus-core that just muddies to grey.
     # Set just behind the string plane so the strings still pass over them.
+    # Two humbuckers between the neck and the bridge: a black mounting
+    # ring on the body, a chrome cover standing proud of it, its top face
+    # a few mm behind the string plane so the strings pass over it. (They
+    # used to be centred inside the body slab, and never showed.)
     pickup_mat = make_solid_material("GuitarPickup", (0.80, 0.81, 0.83), roughness=0.3, metallic=0.2)
-    pickup_y = front_y + 0.006
-    for pu_x in (bx + bw * 0.40, bx + bw * 0.62):
-        bpy.ops.mesh.primitive_cube_add(size=1.0, location=(pu_x, pickup_y, cz))
+    for pu_x in (bx + bw * 0.157, bx + bw * 0.455):
+        bpy.ops.mesh.primitive_cube_add(size=1.0, location=(pu_x, body_face_y - 0.002, cz))
+        ring = bpy.context.object
+        ring.scale = (bw * 0.125, 0.004, bh * 0.26)
+        ring.name = f"guitar_pickup_ring_{pu_x:.3f}"
+        ring.data.materials.append(knob_mat)
+        cover_h = (body_face_y - 0.004) - (front_y + 0.003)
+        bpy.ops.mesh.primitive_cube_add(size=1.0, location=(pu_x, front_y + 0.003 + cover_h / 2.0, cz))
         pu = bpy.context.object
-        pu.scale = (bw * 0.07, 0.008, bh * 0.34)
+        pu.scale = (bw * 0.100, cover_h, bh * 0.20)
         pu.name = f"guitar_pickup_{pu_x:.3f}"
-        pu.data.materials.append(pickup_mat)
+        bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
+        add_corner_bevel(pu, width=0.003)
+        pu.data.materials.append(chrome_mat)
 
     # Bridge — black plate + a chrome saddle per string
-    z_lo, z_hi = szs[0], szs[-1]
-    bpy.ops.mesh.primitive_cube_add(size=1.0, location=(x_bridge, front_y, cz))
+    # Hardtail bridge: a plate on the body, the saddles standing on it just
+    # behind the string plane so the strings run straight over them to
+    # their anchors at the plate's tail edge — no bend at the far end.
+    tail_x = x_bridge + bw * 0.055
+    bpy.ops.mesh.primitive_cube_add(size=1.0, location=(x_bridge + bw * 0.025, body_face_y - 0.003, cz))
     bridge = bpy.context.object
-    bridge.scale = (0.010, 0.010, (z_hi - z_lo) / 2.0 + 0.018)
+    bridge.scale = (bw * 0.11, 0.006, bh * 0.25)
     bridge.name = "guitar_bridge"
-    bridge.data.materials.append(knob_mat)
+    bridge.data.materials.append(chrome_mat)
+    # A raised lip along the plate's tail edge carries the screw heads.
+    bpy.ops.mesh.primitive_cube_add(size=1.0, location=(tail_x + 0.004, body_face_y - 0.009, cz))
+    lip = bpy.context.object
+    lip.scale = (0.006, 0.012, bh * 0.25)
+    lip.name = "guitar_bridge_lip"
+    lip.data.materials.append(chrome_mat)
     for i, sz in enumerate(szs):
-        bpy.ops.mesh.primitive_cube_add(size=1.0, location=(x_bridge, front_y - 0.006, sz))
+        bpy.ops.mesh.primitive_cube_add(size=1.0, location=(x_bridge, front_y + 0.004, sz))
         saddle = bpy.context.object
-        saddle.scale = (0.008, 0.006, 0.004)
+        saddle.scale = (0.009, 0.007, 0.006)
         saddle.name = f"guitar_saddle_{i}"
         saddle.data.materials.append(chrome_mat)
+        # Intonation screw: from the back of the saddle to the lip, with a
+        # slotted head standing out of the lip's tail face.
+        screw_len = tail_x - x_bridge
+        bpy.ops.mesh.primitive_cylinder_add(radius=0.0017, depth=screw_len,
+                                             location=(x_bridge + screw_len / 2.0, front_y + 0.006, sz))
+        screw = bpy.context.object
+        screw.rotation_euler = (0.0, math.radians(90.0), 0.0)
+        screw.name = f"guitar_intonation_screw_{i}"
+        screw.data.materials.append(chrome_mat)
+        bpy.ops.mesh.primitive_cylinder_add(radius=0.0035, depth=0.004,
+                                             location=(tail_x + 0.009, front_y + 0.006, sz))
+        head = bpy.context.object
+        head.rotation_euler = (0.0, math.radians(90.0), 0.0)
+        head.name = f"guitar_screw_head_{i}"
+        head.data.materials.append(knob_mat)
 
     # Control knobs + switch on the lower bout
-    for k, kx_frac in enumerate((0.55, 0.66, 0.77)):
+    for k, (kx_frac, kz_frac) in enumerate(((0.49, -0.23), (0.60, -0.30), (0.71, -0.36))):
         bpy.ops.mesh.primitive_cylinder_add(radius=0.014, depth=0.014,
-                                             location=(bx + bw * kx_frac, front_y - 0.004, cz - bh * 0.30))
+                                             location=(bx + bw * kx_frac, body_face_y - 0.007, cz + bh * kz_frac))
         knob_o = bpy.context.object
         knob_o.rotation_euler = (math.radians(90.0), 0.0, 0.0)
         knob_o.name = f"guitar_knob_{k}"
         knob_o.data.materials.append(knob_mat)
-    bpy.ops.mesh.primitive_cube_add(size=1.0, location=(bx + bw * 0.30, front_y - 0.004, cz - bh * 0.22))
+    bpy.ops.mesh.primitive_cube_add(size=1.0, location=(bx + bw * 0.455, body_face_y - 0.004, cz - bh * 0.31))
     switch = bpy.context.object
     switch.scale = (0.018, 0.006, 0.007)
     switch.name = "guitar_switch"
     switch.data.materials.append(chrome_mat)
 
-    string_mat = make_glow_material("GuitarStringGlow")
+    string_mat = make_string_metal_material("GuitarStringMetal")
     strings, str_xs = [], []
     for i, sz in enumerate(szs):
         xs = np.linspace(x_nut, x_bridge, N_STRING_PTS)
@@ -909,13 +998,17 @@ def build_baritone_guitar(x0, cz):
         curve_data.bevel_depth = STRING_RADIUS
         curve_data.bevel_resolution = 2
         spline = curve_data.splines.new('POLY')
-        spline.points.add(N_STRING_PTS - 1)
+        # One extra, static point past the saddle: the string continues
+        # straight to its anchor at the tail of the bridge plate. The
+        # per-frame update only touches the first N_STRING_PTS points.
+        spline.points.add(N_STRING_PTS)
         for k, x in enumerate(xs):
             spline.points[k].co = (x, front_y, sz, 1.0)
+        spline.points[N_STRING_PTS].co = (tail_x, front_y, sz, 1.0)
         obj = bpy.data.objects.new(f"guitar_string{i}", curve_data)
         bpy.context.scene.collection.objects.link(obj)
         obj.data.materials.append(string_mat)
-        obj.color = (*STRING_CLRS[i], 1.0)
+        obj.color = (*STRING_CLRS[i], 0.0)
         strings.append(obj)
         str_xs.append(xs)
 
@@ -979,7 +1072,7 @@ def update_baritone_guitar(t, geom, notes):
         if g > 0.04:
             base = np.array(STRING_CLRS[i])
             g_col = base + g * (np.array(STRING_GLOW_COLOR) - base)
-        s.color = (*g_col, 1.0)
+        s.color = (*g_col, float(g))
 
         points = s.data.splines[0].points
         if a > 0.005:

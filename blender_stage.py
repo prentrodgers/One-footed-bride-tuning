@@ -660,6 +660,10 @@ def parse_args():
     # section builders are a couple of thousand lines of bpy mesh code that a
     # hand port would drift away from.
     p.add_argument("--export-gltf", default=None)
+    # Replace the whole cue sheet with one held shot on this target (a name
+    # from --list-targets; "a,b" pans between two) and switch the generator
+    # off — for rendering a still of one instrument to judge its modelling.
+    p.add_argument("--cue", default=None)
     return p.parse_args(argv)
 
 
@@ -789,7 +793,7 @@ def _update_string_player(t, pl, geom):
         if g > 0.02:
             base = np.array(pizz.STRING_REST_COLOR[si])
             g_col = base + g * (np.array(pizz.STRING_GLOW_COLOR) - base)
-        s.color = (*g_col, 1.0)
+        s.color = (*g_col, float(g))
 
         stopf = geom['stop_fingers'][si]
         if a > 0.005:
@@ -1498,6 +1502,11 @@ def build_stage_env(bounds):
 
 def main():
     args = parse_args()
+    if args.cue:
+        global CAMERA_CUES, CAMERA_AUTOGEN
+        focus = tuple(args.cue.split(",")) if "," in args.cue else args.cue
+        CAMERA_CUES = [("0:00", focus)]
+        CAMERA_AUTOGEN = []
     t0 = time.time()
     animate = args.npy is not None
     if animate and args.tempo is None:
@@ -1574,7 +1583,9 @@ def main():
         return
     cues = build_cue_sheet(targets, vmap, activity)
     check_cues(cues, targets)
-    if len(cues) > 1:
+    # A one-shot sheet leaves the camera where build_stage put it (the wide
+    # framing) unless the shot was asked for with --cue.
+    if len(cues) > 1 or args.cue:
         cuts = sum(1 for c in cues if c[2] == 0.0)
         print(f"[stage] camera: {len(cues)} shots ({cuts} cuts, {len(cues) - cuts} moves)")
         for c in cues:

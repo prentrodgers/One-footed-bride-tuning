@@ -169,12 +169,25 @@ def make_solid(name, color, roughness=0.5, metallic=0.0):
 
 
 # ── geometry helpers (instruments stand up in Z, thin toward camera in Y) ─────
+def _smooth(o, angle_deg=40.0):
+    """Smooth-shade a primitive, keeping edges sharper than angle_deg (a
+    cylinder's rim, a cone's cap) crisp. Blender's primitives come flat,
+    which turns every tube into a visibly faceted polygon up close."""
+    for p in o.data.polygons:
+        p.use_smooth = True
+    try:
+        o.data.set_sharp_from_angle(angle=math.radians(angle_deg))
+    except AttributeError:
+        pass
+    return o
+
+
 def _cone(z0, z1, r0, r1, mat, x=0.0, y=0.0, verts=20):
     bpy.ops.mesh.primitive_cone_add(radius1=r0, radius2=r1, depth=(z1 - z0),
                                     vertices=verts, location=(x, y, (z0 + z1) / 2.0))
     o = bpy.context.object
     o.data.materials.append(mat)
-    return o
+    return _smooth(o)
 
 
 def _ball(x, z, r, mat, y=0.0, scale=(1, 1, 1)):
@@ -182,18 +195,18 @@ def _ball(x, z, r, mat, y=0.0, scale=(1, 1, 1)):
     o = bpy.context.object
     o.scale = scale
     o.data.materials.append(mat)
-    return o
+    return _smooth(o)
 
 
 def _torus(x, z, major, minor, mat, y=0.0):
     bpy.ops.mesh.primitive_torus_add(major_radius=major, minor_radius=minor,
                                      location=(x, y, z),
-                                     major_segments=28, minor_segments=10)
+                                     major_segments=64, minor_segments=14)
     o = bpy.context.object
     # stand the ring up in the XZ plane (default torus lies in XY)
     o.rotation_euler = (math.radians(90), 0, 0)
     o.data.materials.append(mat)
-    return o
+    return _smooth(o)
 
 
 def _curve_tube(points, radius, mat, name="wwtube"):
@@ -202,7 +215,7 @@ def _curve_tube(points, radius, mat, name="wwtube"):
     cu = bpy.data.curves.new(name, 'CURVE')
     cu.dimensions = '3D'
     cu.bevel_depth = radius
-    cu.bevel_resolution = 3
+    cu.bevel_resolution = 6
     sp = cu.splines.new('POLY')
     sp.points.add(len(points) - 1)
     for i, (x, y, z) in enumerate(points):
@@ -223,7 +236,7 @@ def _cone_dir(p0, p1, r0, r1, mat, verts=16):
     o = bpy.context.object
     o.rotation_euler = d.to_track_quat('Z', 'Y').to_euler()
     o.data.materials.append(mat)
-    return o
+    return _smooth(o)
 
 
 def _key_zs(top, bottom, n=N_HOLES, power=1.25):
@@ -298,44 +311,118 @@ def build_bassoon(body_mat):
     return body + [bell_ring, bocal, reed_o] + holes, body, {"holes": holes}
 
 
+def _smooth_points(pts, n_per_seg=8):
+    """Catmull-Rom samples through 3D control points, for tubing that has
+    to bend smoothly (a POLY spline through a handful of points gives
+    visible elbows at every point)."""
+    P = [mathutils.Vector(p) for p in pts]
+    out = []
+    for i in range(len(P) - 1):
+        p0 = P[i - 1] if i > 0 else P[0] + (P[0] - P[1])
+        p1, p2 = P[i], P[i + 1]
+        p3 = P[i + 2] if i + 2 < len(P) else P[-1] + (P[-1] - P[-2])
+        for k in range(n_per_seg):
+            t = k / n_per_seg
+            q = 0.5 * (2.0 * p1 + (p2 - p0) * t
+                       + (2.0 * p0 - 5.0 * p1 + 4.0 * p2 - p3) * t * t
+                       + (3.0 * p1 - p0 - 3.0 * p2 + p3) * t * t * t)
+            out.append(tuple(q))
+    out.append(tuple(P[-1]))
+    return out
+
+
+def _flare(p0, p1, r0, r1, mat, power=3.2, n_rings=18, verts=32, name="wwflare"):
+    """A bell: a tube from p0 to p1 whose radius follows r0 + (r1-r0)*s^power
+    — nearly cylindrical for most of its length, then opening fast at the
+    mouth, the way a real brass bell does (a straight cone reads as a
+    funnel). Built as rings of vertices along the axis."""
+    a, b = mathutils.Vector(p0), mathutils.Vector(p1)
+    axis = b - a
+    rot = axis.to_track_quat('Z', 'Y')
+    ex, ey = rot @ mathutils.Vector((1, 0, 0)), rot @ mathutils.Vector((0, 1, 0))
+    vs, fs = [], []
+    for i in range(n_rings + 1):
+        s = i / n_rings
+        r = r0 + (r1 - r0) * s ** power
+        c = a + axis * s
+        for j in range(verts):
+            t = 2.0 * math.pi * j / verts
+            vs.append(tuple(c + ex * (r * math.cos(t)) + ey * (r * math.sin(t))))
+    for i in range(n_rings):
+        for j in range(verts):
+            k = (j + 1) % verts
+            fs.append((i * verts + j, i * verts + k, (i + 1) * verts + k, (i + 1) * verts + j))
+    mesh = bpy.data.meshes.new(name)
+    mesh.from_pydata(vs, [], fs)
+    mesh.update()
+    for f in mesh.polygons:
+        f.use_smooth = True
+    o = bpy.data.objects.new(name, mesh)
+    bpy.context.scene.collection.objects.link(o)
+    o.data.materials.append(mat)
+    return o
+
+
+def _cyl_dir(p0, p1, r, mat, verts=24):
+    return _cone_dir(p0, p1, r, r, mat, verts=verts)
+
+
 def build_horn(body_mat):
-    # French horn: concentric coiled tubing, a big flared bell off the
-    # lower-left, a curved leadpipe up to a funnel mouthpiece, valve rotors.
+    """French horn, laid out from the reference photo: one big main loop,
+    a bell that flares (not a cone) off its lower-left, three rotary
+    valves in a row across the front of the loop with their valve slides
+    hanging up inside it, and a thin leadpipe sweeping round the outside
+    from the mouthpiece at top-right to the valve cluster. The three
+    equal concentric rings this replaced read as a coiled hose."""
     silver = make_solid("WWHornValve", SILVER, roughness=0.3, metallic=0.75)
-    coil_r = (0.36, 0.29, 0.22)
-    cz = 0.92                       # coil centre height
-    coils = [_torus(0.0, cz, r, 0.032, body_mat) for r in coil_r]
-    # Big flared bell pointing down and to the left (the horn's signature).
-    # Its narrow end is placed ON the outer coil rather than near it: put the
-    # throat at a chosen angle round the ring and build the cone outward from
-    # there, so bell and tubing are one connected run instead of the bell
-    # floating free in space.
-    throat_a = math.radians(207.0)   # down and to the left, off the outer coil
-    throat = (coil_r[0] * math.cos(throat_a), 0.0, cz + coil_r[0] * math.sin(throat_a))
+    cz = 0.92                       # loop centre height
+    R = 0.34                        # main loop radius
+    main = _torus(0.0, cz, R, 0.027, body_mat)
+    # The first branch / tuning-slide loop, a smaller ring behind the main
+    # one, fills the interior the way the real coil does.
+    inner = _torus(0.02, cz + 0.02, 0.255, 0.017, body_mat, y=0.035)
+
+    # Bell: leaves the main loop at the lower-left and flares down-left,
+    # toward the audience, with a garland ring at the mouth.
+    throat_a = math.radians(207.0)
+    throat = mathutils.Vector((R * math.cos(throat_a), 0.0, cz + R * math.sin(throat_a)))
     flare_dir = mathutils.Vector((math.cos(throat_a), -0.30, math.sin(throat_a))).normalized()
-    mouth = mathutils.Vector(throat) + flare_dir * 0.52
-    bell = _cone_dir(throat, tuple(mouth), 0.055, 0.34, body_mat, verts=30)
-    # Curved leadpipe: starts on the outer coil too, sweeping up to the
-    # funnel mouthpiece at the top-right.
-    lead_a = math.radians(34.0)
-    lead0 = (coil_r[0] * math.cos(lead_a), 0.0, cz + coil_r[0] * math.sin(lead_a))
-    lead = _curve_tube([lead0, (0.30, -0.03, 1.32),
-                        (0.34, -0.05, 1.44), (0.33, -0.06, 1.54)], 0.018, body_mat)
-    mpc = _cone_dir((0.33, -0.06, 1.54), (0.34, -0.07, 1.66), 0.016, 0.032, silver)
-    # Rotor valves threaded onto the innermost coil's lower arc, where a
-    # player's left hand would sit — not hanging in the middle of the loop.
-    # Three rotors, spread wide along the lower arc of the inner coil. They
-    # used to sit at ±0.11 with fat 0.030 rings, which at stage framing piled
-    # into one blob of overlapping tubing; spread to ±0.17 with thinner rings
-    # they read as three separate valves, and the indicator disc in each one
-    # stands proud of the coil rather than tangling with it.
-    rotors, paddles = [], []
-    for vx in (-0.17, 0.0, 0.17):
-        vz = cz - math.sqrt(max(0.0, coil_r[-1] ** 2 - vx ** 2))
-        rotors.append(_torus(vx, vz, 0.058, 0.020, silver))
-        paddles.append(_ball(vx, vz, 0.045, make_pad_material(), y=-0.085,
-                             scale=(1, 0.45, 1)))
-    body = coils + [bell, lead]
+    mouth = throat + flare_dir * 0.56
+    bell = _flare(tuple(throat), tuple(mouth), 0.028, 0.31, body_mat, name="wwhorn_bell")
+    garland = _torus(0.0, 0.0, 0.31, 0.007, body_mat)
+    garland.location = mouth
+    garland.rotation_euler = flare_dir.to_track_quat('Z', 'Y').to_euler()
+
+    # Valve cluster: three rotors on a slightly rising line across the
+    # front of the loop, joined by the knuckle tube through their centres.
+    rot_r, rot_len = 0.042, 0.050
+    ry = -0.030
+    rotor_pos = [(-0.19, cz - 0.05), (-0.06, cz - 0.02), (0.07, cz + 0.01)]
+    rotors, paddles, slides = [], [], []
+    for i, (vx, vz) in enumerate(rotor_pos):
+        rotors.append(_cyl_dir((vx, ry + rot_len / 2.0, vz), (vx, ry - rot_len / 2.0, vz), rot_r, silver))
+        # Valve-state indicator: the rotor's front cap, coloured by the
+        # fingering (see apply_fingering); in place, it never moves.
+        paddles.append(_ball(vx, vz, 0.036, make_pad_material(), y=ry - rot_len / 2.0 - 0.010,
+                             scale=(1, 0.30, 1)))
+        # Its valve slide: a U of tubing rising into the loop, the second
+        # valve's the shortest, the third's the longest, as on the real thing.
+        h = (0.16, 0.11, 0.21)[i]
+        leg = 0.028
+        u = _smooth_points([(vx - leg, ry, vz + rot_r), (vx - leg, ry, vz + rot_r + h * 0.8),
+                            (vx, ry, vz + rot_r + h), (vx + leg, ry, vz + rot_r + h * 0.8),
+                            (vx + leg, ry, vz + rot_r)], 6)
+        slides.append(_curve_tube(u, 0.012, body_mat, name=f"wwhorn_slide{i}"))
+    knuckle = _cyl_dir((-0.31, ry, cz - 0.075), (0.19, ry, cz + 0.035), 0.016, body_mat)
+
+    # Leadpipe: from the mouthpiece at top-right, round the right-hand side
+    # of the loop and in to the valve cluster.
+    lead_pts = _smooth_points([(0.40, -0.06, 1.42), (0.45, -0.05, 1.24), (0.42, -0.04, 1.05),
+                               (0.31, -0.035, 0.965), (0.19, ry, cz + 0.035)], 8)
+    lead = _curve_tube(lead_pts, 0.011, body_mat, name="wwhorn_leadpipe")
+    mpc = _cone_dir((0.40, -0.06, 1.42), (0.38, -0.07, 1.53), 0.010, 0.024, silver)
+
+    body = [main, inner, bell, garland, lead, knuckle] + slides
     return body + [mpc] + rotors + paddles, body, {"rotors": paddles}
 
 

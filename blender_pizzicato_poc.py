@@ -34,6 +34,7 @@ import time
 from pathlib import Path
 
 import bpy
+import bmesh
 import mathutils
 import numpy as np
 
@@ -185,16 +186,61 @@ def clear_scene():
 # string_section_poc._body_outline), giving a real violin-family outline
 # instead of a squashed sphere. ──────────────────────────────────────────
 
+def _catmull_rom(pts, n_per_seg=8):
+    """Sample a Catmull-Rom spline through pts (tuples of any dimension):
+    a smooth curve that passes through every control point. End tangents
+    come from the first/last chord, so the curve starts and ends straight
+    rather than hooking."""
+    P = [np.asarray(p, dtype=float) for p in pts]
+    if len(P) < 2:
+        return [tuple(p) for p in P]
+    out = []
+    for i in range(len(P) - 1):
+        p0 = P[i - 1] if i > 0 else P[0] + (P[0] - P[1])
+        p1, p2 = P[i], P[i + 1]
+        p3 = P[i + 2] if i + 2 < len(P) else P[-1] + (P[-1] - P[-2])
+        for k in range(n_per_seg):
+            t = k / n_per_seg
+            q = 0.5 * (2.0 * p1 + (p2 - p0) * t
+                       + (2.0 * p0 - 5.0 * p1 + 4.0 * p2 - p3) * t * t
+                       + (3.0 * p1 - p0 - 3.0 * p2 + p3) * t * t * t)
+            out.append(tuple(float(v) for v in q))
+    out.append(tuple(float(v) for v in P[-1]))
+    return out
+
+
+OUTLINE_SAMPLES = 6   # spline samples per control-point interval
+
+
 def body_right_profile(bw, bh, waist):
     """The right-hand half of the body outline, (x, z) ordered from the
     top-centre (z=bh) down to the bottom-centre (z=-bh) — shared by
-    body_outline_points() and body_edge_x_at_z()."""
+    body_outline_points(), body_edge_x_at_z() and plate_bump().
+
+    Three smooth curves joined at the two corner tips: the upper bout,
+    the concave C-bout (narrowest at waist*bw), and the wider lower bout,
+    in the proportions of a real violin-family body — upper bout ~0.82 of
+    the lower one, corners about a quarter of the way out from the
+    centre, the lower bout widest ~60% of the way down. The short hook
+    just before each corner tip is what makes the corner read as a point
+    rather than a kink in an otherwise round outline. A ghost point past
+    each end (the mirror of the second point) keeps the tangent level
+    across the centre line, so the two halves meet without a peak."""
     w = waist
-    return [
-        (0.00, bh), (0.42 * bw, 0.84 * bh), (bw, 0.54 * bh), (bw, 0.30 * bh),
-        (w * bw, 0.06 * bh), (w * bw, -0.06 * bh), (bw, -0.22 * bh), (bw, -0.52 * bh),
-        (0.80 * bw, -0.82 * bh), (0.32 * bw, -bh), (0.00, -bh),
-    ]
+    n = OUTLINE_SAMPLES
+    upper = [(-0.36 * bw, 0.955 * bh),
+             (0.00, bh), (0.36 * bw, 0.955 * bh), (0.70 * bw, 0.80 * bh),
+             (0.82 * bw, 0.58 * bh), (0.75 * bw, 0.37 * bh), (0.70 * bw, 0.29 * bh),
+             (0.74 * bw, 0.235 * bh)]
+    cbout = [(0.74 * bw, 0.235 * bh), (0.60 * bw, 0.17 * bh), (w * bw, 0.02 * bh),
+             (0.60 * bw, -0.15 * bh), (0.78 * bw, -0.245 * bh)]
+    lower = [(0.78 * bw, -0.245 * bh), (0.75 * bw, -0.30 * bh), (0.88 * bw, -0.42 * bh),
+             (1.00 * bw, -0.60 * bh), (0.92 * bw, -0.81 * bh), (0.58 * bw, -0.96 * bh),
+             (0.00, -bh), (-0.58 * bw, -0.96 * bh)]
+    up = _catmull_rom(upper, n)[n:]                        # drop the ghost interval
+    cb = _catmull_rom(cbout, n)[1:]
+    lo = _catmull_rom(lower, n)[1:(len(lower) - 2) * n + 1]
+    return [(max(0.0, x), z) for x, z in up + cb + lo]
 
 
 def body_outline_points(bw, bh, waist):
@@ -205,7 +251,7 @@ def body_outline_points(bw, bh, waist):
 
 def body_edge_x_at_z(z, bw, bh, waist):
     """The body's right-edge x-offset at height z, linearly interpolated
-    between the outline's control points."""
+    between the outline's sample points."""
     right = body_right_profile(bw, bh, waist)
     for (x0_, z0_), (x1_, z1_) in zip(right, right[1:]):
         if z1_ <= z <= z0_:
@@ -217,76 +263,148 @@ def body_edge_x_at_z(z, bw, bh, waist):
 
 
 def dome_bump(z, bh, arch_depth):
-    """How far a real (arched/domed) top or back plate bulges out from the
-    flat rim at height z — 0 at the top/bottom edges (z=+-bh), maximum
-    (arch_depth) at the vertical centre. A parabolic stand-in for the real
-    longitudinal arching profile, used both to build the domed body mesh
-    and to seat everything mounted on its front (strings, bridge,
-    fingerboard, f-holes, ...) flush on that surface instead of the old
-    flat plane."""
+    """How far the arched top or back plate bulges out from the flat rim
+    on the centre line at height z — 0 at the top/bottom edges (z=+-bh),
+    maximum (arch_depth) at the vertical centre. A parabolic stand-in for
+    the real longitudinal arching profile, used both to build the domed
+    body mesh and to seat everything mounted on the centre line (strings,
+    bridge, fingerboard, tailpiece) flush on that surface."""
     frac = max(-1.0, min(1.0, z / bh)) if bh else 0.0
     return arch_depth * (1.0 - frac * frac)
 
 
+def plate_bump(x, z, bw, bh, waist, arch_depth):
+    """dome_bump() carried across the plate: full height on the centre
+    line, falling to zero at the rim. The (1-u^2)^0.65 cross-section keeps
+    the crown broad and turns down only near the edge, which is what a
+    carved plate does. Seats off-centre parts (the f-holes, bridge feet)."""
+    edge = body_edge_x_at_z(z, bw, bh, waist)
+    u = min(1.0, abs(x) / edge) if edge > 1e-6 else 1.0
+    return dome_bump(z, bh, arch_depth) * (1.0 - u * u) ** 0.65
+
+
+# Inset factors of the concentric outline copies each arched plate is built
+# from (1.0 = the rim, then closing on a centre vertex). Denser near the rim,
+# where the arching turns down fastest.
+BODY_ARCH_RINGS = (1.0, 0.965, 0.91, 0.83, 0.72, 0.58, 0.42, 0.24)
+
+
 def make_body_mesh(name, bw, bh, waist, depth, arch_depth):
-    """Extruded hourglass silhouette with a domed front/back: instead of a
-    single flat n-gon cap, each cap fans out from a centre vertex pushed
-    forward/back by arch_depth, giving a real (if simplified) arched top
-    and back rather than a flat cardboard-cutout body."""
+    """Ribs extruded straight between the two plates; each plate is a set
+    of concentric, inset copies of the outline lifted to plate_bump(), so
+    the arching is carried across the plate as well as along it (a single
+    centre vertex fanned to the rim, as before, is a pyramid, not a carved
+    plate). Faces are smooth-shaded with edges over ~40 degrees kept
+    sharp, so the plate/rib corner stays crisp."""
     outline = body_outline_points(bw, bh, waist)
     n = len(outline)
     front_y, back_y = -depth / 2.0, depth / 2.0
-    verts = [(x, front_y, z) for x, z in outline] + [(x, back_y, z) for x, z in outline]
-    front_c, back_c = len(verts), len(verts) + 1
-    verts.append((0.0, front_y - arch_depth, 0.0))
-    verts.append((0.0, back_y + arch_depth, 0.0))
+    verts, faces = [], []
 
-    faces = []
+    def plate(sign, y0):
+        rings = []
+        for s in BODY_ARCH_RINGS:
+            rings.append(len(verts))
+            for x, z in outline:
+                xs, zs = x * s, z * s
+                verts.append((xs, y0 + sign * plate_bump(xs, zs, bw, bh, waist, arch_depth), zs))
+        centre = len(verts)
+        verts.append((0.0, y0 + sign * arch_depth, 0.0))
+        for a, b in zip(rings, rings[1:]):
+            for i in range(n):
+                j = (i + 1) % n
+                faces.append((a + i, a + j, b + j, b + i))
+        last = rings[-1]
+        for i in range(n):
+            j = (i + 1) % n
+            faces.append((last + i, last + j, centre))
+        return rings[0]
+
+    f0 = plate(-1, front_y)
+    b0 = plate(+1, back_y)
     for i in range(n):
         j = (i + 1) % n
-        faces.append((i, j, n + j, n + i))
-    cap_face_start = len(faces)
-    for i in range(n):
-        j = (i + 1) % n
-        faces.append((front_c, j, i))
-        faces.append((back_c, n + i, n + j))
+        faces.append((f0 + i, f0 + j, b0 + j, b0 + i))
 
     mesh = bpy.data.meshes.new(name)
     mesh.from_pydata(verts, [], faces)
+    bm = bmesh.new()
+    bm.from_mesh(mesh)
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    bm.to_mesh(mesh)
+    bm.free()
     mesh.update()
-    for f in mesh.polygons[cap_face_start:]:
+    for f in mesh.polygons:
         f.use_smooth = True
+    try:
+        mesh.set_sharp_from_angle(angle=math.radians(40.0))
+    except AttributeError:
+        pass
     return mesh
 
 
 def make_wood_material(name, wood):
+    """Figured wood: a noise field stretched along the object's z (the grain
+    runs the length of a plate, a neck, a peg) through a two-colour ramp
+    around the given wood colour. A flat colour under the studio varnish
+    coat read as moulded plastic. Object coordinates, so primitives that
+    use it must have their scale applied (see build_player) or the grain
+    density changes with the object's scale."""
     mat = bpy.data.materials.new(name)
     mat.use_nodes = True
-    bsdf = mat.node_tree.nodes["Principled BSDF"]
-    bsdf.inputs["Base Color"].default_value = (*wood, 1.0)
-    bsdf.inputs["Roughness"].default_value = 0.65
+    nt = mat.node_tree
+    bsdf = nt.nodes["Principled BSDF"]
+    coord = nt.nodes.new("ShaderNodeTexCoord")
+    mapping = nt.nodes.new("ShaderNodeMapping")
+    mapping.inputs["Scale"].default_value = (90.0, 90.0, 5.0)
+    noise = nt.nodes.new("ShaderNodeTexNoise")
+    noise.inputs["Scale"].default_value = 1.0
+    noise.inputs["Detail"].default_value = 7.0
+    noise.inputs["Roughness"].default_value = 0.55
+    ramp = nt.nodes.new("ShaderNodeValToRGB")
+    dark = tuple(min(1.0, c * 0.55) for c in wood)
+    light = tuple(min(1.0, c * 1.30) for c in wood)
+    ramp.color_ramp.elements[0].position = 0.36
+    ramp.color_ramp.elements[0].color = (*dark, 1.0)
+    ramp.color_ramp.elements[1].position = 0.64
+    ramp.color_ramp.elements[1].color = (*light, 1.0)
+    nt.links.new(coord.outputs["Object"], mapping.inputs["Vector"])
+    nt.links.new(mapping.outputs["Vector"], noise.inputs["Vector"])
+    nt.links.new(noise.outputs["Fac"], ramp.inputs["Fac"])
+    nt.links.new(ramp.outputs["Color"], bsdf.inputs["Base Color"])
+    bsdf.inputs["Roughness"].default_value = 0.45
     return mat
 
 
-def make_string_glow_material():
-    """Shared material for every string: emission colour from each
-    object's own Object Color, same trick as the marimba bars."""
-    mat = bpy.data.materials.new("StringGlow")
+def make_string_glow_material(name="StringMetal", glow_strength=3.0):
+    """Shared string material: metal (steel, or silver/bronze winding) whose
+    colour comes from each object's own Object Color, plus emission whose
+    strength comes from that colour's alpha — 0 at rest, 1 on a note — so
+    a sounding string flares while the rest stay lit-and-shadowed metal.
+    (Was a bare emission, which read as a glowing grey cord.)"""
+    mat = bpy.data.materials.new(name)
     mat.use_nodes = True
     nt = mat.node_tree
     nt.nodes.clear()
     out = nt.nodes.new("ShaderNodeOutputMaterial")
-    emission = nt.nodes.new("ShaderNodeEmission")
-    obj_info = nt.nodes.new("ShaderNodeObjectInfo")
-    nt.links.new(obj_info.outputs["Color"], emission.inputs["Color"])
-    emission.inputs["Strength"].default_value = 1.0
-    nt.links.new(emission.outputs["Emission"], out.inputs["Surface"])
+    bsdf = nt.nodes.new("ShaderNodeBsdfPrincipled")
+    info = nt.nodes.new("ShaderNodeObjectInfo")
+    mul = nt.nodes.new("ShaderNodeMath")
+    mul.operation = 'MULTIPLY'
+    mul.inputs[1].default_value = glow_strength
+    nt.links.new(info.outputs["Color"], bsdf.inputs["Base Color"])
+    nt.links.new(info.outputs["Color"], bsdf.inputs["Emission Color"])
+    nt.links.new(info.outputs["Alpha"], mul.inputs[0])
+    nt.links.new(mul.outputs["Value"], bsdf.inputs["Emission Strength"])
+    bsdf.inputs["Metallic"].default_value = 1.0
+    bsdf.inputs["Roughness"].default_value = 0.32
+    nt.links.new(bsdf.outputs["BSDF"], out.inputs["Surface"])
     return mat
 
 
 STRING_REST_COLOR = [
-    (0.42, 0.42, 0.44), (0.38, 0.38, 0.40),
-    (0.46, 0.42, 0.30), (0.52, 0.48, 0.32),
+    (0.66, 0.60, 0.44), (0.62, 0.58, 0.45),      # wound G and D: silver-bronze
+    (0.62, 0.63, 0.66), (0.74, 0.75, 0.78),      # A, and a bright steel E
 ]
 STRING_GLOW_COLOR = (0.75, 0.68, 0.45)
 
@@ -297,7 +415,7 @@ ARCH_FRACTION = 0.42
 # ── Gesture / vibration timing — same values as string_section_poc.py, so
 # the feel matches the matplotlib version it's replacing.
 N_STRING_PTS = 20
-STRING_RADIUS = 0.0035
+STRING_RADIUS = 0.0016     # ~1% of the body length was a rope; a real string is 0.2%
 BRIDGE_SPACING_FACTOR = 2.5   # bridge string spacing is ~2.5x the nut spacing on a real instrument
 VIB_AMPLITUDE = 0.012   # m — visual side-to-side wiggle at full amplitude
 VIB_FREQ      = 8.0     # visual Hz, same as string_section_poc.py
@@ -553,30 +671,73 @@ def build_pegbox_assembly(name, x0, front_y, depth, neck_top_z, nw, wood_mat, sx
     suggesting the curl) above that, 4 tuning pegs alternating left/right
     up the box, and a thin static line per string routing it from the nut
     (str_top, the top of the neck/fingerboard) up to its peg."""
-    peg_box_len = nw * 5.0
-    peg_box_w = nw * 1.05    # close to the neck's own width for a seamless join
+    peg_box_len = nw * 6.5
+    peg_box_w = nw * 1.05    # half-width; close to the neck's own for a seamless join
     peg_box_d = depth * 0.55
     peg_len = peg_box_w * 2.4
     peg_r = nw * 0.30
     knob_r = peg_r * 1.9
 
     box_bottom, box_top = neck_top_z, neck_top_z + peg_box_len
-    bpy.ops.mesh.primitive_cube_add(size=1.0, location=(x0, 0.0, (box_bottom + box_top) / 2.0))
-    pegbox = bpy.context.object
-    pegbox.scale = (peg_box_w, peg_box_d / 2.0, peg_box_len / 2.0)
-    pegbox.name = f"{name}_pegbox"
+    # The pegbox narrows toward the scroll, as a real one does.
+    w0, w1, hd = peg_box_w, peg_box_w * 0.72, peg_box_d / 2.0
+    pverts = [(x0 - w0, -hd, box_bottom), (x0 + w0, -hd, box_bottom),
+              (x0 + w0, hd, box_bottom), (x0 - w0, hd, box_bottom),
+              (x0 - w1, -hd, box_top), (x0 + w1, -hd, box_top),
+              (x0 + w1, hd, box_top), (x0 - w1, hd, box_top)]
+    pfaces = [(0, 3, 2, 1), (4, 5, 6, 7), (0, 1, 5, 4), (1, 2, 6, 5), (2, 3, 7, 6), (3, 0, 4, 7)]
+    pmesh = bpy.data.meshes.new(f"{name}_pegbox_mesh")
+    pmesh.from_pydata(pverts, [], pfaces)
+    pmesh.update()
+    pegbox = bpy.data.objects.new(f"{name}_pegbox", pmesh)
+    bpy.context.scene.collection.objects.link(pegbox)
     pegbox.data.materials.append(wood_mat)
 
-    scroll_r = nw * 2.2
-    bpy.ops.mesh.primitive_uv_sphere_add(radius=scroll_r, location=(x0, 0.0, box_top + scroll_r * 0.5))
-    scroll = bpy.context.object
-    scroll.name = f"{name}_scroll"
+    # Scroll: a volute — a ribbon spiralling in from the back of the
+    # pegbox top through 1.4 turns to the eye, its axis across the
+    # instrument, so it reads as a spiral from the side and as the classic
+    # curled head from the front. A little wider than the pegbox, as real
+    # scrolls are (the "ears"), and thicker at the outer turn.
+    R = nw * 1.35                   # outer turn ~45 mm across on a violin
+    n_seg = 48
+    a0, a1 = -math.pi / 2.0, 2.0 * math.pi + 0.5
+    cy, cz = peg_box_d * 0.10, box_top + R * 0.95
+    hw0, hw1 = w1, peg_box_w * 1.5  # pegbox width at the throat, the ears at the eye
+    NC = 8                          # chamfered cross-section: reads carved, not sawn
+    sverts, sfaces = [], []
+    for k in range(n_seg + 1):
+        t = k / n_seg
+        a = a0 + (a1 - a0) * t
+        r = R * (1.0 - 0.78 * t)
+        thick = R * (0.42 - 0.22 * t)
+        hw = hw0 + (hw1 - hw0) * (t * t * (3.0 - 2.0 * t))
+        ch = min(hw, thick / 2.0) * 0.45
+        sect = [(-hw + ch, -thick / 2.0), (hw - ch, -thick / 2.0), (hw, -thick / 2.0 + ch),
+                (hw, thick / 2.0 - ch), (hw - ch, thick / 2.0), (-hw + ch, thick / 2.0),
+                (-hw, thick / 2.0 - ch), (-hw, -thick / 2.0 + ch)]
+        for dx, dr in sect:
+            rr = r + dr
+            sverts.append((x0 + dx, cy + rr * math.cos(a), cz + rr * math.sin(a)))
+    for k in range(n_seg):
+        b = NC * k
+        for e in range(NC):
+            f = (e + 1) % NC
+            sfaces.append((b + e, b + f, b + NC + f, b + NC + e))
+    sfaces.append(tuple(range(NC - 1, -1, -1)))
+    last = NC * n_seg
+    sfaces.append(tuple(range(last, last + NC)))
+    smesh = bpy.data.meshes.new(f"{name}_scroll_mesh")
+    smesh.from_pydata(sverts, [], sfaces)
+    smesh.update()
+    for f in smesh.polygons:
+        f.use_smooth = True
+    try:
+        smesh.set_sharp_from_angle(angle=math.radians(40.0))
+    except AttributeError:
+        pass
+    scroll = bpy.data.objects.new(f"{name}_scroll", smesh)
+    bpy.context.scene.collection.objects.link(scroll)
     scroll.data.materials.append(wood_mat)
-    bpy.ops.mesh.primitive_uv_sphere_add(radius=scroll_r * 0.6,
-                                          location=(x0, -peg_box_d * 0.3, box_top + scroll_r * 1.15))
-    volute = bpy.context.object
-    volute.name = f"{name}_volute"
-    volute.data.materials.append(wood_mat)
 
     # Each string routes to a peg on its *own* side of the centreline —
     # a string on the right never crosses to a peg on the left. Within a
@@ -592,8 +753,11 @@ def build_pegbox_assembly(name, x0, front_y, depth, neck_top_z, nw, wood_mat, sx
     for side, idx_list in ((-1.0, left_idx), (1.0, right_idx)):
         for pz, si in zip(side_heights, idx_list):
             pz = float(pz)
-            peg_x = x0 + side * (peg_box_w + peg_len / 2.0)
-            bpy.ops.mesh.primitive_cylinder_add(radius=peg_r, depth=peg_len, location=(peg_x, 0.0, pz))
+            # The shaft passes through the box, its tip just short of the
+            # far wall, the handle out the near side.
+            shaft = peg_len + 1.9 * peg_box_w
+            peg_x = x0 + side * (peg_box_w + peg_len - shaft / 2.0)
+            bpy.ops.mesh.primitive_cylinder_add(radius=peg_r, depth=shaft, location=(peg_x, 0.0, pz))
             peg = bpy.context.object
             peg.rotation_euler = (0.0, math.radians(90.0), 0.0)
             peg.name = f"{name}_peg{si}"
@@ -731,35 +895,35 @@ def build_tailpiece(name, x0, front_y, tail_top_z, tail_bottom_z, top_w, bottom_
 
 
 def bridge_outline_points(foot_w, top_w, height):
-    """z=0 at the bottom (the feet resting on the belly), z=height at the
-    top (where the strings cross) — a simple gently-tapered trapezoid
-    (wider feet, narrower top). An earlier version with a pinched waist
-    and flared shoulders read as a lampshade rather than a bridge, so this
-    keeps it plain. No literal kidney/heart cutouts either — at this
-    render scale/distance they'd be sub-pixel anyway."""
+    """(x, h) with h=0 at the feet on the belly and h=height where the
+    strings cross. Two feet with an arch between them, the flanks
+    narrowing to a gently curved top."""
     right = [
-        (foot_w * 0.5, 0.0),
-        (foot_w * 0.46, height * 0.25),
-        (top_w * 0.5, height * 0.75),
-        (top_w * 0.5, height),
+        (0.00, 0.30 * height),
+        (0.28 * foot_w, 0.30 * height),
+        (0.40 * foot_w, 0.00),
+        (0.50 * foot_w, 0.00),
+        (0.46 * foot_w, 0.26 * height),
+        (0.58 * top_w, 0.62 * height),
+        (0.50 * top_w, 0.88 * height),
+        (0.42 * top_w, height),
+        (0.00, 1.04 * height),
     ]
-    left = [(-x, z) for x, z in reversed(right)]
-    return right + left
+    left = [(-x, z) for x, z in reversed(right[:-1])]
+    return right[:-1] + [right[-1]] + left[1:]
 
 
-def build_bridge(name, x0, bridge_y, bridge_z, bridge_w, mat):
-    """bridge_y is the already-elevated height the string actually kinks
-    at (see build_player) — the bridge object must sit exactly there, not
-    at the raw arched-surface height, or the string would float away from
-    the object that's supposed to be holding it up."""
-    height = bridge_w * 0.28
-    outline = bridge_outline_points(bridge_w * 0.85, bridge_w * 0.65, height)
+def build_bridge(name, x0, foot_y, bridge_y, bridge_z, bridge_w, mat):
+    """A real bridge stands on the belly: a thin plate perpendicular to
+    the top, its feet at foot_y (the arched plate surface under them),
+    its top edge at bridge_y — the height the taut strings kink at (see
+    build_player). Its thickness is along the string, in z."""
+    height = foot_y - bridge_y
+    outline = bridge_outline_points(bridge_w * 0.85, bridge_w * 0.70, height)
     n = len(outline)
-    thick = 0.0035
-    bottom_z = bridge_z - height / 2.0
-    yc = bridge_y - 0.0015
-    verts_front = [(x0 + x, yc - thick / 2.0, bottom_z + z) for x, z in outline]
-    verts_back = [(x0 + x, yc + thick / 2.0, bottom_z + z) for x, z in outline]
+    thick = 0.0045
+    verts_front = [(x0 + x, foot_y - h, bridge_z - thick / 2.0) for x, h in outline]
+    verts_back = [(x0 + x, foot_y - h, bridge_z + thick / 2.0) for x, h in outline]
     verts = verts_front + verts_back
 
     faces = []
@@ -809,38 +973,73 @@ def build_tail_extras(name, x0, front_y, depth, bh, bw, wood_mat, has_chinrest, 
 
 
 def build_f_holes(name, x0, front_y, bridge_z, bw, waist, bh, arch_depth, outer_string_offset):
-    """Two symmetric, mirrored, outward-leaning f-holes either side of the
-    bridge — centred exactly midway between the outermost string and the
-    body's actual edge at that height (not a fixed fraction of the waist,
-    which doesn't track the real edge as the body flares below the
-    waist). Unlit black and sitting right at the arched surface (not
-    proud of it) so it reads as an actual opening into the body, not a
-    lit, shadow-casting raised decal."""
+    """Two mirrored f-holes, each a real f: an upper eye near the centre
+    line, a lower eye out toward the edge, a slanted stem between them
+    that bows gently (an S) and carries the two nicks at the bridge line.
+    Sized and placed in body units (a violin's is ~78 mm long on a 355 mm
+    body, upper eyes ~50 mm apart, lower eyes ~100 mm), so the viola and
+    cello scale with their bodies. Unlit black, every vertex seated on
+    the arched plate under it, so it reads as an opening, not a decal."""
     fmat = make_hole_material(f"{name}_fhole_mat")
-    edge_x = body_edge_x_at_z(bridge_z, bw, bh, waist)
-    x_off = (outer_string_offset + edge_x) / 2.0
-    eye_r = bw * 0.075
-    slit_len = bw * 0.51
-    slit_w = bw * 0.0675
-    tilt = math.radians(18.0)
+    H = 0.22 * bh                          # half-length, eye centre to eye centre
+    x_up, x_lo = 0.30 * bw, 0.52 * bw      # eye centres, from the centre line
+    r_up, r_lo = 0.105 * H, 0.13 * H
+    w_mid, w_end = 0.15 * H, 0.085 * H     # stem width: widest at the nicks
+    lift = 0.0004
 
     for side in (1.0, -1.0):
-        cx = x0 + side * x_off
-        for eye_z in (bridge_z + slit_len * 0.42, bridge_z - slit_len * 0.42):
-            y = front_y - dome_bump(eye_z, bh, arch_depth) - 0.0001
-            bpy.ops.mesh.primitive_cylinder_add(radius=eye_r, depth=0.0006, location=(cx, y, eye_z))
-            eye = bpy.context.object
-            eye.rotation_euler = (math.radians(90.0), 0.0, 0.0)
-            eye.name = f"{name}_fhole_eye_{side}_{eye_z:.4f}"
-            eye.data.materials.append(fmat)
+        verts, faces = [], []
 
-        y = front_y - dome_bump(bridge_z, bh, arch_depth) - 0.0001
-        bpy.ops.mesh.primitive_cube_add(size=1.0, location=(cx, y, bridge_z))
-        slit = bpy.context.object
-        slit.scale = (slit_w / 2.0, 0.0003, slit_len / 2.0)
-        slit.rotation_euler = (0.0, side * tilt, 0.0)
-        slit.name = f"{name}_fhole_slit_{side}"
-        slit.data.materials.append(fmat)
+        def seat(u, v):
+            x = x0 + side * u
+            z = bridge_z + v
+            y = front_y - plate_bump(x - x0, z, bw, bh, waist, arch_depth) - lift
+            verts.append((x, y, z))
+            return len(verts) - 1
+
+        # Stem: from the inner-upper side of the lower eye to the
+        # outer-lower side of the upper eye, bowing out then in.
+        a = np.array((x_lo - 0.55 * r_lo, -H + 0.75 * r_lo))
+        b = np.array((x_up + 0.55 * r_up, H - 0.75 * r_up))
+        ctrl = [tuple(a),
+                tuple(a + 0.28 * (b - a) + (0.012 * bw, 0.0)),
+                tuple(a + 0.50 * (b - a)),
+                tuple(a + 0.72 * (b - a) - (0.012 * bw, 0.0)),
+                tuple(b)]
+        line = _catmull_rom(ctrl, 6)
+        m = len(line)
+        ring = []
+        for k, (u, v) in enumerate(line):
+            u0, v0 = line[max(k - 1, 0)]
+            u1, v1 = line[min(k + 1, m - 1)]
+            d = np.array((u1 - u0, v1 - v0))
+            d /= max(np.linalg.norm(d), 1e-9)
+            nrm = (-d[1], d[0])
+            w = w_end + (w_mid - w_end) * math.sin(math.pi * k / (m - 1))
+            ring.append((seat(u - nrm[0] * w / 2, v - nrm[1] * w / 2),
+                         seat(u + nrm[0] * w / 2, v + nrm[1] * w / 2)))
+        for (p, q), (r, s) in zip(ring, ring[1:]):
+            faces.append((p, q, s, r))
+
+        # Nicks: two small teeth at the stem's midpoint, in and out.
+        um, vm = line[m // 2]
+        for tooth in (1.0, -1.0):
+            base = w_mid * 0.30
+            faces.append((seat(um, vm - base), seat(um, vm + base),
+                          seat(um + tooth * 0.45 * w_mid, vm)))
+
+        # Eyes.
+        for (cu, cv, r) in ((x_up, H, r_up), (x_lo, -H, r_lo)):
+            idx = [seat(cu + r * math.cos(t), cv + r * math.sin(t))
+                   for t in np.linspace(0.0, 2.0 * math.pi, 18, endpoint=False)]
+            faces.append(tuple(idx))
+
+        mesh = bpy.data.meshes.new(f"{name}_fhole_mesh_{side}")
+        mesh.from_pydata(verts, [], faces)
+        mesh.update()
+        obj = bpy.data.objects.new(f"{name}_fhole_{side}", mesh)
+        bpy.context.scene.collection.objects.link(obj)
+        obj.data.materials.append(fmat)
 
 
 def _seat_transform(pl, before, x0):
@@ -886,7 +1085,8 @@ def build_player(pl, string_mat):
     nw, nh = spec['neck_w'] / 2.0, spec['neck_len']
     bpy.ops.mesh.primitive_cube_add(size=1.0, location=(x0, 0.0, bh + nh / 2.0))
     neck = bpy.context.object
-    neck.scale = (nw, depth, nh / 2.0)
+    neck.scale = (nw * 2.0, depth, nh / 2.0)
+    bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
     neck.name = f"{pl['name']}_neck"
     neck.data.materials.append(wood_mat)
 
@@ -898,7 +1098,10 @@ def build_player(pl, string_mat):
     # including the neck — not just the body portion — with only a short
     # routing segment continuing past the nut into the pegbox.
     str_top = bh + nh
-    str_bot = -bh * 0.85
+    # The strings end on the tailpiece's top edge, ~55 mm below the bridge
+    # on a violin — with the 6:1 rule below that puts the bridge at the
+    # f-hole nicks, just under the C-bouts, where a real one stands.
+    str_bot = -bh * 0.42
     bridge_z = str_top - (6.0 / 7.0) * (str_top - str_bot)
 
     # Strings fan out from a narrow spacing at the nut to a wider one at
@@ -935,7 +1138,7 @@ def build_player(pl, string_mat):
     nut_mat = make_finger_material(f"{pl['name']}_nut_mat", (0.80, 0.72, 0.56))
     bpy.ops.mesh.primitive_cube_add(size=1.0, location=(x0, front_y - 0.0018, str_top))
     nut = bpy.context.object
-    nut.scale = (nw * 1.15, 0.0025, 0.003)
+    nut.scale = (nw * 2.3, 0.0025, 0.003)
     nut.name = f"{pl['name']}_nut"
     nut.data.materials.append(nut_mat)
 
@@ -947,7 +1150,7 @@ def build_player(pl, string_mat):
     # work. Runs up to str_top, exactly where the nut/pegbox begins (no
     # floating gap), following the body's arch.
     fb_bottom_z = bridge_z + (str_top - bridge_z) * (sl.MIN_LENGTH_FRAC - 0.03)
-    build_fingerboard(pl['name'], x0, front_y, fb_bottom_z, str_top, nw * 1.8, nw * 0.9, bh, arch_depth)
+    build_fingerboard(pl['name'], x0, front_y, fb_bottom_z, str_top, nw * 1.5, nw * 0.9, bh, arch_depth)
 
     # F-holes either side of the bridge, centred between the outermost
     # string *at the bridge* (the wider spacing) and the body's actual edge.
@@ -964,18 +1167,20 @@ def build_player(pl, string_mat):
     # of the body's own (dyed/varnished) wood.
     bridge_w = (bridge_sxs[-1] - bridge_sxs[0]) + 0.02
     bridge_mat = make_wood_material(f"bridge_{pl['name']}", (0.80, 0.72, 0.56))
-    build_bridge(f"{pl['name']}_bridge", (bridge_sxs[0] + bridge_sxs[-1]) / 2.0, bridge_y, bridge_z,
-                 bridge_w, bridge_mat)
+    foot_y = front_y - plate_bump(bridge_w * 0.42, bridge_z, bw, bh, spec['waist'], arch_depth)
+    build_bridge(f"{pl['name']}_bridge", (bridge_sxs[0] + bridge_sxs[-1]) / 2.0, foot_y, bridge_y,
+                 bridge_z, bridge_w, bridge_mat)
 
-    # Tailpiece — a tapered wedge (narrow near the bridge, wide near the
-    # end button), not a plain bar, spanning from just past the bridge
-    # down to near the bottom tip.
-    tail_top_z = bridge_z - (bridge_z + bh) * 0.08
-    tail_bottom_z = -bh * 0.93
-    dark_wood2 = tuple(c * 0.4 for c in spec['wood'])
-    tail_mat = make_wood_material(f"tail_{pl['name']}", dark_wood2)
+    # Tailpiece — a tapered wedge, wide where the strings anchor along its
+    # top edge and narrowing to the tailgut at the end button, from just
+    # above the strings' end down to near the bottom tip.
+    tail_top_z = str_bot + bh * 0.04
+    tail_bottom_z = -bh * 0.95
+    # Ebony, like the fingerboard — a darkened shade of the body wood
+    # rendered as a pale wedge under the studio lights.
+    tail_mat = make_wood_material(f"tail_{pl['name']}", (0.035, 0.03, 0.025))
     build_tailpiece(f"{pl['name']}_tailpiece", (sxs[0] + sxs[-1]) / 2.0, front_y,
-                     tail_top_z, tail_bottom_z, bridge_w * 0.55, bridge_w * 1.3,
+                     tail_top_z, tail_bottom_z, bridge_w * 0.72, bridge_w * 0.42,
                      bh, arch_depth, tail_mat)
 
     # Strings — taut and straight (nut -> bridge, bridge -> tailpiece),
@@ -987,7 +1192,7 @@ def build_player(pl, string_mat):
     for si, sx in enumerate(sxs):
         s, zs, xs, ys = build_string_curve(f"{pl['name']}_string{si}", str_top, str_bot, string_mat,
                                             sx, bridge_sxs[si], front_y, bridge_z, bridge_y, tail_y)
-        s.color = (*STRING_REST_COLOR[si], 1.0)
+        s.color = (*STRING_REST_COLOR[si], 0.0)
         strings.append(s)
         str_zs.append(zs)
         str_xs.append(xs)
@@ -1273,7 +1478,7 @@ def main():
                 if g > 0.02:
                     base = np.array(STRING_REST_COLOR[si])
                     g_col = base + g * (np.array(STRING_GLOW_COLOR) - base)
-                s.color = (*g_col, 1.0)
+                s.color = (*g_col, float(g))
 
                 stopf = geom['stop_fingers'][si]
                 if a > 0.005:
