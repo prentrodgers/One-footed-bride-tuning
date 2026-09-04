@@ -51,8 +51,9 @@ RES_Y=720
 # The Cycles column is used when --engine cycles is passed through. Its
 # spread is not EEVEE's: EEVEE is paced by the per-frame Python and the
 # cards land within 30%, while Cycles is paced by the card and the B580s
-# fall 40% behind the B70s. Measured 3 Sep 2026, 1280x720, 64 samples +
-# OpenImageDenoise, ~30 frames per pod including each pod's first-frame JIT.
+# fall 40% behind the B70s. Full-run averages from the 8451-frame bwv256
+# --look studio render of 4 Sep 2026 (1280x720, 64 samples + OpenImageDenoise),
+# replacing the ~30-frame probes of 3 Sep, which carried each pod's JIT.
 #
 # The two B70s share a PCI id, so MESA_VK_DEVICE_SELECT cannot tell them
 # apart, and Cycles would happily take both. Each pod therefore keeps ONE
@@ -63,11 +64,11 @@ RES_Y=720
 # that "hid" D129 was hiding the iGPU and could see both cards. The
 # card-ordinal column says which matching card a pod takes, in sysfs order.
 WORKERS=(
-  "b70a   fs5  8086:e223  0           1.701  2.738"
-  "b70b   fs5  8086:e223  1           1.751  2.750"
-  "b580f6 fs6  8086:e20b  -           1.651  3.827"
-  "b580f9 fs9  8086:e20b  -           1.829  4.059"
-  "b50f3  fs3  8086:e212  -           2.129  3.554"
+  "b70a   fs5  8086:e223  0           1.701  2.383"
+  "b70b   fs5  8086:e223  1           1.751  2.497"
+  "b580f6 fs6  8086:e20b  -           1.651  3.326"
+  "b580f9 fs9  8086:e20b  -           1.829  3.696"
+  "b50f3  fs3  8086:e212  -           2.129  3.472"
 )
 
 STAGGER=${STAGGER:-45}
