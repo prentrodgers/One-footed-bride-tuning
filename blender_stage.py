@@ -445,6 +445,166 @@ def _configure_engine(scene, args):
     return "CYCLES"
 
 
+# ── the studio look ──────────────────────────────────────────────────────────
+# What made the stage read as tiles rather than instruments, and what this
+# pass does about each, without touching the nine section modules:
+#
+#   * every wind and brass body is SELF-LIT: make_body_material wires the
+#     object colour into Emission at 0.45, so instruments glow faintly from
+#     inside and the key light's modelling is flattened. Cut to a trace.
+#   * strings and bass tines are pure Emission - no diffuse, no specular, no
+#     shadow. Rebuilt as metal that keeps its per-object colour and a little
+#     of its glow, the same fix the marimba bars had.
+#   * wood has no varnish. Principled's Coat is a varnish layer.
+#   * brass is smooth metal with nothing to reflect. Give it anisotropy and,
+#     below, a world that is not black.
+#   * the floor is near-black and fully matte; a stage floor is a dark
+#     semi-gloss, and its reflections are half of what says "stage".
+#   * the backdrop's emission is what LIGHTS the scene under Cycles, which
+#     is right, but at 1.1 it blows out. Halved.
+#   * three large area lights wrap the instruments in soft light; the sun and
+#     wash rig stays, turned down, since bounced light now does some of its
+#     work.
+#   * 'Standard' clips highlights like a phone; AgX rolls them off like film.
+#
+# Everything here is engine-agnostic, so EEVEE benefits too, but it is
+# tuned by eye under Cycles.
+LOOK_BODY_EMISSION = 0.08
+LOOK_WASH_SCALE = 0.55
+LOOK_AREA_LIGHTS = [
+    # name, colour, watts, size(m), position, aim
+    # First pass was 60/22/40 kW and blew the floor out into a light source;
+    # half that keeps the wrap and lets the washes still colour the picture.
+    ("KeyArea",  (1.00, 0.95, 0.86), 30000.0, 12.0, (-22.0, -30.0, 26.0), (0.0, 6.0, 2.0)),
+    ("FillArea", (0.82, 0.88, 1.00), 10000.0, 16.0, ( 26.0, -26.0, 16.0), (0.0, 6.0, 2.0)),
+    ("RimArea",  (1.00, 0.85, 0.70), 18000.0, 14.0, (  6.0,  30.0, 20.0), (0.0, 4.0, 2.0)),
+]
+
+
+def _principled(mat):
+    if not mat.use_nodes:
+        return None
+    for n in mat.node_tree.nodes:
+        if n.bl_idname == "ShaderNodeBsdfPrincipled":
+            return n
+    return None
+
+
+def _set(bsdf, name, value):
+    """Set a Principled input if this Blender has it under that name."""
+    sock = bsdf.inputs.get(name)
+    if sock is not None and not sock.is_linked:
+        sock.default_value = value
+        return True
+    return False
+
+
+def _rebuild_emissive_as_metal(mat):
+    """A material whose surface is a bare Emission fed by Object Info (the
+    strings, the bass tines) becomes Principled metal with the same
+    per-object colour and a trace of the glow, so it is lit and shadowed."""
+    nt = mat.node_tree
+    out = next((n for n in nt.nodes if n.bl_idname == "ShaderNodeOutputMaterial"), None)
+    emis = next((n for n in nt.nodes if n.bl_idname == "ShaderNodeEmission"), None)
+    info = next((n for n in nt.nodes if n.bl_idname == "ShaderNodeObjectInfo"), None)
+    if not (out and emis and info):
+        return False
+    strength = emis.inputs["Strength"].default_value
+    bsdf = nt.nodes.new("ShaderNodeBsdfPrincipled")
+    nt.links.new(info.outputs["Color"], bsdf.inputs["Base Color"])
+    _set(bsdf, "Metallic", 1.0)
+    _set(bsdf, "Roughness", 0.38)
+    if bsdf.inputs.get("Emission Color") is not None:
+        nt.links.new(info.outputs["Color"], bsdf.inputs["Emission Color"])
+        _set(bsdf, "Emission Strength", min(0.25, strength * 0.2))
+    nt.links.new(bsdf.outputs["BSDF"], out.inputs["Surface"])
+    nt.nodes.remove(emis)
+    return True
+
+
+def _apply_look(scene):
+    counts = {"metal": 0, "wood": 0, "rebuilt": 0, "body": 0, "other": 0}
+    for mat in bpy.data.materials:
+        name = mat.name
+        if name == "BackdropMat":
+            for n in mat.node_tree.nodes:
+                if n.bl_idname == "ShaderNodeEmission":
+                    n.inputs["Strength"].default_value = BACKDROP_STRENGTH * 0.5
+            continue
+        b = _principled(mat)
+        if b is None:
+            if _rebuild_emissive_as_metal(mat):
+                counts["rebuilt"] += 1
+            continue
+        if name == "FloorMat":
+            _set(b, "Base Color", (0.012, 0.012, 0.015, 1.0))
+            _set(b, "Roughness", 0.52)          # dark semi-gloss: a reflection, not a mirror
+            _set(b, "Specular IOR Level", 0.5)
+            counts["other"] += 1
+            continue
+        metallic = b.inputs["Metallic"].default_value if b.inputs.get("Metallic") else 0.0
+        if b.inputs.get("Emission Strength") is not None and b.inputs["Emission Color"].is_linked:
+            # a self-lit body (winds, brass, melody): keep the glow-on-note cue faint
+            _set(b, "Emission Strength", LOOK_BODY_EMISSION)
+            counts["body"] += 1
+        if metallic >= 0.5:
+            # brass (the 0.7 bodies) polished and anisotropic; everything else
+            # metal - resonators, pads, keys, tines - brushed, or it turns to
+            # chrome under the areas and reads as a mirror strip
+            brass = "BrBody" in name or "MelBody" in name and "Metal" in name
+            _set(b, "Roughness", 0.26 if brass else 0.40)
+            _set(b, "Anisotropic", 0.45 if brass else 0.15)
+            counts["metal"] += 1
+        else:
+            # wood, pads, mallets, frames: a varnish coat over whatever colour
+            # and grain the section gave it
+            # a light varnish only: on flat-coloured, ungrained bodies a hard
+            # gloss reads as plastic, and that is a geometry/texture problem
+            # this pass cannot solve
+            _set(b, "Coat Weight", 0.30)
+            _set(b, "Coat Roughness", 0.22)
+            r = b.inputs["Roughness"]
+            if not r.is_linked and r.default_value > 0.5:
+                r.default_value = 0.42
+            counts["wood"] += 1
+
+    # lights: soft wrap from three big areas, the existing rig turned down
+    for name, col, watts, size, pos, aim in LOOK_AREA_LIGHTS:
+        data = bpy.data.lights.new(name, type='AREA')
+        data.energy, data.color, data.size = watts, col, size
+        data.shape = 'SQUARE'
+        obj = bpy.data.objects.new(name, data)
+        obj.location = pos
+        point_camera_at(obj, aim)
+        scene.collection.objects.link(obj)
+    for obj in scene.objects:
+        if obj.type == 'LIGHT' and obj.data.type == 'SPOT':
+            obj.data.energy *= LOOK_WASH_SCALE
+    world = scene.world
+    if world and world.use_nodes:
+        bg = world.node_tree.nodes.get("Background")
+        if bg:
+            bg.inputs["Color"].default_value = (0.045, 0.048, 0.060, 1.0)
+            bg.inputs["Strength"].default_value = 1.0
+
+    # tone: film-like roll-off instead of clipping
+    try:
+        scene.view_settings.view_transform = 'AgX'
+        # Punchy restores the saturation AgX otherwise trades away in the
+        # brights - the racks' pitch colours are information, not decoration
+        for look in ('AgX - Punchy', 'AgX - Medium High Contrast', 'None'):
+            try:
+                scene.view_settings.look = look
+                break
+            except TypeError:
+                continue
+    except TypeError:
+        scene.view_settings.view_transform = 'Filmic'
+    scene.view_settings.exposure = -0.25
+    print(f"[look] studio: {counts}, {len(LOOK_AREA_LIGHTS)} area lights, "
+          f"washes x{LOOK_WASH_SCALE}, view {scene.view_settings.view_transform}")
+
+
 def parse_args():
     argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
     p = argparse.ArgumentParser()
@@ -477,6 +637,9 @@ def parse_args():
     # B580 and B50 and skips the Arrow Lake iGPU, which shows up as plain
     # "Intel(R) Graphics" and would otherwise be picked too.
     p.add_argument("--gpu-name", default="Arc")
+    # A post-build look pass, off by default so every existing render is
+    # reproducible. "studio" is the materials-and-light pass: see _apply_look.
+    p.add_argument("--look", choices=("stage", "studio"), default="stage")
     # Render only part of the clip, so two Blender processes (one per GPU) can
     # split the work. Frame numbers and the animation clock stay absolute —
     # frame N is at t = N/FPS whichever process renders it — so both halves
@@ -1423,11 +1586,14 @@ def main():
     updates.append(lambda t: update_follow(follow, t, cues, targets))
 
     scene = bpy.context.scene
+    if args.look == "studio":
+        _apply_look(scene)
     scene.render.engine = _configure_engine(scene, args)
     scene.render.resolution_x = args.res_x
     scene.render.resolution_y = args.res_y
     scene.render.fps = FPS
-    scene.view_settings.view_transform = 'Standard'
+    if args.look == "stage":
+        scene.view_settings.view_transform = 'Standard'
     scene.render.image_settings.file_format = 'PNG'
 
     if not animate:
