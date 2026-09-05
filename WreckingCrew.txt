@@ -21599,3 +21599,20 @@ ______________________
                                                 4:05 melody.bassoon  (quiet)
                                                 4:17 bass + marimba  (fading)
       It was missing the instruments, but I didn't realize there is a check box for that: Show instruments (stage.glb)
+
+      Asked Claude to add a pignose for the baritone guitar, and to fix the perpendicularity of the bowing strings. Added a little sul ponticello and sul tasto. Random for now.
+
+      I ran with --IGPU 1, and it blue both server closet UPS. Good to know. In recovery now. Ceph is taking a long time. After about 20 minutes it was up and running. Not bad.
+
+            fs2: Sat 05 Sep 2026 12:23:01 PM PDT
+            ssh one-footed-bride-pod ls Repos/One-footed-bride-tuning/frames_bwv259 -1 | wc -l      
+                  8043
+      Done. 
+      Performance without the iGPU due to power draw.
+            Pod	      Frames	s/frame
+            b70a	      2,009	      2.62
+            b70b	      1,918	      2.45
+            b580f6	1,439	      3.66
+            b580f9	1,295	      3.31
+            b50f3	      1,382	      3.45
+      Note from Claude: Two things to check as you watch: whether the extra wides carry the melody's hops between sections the way you wanted, and the three weak shots I flagged, the quiet bassoon at 1:00 and 4:05 and the cello entering late at 3:17. Any of those can be pinned by a hand cue and re-rendered as a short frame range on one card.
