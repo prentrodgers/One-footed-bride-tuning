@@ -172,6 +172,11 @@ CAM_SENSOR = 36.0
 # is not sounding.  Only the opening wide is by hand.
 CAMERA_CUES = [
     ("0:00", "wide"),
+    # bwv259 hand cues over the generated sheet (seed 7): the bassoon at
+    # 1:00 has nothing to show, the marimba and guitar carry that passage;
+    # at 4:05 back off from the bassoon alone to the melody winds around it.
+    ("1:00", ("marimba", "bass.guitar")),
+    ("4:05", "melody"),
 ]
 
 # The bwv257 sheet, kept for when that chorale is rendered again:
@@ -893,7 +898,12 @@ def setup_bass(npy, tempo):
     # empty stays at the origin), purely so it registers as the camera target
     # "bass.guitar" and can be framed apart from the finger piano.
     before_gtr = set(bpy.data.objects)
-    gtr_geom = bass.build_baritone_guitar(gtr_x0, bass.BASE_HEIGHT / 2.0 + bass.BODY_H * 0.15)
+    # The section's floor is the finger-piano stand's feet (the lowest thing
+    # here); the Pignose stands on that, not at the hanging guitar's bottom.
+    bpy.context.view_layer.update()      # fp_empty's scale is not in the children's world matrices yet
+    section_floor_z = mesh_bounds(fp_objs)[4]
+    gtr_geom = bass.build_baritone_guitar(gtr_x0, bass.BASE_HEIGHT / 2.0 + bass.BODY_H * 0.15,
+                                          amp_floor_z=section_floor_z)
     gtr_empty = bpy.data.objects.new("bass_guitar", None)
     bpy.context.scene.collection.objects.link(gtr_empty)
     for o in bpy.data.objects:

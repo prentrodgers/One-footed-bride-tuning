@@ -163,6 +163,7 @@ SHARP_RAISE_Z = 0.30
 NODE_FRAC  = 0.2
 SAG_AMOUNT = 0.6
 FRAME_MARGIN = 0.5    # how far past the end bars the frame posts sit
+FOOT_LEN = 1.6        # front-to-back length of the T-foot under each post
 STAND_H = 1.6         # end posts run this far below the resonators — the legs
                       # the instrument stands on, so the bars sit at playing
                       # height instead of near the floor
@@ -751,6 +752,17 @@ def build_frame(bar_info, post_x_left, post_x_right):
         post = bpy.context.object
         post.name = f"frame_post_x{post_x:.2f}"
         post.data.materials.append(frame_mat)
+        # A T-foot under each post, running front to back across the row,
+        # so the stand has a base to stand on rather than two bare posts.
+        bpy.ops.mesh.primitive_cylinder_add(
+            radius=0.05, depth=FOOT_LEN,
+            location=(post_x, 0.0, post_bottom + 0.05))
+        foot = bpy.context.object
+        foot.rotation_euler = (math.radians(90.0), 0.0, 0.0)
+        foot.name = f"frame_foot_x{post_x:.2f}"
+        foot.data.materials.append(frame_mat)
+        for f in foot.data.polygons:
+            f.use_smooth = True
 
     # Each cord loops onto both posts at that cord's own rail Y (its
     # first/last node point's Y).

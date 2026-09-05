@@ -858,7 +858,11 @@ def build_pignose(x_left, y, floor_z, chrome_mat, knob_mat):
     return objs, jack
 
 
-def build_baritone_guitar(x0, cz):
+def build_baritone_guitar(x0, cz, amp_floor_z=None):
+    """amp_floor_z: where the Pignose stands. The guitar hangs at playing
+    height, so its own bottom is not the floor; the stage passes the
+    section's real floor (the finger-piano stand's feet). Defaults to the
+    guitar's bottom for the standalone script."""
     head_len, head_h = HEAD_LEN, HEAD_H
     neck_len, neck_h = NECK_LEN, NECK_H
     bw, bh = BODY_W, BODY_H
@@ -1104,10 +1108,13 @@ def build_baritone_guitar(x0, cz):
     # Pignose amp on the floor past the tail, and a black cord from the
     # output jack on the body's lower edge, sagging to the floor and
     # running along it to the amp's input.
-    floor_z = cz - bh / 2.0
-    amp_objs, amp_jack = build_pignose(bx + bw * 1.02 + 0.10, 0.0, floor_z, chrome_mat, knob_mat)
+    floor_z = (cz - bh / 2.0) if amp_floor_z is None else amp_floor_z
+    # Half an amp's width left of where it first stood: clear of the marimba.
+    amp_objs, amp_jack = build_pignose(bx + bw * 1.02 - 0.025, 0.0, floor_z, chrome_mat, knob_mat)
     jack = (bx + bw * 0.93, BODY_Y, cz - bh * 0.28)
+    drop = jack[2] - floor_z
     cord_pts = _smooth_open([jack, (jack[0] + 0.05, BODY_Y - 0.01, jack[2] - 0.06),
+                             (jack[0] + 0.09, -0.02, jack[2] - drop * 0.5),
                              (jack[0] + 0.10, -0.03, floor_z + 0.02),
                              (amp_jack[0] - 0.08, -0.06, floor_z + 0.005),
                              (amp_jack[0] - 0.02, amp_jack[1] - 0.02, floor_z + 0.03), amp_jack], 8)
@@ -1131,7 +1138,7 @@ def build_baritone_guitar(x0, cz):
 
     return dict(strings=strings, str_xs=str_xs, szs=szs, x_nut=x_nut, x_bridge=x_bridge,
                 pluck_x=pluck_x, front_y=front_y, pick=pick, stop_dot=stop_dot,
-                total_len=total_len + 0.10 + 0.25, cz=cz, top_z=cz + bh / 2.0, bottom_z=floor_z)
+                total_len=total_len + 0.10 + 0.25, cz=cz, top_z=cz + bh / 2.0, bottom_z=cz - bh / 2.0)
 
 
 def compute_guitar_state(t, notes):
