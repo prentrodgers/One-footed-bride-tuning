@@ -300,7 +300,7 @@ CAMERA_CUES = [
 # Hand cues always win — generated shots are dropped near them.
 # (start, end, seed) ranges the generator fills.  Starts at 0:10 so the
 # opening wide holds first; generated shots run 10-15s each.
-CAMERA_AUTOGEN = [(10.0, 281.7, 7)]
+CAMERA_AUTOGEN = [(10.0, 268.1, 7)]   # bwv259: Uploads/ball9-t59d_..._t072, tempo 72, 4:28
     # CAMERA_AUTOGEN = [
     # (50.0, 470.0, 7),
     # ]
@@ -388,6 +388,10 @@ CAMERA_HOLD = (10.0, 15.0)   # generated shot length range, seconds
 CAMERA_MARGIN = 1.25         # framing headroom: 1.0 = target exactly fills frame
 CAMERA_MOVE_CHANCE = 0.25    # fraction of generated transitions that move, not cut
 CAMERA_MOVE_T = 2.5          # seconds for a generated move
+# How many wides the generator deals per cycle of shot sizes (one of each
+# other size per cycle). 1 suits a dense chorale; a sparse one whose melody
+# hops between sections, like bwv259, reads better at 2.
+CAMERA_WIDE_PER_CYCLE = 2
 
 
 def _pick_eevee_engine():
@@ -428,7 +432,7 @@ def _configure_engine(scene, args):
         prefs.use_oneapirt = bool(args.cycles_hw_rt)
     chosen = []
     for d in prefs.devices:
-        d.use = d.type == "ONEAPI" and args.gpu_name in d.name
+        d.use = d.type == "ONEAPI" and (args.gpu_name == "any" or args.gpu_name in d.name)
         if d.use:
             chosen.append(d.name)
     if not chosen:
@@ -636,6 +640,9 @@ def parse_args():
     # Substring of the device name Cycles should use. "Arc" matches the B70,
     # B580 and B50 and skips the Arrow Lake iGPU, which shows up as plain
     # "Intel(R) Graphics" and would otherwise be picked too.
+    # Substring of the oneAPI device name Cycles may use ("Arc" skips the
+    # iGPU, "Graphics" is the iGPU alone); "any" takes every oneAPI device,
+    # which is right inside a farm pod that has been left exactly one.
     p.add_argument("--gpu-name", default="Arc")
     # A post-build look pass, off by default so every existing render is
     # reproducible. "studio" is the materials-and-light pass: see _apply_look.
@@ -821,12 +828,14 @@ def _update_string_player(t, pl, geom):
         pizz.update_pluck_finger(geom['pluck'], state['last_gest'],
                                  geom['contact_sxs'], geom['contact_z'], geom['contact_y'], t)
     if geom['bow_pivot'] is not None:
+        # The contact point drifts along the string (ponticello .. tasto).
+        c_sxs, c_z, c_y = pizz.bow_contact(geom, t, seed=pl['id'])
         if is_arco:
             pizz.update_bow_sustained(geom['bow_pivot'], geom['bow_parts'], state['bow_note'],
-                                      geom['contact_sxs'], geom['contact_z'], geom['contact_y'], t)
+                                      c_sxs, c_z, c_y, t)
         else:
             pizz.update_bow(geom['bow_pivot'], geom['bow_parts'], state['last_gest'],
-                            geom['contact_sxs'], geom['contact_z'], geom['contact_y'], t)
+                            c_sxs, c_z, c_y, t)
 
 
 def setup_pizz(npy, tempo):
@@ -1071,21 +1080,27 @@ def load_activity(npy, tempo):
     return start, start + arr[:, 2] / bps, arr[:, 6].astype(int), arr[:, 14]
 
 
-def is_playing(focus, t0, t1, vmap, activity, min_fraction=0.25):
+def is_playing(focus, t0, t1, vmap, activity, min_fraction=0.4):
     """Does everything in this shot actually sound for a decent share of
     [t0, t1)? Measured as sounding TIME, not note count: a flute holding one
     long note is as audible as a marimba playing thirty short ones, and a
     note-count threshold would quietly bias the edit toward the busy
-    sections."""
+    sections. Only notes at a tenth or more of the target's loudest count
+    as sounding: a near-silent pedal — the bowed strings at 3% of their
+    volume for the first half-minute of bwv259 — is not the strings
+    playing, and the old gate cut to them for it."""
     if activity is None or focus == "wide":
         return True
-    start, end, voice, _vol = activity
+    start, end, voice, vol = activity
     span = t1 - t0
     for n in shot_names(focus):
         voices = vmap.get(n)
-        if not voices:            # conductor, or an unmapped pivot: never gates
+        if not voices:            # an unmapped pivot: never gates
             continue
         m = np.isin(voice, voices)
+        if not m.any():
+            return False
+        m &= vol >= 0.1 * float(vol[m].max())
         overlap = np.minimum(end[m], t1) - np.maximum(start[m], t0)
         if float(overlap[overlap > 0].sum()) < min_fraction * span:
             return False
@@ -1259,7 +1274,9 @@ def generate_cues(t0, t1, seed, targets, vmap=None, activity=None):
         b = targets[k]
         return (b[1] - b[0]) >= 0.8 or (b[5] - b[4]) >= 2.0
     players = sorted(k for k in targets if '.' in k and shootable(k))
-    sections = sorted(k for k in targets if '.' not in k)
+    # The conductor is a stand and a baton: addressable by hand, but not a
+    # shot the generator should spend a hold on.
+    sections = sorted(k for k in targets if '.' not in k and k != "conductor")
     by_section = {}
     for p in players:
         by_section.setdefault(p.split('.')[0], []).append(p)
@@ -1287,7 +1304,7 @@ def generate_cues(t0, t1, seed, targets, vmap=None, activity=None):
     # size appears once per cycle before any repeats, so the edit always works
     # through one-player / two-player / section / two-section / wide instead of
     # leaving a size out for two minutes at a stretch.
-    kinds = [solo, pair, group, duo_section, lambda: "wide"]
+    kinds = [solo, pair, group, duo_section] + [lambda: "wide"] * CAMERA_WIDE_PER_CYCLE
 
     def overhead():
         # Slow travelling look down the middle row. Ordered, not sampled, so it

@@ -114,10 +114,13 @@ THREE.Object3D.DEFAULT_UP.set(0, 0, 1);
 // no-store, because this file is re-dumped every time the cue sheet or the
 // geometry changes and http.server sends no Cache-Control — so a plain reload
 // will happily show you yesterday's cues and give no sign that it has.
-const L = await fetch('stage_layout.json', {cache:'no-store'})
+// ?layout=stage_layout_bwv259.json picks another dump, so one page can show
+// several chorales' sheets side by side without overwriting the default.
+const LAYOUT = new URLSearchParams(location.search).get('layout') || 'stage_layout.json';
+const L = await fetch(LAYOUT, {cache:'no-store'})
   .then(r => r.ok ? r.json() : Promise.reject(new Error(r.status + ' ' + r.statusText)))
   .catch(e => {
-    document.body.innerHTML = `<div id="err">Could not load stage_layout.json (${e.message}).<br><br>
+    document.body.innerHTML = `<div id="err">Could not load ${LAYOUT} (${e.message}).<br><br>
       Generate it:<br>&nbsp;&nbsp;blender -b -P blender_stage.py -- --dump-layout stage_layout.json<br><br>
       and serve this page (file:// cannot load ES modules):<br>
       &nbsp;&nbsp;python3 -m http.server 8000</div>`;
