@@ -70,6 +70,17 @@ WORKERS=(
   "b580f9 fs9  8086:e20b  -           1.829  3.696"
   "b50f3  fs3  8086:e212  -           2.129  3.472"
 )
+# The Core Ultra iGPUs (Xe-LPG, PCI 0x7d67) on the nodes without a card,
+# opt-in with IGPU=1. Rates probed on fs4 on 5 Sep 2026 (steady state,
+# after the first frame's ~140 s Cycles kernel compile): a fifth of a B70
+# on Cycles, ~40% of one on EEVEE. Three of them add ~16% to the farm's
+# Cycles throughput and ~35% to EEVEE's. fs2 is left out: it is the
+# workstation, with 15Gi.
+if [ "${IGPU:-0}" = 1 ]; then WORKERS+=(
+  "igpuf4 fs4  8086:7d67  0           3.89   11.3"
+  "igpuf7 fs7  8086:7d67  0           3.89   11.3"
+  "igpuf8 fs8  8086:7d67  0           3.89   11.3"
+); fi
 
 STAGGER=${STAGGER:-45}
 NPY=""; TEMPO=""; DURATION=""; OUT=""; DRYRUN=0; ONLY=""; EXTRA=()
@@ -196,7 +207,8 @@ spec:
     args:
     - ${hide_cmd}cd $REPO && exec blender --background --gpu-backend vulkan
       --python blender_stage.py -- --npy $NPY --tempo $TEMPO --duration $DURATION
-      --res-x $RES_X --res-y $RES_Y --out $OUT --frame-start $start --frame-end $end ${EXTRA[*]:-}
+      --res-x $RES_X --res-y $RES_Y --out $OUT --frame-start $start --frame-end $end
+      --gpu-name any ${EXTRA[*]:-}
     volumeMounts:
     - {name: ceph, mountPath: /home/prent}
     - {name: dri, mountPath: /dev/dri}
