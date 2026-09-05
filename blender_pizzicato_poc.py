@@ -436,6 +436,14 @@ PLK_RET_T = 0.130
 # plucking/bowing hand sits at a roughly fixed physical spot regardless
 # of where the other hand is fingering.
 CONTACT_ABOVE_BRIDGE_FRAC = 0.07
+# The bow's contact point drifts: mostly around the normal spot above, out
+# to sul ponticello (near the bridge) or sul tasto (over the fingerboard's
+# end, which sits at string_length.MIN_LENGTH_FRAC - 0.03) now and then.
+# Two slow sines, cubed, so it lingers in the middle and visits the
+# extremes briefly; each player has its own phase.
+CONTACT_PONTICELLO = 0.02
+CONTACT_TASTO = 0.20
+CONTACT_DRIFT_T = (23.0, 37.0)   # s, the two periods
 
 FINGER_R = 0.007
 STOP_FINGER_COLOR = (0.85, 0.72, 0.58)
@@ -453,7 +461,11 @@ BOW_APP_T = 0.028
 BOW_DWL_T = 0.052
 BOW_RET_T = 0.075
 BOW_SWEEP = 0.015    # m — how far the contact point slides during a martele stroke
-BOW_TILT_DEG = 12.0   # degrees the stick pitches away from the string plane,
+BOW_TILT_DEG = 2.5    # degrees the stick lifts toward the camera, about the
+                      # string axis, so it stays perpendicular to the strings
+                      # in the front view (it used to pitch 12 deg ALONG them,
+                      # which read as a skewed bow)
+# Old comment, for what the tilt was:
                        # so only the string at the contact point is touched
 # Sustained (arco) bowing — the bow stays on the string for the whole note,
 # sliding back and forth in a long continuous stroke (unlike the martele flick).
@@ -1369,6 +1381,22 @@ def update_pluck_finger(pluck_obj, gest, contact_sxs, contact_z, contact_y, t):
     pluck_obj.hide_render = False
 
 
+def bow_contact(geom, t, seed=0):
+    """(sxs, z, y) of the bow's contact point at time t — see CONTACT_*."""
+    a, b = CONTACT_DRIFT_T
+    ph = seed * 1.7
+    u = 0.55 * math.sin(2.0 * math.pi * t / a + ph) + 0.45 * math.sin(2.0 * math.pi * t / b + 2.3 * ph + 0.8)
+    u = max(-1.0, min(1.0, u)) ** 3
+    mid = CONTACT_ABOVE_BRIDGE_FRAC
+    frac = mid + u * ((CONTACT_TASTO - mid) if u > 0 else (mid - CONTACT_PONTICELLO))
+    z = geom['bridge_z'] + (geom['str_top'] - geom['bridge_z']) * frac
+    y = string_rest_y(z, geom['str_top'], geom['bridge_z'], geom['str_bot'],
+                      geom['front_y'], geom['bridge_y'], geom['bridge_y'])
+    sxs = [string_rest_x(z, geom['str_top'], geom['bridge_z'], geom['sxs'][si], geom['bridge_sxs'][si])
+           for si in range(4)]
+    return sxs, z, y
+
+
 def update_bow(bow_pivot, bow_parts, gest, contact_sxs, contact_z, contact_y, t):
     """See update_pluck_finger — same reasoning, just above the bridge."""
     if gest is None:
@@ -1393,13 +1421,10 @@ def update_bow(bow_pivot, bow_parts, gest, contact_sxs, contact_z, contact_y, t)
     else:                    # lifting off
         bx = sx_active + BOW_SWEEP * 0.5
 
-    # Pitching the stick around Y means only the contact point (the pivot,
-    # placed exactly on the target string) actually meets the string
-    # plane — the rest of the hair's length lifts away in Z, so the bow
-    # visibly touches just this one string instead of lying flat across
-    # all four.
+    # Perpendicular to the strings, lifted a touch toward the camera about
+    # the string axis so the far end stands off the neighbouring strings.
     bow_pivot.location = (bx, contact_y - 0.008, contact_z)
-    bow_pivot.rotation_euler = (0.0, math.radians(BOW_TILT_DEG), 0.0)
+    bow_pivot.rotation_euler = (0.0, 0.0, -math.radians(BOW_TILT_DEG))
     for p in bow_parts:
         p.hide_render = False
 
@@ -1421,7 +1446,7 @@ def update_bow_sustained(bow_pivot, bow_parts, note, contact_sxs, contact_z, con
     # through that point: tri=0 puts the frog on the string, tri=1 the tip.
     off = BOW_SUSTAIN_SWEEP * (0.5 - tri)
     bow_pivot.location = (sx, contact_y - 0.008, contact_z)
-    bow_pivot.rotation_euler = (0.0, math.radians(BOW_TILT_DEG), 0.0)
+    bow_pivot.rotation_euler = (0.0, 0.0, -math.radians(BOW_TILT_DEG))
     for p in bow_parts:
         p.location.x = p["bow_x0"] + off
         p.hide_render = False

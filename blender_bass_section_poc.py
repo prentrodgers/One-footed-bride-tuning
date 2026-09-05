@@ -785,6 +785,79 @@ def make_pick_mesh(name, r):
     return mesh
 
 
+def _smooth_open(pts, n_per_seg=8):
+    """Catmull-Rom samples through 3D points (an open curve)."""
+    P = [np.asarray(p, dtype=float) for p in pts]
+    out = []
+    for i in range(len(P) - 1):
+        p0 = P[i - 1] if i > 0 else P[0] + (P[0] - P[1])
+        p1, p2 = P[i], P[i + 1]
+        p3 = P[i + 2] if i + 2 < len(P) else P[-1] + (P[-1] - P[-2])
+        for k in range(n_per_seg):
+            t = k / n_per_seg
+            q = 0.5 * (2 * p1 + (p2 - p0) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t * t
+                       + (3 * p1 - p0 - 3 * p2 + p3) * t ** 3)
+            out.append(tuple(float(v) for v in q))
+    out.append(tuple(float(v) for v in P[-1]))
+    return out
+
+
+def build_pignose(x_left, y, floor_z, chrome_mat, knob_mat):
+    """A Pignose 7-100: a small tan box with a dark grille on its front,
+    chrome corner protectors, a strap handle on top, the volume knob (the
+    pig's nose) on the front and an input jack beside it. Returns
+    (objects, jack position) so the guitar cord knows where to end."""
+    W, D, H = 0.25, 0.14, 0.21
+    tolex = make_solid_material("PignoseTolex", (0.42, 0.28, 0.15), roughness=0.75)
+    grille_mat = make_solid_material("PignoseGrille", (0.10, 0.08, 0.06), roughness=0.9)
+    cx, cy, cz = x_left + W / 2.0, y, floor_z + H / 2.0
+    objs = []
+    bpy.ops.mesh.primitive_cube_add(size=1.0, location=(cx, cy, cz))
+    box = bpy.context.object
+    box.scale = (W, D, H)
+    box.name = "pignose_box"
+    bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
+    add_corner_bevel(box, width=0.008)
+    box.data.materials.append(tolex)
+    objs.append(box)
+    bpy.ops.mesh.primitive_cube_add(size=1.0, location=(cx, cy - D / 2.0 - 0.002, cz - H * 0.06))
+    grille = bpy.context.object
+    grille.scale = (W * 0.78, 0.004, H * 0.66)
+    grille.name = "pignose_grille"
+    grille.data.materials.append(grille_mat)
+    objs.append(grille)
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            for sz in (-1, 1):
+                bpy.ops.mesh.primitive_uv_sphere_add(radius=0.012, location=(cx + sx * W / 2.0, cy + sy * D / 2.0, cz + sz * H / 2.0))
+                c = bpy.context.object
+                c.name = "pignose_corner"
+                c.data.materials.append(chrome_mat)
+                objs.append(c)
+    bpy.ops.mesh.primitive_torus_add(major_radius=0.05, minor_radius=0.006, location=(cx, cy, floor_z + H + 0.012),
+                                     major_segments=32, minor_segments=10)
+    handle = bpy.context.object
+    handle.rotation_euler = (math.radians(90.0), 0.0, 0.0)
+    handle.scale = (1.0, 1.0, 0.6)
+    handle.name = "pignose_handle"
+    handle.data.materials.append(knob_mat)
+    objs.append(handle)
+    bpy.ops.mesh.primitive_cylinder_add(radius=0.016, depth=0.014, location=(cx + W * 0.30, cy - D / 2.0 - 0.006, cz + H * 0.33))
+    nose = bpy.context.object
+    nose.rotation_euler = (math.radians(90.0), 0.0, 0.0)
+    nose.name = "pignose_nose"
+    nose.data.materials.append(chrome_mat)
+    objs.append(nose)
+    jack = (cx - W * 0.30, cy - D / 2.0 - 0.004, cz + H * 0.33)
+    bpy.ops.mesh.primitive_cylinder_add(radius=0.007, depth=0.010, location=jack)
+    j = bpy.context.object
+    j.rotation_euler = (math.radians(90.0), 0.0, 0.0)
+    j.name = "pignose_jack"
+    j.data.materials.append(chrome_mat)
+    objs.append(j)
+    return objs, jack
+
+
 def build_baritone_guitar(x0, cz):
     head_len, head_h = HEAD_LEN, HEAD_H
     neck_len, neck_h = NECK_LEN, NECK_H
@@ -1028,9 +1101,37 @@ def build_baritone_guitar(x0, cz):
     stop_dot.data.materials.append(stop_mat)
     stop_dot.hide_render = True
 
+    # Pignose amp on the floor past the tail, and a black cord from the
+    # output jack on the body's lower edge, sagging to the floor and
+    # running along it to the amp's input.
+    floor_z = cz - bh / 2.0
+    amp_objs, amp_jack = build_pignose(bx + bw * 1.02 + 0.10, 0.0, floor_z, chrome_mat, knob_mat)
+    jack = (bx + bw * 0.93, BODY_Y, cz - bh * 0.28)
+    cord_pts = _smooth_open([jack, (jack[0] + 0.05, BODY_Y - 0.01, jack[2] - 0.06),
+                             (jack[0] + 0.10, -0.03, floor_z + 0.02),
+                             (amp_jack[0] - 0.08, -0.06, floor_z + 0.005),
+                             (amp_jack[0] - 0.02, amp_jack[1] - 0.02, floor_z + 0.03), amp_jack], 8)
+    cord_mat = make_solid_material("GuitarCord", (0.02, 0.02, 0.02), roughness=0.6)
+    cu = bpy.data.curves.new("guitar_cord", type='CURVE')
+    cu.dimensions = '3D'
+    cu.bevel_depth = 0.004
+    cu.bevel_resolution = 4
+    sp = cu.splines.new('POLY')
+    sp.points.add(len(cord_pts) - 1)
+    for k, (px, py, pz) in enumerate(cord_pts):
+        sp.points[k].co = (px, py, pz, 1.0)
+    cord = bpy.data.objects.new("guitar_cord", cu)
+    bpy.context.scene.collection.objects.link(cord)
+    cord.data.materials.append(cord_mat)
+    bpy.ops.mesh.primitive_cylinder_add(radius=0.007, depth=0.012, location=jack)
+    plug = bpy.context.object
+    plug.rotation_euler = (0.0, math.radians(90.0), 0.0)
+    plug.name = "guitar_jack"
+    plug.data.materials.append(chrome_mat)
+
     return dict(strings=strings, str_xs=str_xs, szs=szs, x_nut=x_nut, x_bridge=x_bridge,
                 pluck_x=pluck_x, front_y=front_y, pick=pick, stop_dot=stop_dot,
-                total_len=total_len, cz=cz, top_z=cz + bh / 2.0, bottom_z=cz - bh / 2.0)
+                total_len=total_len + 0.10 + 0.25, cz=cz, top_z=cz + bh / 2.0, bottom_z=floor_z)
 
 
 def compute_guitar_state(t, notes):
