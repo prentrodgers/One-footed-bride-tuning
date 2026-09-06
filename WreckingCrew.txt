@@ -21607,7 +21607,7 @@ ______________________
             fs2: Sat 05 Sep 2026 12:23:01 PM PDT
             ssh one-footed-bride-pod ls Repos/One-footed-bride-tuning/frames_bwv259 -1 | wc -l      
                   8043
-      Done. 
+      Done. But when you rerun the render it will always say 8043 until you clear out the directory before you start a new render run. 
       Performance without the iGPU due to power draw.
             Pod	      Frames	s/frame
             b70a	      2,009	      2.62
@@ -21616,3 +21616,19 @@ ______________________
             b580f9	1,295	      3.31
             b50f3	      1,382	      3.45
       Note from Claude: Two things to check as you watch: whether the extra wides carry the melody's hops between sections the way you wanted, and the three weak shots I flagged, the quiet bassoon at 1:00 and 4:05 and the cello entering late at 3:17. Any of those can be pinned by a hand cue and re-rendered as a short frame range on one card.
+
+      When you are on the fs3: 
+            cd ~/Repos/One-footed-bride-tuning && python3 -m http.server 8000
+      and from Windows browser, http://fs3:8000/stage_preview.html?layout=stage_layout_bwv259.json
+
+      # on fs3 (ssh from Windows, or VS Code Remote-SSH)
+      cd ~/Repos/One-footed-bride-tuning && git pull --ff-only && git lfs pull
+      claude --resume 31985654-1c79-4fdf-82f1-16385d09fa7f
+
+      and, from the Windows browser, http://fs3:8000/stage_preview.html?layout=stage_layout_bwv259.json. The glb is from this morning's export, so it shows the T-feet and the amp only after a fresh --export-gltf stage.glb from the pod.
+
+      I asked Claude if he could find a 3D model online anywhere. It quickly descended into licensing hell. He found 1 Gibson Les Paul, but that's not a baritone model like the picture. 
+
+————————————————————————————————————
+9/6/26 Keep working on this claude session on the Asus-16 laptop.
+            https://claude.ai/code/session_018oFUA4PoHRLueDEnsEg5Xo      
