@@ -121,17 +121,25 @@ layout_players(PLAYERS, gap_scale=GAP_SCALE)
 PLAYERS[0]['x'] += 0.38 * (PLAYERS[1]['x'] - PLAYERS[0]['x'])
 quartet_seating(PLAYERS)
 
-STRING_REACH = 2400   # cents — how far above a string's open pitch it's playable
+# A stopped note may sit up to this far BELOW a string's open pitch and
+# still count as that string played open — the adaptive tuning can put a
+# unison with the open string a few cents flat of it.
+OPEN_SLACK = 50
 
 
 def _note_to_str(pitch_cents, inst_type):
-    """Which of the 4 strings (0=lowest) would actually play this pitch —
-    duplicated from string_section_poc.py (pure numpy, see module note)."""
+    """Which of the 4 strings (0=lowest) a player would use for this pitch:
+    the HIGHEST string whose open pitch is at or below the note, so the stop
+    lands as near the nut as it can. A player shifts up a low string only
+    when no higher string reaches the note (e.g. violin F#4 is on the D, in
+    first position, not the G string at the fourth position). Notes below
+    the lowest open string fall back to that string, played open.
+    Duplicated from string_section_poc.py (pure numpy, see module note)."""
     opens = INST_SPEC[inst_type]['open_cents']
-    for i, op in enumerate(opens):
-        if -50 <= pitch_cents - op <= STRING_REACH:
+    for i in range(len(opens) - 1, -1, -1):
+        if pitch_cents >= opens[i] - OPEN_SLACK:
             return i
-    return int(np.argmin([abs(pitch_cents - op) for op in opens]))
+    return 0
 
 
 def load_string_voices(npy_file, tempo, voices=None):

@@ -571,7 +571,7 @@ def update_bass_finger_piano(t, geom, notes):
 # horizontally instead of vertically.
 N_STRINGS = 6
 GUITAR_OPEN_CENTS = [2300, 2800, 3300, 3800, 4200, 4700]   # B1 E2 A2 D3 F#3 B3
-GUITAR_STRING_REACH = 2400
+GUITAR_OPEN_SLACK = 50      # cents a note may sit below an open pitch and still be that open string
 
 # Offset single-cutaway solid body (Reverend Descent-style): one horn near
 # the neck joint, smooth rounded lower bout with no matching horn, a
@@ -625,10 +625,15 @@ VIB_AMPLITUDE_GTR = 0.010   # m — visual side-to-side (Y) wiggle at full ampli
 
 
 def _note_to_guitar_string(pitch_cents):
-    for i, op in enumerate(GUITAR_OPEN_CENTS):
-        if -50 <= pitch_cents - op <= GUITAR_STRING_REACH:
+    """The HIGHEST string whose open pitch is at or below the note, so the
+    stop lands as near the nut as possible — F#2 is the E string at the
+    second fret, not the B string at the seventh. A guitarist goes up the
+    neck only when no higher string reaches the note. Notes below B1 fall
+    back to the low string, played open."""
+    for i in range(len(GUITAR_OPEN_CENTS) - 1, -1, -1):
+        if pitch_cents >= GUITAR_OPEN_CENTS[i] - GUITAR_OPEN_SLACK:
             return i
-    return int(np.argmin([abs(pitch_cents - op) for op in GUITAR_OPEN_CENTS]))
+    return 0
 
 
 def _catmull_rom_closed(pts, n_per_seg=5):
@@ -1171,6 +1176,10 @@ def compute_guitar_state(t, notes):
 def update_baritone_guitar(t, geom, notes):
     glow, vib_amp, vib_onset, vib_pitch, last_gest = compute_guitar_state(t, notes)
     front_y = geom['front_y']
+    # One fretting hand, one stop dot: it goes on the freshest (brightest)
+    # stopped string, decided after the loop — deciding per string let every
+    # silent higher string hide it again.
+    dot = None      # (glow, location)
     for i, sz in enumerate(geom['szs']):
         s = geom['strings'][i]
         xs = geom['str_xs'][i]
@@ -1199,16 +1208,17 @@ def update_baritone_guitar(t, geom, notes):
                     wave = 0.0
                 y = front_y + VIB_AMPLITUDE_GTR * a * wave * math.cos(phase)
                 points[k].co = (x, y, sz, 1.0)
-            if length_frac < 0.98 and g > 0.05:
-                geom['stop_dot'].location = (vib_nut, front_y, sz)
-                geom['stop_dot'].hide_render = False
-            else:
-                geom['stop_dot'].hide_render = True
+            if length_frac < 0.98 and g > 0.05 and (dot is None or g > dot[0]):
+                dot = (g, (vib_nut, front_y, sz))
         else:
             for k, x in enumerate(xs):
                 points[k].co = (x, front_y, sz, 1.0)
-            geom['stop_dot'].hide_render = True
         s.data.update_tag()
+    if dot is not None:
+        geom['stop_dot'].location = dot[1]
+        geom['stop_dot'].hide_render = False
+    else:
+        geom['stop_dot'].hide_render = True
 
     pick = geom['pick']
     if last_gest is None:

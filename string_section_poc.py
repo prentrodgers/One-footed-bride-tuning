@@ -259,22 +259,22 @@ def _str_xs(cx, spec, scale):
     return [cx + (i - 1.5) * s for i in range(4)]
 
 
-STRING_REACH = 2400  # cents — how far above a string's open pitch it's playable
+OPEN_SLACK = 50  # cents a note may sit below an open pitch and still be that open string
 
 
 def _note_to_str(pitch_cents, inst_type):
-    """Which of the 4 strings (0=lowest) would actually play this pitch.
+    """Which of the 4 strings (0=lowest) a player would use for this pitch.
 
-    Players favor the lowest string that can reach a note within a realistic
-    fingerboard position, shifting to a higher string only once the pitch
-    exceeds STRING_REACH above the lower string's open pitch.
+    The HIGHEST string whose open pitch is at or below the note, so the stop
+    lands as near the nut as possible; a player shifts up a low string only
+    when no higher string reaches the note. Notes below the lowest open
+    string fall back to that string, played open.
     """
     opens = INST_SPEC[inst_type]['open_cents']
-    for i, op in enumerate(opens):
-        if -50 <= pitch_cents - op <= STRING_REACH:
+    for i in range(len(opens) - 1, -1, -1):
+        if pitch_cents >= opens[i] - OPEN_SLACK:
             return i
-    # Out of comfortable reach on every string: pick the closest by open pitch.
-    return int(np.argmin([abs(pitch_cents - op) for op in opens]))
+    return 0
 
 
 def _make_tilt_xform(cx, cy, ax):

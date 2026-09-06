@@ -104,17 +104,18 @@ GUITAR_CY = 609       # kept independent of TINE_NODE_Y — the guitar didn't ne
 # marimba_poc._pitch_label, so e.g. B1 = (1*12+11)*100 = 2300).
 # B1  E2  A2  D3  F#3  B3 — a perfect fourth below standard EADGBE.
 GUITAR_OPEN_CENTS = [2300, 2800, 3300, 3800, 4200, 4700]
-GUITAR_STRING_REACH = 2400   # cents — same reach string_section_poc.py uses
+GUITAR_OPEN_SLACK = 50       # cents a note may sit below an open pitch and still be that open string
 
 
 def _note_to_guitar_string(pitch_cents):
-    """Which of the 6 strings (0=lowest) would actually play this pitch —
-    same "lowest string that can reach it" rule as
-    string_section_poc.py's _note_to_str."""
-    for i, op in enumerate(GUITAR_OPEN_CENTS):
-        if -50 <= pitch_cents - op <= GUITAR_STRING_REACH:
+    """Which of the 6 strings (0=lowest) a guitarist would use for this
+    pitch — the HIGHEST string whose open pitch is at or below the note, so
+    the stop lands as near the nut as possible (same rule as
+    string_section_poc.py's _note_to_str)."""
+    for i in range(len(GUITAR_OPEN_CENTS) - 1, -1, -1):
+        if pitch_cents >= GUITAR_OPEN_CENTS[i] - GUITAR_OPEN_SLACK:
             return i
-    return int(np.argmin([abs(pitch_cents - op) for op in GUITAR_OPEN_CENTS]))
+    return 0
 # at scale=1.0 (the original single-guitar size); multiplied by GUITAR_SCALE
 HEAD_LEN, HEAD_H = 22, 30
 NECK_LEN, NECK_H = 150, 20
