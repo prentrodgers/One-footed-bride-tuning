@@ -24,10 +24,17 @@
 #   ./render_farm.sh --progress
 #   ./render_farm.sh --stop
 #
-# Pods are started one at a time, STAGGER seconds apart. Mounting the 2Ti
+# Pods are started one at a time, STAGGER seconds apart. "Mounting" the
 # CephFS volume takes ~60-90s per pod, and five at once put every one of them
 # past the kubelet's CreateContainer deadline: all five died with "context
 # deadline exceeded" while a single pod was fine.
+#
+# What that time actually is (found 6 Sep 2026, when eight pods plus an MDS
+# failover left four of them stuck for good): CRI-O relabels every file
+# under a mounted volume for SELinux (lsetxattr, one MDS round trip each)
+# before the container starts, and the PVC root holds the whole Dropbox —
+# 763k objects. So the pod mounts only the two subtrees it needs, the repo
+# and the SYCL kernel cache, and the walk covers ~25k files instead.
 #
 # Needs: kubectl context on this cluster, and the repo present on the PVC.
 # Anything else on the command line that starts with -- is passed straight
@@ -76,10 +83,18 @@ WORKERS=(
 # on Cycles, ~40% of one on EEVEE. Three of them add ~16% to the farm's
 # Cycles throughput and ~35% to EEVEE's. fs2 is left out: it is the
 # workstation, with 15Gi.
+#
+# Those rates are with the iGPU free to boost to 1.9-2.0 GHz. Under the
+# powersave-gpu tuned profile (power-save-all.sh) it is pinned to 550 MHz,
+# so pass the slower per-frame rates in through the environment or the
+# slices sized for the fast clock finish hours after the cards:
+#   IGPU=1 IGPU_RATE_CYC=40 ./render_farm.sh ...
+IGPU_RATE_EEVEE=${IGPU_RATE_EEVEE:-3.89}
+IGPU_RATE_CYC=${IGPU_RATE_CYC:-11.3}
 if [ "${IGPU:-0}" = 1 ]; then WORKERS+=(
-  "igpuf4 fs4  8086:7d67  0           3.89   11.3"
-  "igpuf7 fs7  8086:7d67  0           3.89   11.3"
-  "igpuf8 fs8  8086:7d67  0           3.89   11.3"
+  "igpuf4 fs4  8086:7d67  0           $IGPU_RATE_EEVEE   $IGPU_RATE_CYC"
+  "igpuf7 fs7  8086:7d67  0           $IGPU_RATE_EEVEE   $IGPU_RATE_CYC"
+  "igpuf8 fs8  8086:7d67  0           $IGPU_RATE_EEVEE   $IGPU_RATE_CYC"
 ); fi
 
 STAGGER=${STAGGER:-45}
@@ -210,7 +225,9 @@ spec:
       --res-x $RES_X --res-y $RES_Y --out $OUT --frame-start $start --frame-end $end
       --gpu-name any ${EXTRA[*]:-}
     volumeMounts:
-    - {name: ceph, mountPath: /home/prent}
+    # subPaths, not the PVC root: see the relabel note at the top.
+    - {name: ceph, mountPath: $REPO, subPath: ${REPO#/home/prent/}}
+    - {name: ceph, mountPath: /home/prent/.cache/sycl, subPath: .cache/sycl}
     - {name: dri, mountPath: /dev/dri}
   volumes:
   - {name: ceph, persistentVolumeClaim: {claimName: dropbox-pvc}}

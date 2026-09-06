@@ -172,12 +172,14 @@ CAM_SENSOR = 36.0
 # is not sounding.  Only the opening wide is by hand.
 CAMERA_CUES = [
     ("0:00", "wide"),
-    # bwv259 hand cues over the generated sheet (seed 7): the bassoon at
-    # 1:00 has nothing to show, the marimba and guitar carry that passage;
-    # at 4:05 back off from the bassoon alone to the melody winds around it.
-    ("1:00", ("marimba", "bass.guitar")),
-    ("4:05", "melody"),
 ]
+# bwv259 — Uploads/ball9-t59d_lm17_r1.25_df0_t1_d04_33_t072.{npy,mp3},
+# tempo 72, 268.1s. Hand cues over the generated sheet (seed 7), kept for
+# when it is rendered again: the bassoon at 1:00 has nothing to show, the
+# marimba and guitar carry that passage; at 4:05 back off from the bassoon
+# alone to the melody winds around it.
+#     ("1:00", ("marimba", "bass.guitar")),
+#     ("4:05", "melody"),
 
 # The bwv257 sheet, kept for when that chorale is rendered again:
 # CAMERA_CUES = [
@@ -305,7 +307,8 @@ CAMERA_CUES = [
 # Hand cues always win — generated shots are dropped near them.
 # (start, end, seed) ranges the generator fills.  Starts at 0:10 so the
 # opening wide holds first; generated shots run 10-15s each.
-CAMERA_AUTOGEN = [(10.0, 268.1, 7)]   # bwv259: Uploads/ball9-t59d_..._t072, tempo 72, 4:28
+CAMERA_AUTOGEN = [(10.0, 377.5, 7)]   # bwv260: Uploads/ball9-t60d_..._t084, tempo 84, 6:17
+    # CAMERA_AUTOGEN = [(10.0, 268.1, 7)]   # bwv259: Uploads/ball9-t59d_..._t072, tempo 72, 4:28
     # CAMERA_AUTOGEN = [
     # (50.0, 470.0, 7),
     # ]
