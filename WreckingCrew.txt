@@ -21632,3 +21632,61 @@ ______________________
 ————————————————————————————————————
 9/6/26 Keep working on this claude session on the Asus-16 laptop.
             https://claude.ai/code/session_018oFUA4PoHRLueDEnsEg5Xo      
+      But first commit this file:
+            git commit -m "Update the session notes" WreckingCrew.txt
+            opsigning
+            git push 
+      Then you have copies available on any node if you just git pull there. 
+
+      I'm giving up on a 3D model import for the guitar. Work on making the location of the stopping more accurate. Prompt to Claude:
+
+      This sounds like all my options are bad for trying to improve the shape of the guitar. One thing I would like to improve is the string behavior. What I'd like to see is more accurate location on the fingerboard for the stopping of the string. Consider the tuning of the baritone guitar is typically tuned B standard — meaning the strings are tuned B1–E2–A2–D3–F♯3–B3 from low to high. With this in mind, each stopping placement should choose the string that can play the note nearest the nut (left end of the instrument). For example, if the octave is 2 and the note is F♯ (F♯2) it should play on the E2 string, with a stopping point just above the nut, not on the B1 string far from the nut. Guitar players only go up the fingerboard towards the bridge when necessary and try to stay with a longer string by stopping near the nut where possible. At least I did when I played guitar. This should be true also with the violin, viola, and cellos. If a note can be played on a higher string, then it should be played on a higher string, not stopping a low string in a high on the fingerboard location. Does this make sense? I'd like to have the positions reflect accurately as possible the way a musician would play them. Ask questions if this is not clear.
+
+      Maybe I could use the iGPU if we switched to Powersave?
+            for n in fs2 fs3 fs4 fs5 fs7 fs8 ; do ssh $n hostname ; ssh $n "fastfetch | grep -E 'CPU|GPU'" ; done
+                  fs2
+                  CPU: Intel(R) Core(TM) Ultra 5 250K Plus (6+12) @ 5.30 GHz
+                  GPU: Intel Graphics @ 1.90 GHz [Integrated]
+                  fs3
+                  CPU: Intel(R) Core(TM) Ultra 5 250KF Plus (6+12) @ 5.30 GHz
+                  GPU: Intel Arc Pro B50 @ 2.60 GHz [Discrete]
+                  fs4
+                  CPU: Intel(R) Core(TM) Ultra 7 265K (8+12) @ 5.50 GHz
+                  GPU: Intel Graphics @ 2.00 GHz [Integrated]
+                  fs5
+                  CPU: Intel(R) Core(TM) Ultra 9 285K (8+16) @ 5.70 GHz
+                  GPU 1: Intel Arc Pro B70 @ 2.80 GHz [Discrete]
+                  GPU 2: Intel Arc Pro B70 @ 2.80 GHz [Discrete]
+                  GPU 3: Intel Graphics @ 2.00 GHz [Integrated]
+                  fs7
+                  CPU: Intel(R) Core(TM) Ultra 7 270K Plus (8+16) @ 5.50 GHz
+                  GPU: Intel Graphics @ 2.00 GHz [Integrated]
+                  fs8
+                  CPU: Intel(R) Core(TM) Ultra 5 250K Plus (6+12) @ 5.30 GHz
+                  GPU: Intel Graphics @ 1.90 GHz [Integrated]
+      Claude found that if we create a powersave-gpu we can cut the iGPU maximum frequency. This would make the render take longer, but it would avoid the UPS overload condition. 
+
+      Claude fixed the string choice on the guitar and strings. 
+      "One thing you should know about the bowed strings. In bwv256 the violin part never goes below its open E string, and the cello part never goes below C4, which is above the cello's top string." Is this true for the bowed strings section as well as the pizzicato section?
+      
+      Under the new rule a real player would use the top string for all of it, and that is what now happens: every violin and cello note lands on the highest string, with the cello's stops well up the fingerboard. That is musically correct, but visually only one string on each of those instruments ever lights up. If you'd rather see the voices spread across strings, the fix is in the voice-to-instrument octave mapping, not the fingering rule.
+
+      Also pre-existing and unchanged: about a tenth of the guitar notes are C1, below the baritone's low B, and they show as the open B string.
+
+            ./power-save-all.sh
+                  == fs2
+                  == fs3
+                  == fs4
+                  == fs5
+                  == fs7
+                  == fs8
+
+                  == verify
+                  fs2  profile=powersave-gpu  no_turbo=1  iGPU(card1) max=550 boost=550   OK
+                  fs3  profile=powersave-gpu  no_turbo=1  Arc(card0) min=400 max=2600   OK
+                  fs4  profile=powersave-gpu  no_turbo=1  iGPU(card1) max=1400 boost=550   MISMATCH
+                  fs5  profile=powersave-gpu  no_turbo=1  Arc(card0) min=400 max=2800  iGPU(card1) max=550 boost=550  Arc(card2) min=400 max=2800   OK
+                  fs7  profile=powersave-gpu  no_turbo=1  iGPU(card0) max=550 boost=550   OK
+      Let's start up a render of this chorale: 
+      @Uploads/ball9-t60d_lm19_r1.50_df3_t1_d06_22_t084.mp3
+      @Uploads/ball9-t60d_lm19_r1.50_df3_t1_d06_22_t084.npy
