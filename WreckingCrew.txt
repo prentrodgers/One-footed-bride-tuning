@@ -21690,3 +21690,158 @@ ______________________
       Let's start up a render of this chorale: 
       @Uploads/ball9-t60d_lm19_r1.50_df3_t1_d06_22_t084.mp3
       @Uploads/ball9-t60d_lm19_r1.50_df3_t1_d06_22_t084.npy
+
+————————————————————————————————————
+9/7/26 Update the repo on one-footed-bride pod:
+            ssh one-footed-bride-pod 'cd Repos/One-footed-bride-tuning && git pull --ff-only'      
+      It is critical that everything you want to run in the destination is surrounded by quotes.
+      
+      I'd like to eventually have the @grid_search.sh be used as the command string to run in the @k8s-grid-search-job-template.yaml. Please start by updating @grid_search.sh to be the same as the commands in @k8s-grid-search-job-template.yaml, then change @k8s-grid-search-job-template.yaml to call @grid_search.sh to run the tuning commands.
+
+      Edit grid_search.sh to include the choices you want it to pursue. 
+            ./grid_search.sh --dry_run
+                  # Grid search over limit_max, tolerance and ratio_factor — one tuning cell and
+                  # one chorale at a time.
+                  #
+                  # Two ways to run it, sharing one run_cell() so the tuning command lives in
+                  # exactly one place:
+                  #
+                  #   bash grid_search.sh
+                  #       The grid below, every cell x every chorale in CHORALES, serially, then
+                  #       the ranking table.  Set VITERBI_WORKERS=16 for a workstation run.
+                  #
+                  #   bash grid_search.sh --limit_max 19 --tolerance 2 --ratio 1.50 --chorale bwv262 [--job_id N]
+                  #       One cell, one chorale, no ranking table.  This is what each Kubernetes
+                  #       job runs: k8s-grid-search-job-template.yaml calls this script with the
+                  #       placeholders generate-grid-search-jobs.sh fills in.  The cross-chorale
+                  #       table then comes from the separate aggregation job once every job for
+                  #       a cell has finished.
+                  #
+                  #   --dry_run prints the commands instead of running them.
+                  #
+                  # Intermediate numpy files are written to Archive/straw-man/t{t}_r{r}_lm{lm}/.
+                  # Pass the ratio exactly as the directory should be named: 1.50 and 1.5 are
+                  # two different cells.
+                  #
+                  # NOTE: snap_tolerance > 0 is disabled. Independent per-voice snapping breaks
+
+————————————————————————————————————
+9/8/26 Something goes haywire when I set tolerance=0
+      Ask Claude to determine if setting tolerance=0 causes unexpected results or failures of all tuning attempts. It seems to work just fine with tolerance=0. Not the best. Try more ratio values, and see if you can drive down the ChordAvg, ChordMax, and p90 values. Each run takes under 15 minutes on the fs2 with 250K
+      Directory                      sfx     t  ratio  lm ChordAvg ChordMax |    N  GapSum    Avg    Med    p90    Max |  >10  >20  >30  >=33
+      t0_r1.50_lm19                  opt     0  1.500  19     63.5      198 |   35     344    9.8   11.0   14.2   18.0 |   21    0    0     0
+      t0_r1.50_lm17                  opt     0  1.500  17     62.8      137 |   29     315   10.9   11.0   15.8   30.0 |   19    1    0     0
+
+      In the mean time, we are still refining the way grid_search.sh runs:
+            CHORALES=bwv267 bash grid_search.sh
+            CHORALES="bwv265 bwv266 bwv267" bash grid_search.sh
+            CHORALES="$(echo bwv{253..264})" bash grid_search.sh
+
+      Getting good results on tolerance=0. Who knew. Here's a good comparison. Take the score for the challenging to tune chord bwv262 which was run in the kubernetes cloud. Listen to is with --short_repeats. 
+            python WreckingCrew.py --numpy_dir Archive/straw-man/viterbi-tunings-8-25 --chorale_list bwv262 --cent_file_partial=-opt.npy --short_repeats
+
+            python WreckingCrew.py --numpy_dir Archive/straw-man/t0_r1.50_lm19 --chorale_list bwv262 --cent_file_partial=-opt.npy --short_repeats
+
+            python select_best_and_render.py --numpy_dir_root Archive/straw-man --chorale_list bwv262    --suffix="-opt.npy" --sort_by p90
+
+                  Directory               sfx t ratio lm ChordAvg ChordMax | N GapSum   Avg  Med  p90  Max 
+                  viterbi-tunings-8-25    opt 3 1.500 19     47.8       82 | 5     27   5.4  3.0  9.6 10.0 
+                  t0_r1.25_lm19           opt 0 1.250 19     54.6      197 | 6     46   7.7 10.0 11.0 11.0 # <-- rerun results. still bad.
+                  t0_r1.50_lm19           opt 0 1.500 19     55.0      197 | 4     42  10.5 10.5 11.0 11.0 
+      Conclusion: for bwv262 tolerance=0 doesn't work well. A score difference of 6.8 on average is too bad. 
+            ls -lth Uploads/ball9-t62a_lm19_r1.50*.mp3
+                  ball9-t62a_lm19_r1.50_df5_t0_d01_42_t030.mp3
+                  ball9-t62a_lm19_r1.50_df5_t3_d01_22_t038.mp3
+      Only difference in the names is tolerance and tempo. That one chord at 197, hmm. Any other outliers?
+      Where is it?
+            python chord_report.py --input_numpy_file Archive/straw-man/viterbi-tunings-8-25/bwv262_t3_r1.500_lm19-opt.npy >report-262-t3.txt
+            python chord_report.py --input_numpy_file Archive/straw-man/t0_r1.50_lm19/bwv262-opt.npy >report-262-t0.txt
+      Are there others? These are all above any chord in the tolerance 3 option.  Reruns did not improve anything. Tolerance=0 is not working. 
+                  22:  680   83  399  897	G♮ C♯ E♮ A♮	137.0
+                  # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+                  1 G♮ C♯   597 24/17     2 G♮ E♮   281 20/17     3 G♮ A♮   217 17/15 
+                  4 C♯ E♮   316  6/5      5 C♯ A♮   386  5/4      6 E♮ A♮   498  4/3  
+                  42:  700  103  700  384	G♮ C♯ G♮ E♮	141.0
+                  # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+                  1 G♮ C♯   597 24/17     2 G♮ G♮     0  1/1      3 G♮ E♮   316  6/5  
+                  4 C♯ G♮   597 24/17     5 C♯ E♮   281 20/17     6 G♮ E♮   316  6/5  
+                  55:  183   71  720  885	D♮ C♯ G♮ A♮	113.0
+                  # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+                  1 D♮ C♯   112 16/15     2 D♮ G♮   537 15/11     3 D♮ A♮   498  4/3  
+                  4 C♯ G♮   551  11/8     5 C♯ A♮   386  5/4      6 G♮ A♮   165 11/10 
+                  86:  773  170 1089  387	G♯ D♮ B♮ E♮	137.0
+                  # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+                  1 G♯ D♮   597 24/17     2 G♯ B♮   316  6/5      3 G♯ E♮   386  5/4  
+                  4 D♮ B♮   281 20/17     5 D♮ E♮   217 17/15     6 B♮ E♮   498  4/3  
+                  102:  127  730  923  394	C♯ G♮ A♮ E♮	197.0
+                  # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+                  1 C♯ G♮   597 24/17     2 C♯ A♮   404 24/19     3 C♯ E♮   267  7/6  
+                  4 G♮ A♮   193 19/17     5 G♮ E♮   336 17/14     6 A♮ E♮   529 19/14 
+                  148:  797  200  351 1133	G♯ D♮ E♮ B♮	172.0
+                  # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+                  1 G♯ D♮   597 24/17     2 G♯ E♮   446 22/17     3 G♯ B♮   336 17/14 
+                  4 D♮ E♮   151 12/11     5 D♮ B♮   267  7/6      6 E♮ B♮   418 14/11 
+                  150:  797  200  200 1133	G♯ D♮ D♮ B♮	139.0
+                  # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+                  1 G♯ D♮   597 24/17     2 G♯ D♮   597 24/17     3 G♯ B♮   336 17/14 
+                  4 D♮ D♮     0  1/1      5 D♮ B♮   267  7/6      6 D♮ B♮   267  7/6  
+                  170:  699   96  699  432	G♮ C♯ G♮ E♮	139.0
+                  # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+                  1 G♮ C♯   597 24/17     2 G♮ G♮     0  1/1      3 G♮ E♮   267  7/6  
+                  4 C♯ G♮   597 24/17     5 C♯ E♮   336 17/14     6 G♮ E♮   267  7/6  
+                  183:  201   89  738  903	D♮ C♯ G♮ A♮	113.0
+                  # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+                  1 D♮ C♯   112 16/15     2 D♮ G♮   537 15/11     3 D♮ A♮   498  4/3  
+                  4 C♯ G♮   551  11/8     5 C♯ A♮   386  5/4      6 G♮ A♮   165 11/10 
+      In abundance. Listening proves the numeric result, that a 3 cent tolerance is prefereable to a 0 cent tolerance with much higher scores averaging 55 vs 47.8 which is itself pretty high. 
+
+      Try it some more while I go on my walk. Then when we come back ask Claude to do a render at 6 frames a second, then use ComfyUI to interpolate. 
+
+      I ran the grid search on bwv262. How did that turn out?
+            python select_best_and_render.py --numpy_dir_root Archive/straw-man --chorale_list bwv262 --suffix="-opt.npy" --sort_by p90
+      Not near as good as the higher tolerances. 
+      What about reruning the bwv267. Gradual improvements. Still some high ChordMax values down from 193 to 144, 160, best is 129. The p90 values are coming down from 14.2 to 11.2 once I relaxed the tolerances to 1 2 3 from 0. 
+
+————————————————————————————————————
+9/9/26 What happens when I run bwv267 across tolerance=[0, 1, 2, 3]?
+      The 0 tolerances get pushed out. This seems to be a rather challenging chorale to tune. I tried 12 times, maybe 13 or 14. But these are the last 12:
+            VITERBI_WORKERS=16
+            for n in 1 2 3 4 ; do CHORALES=bwv267 bash grid_search.sh ; done
+            for n in 1 2 3 4 ; do CHORALES=bwv262 bash grid_search.sh ; done
+            for n in 1 2 3 4 ; do CHORALES=bwv267 bash grid_search.sh ; done
+      Each was run against these hyperparameters:
+            LIMIT_MAXES=(17 19)
+            TOLERANCES=(1 2 3)
+            RATIOS=(1.25 1.375 1.50 1.625 1.75) 
+                  Directory       sfx t ratio lm ChordAvg ChordMax |  N GapSum  Avg  Med  p90  Max | >10
+                  --------------- --- - -------- -------- -------- |--- ------ ---- ---- ---- ---- |----
+                  t2_r1.50_lm19   opt 2 1.500 19     57.3      144 | 22    149  6.8 10.0 11.0 12.0 |   4
+                  t2_r1.25_lm19   opt 2 1.250 19     57.1      144 | 22    172  7.8 10.0 11.0 12.0 |   4
+                  t3_r1.375_lm19  opt 3 1.375 19     56.2      129 | 24    197  8.2 10.0 11.0 15.0 |   8
+                  t2_r1.75_lm19   opt 2 1.750 19     57.0      144 | 20    165  8.2 10.0 11.1 12.0 |   4
+                  t3_r1.25_lm19   opt 3 1.250 19     56.6      129 | 20    173  8.7 10.0 11.1 12.0 |   6
+                  t1_r1.25_lm19   opt 1 1.250 19     57.1      160 | 27    225  8.3 10.0 11.4 12.0 |  13
+                  t2_r1.625_lm19  opt 2 1.625 19     57.2      144 | 16    148  9.2 10.0 11.5 12.0 |   4
+                  t2_r1.375_lm19  opt 2 1.375 19     56.9      144 | 25    196  7.8 10.0 11.6 12.0 |   5
+                  t3_r1.625_lm19  opt 3 1.625 19     56.4      129 | 23    207  9.0 10.0 11.8 12.0 |   8
+                  t3_r1.375_lm17  opt 3 1.375 17     56.6      129 | 22    207  9.4 10.5 11.9 12.0 |  11
+                  t3_r1.50_lm17   opt 3 1.500 17     56.2      129 | 28    237  8.5  9.5 12.0 12.0 |   9
+                  t3_r1.75_lm19   opt 3 1.750 19     56.1      129 | 20    198  9.9 10.0 12.0 12.0 |   8
+                  t3_r1.50_lm19   opt 3 1.500 19     56.5      129 | 25    222  8.9 10.0 12.0 13.0 |  10
+                  t3_r1.25_lm17   opt 3 1.250 17     56.2      129 | 23    235 10.2 10.0 12.0 16.0 |   9
+                  t3_r1.625_lm17  opt 3 1.625 17     56.4      129 | 24    213  8.9 10.5 12.0 16.0 |  12
+                  t0_r1.25_lm19   opt 0 1.250 19     63.5      137 | 17    170 10.0 11.0 12.0 12.0 |  13
+                  t3_r1.75_lm17   opt 3 1.750 17     56.2      129 | 24    241 10.0 11.0 12.0 16.0 |  16
+                  t1_r1.50_lm19   opt 1 1.500 19     57.7      160 | 19    195 10.3 11.0 12.2 13.0 |  13
+                  t0_r1.375_lm19  opt 0 1.375 19     63.3      198 | 30    252  8.4 10.5 12.2 17.0 |  15
+                  t1_r1.375_lm19  opt 1 1.375 19     57.0      167 | 24    253 10.5 11.0 12.7 18.0 |  14
+                  t0_r1.75_lm19   opt 0 1.750 19     63.1      146 | 22    246 11.2 11.0 13.0 18.0 |  17
+                  t0_r1.625_lm19  opt 0 1.625 19     62.7      146 | 24    259 10.8 11.0 13.0 18.0 |  18
+                  t1_r1.625_lm19  opt 1 1.625 19     57.1      140 | 27    294 10.9 11.0 13.0 22.0 |  19
+                  t1_r1.75_lm19   opt 1 1.750 19     56.3      129 | 20    219 10.9 11.0 13.0 22.0 |  13
+
+      I'd like to hear this one with short_repeats: t1_r1.25_lm19 
+            python WreckingCrew.py --numpy_dir Archive/straw-man/t1_r1.25_lm19 --chorale_list bwv267 --cent_file_partial=-opt.npy --short_repeats
+      Yikes! This is a very, very challenging chord. Quite unlike the other 12. Try a different one for now. 
+
+      
