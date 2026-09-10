@@ -20868,7 +20868,7 @@ ___________________
                   bwv264  viterbi-tunings-8-23  opt  1 1.250 19     48.5      111 | 0      0  0.0  0.0  0.0  0.0 |
 
       All look pretty good except I think I can do better with bwv262. What is the best I've done with that one on the host file system?
-                  Chorale: bwv262   sorted by p90 (ordering only, not a ranking)
+                  Chorale: bwv262
                   ===============================================================================================
                   Directory      sfx  t  ratio  lm ChordAvg ChordMax |  N  GapSum    Avg    Med    p90    Max |
                   t3_r1.25_lm19  opt  3  1.250  19     47.6       82 |  5      28    5.6    3.0    9.6   10.0 |
@@ -21844,4 +21844,87 @@ ______________________
             python WreckingCrew.py --numpy_dir Archive/straw-man/t1_r1.25_lm19 --chorale_list bwv267 --cent_file_partial=-opt.npy --short_repeats
       Yikes! This is a very, very challenging chord. Quite unlike the other 12. Try a different one for now. 
 
-      
+            git commit -m "Update the session notes" WreckingCrew.txt
+            git push
+      How many GPU's work on the blender renderings? 
+            fs5 (2 B70) fs6 (B580) fs9 (B580) fs3 (B50) - Total of 5. 
+
+      How long to run the CPU tuning of a new chorale: 
+      On fs2:
+            tuned-adm active
+                  Current active profile: throughput-performance
+            time for n in 1 2 3 4 ; do VITERBI_WORKERS=4 CHORALES=bwv267 bash grid_search.sh ; done
+                  real    370m58.692s
+                  user    1268m40.415s
+                  sys     0m53.121s
+                  6:11 hours:minutes
+      On fs3:
+            tuned-adm active
+                  Current active profile: balanced
+            time for n in 1 2 3 4 ; do VITERBI_WORKERS=4 CHORALES=bwv267 bash grid_search.sh ; done
+                  real    373m49.166s
+                  user    1287m45.907s
+                  sys     1m21.583s
+                  6:16 hours:minutes
+      The CPU profile "balanced" caused five extra minutes in six hours. Kind of irrelevant. How about the results:
+      on fs2: (after running 19 different renders)
+            python select_best_and_render.py --numpy_dir_root Archive/straw-man --chorale_list bwv267 --suffix="-opt.npy" --sort_by p90
+
+============================================================================================================
+Chorale: bwv267
+============================================================================================================
+  Directory                      sfx     t  ratio  lm ChordAvg ChordMax |    N  GapSum    Avg    Med    p90    Max |  >10  >20  >30  >=33
+  ------------------------------ ------ -- ------ --- -------- -------- | ---- ------- ------ ------ ------ ------ | ---- ---- ---- -----
+  t3_r1.375_lm19                 opt     3  1.375  19     57.2      129 |   22     149    6.8    8.0   11.0   13.0 |    6    0    0     0
+  t3_r1.625_lm19                 opt     3  1.625  19     56.4      129 |   22     182    8.3    9.5   11.0   12.0 |    6    0    0     0
+  t2_r1.25_lm19                  opt     2  1.250  19     57.1      144 |   22     172    7.8   10.0   11.0   12.0 |    4    0    0     0
+  t3_r1.25_lm19                  opt     3  1.250  19     56.7      129 |   21     182    8.7   10.0   11.0   12.0 |    6    0    0     0
+  t1_r1.25_lm19                  opt     1  1.250  19     56.9      160 |   23     218    9.5   11.0   11.0   12.0 |   15    0    0     0
+ 
+      on fs3:
+            python select_best_and_render.py --numpy_dir_root Archive/straw-man --chorale_list bwv267 --suffix="-opt.npy" --sort_by p90
+============================================================================================================
+Chorale: bwv267
+============================================================================================================
+  Directory                      sfx     t  ratio  lm ChordAvg ChordMax |    N  GapSum    Avg    Med    p90    Max |  >10  >20  >30  >=33
+  ------------------------------ ------ -- ------ --- -------- -------- | ---- ------- ------ ------ ------ ------ | ---- ---- ---- -----
+  t3_r1.375_lm19                 opt     3  1.375  19     56.8      125 |   23     186    8.1    9.0   11.0   12.0 |    6    0    0     0
+  t3_r1.50_lm19                  opt     3  1.500  19     56.5      129 |   24     205    8.5    9.5   11.0   12.0 |    7    0    0     0
+  t2_r1.375_lm19                 opt     2  1.375  19     57.1      144 |   22     172    7.8   10.0   11.0   12.0 |    4    0    0     0
+  t2_r1.75_lm19                  opt     2  1.750  19     57.9      144 |   20     143    7.2    9.5   11.1   12.0 |    4    0    0     0
+  t1_r1.50_lm19                  opt     1  1.500  19     57.2      177 |   20     182    9.1   11.0   11.1   12.0 |   12    0    0     0
+
+———————————————————————————————————
+9/10/26 Figure out what's wrong with bwv267
+
+      This chorale is just too challenging. Try another. The real outlier here is the high gapsum. Look back at bwv262, the highest gapsum was 27, and all but that one outlier were zero (0). Like no gaps
+            CHORALES=${1:-$(echo bwv{253..264})}
+            python select_best_and_render.py --numpy_dir_root Archive/straw-man/viterbi-tunings-8-25 --chorale_list $CHORALES --suffix="-opt.npy" --sort_by p90 | grep -E "Chorale|viterbi"
+Directory                      sfx     t  ratio  lm ChordAvg ChordMax |    N  GapSum    Avg    Med    p90    Max |  >10  >20  >30  >=33
+bwv253  viterbi-tunings-8-25   opt     1  1.250  17     49.1       93 |    0       0    0.0    0.0    0.0    0.0 |    0    0    0     0
+bwv254  viterbi-tunings-8-25   opt     1  1.375  17     55.4      140 |    0       0    0.0    0.0    0.0    0.0 |    0    0    0     0
+bwv255  viterbi-tunings-8-25   opt     1  1.250  17     50.8       82 |    0       0    0.0    0.0    0.0    0.0 |    0    0    0     0
+bwv256  viterbi-tunings-8-25   opt     1  1.250  17     54.2      145 |    0       0    0.0    0.0    0.0    0.0 |    0    0    0     0
+bwv257  viterbi-tunings-8-25   opt     1  1.250  17     57.7      140 |    0       0    0.0    0.0    0.0    0.0 |    0    0    0     0
+bwv258  viterbi-tunings-8-25   opt     1  1.250  17     58.0      140 |    0       0    0.0    0.0    0.0    0.0 |    0    0    0     0
+bwv259  viterbi-tunings-8-25   opt     1  1.250  17     54.8      125 |    0       0    0.0    0.0    0.0    0.0 |    0    0    0     0
+bwv260  viterbi-tunings-8-25   opt     1  1.500  19     54.7      129 |    0       0    0.0    0.0    0.0    0.0 |    0    0    0     0
+bwv261  viterbi-tunings-8-25   opt     1  1.250  19     57.1      145 |    0       0    0.0    0.0    0.0    0.0 |    0    0    0     0
+bwv262  viterbi-tunings-8-25   opt     3  1.500  19     47.8       82 |    5      27    5.4    3.0    9.6   10.0 |    0    0    0     0
+bwv263  viterbi-tunings-8-25   opt     1  1.250  17     50.7      145 |    0       0    0.0    0.0    0.0    0.0 |    0    0    0     0
+bwv264  viterbi-tunings-8-25   opt     1  1.250  17     49.0      167 |    0       0    0.0    0.0    0.0    0.0 |    0    0    0     0
+
+      I asked claude to diagnose the problem, and he focuses on the gaps, which are numerous. But the sound is what I detect going wrong. Measure 10. That was actually fixed in the next few tunings, but others are still there 
+
+      First see if the latest runs have improved the situation.
+            python WreckingCrew.py --numpy_dir Archive/straw-man/t3_r1.375_lm19 --chorale_list bwv267 --cent_file_partial=-opt.npy --short_repeats
+            python chord_report --input_numpy_file Archive/straw-man/t3_r1.75_lm19/bwv267-opt.npy
+      The node fs2 crashed while running the WreckingCrew.py. This happened before with these same conditions. No matter I've run this program 10 times before, this time it caused a crash again. Claude suggest fencing it.
+            systemd-run --scope -p MemoryMax=6G python WreckingCrew.py --numpy_dir Archive/straw-man/t3_r1.375_lm19 --chorale_list bwv267 --cent_file_partial=-opt.npy --short_repeats
+      Move on to other chorales. 
+
+      Some choices: BWV: 1.6  2.6  3.6  4.8  5.7  6.6  7.7  8.6  9.7  10.7  11.6  12.7  13.6  14.5  16.6  17.7  18.5  19.7  20.7=20.11  22.5  24.6  25.6  26.6  27.6  28.6  29.8  30.6  31.9  32.6  33.6  36.4  36.8  37.6  38.6  39.7  40.3  40.6  40.8  41.6  42.7  43.11  44.7  45.7  46.6  47.5  48.3  48.7  52.6  55.5  56.5  57.8  59.3  60.5  62.6  64.2  64.4  64.8  65.2  65.7  66.6  67.4  67.7  69.6  69a.6  70.7  70.11  72.6  73.5  74.8  75.7=75.14  76.7=76.14  77.6  78.7  79.3  79.6  80.8  81.7  83.5  84.5  85.6  86.6  87.7  88.7  89.6  90.5  91.6  92.9  93.7  94.8  95.7  96.6  97.9  99.6  100.6  101.7  102.7  103.6  104.6  105.6  107.7  108.6  110.7  111.6  112.5  113.1  113.8  114.7  115.6  116.6  117.4=117.9  119.9  120.6  120a.8  121.6  122.6  123.6  124.6  125.6  126.6  127.5  128.5  129.5  130.6  133.6  135.6  136.6  137.5  139.6  140.7  144.3  144.6  145a  145.5  146.8  147.6=147.10  148.6  149.7  151.5  153.1  153.5  153.9  154.3  154.8  155.5  156.6  157.5  158.4  159.5  161.6  162.6  164.6  165.6  166.6  167.5  168.6  169.7  171.6  172.6  174.5  175.7  176.6  177.5  178.7  179.6  180.7  183.5  184.5  185.6  187.7  188.6  190.7  194.6  194.12  195.6  197.5  197.10  197a.7  226.2  227.1=227.11  227.3  227.7  229.2  244.3  244.10  244.15  244.17  244.25  244b.29  244.32  244.37  244.40  244.44  244.46  244.54  244.62  245.3  245.5  245.11  245.14  245.15  245.17  245.22  245.26  245.28  245.37  245.40  248.5  248.9  248.12  248.17  248.23  248.28  248.33  248.35  248.42  248.46  248.53  248.59  248.64  250  251  252  253  254  255  256  257  258  259  260  261  262  263  264  265  266  267  268  269  270  271  272  273  274  275  276  277  278  279  280  281  282  283  284  285  286  287  288  289  290  291  292  293  294  295  296  297  298  299  300  301  302  303  304  305  306  307  308  309  310  311  312  313  314  315  316  317  318  319  320  321  322  323  324  325  326  327  328  329  330  331  332  333  334  335  336  337  338  339  340  341  342  343  344  345  346  347  348  349  350  351  352  353  354  355  356  357  358  359  360  361  362  363  364  365  366  367  368  369  370  371  372  373  374  375  376  377  378  379  380  381  382  383  384  385  386  387  388  389  390  391  392  393  394  395  396  397  398  399  400  401  402  403  404  405  406  407  408  409  410  411  412  413  414  415  416  417  418  419  420  421  422  423  424  425  426  427  428  429  430  431  432  433  434  435  436  437  438  441  500a  1084  1089  1122  1123  1124  1125  1126  BWV deest (O Traurigkeit)
+
+      Try these, but send them to kubernetes.
+            
+            CHORALES=${1:-$(echo bwv{427..438})}
