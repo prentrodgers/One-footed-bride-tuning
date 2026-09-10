@@ -58,117 +58,36 @@ spec:
         args:
           - |
             set -euo pipefail
-            
-            # Parameters for this job
-            LIMIT_MAX=LIMIT_MAX_VALUE
-            TOLERANCE=TOLERANCE_VALUE
-            RATIO=RATIO_VALUE
-            STABILITY_FACTOR=0
-            MAX_DELTA=33
-            SPREAD=7
-            INITIAL_TEMP=3.0
-            MAX_GAP=33
-            # Mirrors grid_search.sh.  FRESH=0 keeps this chorale's saved tuning and
-            # lets the ratchet accumulate across repeated passes; FRESH=1 wipes it and
-            # saves this run unconditionally.  0 is the useful setting: the tuner now
-            # seeds the Viterbi trellis with the saved tuning, so a pass starts from
-            # the path already on disk instead of rebuilding from 12-TET.  Wiping the
-            # file first removes the thing that makes repeated passes converge — with
-            # it in place eight of eight bwv261 cells improved and were accepted,
-            # against 12 of 115 without.
-            FRESH=0
-            # One chorale per job.  Chorales are independent, and a job that ran all
-            # twelve serially spent 12 x ~60s single-threaded (the per-chorale loop,
-            # the Viterbi DP and enforce_continuity) with most cores idle.
-            CHORALE=CHORALE_VALUE
-
-            # Same directory scheme as grid_search.sh, and the one WreckingCrew.py
-            # parses for tolerance/ratio/limit_max.  initial_temp is no longer part
-            # of the name, so changing it overwrites the cell rather than making a
-            # new one.
-            DIR="Archive/straw-man/t${TOLERANCE}_r${RATIO}_lm${LIMIT_MAX}"
-
-            echo "========================================"
-            echo "Job JOBID starting"
-            echo "chorale=${CHORALE}"
-            echo "limit_max=${LIMIT_MAX}  tolerance=${TOLERANCE}  ratio_factor=${RATIO}"
-            echo "initial_temp=${INITIAL_TEMP}  stability_factor=${STABILITY_FACTOR}  spread=${SPREAD}"
-            echo "dir=${DIR}"
-            echo "========================================"
-
-            mkdir -p "$DIR"
-            mkdir -p ~/Music/sflib
-
-            # Scoped to ${CHORALE} throughout: the twelve per-chorale jobs for this
-            # cell share $DIR, so a wildcard would have each job delete the other
-            # eleven's results.  The ratchet is likewise per-file, so leaving the
-            # incumbent in place costs the other jobs nothing.
-            if [ "$FRESH" = "1" ]; then
-                rm -f "$DIR/${CHORALE}-opt.npy" "$DIR/${CHORALE}-opt.txt"
-                keep_flag="--no-keep_previous"
-            else
-                keep_flag="--keep_previous"
-            fi
-
-            # Step 1: tune with SA and viterbi optimization
-            echo "Step 1: Running Straw_man_tuning_v2.py..."
-            time python Straw_man_tuning_v2.py \
-                --no-print_values --no-print_finals --no-print_initial \
-                --rolls 4 --workers 1 --runs 1 \
-                --limit_max "$LIMIT_MAX" \
-                --chorale_list "$CHORALE" \
-                --ratio_factor "$RATIO" \
-                --tolerance "$TOLERANCE" \
-                --max_delta "$MAX_DELTA" \
-                --numpy_dir "$DIR" \
-                --max_gap "$MAX_GAP" --retune_on_gaps 5 \
-                "$keep_flag" \
-                --stability_factor "$STABILITY_FACTOR" \
-                --sa_iterations 1000 \
-                --cooling_rate 0.999 \
-                --initial_temp "$INITIAL_TEMP" \
-                --spread "$SPREAD" \
-                --use_viterbi \
-                --k_candidates 15 \
-                --viterbi_vertical_weight 1.0 \
-                --viterbi_verbose \
-                --viterbi_verbose_threshold 80 \
-                --detect_phrases \
-                --phrase_horizontal_weight 8.0 \
-                --viterbi_workers 4
-
-            # Step 2: spread analysis
-            # (The old horizontal_transpose.py pass is gone: the Viterbi DP now
-            # considers pitch-class-preserving whole-chord transpositions on every
-            # transition and at phrase seams, so the greedy post-pass has nothing
-            # left to shift.)
+            # The whole job is grid_search.sh in single-cell mode — the same
+            # script a workstation run uses, so the tuning command lives in
+            # one place.  generate-grid-search-jobs.sh fills the placeholders.
+            # The ratio is passed as the literal the cell directory is named
+            # after (1.50, not 1.5).
             #
-            # Both analyses cover only this job's chorale.  The cross-chorale
-            # table has to come from a separate aggregation run once every job
-            # for a cell has finished.
-            echo "Step 2: Running analyze_spread.py..."
-            python analyze_spread.py \
-                --numpy_dir "$DIR" \
-                --chorale_list "$CHORALE" \
-                --suffix="-opt.npy"
-
-            # Step 3: adjacent-chord spread analysis
-            echo "Step 3: Running analyze_adjacent_spread.py..."
-            python analyze_adjacent_spread.py \
-                --numpy_dir "$DIR" \
-                --chorale_list "$CHORALE" \
-                --suffix="-opt.npy" \
-                --gap_threshold 15 \
-                --top 20
-
-            echo "========================================"
-            echo "Job JOBID complete!"
-            echo "Results saved to: $DIR (${CHORALE})"
-            echo "========================================"
+            # Scoped to one chorale per job: chorales are independent, and a
+            # job that ran all twelve serially spent 12 x ~60s single-threaded
+            # (the per-chorale loop, the Viterbi DP and enforce_continuity)
+            # with most cores idle.  The cross-chorale table has to come from
+            # the aggregation job once every job for a cell has finished.
+            exec bash grid_search.sh \
+                --limit_max LIMIT_MAX_VALUE \
+                --tolerance TOLERANCE_VALUE \
+                --ratio RATIO_VALUE \
+                --chorale CHORALE_VALUE \
+                --job_id JOBID
         volumeMounts:
         - mountPath: /home/prent
           name: ceph-files
         env:
+        # FRESH=0 keeps this chorale's saved tuning and lets the ratchet
+        # accumulate across repeated passes; FRESH=1 wipes it and saves this
+        # run unconditionally.  0 is the useful setting — grid_search.sh
+        # explains why.
+        - name: FRESH
+          value: "0"
+        # Keep equal to the cpu limit below: workers above it only contend.
+        - name: VITERBI_WORKERS
+          value: "4"
         - name: SFDIR
           value: "/home/prent/Music/sflib"
         - name: SSDIR
@@ -191,8 +110,8 @@ spec:
           # machine:  Error: context deadline exceeded  /  stream terminated by
           # RST_STREAM with error code: CANCEL.
           #
-          # Keep --viterbi_workers equal to this cpu value: workers above the
-          # limit only contend.
+          # Keep VITERBI_WORKERS (env, above) equal to this cpu value: workers
+          # above the limit only contend.
           requests:
             cpu: "4"
             memory: "1Gi"
