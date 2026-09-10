@@ -18,9 +18,14 @@ TOLERANCES=(1 2 3)
 # template), so 1.5 and 1.50 are two different cells with two separate
 # ratchets. Keep the spelling that the existing Archive/straw-man dirs use.
 RATIOS=(1.25 1.375 1.50 1.625)
-CHORALES=(bwv253 bwv254 bwv255 bwv256 bwv257 bwv258 bwv259 bwv260 bwv261 bwv262 bwv263 bwv264)
-#CHORALES=(bwv259 bwv260 bwv262 bwv263)
-#CHORALES=(bwv259 bwv262)
+# Chorales: the first argument, else CHORALES in the environment, else the
+# original twelve.  Space-separated, bwv prefix included:
+#     ./generate-grid-search-jobs.sh "$(echo bwv{427..438})"
+#     CHORALES="bwv262 bwv267" ./generate-grid-search-jobs.sh
+CHORALES=(${1:-${CHORALES:-$(echo bwv{253..264})}})
+for c in "${CHORALES[@]}"; do
+    case "$c" in bwv*) ;; *) echo "chorale names need the bwv prefix: got '$c'" >&2; exit 2;; esac
+done
 
 echo "Generating Kubernetes Job manifests..."
 echo "Template: $TEMPLATE"

@@ -76,8 +76,17 @@ spec:
                 --chorale CHORALE_VALUE \
                 --job_id JOBID
         volumeMounts:
-        - mountPath: /home/prent
+        # The repo only, as a subPath, not the PVC root.  CRI-O relabels every
+        # file under a mounted volume for SELinux before the container starts
+        # (one MDS round trip each), and the root is the whole Dropbox, 763k
+        # objects: that walk is what made pods wedge in CreateContainerError
+        # and forced deploy-grid-search-jobs.sh down to one job per 3 minutes.
+        # The repo tree is ~25k files.  Nothing the tuner touches lives
+        # outside it: the music21 corpus is in the image and ~/Music/sflib is
+        # only made, never read, so those fall in the container's own /home.
+        - mountPath: /home/prent/Repos/One-footed-bride-tuning
           name: ceph-files
+          subPath: Repos/One-footed-bride-tuning
         env:
         # FRESH=0 keeps this chorale's saved tuning and lets the ratchet
         # accumulate across repeated passes; FRESH=1 wipes it and saves this
