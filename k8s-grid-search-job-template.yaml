@@ -84,6 +84,13 @@ spec:
         # The repo tree is ~25k files.  Nothing the tuner touches lives
         # outside it: the music21 corpus is in the image and ~/Music/sflib is
         # only made, never read, so those fall in the container's own /home.
+        # A writable home around it: with only the repo mounted, the image's
+        # own /home/prent is root's, and the first `mkdir -p ~/Music/sflib`
+        # in grid_search.sh failed every job with "Permission denied".  An
+        # emptyDir is world-writable, so uid 1000 gets ~/.music21rc, caches
+        # and that directory, all discarded with the pod.
+        - mountPath: /home/prent
+          name: home
         - mountPath: /home/prent/Repos/One-footed-bride-tuning
           name: ceph-files
           subPath: Repos/One-footed-bride-tuning
@@ -128,6 +135,8 @@ spec:
             cpu: "4"
             memory: "8Gi"
       volumes:
+      - name: home
+        emptyDir: {}
       - name: ceph-files
         persistentVolumeClaim:
           claimName: dropbox-pvc
