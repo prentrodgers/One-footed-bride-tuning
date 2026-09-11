@@ -27,6 +27,13 @@ for c in "${CHORALES[@]}"; do
     case "$c" in bwv*) ;; *) echo "chorale names need the bwv prefix: got '$c'" >&2; exit 2;; esac
 done
 
+# Or a hand-picked list instead of the full product — for ratcheting only
+# the cells worth another pass.  CELLS_FILE names a file of lines
+#     limit_max tolerance ratio chorale        e.g.   19 3 1.375 bwv432
+# (blank lines and # comments ignored; the ratio spelled as the cell dir).
+# The parameter arrays and CHORALES above are then not used.
+CELLS_FILE="${CELLS_FILE:-}"
+
 echo "Generating Kubernetes Job manifests..."
 echo "Template: $TEMPLATE"
 echo "Output directory: $OUTPUT_DIR"
@@ -35,15 +42,37 @@ echo ""
 # Create output directory
 mkdir -p "$OUTPUT_DIR"
 
+# One line per job, "limit_max tolerance ratio chorale", from the product of
+# the arrays or straight from CELLS_FILE.
+if [ -n "$CELLS_FILE" ]; then
+    [ -r "$CELLS_FILE" ] || { echo "cannot read CELLS_FILE=$CELLS_FILE" >&2; exit 2; }
+    # comments (# to end of line) dropped, exactly four fields kept
+    mapfile -t CELLS < <(sed 's/#.*//' "$CELLS_FILE" | awk 'NF==4 {print $1, $2, $3, $4}')
+    echo "Cells: ${#CELLS[@]} from $CELLS_FILE"
+else
+    CELLS=()
+    for limit_max in "${LIMIT_MAXES[@]}"; do
+        for tolerance in "${TOLERANCES[@]}"; do
+            for ratio in "${RATIOS[@]}"; do
+                for chorale in "${CHORALES[@]}"; do
+                    CELLS+=("$limit_max $tolerance $ratio $chorale")
+                done
+            done
+        done
+    done
+fi
+
 # Counter for job IDs
 job_counter=1
-total_jobs=$(( ${#LIMIT_MAXES[@]} * ${#TOLERANCES[@]} * ${#RATIOS[@]} * ${#CHORALES[@]} ))
+total_jobs=${#CELLS[@]}
 
-# Generate a manifest for each parameter combination x chorale
-for limit_max in "${LIMIT_MAXES[@]}"; do
-    for tolerance in "${TOLERANCES[@]}"; do
-        for ratio in "${RATIOS[@]}"; do
-            for chorale in "${CHORALES[@]}"; do
+# Generate a manifest for each cell
+for cell in "${CELLS[@]}"; do
+    read -r limit_max tolerance ratio chorale <<<"$cell"
+    case "$chorale" in bwv*) ;; *) echo "bad cell line: '$cell'" >&2; exit 2;; esac
+    {
+        {
+            {
                 # Create a unique job ID.  k8s names are lowercase alphanumeric
                 # and '-', so the ratio's '.' is translated out.
                 job_id=$(printf "lm%d-t%d-r%s-%s" "$limit_max" "$tolerance" "$ratio" "$chorale" | tr '.' '-')
@@ -64,9 +93,9 @@ for limit_max in "${LIMIT_MAXES[@]}"; do
                 echo "         Parameters: limit_max=$limit_max, tolerance=$tolerance, ratio=$ratio, chorale=$chorale"
 
                 ((job_counter++))
-            done
-        done
-    done
+            }
+        }
+    }
 done
 
 echo ""
