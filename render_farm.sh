@@ -70,15 +70,27 @@ RES_Y=720
 # those are the iGPU and one B70 (the B70s are D128 and D130), so the pod
 # that "hid" D129 was hiding the iGPU and could see both cards. The
 # card-ordinal column says which matching card a pod takes, in sysfs order.
+# Cycles column re-measured on the 11,325-frame bwv260 render of 6 Sep 2026,
+# the first under the powersave-gpu tuned profile (CPU turbo off, powersave
+# governor): the B70s and the B50 lost 40-65% against the 4 Sep numbers
+# (2.38/2.50/3.33/3.70/3.47) because the per-frame Python paces them and
+# their nodes' CPUs are now slower, while the B580s barely moved. The fleet
+# stays on powersave, so these are the rates to size slices by.
+# 12 Sep 2026: the B50 moved from fs3 to fs4 and fs3 got a third B580.
+# The B580 rate is the fs6/fs9 average; the B50's is what it did on fs3
+# for bwv437 (3.36) — fs4's CPU is the faster of the two, so that is a
+# safe ceiling. Both get replaced by measurements after the first run.
 WORKERS=(
-  "b70a   fs5  8086:e223  0           1.701  2.383"
-  "b70b   fs5  8086:e223  1           1.751  2.497"
-  "b580f6 fs6  8086:e20b  -           1.651  3.326"
-  "b580f9 fs9  8086:e20b  -           1.829  3.696"
-  "b50f3  fs3  8086:e212  -           2.129  3.472"
+  "b70a   fs5  8086:e223  0           1.701  3.995"
+  "b70b   fs5  8086:e223  1           1.751  3.992"
+  "b580f6 fs6  8086:e20b  -           1.651  3.821"
+  "b580f9 fs9  8086:e20b  -           1.829  3.688"
+  "b580f3 fs3  8086:e20b  -           1.740  3.750"
+  "b50f4  fs4  8086:e212  -           2.129  3.400"
 )
-# The Core Ultra iGPUs (Xe-LPG, PCI 0x7d67) on the nodes without a card,
-# opt-in with IGPU=1. Rates probed on fs4 on 5 Sep 2026 (steady state,
+# The Core Ultra iGPUs (Xe-LPG, PCI 0x7d67), opt-in with IGPU=1. fs4 now
+# also carries the B50, so it fields two workers; each pod keeps only the
+# render node matching its own PCI id, so they do not collide. Rates probed on fs4 on 5 Sep 2026 (steady state,
 # after the first frame's ~140 s Cycles kernel compile): a fifth of a B70
 # on Cycles, ~40% of one on EEVEE. Three of them add ~16% to the farm's
 # Cycles throughput and ~35% to EEVEE's. fs2 is left out: it is the
