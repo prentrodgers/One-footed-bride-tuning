@@ -21899,7 +21899,9 @@ Chorale: bwv267
 
       This chorale is just too challenging. Try another. The real outlier here is the high gapsum. Look back at bwv262, the highest gapsum was 27, and all but that one outlier were zero (0). Like no gaps
             CHORALES=${1:-$(echo bwv{253..264})}
-            python select_best_and_render.py --numpy_dir_root Archive/straw-man/viterbi-tunings-8-25 --chorale_list $CHORALES --suffix="-opt.npy" --sort_by p90 | grep -E "Chorale|viterbi"
+            python select_best_and_render.py --numpy_dir_root Archive/straw-man/viterbi-tunings-8-25 --chorale_list $CHORALES --suffix="-opt.npy" --sort_by p90 | grep -E "Chorale|viterbi" >new_chorales-report.txt
+            scp one-footed-bride-pod:/home/prent/Repos/One-footed-bride-tuning/new_chorales-report.txt new-chorales-report2.txt
+            
 Directory                      sfx     t  ratio  lm ChordAvg ChordMax |    N  GapSum    Avg    Med    p90    Max |  >10  >20  >30  >=33
 bwv253  viterbi-tunings-8-25   opt     1  1.250  17     49.1       93 |    0       0    0.0    0.0    0.0    0.0 |    0    0    0     0
 bwv254  viterbi-tunings-8-25   opt     1  1.375  17     55.4      140 |    0       0    0.0    0.0    0.0    0.0 |    0    0    0     0
@@ -21926,5 +21928,168 @@ bwv264  viterbi-tunings-8-25   opt     1  1.250  17     49.0      167 |    0    
       Some choices: BWV: 1.6  2.6  3.6  4.8  5.7  6.6  7.7  8.6  9.7  10.7  11.6  12.7  13.6  14.5  16.6  17.7  18.5  19.7  20.7=20.11  22.5  24.6  25.6  26.6  27.6  28.6  29.8  30.6  31.9  32.6  33.6  36.4  36.8  37.6  38.6  39.7  40.3  40.6  40.8  41.6  42.7  43.11  44.7  45.7  46.6  47.5  48.3  48.7  52.6  55.5  56.5  57.8  59.3  60.5  62.6  64.2  64.4  64.8  65.2  65.7  66.6  67.4  67.7  69.6  69a.6  70.7  70.11  72.6  73.5  74.8  75.7=75.14  76.7=76.14  77.6  78.7  79.3  79.6  80.8  81.7  83.5  84.5  85.6  86.6  87.7  88.7  89.6  90.5  91.6  92.9  93.7  94.8  95.7  96.6  97.9  99.6  100.6  101.7  102.7  103.6  104.6  105.6  107.7  108.6  110.7  111.6  112.5  113.1  113.8  114.7  115.6  116.6  117.4=117.9  119.9  120.6  120a.8  121.6  122.6  123.6  124.6  125.6  126.6  127.5  128.5  129.5  130.6  133.6  135.6  136.6  137.5  139.6  140.7  144.3  144.6  145a  145.5  146.8  147.6=147.10  148.6  149.7  151.5  153.1  153.5  153.9  154.3  154.8  155.5  156.6  157.5  158.4  159.5  161.6  162.6  164.6  165.6  166.6  167.5  168.6  169.7  171.6  172.6  174.5  175.7  176.6  177.5  178.7  179.6  180.7  183.5  184.5  185.6  187.7  188.6  190.7  194.6  194.12  195.6  197.5  197.10  197a.7  226.2  227.1=227.11  227.3  227.7  229.2  244.3  244.10  244.15  244.17  244.25  244b.29  244.32  244.37  244.40  244.44  244.46  244.54  244.62  245.3  245.5  245.11  245.14  245.15  245.17  245.22  245.26  245.28  245.37  245.40  248.5  248.9  248.12  248.17  248.23  248.28  248.33  248.35  248.42  248.46  248.53  248.59  248.64  250  251  252  253  254  255  256  257  258  259  260  261  262  263  264  265  266  267  268  269  270  271  272  273  274  275  276  277  278  279  280  281  282  283  284  285  286  287  288  289  290  291  292  293  294  295  296  297  298  299  300  301  302  303  304  305  306  307  308  309  310  311  312  313  314  315  316  317  318  319  320  321  322  323  324  325  326  327  328  329  330  331  332  333  334  335  336  337  338  339  340  341  342  343  344  345  346  347  348  349  350  351  352  353  354  355  356  357  358  359  360  361  362  363  364  365  366  367  368  369  370  371  372  373  374  375  376  377  378  379  380  381  382  383  384  385  386  387  388  389  390  391  392  393  394  395  396  397  398  399  400  401  402  403  404  405  406  407  408  409  410  411  412  413  414  415  416  417  418  419  420  421  422  423  424  425  426  427  428  429  430  431  432  433  434  435  436  437  438  441  500a  1084  1089  1122  1123  1124  1125  1126  BWV deest (O Traurigkeit)
 
       Try these, but send them to kubernetes.
-            
+
             CHORALES=${1:-$(echo bwv{427..438})}
+      Track the jobs:
+            kubectl get jobs -l app=grid-search --no-headers | awk '{print $2}' | sort | uniq -c
+                       48 Complete
+                        8 Running
+      See where they are running:
+            kubectl get po -l app=grid-search   -o custom-columns=NAME:.metadata.name,PHASE:.status.phase,NODE:.spec.nodeName --sort-by=.status.phase --no-headers | grep Running
+                  grid-search-047-lm17-t1-r1-625-bwv437-bbkqq   Running     fs2
+                  grid-search-049-lm17-t2-r1-25-bwv427-2t4bv    Running     fs5
+                  grid-search-051-lm17-t2-r1-25-bwv429-8qjv8    Running     fs7
+                  grid-search-052-lm17-t2-r1-25-bwv430-565xc    Running     fs2
+                  grid-search-054-lm17-t2-r1-25-bwv432-v9nc4    Running     fs4
+                  grid-search-057-lm17-t2-r1-25-bwv435-tvv4d    Running     fs3
+                  grid-search-056-lm17-t2-r1-25-bwv434-cnnlg    Running     fs3
+                  grid-search-055-lm17-t2-r1-25-bwv433-psgvm    Running     fs8
+      Once they are finished, run the select report:
+            ssh one-footed-bride-pod 
+            cd Repos/One-footed-bride-tuning
+            CHORALES=${1:-$(echo bwv{427..438})}
+            python select_best_and_render.py --numpy_dir_root Archive/straw-man --chorale_list $CHORALES --suffix="-opt.npy" --sort_by p90 > new-chorales-report.txt 
+            scp one-footed-bride-pod:/home/prent/Repos/One-footed-bride-tuning/new-chorales-report.txt new-chorales-report2.txt 
+
+      There are clearly some easy ones and some hard ones, and the differentiator is gapsum and ChordAvg. FOr example 427:
+                  Chorale: bwv427   sorted by p90 (ordering only, not a ranking)
+                  ============================================================================================================
+                  Directory                      sfx     t  ratio  lm ChordAvg ChordMax |    N  GapSum    Avg    Med    p90    Max |  >10  >20  >30  >=33
+                  ------------------------------ ------ -- ------ --- -------- -------- | ---- ------- ------ ------ ------ ------ | ---- ---- ---- -----
+                  t1_r1.25_lm17                  opt     1  1.250  17     52.3       96 |    0       0    0.0    0.0    0.0    0.0 |    0    0    0     0
+                  t2_r1.50_lm19                  opt     2  1.500  19     52.2       93 |    0       0    0.0    0.0    0.0    0.0 |    0    0    0     0
+                  t3_r1.625_lm17                 opt     3  1.625  17     52.5      100 |    0       0    0.0    0.0    0.0    0.0 |    0    0    0     0
+                  t3_r1.625_lm19                 opt     3  1.625  19     52.5      100 |    0       0    0.0    0.0    0.0    0.0 |    0    0    0     0
+      And 431:
+                  Chorale: bwv431   sorted by p90 (ordering only, not a ranking)
+                  ============================================================================================================
+                  Directory                      sfx     t  ratio  lm ChordAvg ChordMax |    N  GapSum    Avg    Med    p90    Max |  >10  >20  >30  >=33
+                  ------------------------------ ------ -- ------ --- -------- -------- | ---- ------- ------ ------ ------ ------ | ---- ---- ---- -----
+                  t1_r1.375_lm17                 opt     1  1.375  17     54.7      140 |    0       0    0.0    0.0    0.0    0.0 |    0    0    0     0
+                  t1_r1.50_lm19                  opt     1  1.500  19     55.0      145 |    0       0    0.0    0.0    0.0    0.0 |    0    0    0     0
+                  t1_r1.625_lm17                 opt     1  1.625  17     54.7      140 |    0       0    0.0    0.0    0.0    0.0 |    0    0    0     0
+                  t2_r1.375_lm17                 opt     2  1.375  17     54.7      140 |    0       0    0.0    0.0    0.0    0.0 |    0    0    0     0
+                  t2_r1.375_lm19                 opt     2  1.375  19     54.7      140 |    0       0    0.0    0.0    0.0    0.0 |    0    0    0     0
+                  t2_r1.50_lm17                  opt     2  1.500  17     54.7      140 |    0       0    0.0    0.0    0.0    0.0 |    0    0    0     0
+                  t2_r1.625_lm19                 opt     2  1.625  19     54.8      145 |    0       0    0.0    0.0    0.0    0.0 |    0    0    0     0
+      436:  
+                  Chorale: bwv436   sorted by p90 (ordering only, not a ranking)
+                  ============================================================================================================
+                  Directory                      sfx     t  ratio  lm ChordAvg ChordMax |    N  GapSum    Avg    Med    p90    Max |  >10  >20  >30  >=33
+                  ------------------------------ ------ -- ------ --- -------- -------- | ---- ------- ------ ------ ------ ------ | ---- ---- ---- -----
+                  t1_r1.50_lm19                  opt     1  1.500  19     51.2      119 |    0       0    0.0    0.0    0.0    0.0 |    0    0    0     0
+                  t1_r1.625_lm19                 opt     1  1.625  19     51.8      137 |    0       0    0.0    0.0    0.0    0.0 |    0    0    0     0
+                  t2_r1.25_lm17                  opt     2  1.250  17     50.8      111 |    0       0    0.0    0.0    0.0    0.0 |    0    0    0     0
+                  t2_r1.375_lm19                 opt     2  1.375  19     50.8      111 |    0       0    0.0    0.0    0.0    0.0 |    0    0    0     0
+                  t2_r1.50_lm17                  opt     2  1.500  17     50.8      111 |    0       0    0.0    0.0    0.0    0.0 |    0    0    0     0
+                  t2_r1.50_lm19                  opt     2  1.500  19     50.8      111 |    0       0    0.0    0.0    0.0    0.0 |    0    0    0     0
+                  t2_r1.625_lm19                 opt     2  1.625  19     51.2      135 |    0       0    0.0    0.0    0.0    0.0 |    0    0    0     0
+                  t3_r1.25_lm19                  opt     3  1.250  19     50.8      118 |    0       0    0.0    0.0    0.0    0.0 |    0    0    0     0
+                  t3_r1.50_lm17                  opt     3  1.500  17     51.1      118 |    0       0    0.0    0.0    0.0    0.0 |    0    0    0     0
+                  t3_r1.50_lm19                  opt     3  1.500  19     51.0      118 |    0       0    0.0    0.0    0.0    0.0 |    0    0    0     0
+                  t3_r1.625_lm17                 opt     3  1.625  17     51.1      118 |    0       0    0.0    0.0    0.0    0.0 |    0    0    0     0
+      These are the easy ones. Then there are the really crazy ones: 
+      Like 432:
+                  Chorale: bwv432   sorted by p90 (ordering only, not a ranking)
+                  ============================================================================================================
+                  Directory                      sfx     t  ratio  lm ChordAvg ChordMax |    N  GapSum    Avg    Med    p90    Max |  >10  >20  >30  >=33
+                  ------------------------------ ------ -- ------ --- -------- -------- | ---- ------- ------ ------ ------ ------ | ---- ---- ---- -----
+                  t3_r1.375_lm17                 opt     3  1.375  17     59.8      127 |   22     169    7.7    7.5   12.8   19.0 |    7    0    0     0
+                  t1_r1.625_lm19                 opt     1  1.625  19     65.0      165 |   15     141    9.4   10.0   13.0   13.0 |    5    0    0     0
+                  t3_r1.375_lm19                 opt     3  1.375  19     61.3      137 |   17     131    7.7    6.0   13.2   21.0 |    6    1    0     0
+                  t3_r1.25_lm19                  opt     3  1.250  19     62.1      127 |   13      83    6.4    3.0   13.8   14.0 |    4    0    0     0
+      And 437:
+                  Chorale: bwv437   sorted by p90 (ordering only, not a ranking)
+                  ============================================================================================================
+                  Directory                      sfx     t  ratio  lm ChordAvg ChordMax |    N  GapSum    Avg    Med    p90    Max |  >10  >20  >30  >=33
+                  ------------------------------ ------ -- ------ --- -------- -------- | ---- ------- ------ ------ ------ ------ | ---- ---- ---- -----
+                  t2_r1.50_lm19                  opt     2  1.500  19     61.0      168 |   77     661    8.6    9.0   14.0   21.0 |   29    1    0     0
+                  t2_r1.25_lm19                  opt     2  1.250  19     60.8      168 |   66     589    8.9   10.0   14.0   17.0 |   30    0    0     0
+                  t2_r1.375_lm19                 opt     2  1.375  19     60.9      163 |   66     617    9.3   10.0   14.0   20.0 |   29    0    0     0
+                  t3_r1.50_lm19                  opt     3  1.500  19     59.6      150 |   90     769    8.5    8.0   14.1   32.0 |   32    3    1     0
+      The rest are just moderately challenging, harder than the easy ones, easier than the crazy ones. What would happen to the crazy ones with higher limit_max values. And how do the crazy ones sound? 
+            ssh one-footed-bride-pod 
+            cd Repos/One-footed-bride-tuning
+            
+            CHORALES=bwv437
+            n_dir=t2_r1.50_lm19
+            python WreckingCrew.py --numpy_dir Archive/straw-man/$n_dir --chorale_list $CHORALES --cent_file_partial="-opt.npy" --short_repeats
+
+            CHORALES=bwv432
+            n_dir=t3_r1.375_lm17
+      I suspect this one is just wrong. Totally off the written score in bach-chorales.com. Ditch them both. 
+      Now try the easy ones. These all have zero gaps:
+            CHORALES=bwv427
+            n_dir=t1_r1.25_lm17 
+
+            CHORALES=bwv431
+            n_dir=t1_r1.25_lm17 
+
+            CHORALES=bwv436
+            n_dir=t1_r1.50_lm19 
+      These are all nice. 
+
+      Dig into the in-between ones next. Most of these are interesting and nothing really radical
+            CHORALES=bwv428 
+            n_dir=t2_r1.25_lm19
+
+            CHORALES=bwv433
+            n_dir=t3_r1.375_lm19
+
+            CHORALES=bwv434
+            n_dir=t2_r1.375_lm19 
+
+            CHORALES=bwv435  
+            n_dir=t3_r1.375_lm19
+
+            CHORALES=bwv438
+            n_dir=t2_r1.625_lm19
+      
+      These are borderline between the reasonable and crazy 
+            CHORALES=bwv429
+            n_dir=t3_r1.375_lm19
+
+            CHORALES=bwv430
+            n_dir=t2_r1.625_lm19
+            
+      What am I missing?
+            grep 'CHORALES=bwv4' WreckingCrew.txt | sort
+      Got them all, then asked claude to selectively run some more.
+      His conclusion:         after
+            chorale   before  3 runs note
+            434	      2	0	two cells at zero, chord average unchanged - CHORALES=bwv434 n_dir=t1_r1.25_lm19 
+            430	      54	7	t3 r1.25 lm19: 9 gaps down to 3, worst gap 25¢ down to 3¢ - run this one again CHORALES=bwv430 n_dir=t3_r1.25_lm19 
+            433	      15	4	two cells at 4, nothing over 2¢ - CHORALES=bwv433 n_dir=t3_r1.25_lm19
+            437	      589	469	66 gaps down to 54, worst 20¢ down to 17¢ - CHORALES=bwv437 n_dir=t2_r1.375_lm19  
+            432	      83	82	best cell flat; its other two cells got worse
+            428	      4	4	unchanged, two 2¢ gaps that won't budge
+            429, 435, 438	34, 33, 28	same	no cell moved
+      
+      Run an album of chorale preludes based on this set of tunings 
+            python select_best_and_render.py --numpy_dir_root Archive/straw-man --chorale_list $CHORALES --suffix="-opt.npy" --sort_by p90 --copy_npy_to Archive/straw-man/viterbi-tunings-9-11
+            CHORALES=${1:-$(echo bwv{427..438})}
+            python WreckingCrew.py --numpy_dir Archive/straw-man/viterbi-tunings-9-11 --chorale_list $CHORALES --auto_density --shuffle_density --deep_bass_backoff 0.25 --back_off_clicks 0.25 --album 7 --mod d --rondo_section_a 0 32 --rondo_insert_a_after 63 127
+
+            ls -lth Uploads/*.mp3
+            scp one-footed-bride-pod:Repos/One-footed-bride-tuning/Uploads/ball9-t38d_lm19_r1.62_df4_t2_d03_40_t114.mp3 Uploads/ball9-t38d_lm19_r1.62_df4_t2_d03_40_t114.mp3
+            ...
+            scp one-footed-bride-pod:Repos/One-footed-bride-tuning/Uploads/ball9-t27d_lm17_r1.25_df3_t1_d08_01_t106.mp3 Uploads/ball9-t27d_lm17_r1.25_df3_t1_d08_01_t106.mp3
+
+      I like the most challenging one, bwv437, so I asked Claude to blender render it. He will do it after fixing the bass finger piano location. It was impinging on the bass finger piano location. 
+      How long will it take to finish?
+            ./render_farm.sh --progress 
+                  b50f3   fs3  ############........  63.6%   2138/3361   3.40s/frame  eta 69m
+                  b580f6  fs6  #########...........  48.2%   2095/4345   3.52s/frame  eta 132m
+                  b580f9  fs9  #########...........  45.5%   2049/4501   3.57s/frame  eta 146m
+                  b70a    fs5  #########...........  49.8%   2069/4155   3.61s/frame  eta 125m
+                  b70b    fs5  #########...........  48.2%   2006/4158   3.70s/frame  eta 133m
+                  igpuf4  fs4  ############........  60.5%    251/415    28.70s/frame  eta 78m
+                  igpuf7  fs7  ###########.........  59.5%    247/415    29.00s/frame  eta 81m
+                  igpuf8  fs8  ##########..........  52.4%    219/418    32.50s/frame  eta 108m
+      He left out the fs2 because it's so memory starved. I'll have to make it a decent citizen sooner or later.
+
+————————————————————————————————————
+9/9/26 The render finished on this long and strange bwv437 in 4 hours 22 minutes. See if it was worth it.
+      We should have one more b580 to join the farm today. My plan is to remove the b50 from the fs3 and replace it with the B580, then move the B50 to some other machine, perhaps the fs4 or fs8. If I put it in the fs2 the 16GB ram will be a point of contention.
+      A requested Claude to render the busiest chorale prelude with df5 as bwv434 Uploads/ball9-t34d_lm19_r1.25_df5_t1_d09_21_t106.mp3/.npy
+      Then ask Claude to do the moderately sparse one as bwv432 Uploads/ball9-t32d_lm19_r1.25_df3_t3_d03_30_t118.mp3/.npy
