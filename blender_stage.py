@@ -307,7 +307,9 @@ CAMERA_CUES = [
 # Hand cues always win — generated shots are dropped near them.
 # (start, end, seed) ranges the generator fills.  Starts at 0:10 so the
 # opening wide holds first; generated shots run 10-15s each.
-CAMERA_AUTOGEN = [(10.0, 377.5, 7)]   # bwv260: Uploads/ball9-t60d_..._t084, tempo 84, 6:17
+CAMERA_AUTOGEN = [(10.0, 556.85, 7)]  # bwv434: Uploads/ball9-t34d_..._t106, tempo 106, 9:17
+    # CAMERA_AUTOGEN = [(10.0, 725.6, 7)]   # bwv437: Uploads/ball9-t37d_..._t084, tempo 84, 12:06
+    # CAMERA_AUTOGEN = [(10.0, 377.5, 7)]   # bwv260: Uploads/ball9-t60d_..._t084, tempo 84, 6:17
     # CAMERA_AUTOGEN = [(10.0, 268.1, 7)]   # bwv259: Uploads/ball9-t59d_..._t072, tempo 72, 4:28
     # CAMERA_AUTOGEN = [
     # (50.0, 470.0, 7),
@@ -394,6 +396,7 @@ DEFAULT_INTEREST = 1.0
 
 CAMERA_HOLD = (10.0, 15.0)   # generated shot length range, seconds
 CAMERA_MARGIN = 1.25         # framing headroom: 1.0 = target exactly fills frame
+CUE_ELEVATION = 0.0          # set from --cue-elevation; 0 leaves every shot as designed
 CAMERA_MOVE_CHANCE = 0.25    # fraction of generated transitions that move, not cut
 CAMERA_MOVE_T = 2.5          # seconds for a generated move
 # How many wides the generator deals per cycle of shot sizes (one of each
@@ -679,6 +682,11 @@ def parse_args():
     # from --list-targets; "a,b" pans between two) and switch the generator
     # off — for rendering a still of one instrument to judge its modelling.
     p.add_argument("--cue", default=None)
+    # Extra camera elevation, degrees, for a --cue shot: rotates the viewing
+    # axis upward about the target so a section is seen from higher up and
+    # its rows separate (the melody row sits in front of the marimba and,
+    # from the stock 21-degree angle, its vibraphone overlaps it).
+    p.add_argument("--cue-elevation", type=float, default=0.0)
     return p.parse_args(argv)
 
 
@@ -875,6 +883,12 @@ def setup_bass(npy, tempo):
     gap = 0.3   # narrower gap between the bass finger piano and the guitar
     fp_x0 = -(fp_total_w + gap + gtr_total_len) / 2.0 + fp_total_w / 2.0
     gtr_x0 = fp_x0 + fp_total_w / 2.0 + gap
+    # Then slide the finger piano alone toward the guitar (section units; x4.5
+    # on stage, so 0.2 is 0.9 m). Its left edge had been touching the
+    # finger_piano section next door; this opens that seam and closes the
+    # gap to the guitar to 0.1. The guitar and the section's centre stay put.
+    FP_SHIFT = 0.2
+    fp_x0 += FP_SHIFT
 
     # Build the finger piano, then group its objects under an empty and scale
     # it up in place (pivot at fp_x0, floor level). The animation still
@@ -975,6 +989,7 @@ def setup_bowed_strings(npy, tempo):
 def setup_melody(npy, tempo):
     geom = melody.build_melody(0.0)
     seat_notes = melody.load_seat_notes(npy, tempo, geom['seats'])
+    melody.arm_vibraphone_mallets(geom, seat_notes)   # pool sized from the notes
 
     def update(t):
         melody.update_melody(t, geom, seat_notes)
@@ -1120,6 +1135,29 @@ def is_playing(focus, t0, t1, vmap, activity, min_fraction=0.4):
     return True
 
 
+def loudness(focus, t0, t1, vmap, activity):
+    """How much sound a shot's players make during [t0, t1): sounding time
+    weighted by volume (column 14), summed over every audible note of every
+    voice the shot shows. The generator weights its choice of player or
+    section by this, so a hold goes to whoever is loudest right then rather
+    than to anyone who merely happens to be sounding."""
+    if activity is None or focus == "wide":
+        return 0.0
+    start, end, voice, vol = activity
+    total = 0.0
+    for n in shot_names(focus):
+        voices = vmap.get(n)
+        if not voices:
+            continue
+        m = np.isin(voice, voices)
+        if not m.any():
+            continue
+        overlap = np.minimum(end[m], t1) - np.maximum(start[m], t0)
+        keep = overlap > 0
+        total += float((overlap[keep] * vol[m][keep]).sum())
+    return total
+
+
 def _framing_overhead(name, targets, res_x, res_y):
     """Looking down on one target from above — a different angle from every
     other shot, which is the point. Tilted slightly back toward the audience
@@ -1165,6 +1203,11 @@ def _framing(focus, targets, res_x, res_y):
     dist = max(half_w / math.tan(half_h_fov), half_t / math.tan(half_v_fov), 6.0)
 
     axis = (mathutils.Vector(CAM_POS) - mathutils.Vector(CAM_TARGET)).normalized()
+    if CUE_ELEVATION:
+        # Tip the axis up by the extra angle, keeping its heading.
+        horiz = math.hypot(axis.x, axis.y)
+        e = math.atan2(axis.z, horiz) + math.radians(CUE_ELEVATION)
+        axis = mathutils.Vector((axis.x / horiz * math.cos(e), axis.y / horiz * math.cos(e), math.sin(e)))
     pos = target + axis * dist
     # Never dip below the stage floor, however tight the framing gets.
     pos.z = max(pos.z, 1.5)
@@ -1294,16 +1337,51 @@ def generate_cues(t0, t1, seed, targets, vmap=None, activity=None):
     for p in players:
         by_section.setdefault(p.split('.')[0], []).append(p)
 
+    # The window the shot being chosen will occupy; set by the loop below.
+    window = {"t0": t0, "t1": t0}
+
+    # Subjects shown in the last few shots; the loop below keeps it current.
+    recent_names = set()
+
     def weighted(pool):
-        """Pick one, favouring the instruments whose motion shows the sound."""
-        return rng.choices(pool, weights=[interest(n) for n in pool])[0]
+        """Pick the loudest subject in the pool during the shot's window
+        that has not just been on screen. Only candidates within 15% of
+        that loudest one are considered, and among those the instrument's
+        visual interest breaks the tie at random — so the camera follows
+        the sound, with variety only where the sound is genuinely shared.
+        With no activity data (the --list-targets check) it falls back to
+        interest alone."""
+        louds = {n: loudness(n, window["t0"], window["t1"], vmap, activity) for n in pool}
+        if not louds or max(louds.values()) <= 0.0:
+            return rng.choices(pool, weights=[interest(n) for n in pool])[0]
+        fresh = [n for n in pool if n not in recent_names] or list(pool)
+        best = max(louds[n] for n in fresh)
+        cands = [n for n in fresh if louds[n] >= 0.85 * best]
+        return rng.choices(cands, weights=[interest(n) for n in cands])[0]
 
     def solo():
         return weighted(players) if players else weighted(sections)
 
     def pair():
-        sec = weighted([s for s in by_section if len(by_section[s]) >= 2])
-        return tuple(rng.sample(by_section[sec], 2))
+        # The section whose two loudest players are loudest — not the
+        # loudest section overall, which can owe its level to six quiet
+        # players — then those two, each drawn by loudness without
+        # replacement.
+        def top2(sec):
+            ls = sorted((loudness(n, window["t0"], window["t1"], vmap, activity)
+                         for n in by_section[sec]), reverse=True)
+            return sum(ls[:2])
+        secs = [s for s in by_section if len(by_section[s]) >= 2]
+        scores = {s: top2(s) for s in secs}
+        if max(scores.values(), default=0.0) > 0.0:
+            fresh = [s for s in secs if not (set(by_section[s]) <= recent_names)] or secs
+            best = max(scores[s] for s in fresh)
+            sec = rng.choice([s for s in fresh if scores[s] >= 0.85 * best])
+        else:
+            sec = weighted(secs)
+        first = weighted(by_section[sec])
+        second = weighted([n for n in by_section[sec] if n != first])
+        return (first, second)
 
     def group():
         return weighted(sections)
@@ -1325,6 +1403,16 @@ def generate_cues(t0, t1, seed, targets, vmap=None, activity=None):
         row = [s for s in ("marimba", "bass", "finger_piano") if s in targets]
         if len(row) < 2:
             return group()
+        # Only when the row is where the sound is: unless one of its
+        # sections is at least half as loud as the loudest section in this
+        # window, the journey would pass over near-silent instruments while
+        # someone else carries the music.
+        if activity is not None:
+            louds = {sec: loudness(sec, window["t0"], window["t1"], vmap, activity)
+                     for sec in sections}
+            top = max(louds.values()) if louds else 0.0
+            if top <= 0.0 or max(louds[sec] for sec in row) < 0.5 * top:
+                return group()
         a, b = (row[0], row[-1]) if rng.random() < 0.5 else (row[-1], row[0])
         return ("overhead", a, b)
 
@@ -1333,6 +1421,7 @@ def generate_cues(t0, t1, seed, targets, vmap=None, activity=None):
     cues, t, recent, bag = [], t0, [], []
     while t < t1:
         hold = rng.uniform(*CAMERA_HOLD)
+        window["t0"], window["t1"] = t, t + hold
         # Reject anything used in the last few shots, not just the previous one
         # — otherwise the same cello close-up comes round twice a minute — and
         # anything that isn't actually sounding during the shot.
@@ -1355,6 +1444,9 @@ def generate_cues(t0, t1, seed, targets, vmap=None, activity=None):
         move = CAMERA_MOVE_T if rng.random() < CAMERA_MOVE_CHANCE else 0.0
         cues.append((round(t, 2), shot, move))
         recent = (recent + [shot])[-4:]
+        recent_names.clear()
+        for r in recent:
+            recent_names.update(shot_names(r) if r != "wide" else ())
         t += hold
     return cues
 
@@ -1533,10 +1625,11 @@ def build_stage_env(bounds):
 def main():
     args = parse_args()
     if args.cue:
-        global CAMERA_CUES, CAMERA_AUTOGEN
+        global CAMERA_CUES, CAMERA_AUTOGEN, CUE_ELEVATION
         focus = tuple(args.cue.split(",")) if "," in args.cue else args.cue
         CAMERA_CUES = [("0:00", focus)]
         CAMERA_AUTOGEN = []
+        CUE_ELEVATION = args.cue_elevation
     t0 = time.time()
     animate = args.npy is not None
     if animate and args.tempo is None:

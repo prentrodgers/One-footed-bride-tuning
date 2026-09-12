@@ -9,6 +9,7 @@ Static placement pass — the sway/lean/glow animation is wired the same way
 the woodwind/brass sections are, once positioned.
 """
 import math
+import numpy as np
 import sys
 from pathlib import Path
 
@@ -21,6 +22,7 @@ sys.path.insert(0, str(REPO_DIR))
 import blender_bass_section_poc as bass
 import blender_woodwind_poc as ww
 import blender_brass_poc as brass
+import blender_marimba_poc as marimba
 
 BODY_CLR = {
     'flute':      (0.82, 0.84, 0.88),   # silver
@@ -48,13 +50,24 @@ def build_flute(body_mat):
     """A slim silver flute held horizontally: bore along X, lip plate + a row
     of keys on top, closed crown at the left end."""
     key = ww.make_solid("MelFluteKey", (0.70, 0.72, 0.76), roughness=0.3, metallic=0.7)
-    z = 1.35
-    bore = brass._tube((-0.48, 0.0, z), (0.46, 0.0, z), 0.024, 0.024, body_mat)
-    crown = brass._tube((-0.48, 0.0, z), (-0.54, 0.0, z), 0.026, 0.026, key)
-    lip = ww._ball(-0.30, z + 0.02, 0.03, key, scale=(1.4, 0.6, 1.0))
-    keys = [ww._ball(kx, z + 0.028, 0.016, key, scale=(1.0, 1.0, 0.6)) for kx in
-            (-0.05, 0.05, 0.15, 0.25, 0.35)]
-    return [bore] + [crown, lip] + keys, [bore]
+    z, r = 1.35, 0.024
+    # Proportions (12 Sep 2026): the tube is 1.13 long, 20% more than the
+    # 0.94 it was, with all of the extra between the lip plate and the
+    # first tone hole; the lip plate sits halfway from its old spot to the
+    # crown; the holes begin just left of the tube's middle.
+    x0, x1 = -0.48, 0.648
+    bore = brass._tube((x0, 0.0, z), (x1, 0.0, z), r, r, body_mat)
+    crown = brass._tube((x0, 0.0, z), (x0 - 0.06, 0.0, z), r + 0.002, r + 0.002, key)
+    lip = ww._ball(-0.39, z + 0.02, 0.03, key, scale=(1.4, 0.6, 1.0))
+    # Nine tone holes on TOP of the tube, the woodwinds' count, driven by
+    # the same coverage rule (blender_woodwind_poc apply_fingering): the
+    # first hole is nearest the embouchure, as the clarinet's first is
+    # nearest the mouthpiece, and holes fill from there.
+    mid = (x0 + x1) / 2.0
+    xs = [(mid - 0.03) + (x1 - 0.05 - (mid - 0.03)) * i / (ww.N_HOLES - 1) for i in range(ww.N_HOLES)]
+    holes = [ww._ball(kx, z + r, 0.017, ww.make_pad_material(), y=0.0, scale=(1, 1, 0.5))
+             for kx in xs]
+    return [bore, crown, lip] + holes, [bore], {"holes": holes}
 
 
 # Vibraphone bar geometry. Bars are supported only at their vibrational
@@ -121,8 +134,147 @@ def build_vibraphone(body_mat):
         others.append(ww._curve_tube(run, 0.010, frame, name="MelVibeRail"))
         for lx, ly, _ in (run[0], run[-1]):
             others.append(brass._tube((lx, ly, 0.0), (lx, ly, rail_z), 0.014, 0.014, frame))
-    return bars + others, bars
+    # Bar centres in the seat's own frame, for the mallets.
+    bar_info = [dict(x=VIB_X0 + (VIB_X1 - VIB_X0) * i / (VIB_N - 1), y=0.0, z=VIB_Z)
+                for i in range(VIB_N)]
+    return bars + others, bars, dict(bars=bar_info)
 
+
+# ── Vibraphone mallets ──────────────────────────────────────────────────────
+# The marimba's mallet mechanism (blender_marimba_poc: slot allocation,
+# strike curve, timing) reused for the vibraphone. Only the geometry differs:
+# these live in the vibraphone seat's frame, parented to its empty — which is
+# scaled 2.0 and sits in a section scaled 1.8 onto the stage — so the sizes
+# below are seat-local. A 0.30 rod is 1.1 m on stage, the head 8 cm across.
+VMALLET_LEN     = 0.30
+VMALLET_HEAD_R  = 0.022
+VMALLET_STICK_R = 0.005
+# The swing lies in the picture plane (X-Z), not the depth plane: a stick
+# tilted toward the camera foreshortens to near-vertical from the front,
+# which read as the mallet hitting the bar end-on. The hand sits to one
+# side of the bar (even slots from the left, odd from the right, like two
+# hands) and the stick reaches across at VMALLET_STRIKE_DEG above
+# horizontal at contact. Between notes it flattens to VMALLET_REST_DEG,
+# which with the hand above the bar lifts the head about 5 cm and a little
+# past the bar — a wrist stroke that starts close to the bars.
+VMALLET_STRIKE_DEG = 45.0
+VMALLET_REST_DEG   = 30.0
+# Bar glow: a bar lights on its own strike and fades, on top of the seat's
+# whole-instrument glow, so the eye can find the note being played.
+VBAR_GLOW_DECAY = 0.45   # seconds
+
+
+def vib_pitch_to_idx(notes):
+    """Semitone -> bar index for one voice: its range spread across the 13
+    bars, low notes on the long bars at the left. Keys are cents (multiples
+    of 100), the way assign_mallet_slots looks them up."""
+    if not len(notes):
+        return {}
+    semis = np.round(notes[:, 1] / 100.0).astype(int)
+    lo, hi = int(semis.min()), int(semis.max())
+    span = max(hi - lo, 1)
+    return {s * 100: int(round((s - lo) / span * (VIB_N - 1))) for s in range(lo, hi + 1)}
+
+
+def build_vib_mallets(n_slots, empty):
+    """A pool of mallets parented to the seat empty: pivot (hand) with a
+    stick and head hanging straight down, hidden until a strike."""
+    mat = marimba.make_mallet_material()
+    pivots, sticks, heads = [], [], []
+    for s in range(n_slots):
+        pivot = bpy.data.objects.new(f"vib_mallet_pivot_{s}", None)
+        bpy.context.scene.collection.objects.link(pivot)
+        pivot.parent = empty
+        pivot.location = (0.0, 0.0, 0.0)
+        bpy.ops.mesh.primitive_cylinder_add(
+            radius=VMALLET_STICK_R, depth=VMALLET_LEN, location=(0.0, 0.0, -VMALLET_LEN / 2.0))
+        stick = bpy.context.object
+        stick.name = f"vib_mallet_stick_{s}"
+        stick.data.materials.append(mat)
+        stick.hide_render = True
+        stick.parent = pivot          # location above is now relative to the pivot
+        bpy.ops.mesh.primitive_uv_sphere_add(radius=VMALLET_HEAD_R, location=(0.0, 0.0, -VMALLET_LEN))
+        head = bpy.context.object
+        head.name = f"vib_mallet_head_{s}"
+        head.data.materials.append(mat)
+        head.hide_render = True
+        head.parent = pivot
+        pivots.append(pivot); sticks.append(stick); heads.append(head)
+    return pivots, sticks, heads
+
+
+def arm_vibraphone_mallets(geom, seat_notes):
+    """Once the stage has the notes: map the vibraphone voice onto the bars,
+    allocate mallet slots the marimba's way, build that many mallets."""
+    for seat in geom['seats']:
+        if seat['kind'] != 'vibraphone' or 'bar_info' not in seat:
+            continue
+        notes = np.array(seat_notes[seat['id']], dtype=float)
+        p2i = vib_pitch_to_idx(notes)
+        if len(notes):
+            notes = notes.copy()
+            notes[:, 1] = np.round(notes[:, 1] / 100.0) * 100.0
+        assignments, n_slots = marimba.assign_mallet_slots(notes, p2i)
+        pivots, sticks, heads = build_vib_mallets(n_slots, seat['empty'])
+        seat['mallets'] = dict(assignments=assignments, n_slots=n_slots, pivots=pivots,
+                               sticks=sticks, heads=heads, notes=notes, p2i=p2i)
+
+
+def update_vib_mallets(t, seat):
+    """Swing the mallets for every note mid-strike, and light the struck
+    bars. Same window and curve as the marimba (marimba.strike_angle)."""
+    m = seat.get('mallets')
+    if not m:
+        return
+    active = [None] * m['n_slots']
+    for start, end, onset, idx, slot in m['assignments']:
+        if start <= t <= end:
+            active[slot] = (onset, idx)
+    e_strike = math.radians(VMALLET_STRIKE_DEG)
+    for s in range(m['n_slots']):
+        stick, head = m['sticks'][s], m['heads'][s]
+        if active[s] is None:
+            stick.hide_render = True
+            head.hide_render = True
+            continue
+        onset, idx = active[s]
+        info = seat['bar_info'][idx]
+        bar_top = info['z'] + VIB_BAR_THICK / 2.0 + VMALLET_HEAD_R
+        side = 1.0 if s % 2 == 0 else -1.0      # hand left of the bar, or right
+        # The marimba's timing curve, taken as a 0..1 progress from rest to
+        # contact (a touch past 1 on the follow-through), mapped onto this
+        # mallet's own elevation range.
+        a = marimba.strike_angle(t - onset)
+        frac = (a - marimba.MALLET_REST_ANGLE) / (marimba.MALLET_STRIKE_ANGLE - marimba.MALLET_REST_ANGLE)
+        elev = math.radians(VMALLET_REST_DEG + (VMALLET_STRIKE_DEG - VMALLET_REST_DEG) * frac)
+        # Hand placed so the head lands on the bar's centre at the strike
+        # elevation; the stick, built hanging down -Z, is rotated about Y to
+        # reach across toward the bar.
+        m['pivots'][s].location = (info['x'] - side * VMALLET_LEN * math.cos(e_strike),
+                                   info['y'],
+                                   bar_top + VMALLET_LEN * math.sin(e_strike))
+        m['pivots'][s].rotation_euler = (0.0, -side * (math.pi / 2.0 - elev), 0.0)
+        stick.hide_render = False
+        head.hide_render = False
+
+    # Per-bar glow from the most recent strike on each bar.
+    notes, p2i = m['notes'], m['p2i']
+    if len(notes):
+        glow = np.zeros(VIB_N)
+        recent = notes[(notes[:, 0] <= t) & (notes[:, 0] > t - VBAR_GLOW_DECAY)]
+        for row in recent:
+            idx = p2i.get(int(round(row[1])))
+            if idx is not None:
+                glow[idx] = max(glow[idx], 1.0 - (t - row[0]) / VBAR_GLOW_DECAY)
+        base, tint = BODY_CLR['vibraphone'], GLOW_CLR['vibraphone']
+        for i, bar in enumerate(seat['body']):
+            if glow[i] > 0.02:
+                bar.color = (*(base[k] + glow[i] * (tint[k] - base[k]) for k in range(3)), 1.0)
+
+
+# Height (in the builder's own units) at which a held instrument is built;
+# build_melody keeps it there whatever the seat's scale.
+HELD_Z = {'flute': 1.35}
 
 BUILDERS = {
     'flute': build_flute, 'clarinet': ww.build_clarinet, 'vibraphone': build_vibraphone,
@@ -131,7 +283,7 @@ BUILDERS = {
 
 # id, kind, voice, x, y (depth), roll, scale
 SEATS_SPEC = [
-    ('flute',      'flute',      14, -1.7,  0.6,  0.0,  1.0),
+    ('flute',      'flute',      14, -2.35, 0.6,  0.0,  1.5),  # 50% larger, moved left clear of the clarinet
     ('clarinet',   'clarinet',   13, -1.05, 0.7,  14.0, 1.0),  # pulled left, in under the flute
     ('vibraphone', 'vibraphone', 7,   2.5,  1.1,  0.0,  2.0),  # enlarged 1.5 -> 2.0, shifted right to keep the bassoon clear
     ('oboe',       'oboe',       15, -2.1, -0.7,  14.0, 1.0),  # under the flute, clear of the clarinet
@@ -151,11 +303,18 @@ def build_melody(x0):
         built = BUILDERS[kind](body_mat)
         all_objs, body_objs = built[0], built[1]
         moving = built[2] if len(built) > 2 else {}
+        vib_bars = None
+        if kind == 'vibraphone':
+            vib_bars, moving = moving.get('bars'), {}
         for o in body_objs:
             o.color = (*BODY_CLR[kind], 1.0)
         empty = bpy.data.objects.new(f"mel_{sid}", None)
         bpy.context.scene.collection.objects.link(empty)
-        empty.location = (x0 + sx, sy, 0.0)
+        # A seat scales about its empty at floor level, right for anything
+        # standing on the floor. A held instrument would ride up with its
+        # scale, so its empty drops to keep the instrument at HELD_Z.
+        held_z = HELD_Z.get(kind, 0.0)
+        empty.location = (x0 + sx, sy, held_z * (1.0 - scale))
         empty.scale = (scale, scale, scale)
         empty.rotation_euler = (0.0, math.radians(roll), 0.0)
         for o in all_objs:
@@ -173,6 +332,7 @@ def build_melody(x0):
             ww._arm_fingering(seat, moving)
         if kind == 'vibraphone':
             seat['sway_amp'] = 0.0   # struck instrument — no tilt, no rock
+            seat['bar_info'] = vib_bars   # mallets are armed once notes are known
         seats.append(seat)
     return dict(seats=seats)
 
@@ -186,6 +346,9 @@ def load_seat_notes(npy, tempo, seats):
 
 def update_melody(t, geom, seat_notes):
     ww.update_wind_seats(t, geom['seats'], seat_notes, BODY_CLR, GLOW_CLR, PLAY_LEAN_DEG)
+    for seat in geom['seats']:
+        if seat['kind'] == 'vibraphone':
+            update_vib_mallets(t, seat)
 
 
 def _smoke_test(out_path):

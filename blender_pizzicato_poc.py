@@ -1103,12 +1103,10 @@ def build_player(pl, string_mat):
     # is exactly where the fingerboard/strings ended up sitting relative
     # to the neck, causing the layering bugs below).
     nw, nh = spec['neck_w'] / 2.0, spec['neck_len']
-    bpy.ops.mesh.primitive_cube_add(size=1.0, location=(x0, 0.0, bh + nh / 2.0))
-    neck = bpy.context.object
-    neck.scale = (nw * 2.0, depth, nh / 2.0)
-    bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
-    neck.name = f"{pl['name']}_neck"
-    neck.data.materials.append(wood_mat)
+    # No neck block: from the front the fingerboard covers a real neck
+    # entirely, and the box that used to stand here — the body's full depth,
+    # wider than the fingerboard's upper end — read as a rectangular brace
+    # behind it. The fingerboard runs from the body to the nut on its own.
 
     # Bridge/tailpiece geometry — nut at the top of the neck/fingerboard
     # (str_top, right where the pegbox begins), tailpiece near the body's

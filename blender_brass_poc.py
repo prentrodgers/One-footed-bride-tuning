@@ -64,7 +64,14 @@ SWAY_PHASES = [0.5, 1.7, 0.0, 2.1]
 # The travel alone is a handful of pixels at stage framing, so a pressed
 # piston also darkens — the same language the woodwind pads use, where dark
 # means "this one is down".
-VALVE_TRAVEL = 0.040     # m a piston sinks when fully pressed
+VALVE_TRAVEL = 0.016     # m a piston sinks when fully pressed — a real piston's
+                         # throw, and short enough that the button stays clear
+                         # above its casing rather than vanishing into it
+# The valve block sits this far in FRONT of the tubing plane (toward the
+# camera, -Y). With everything at y=0 the bell tube ran through the casing
+# tops, and a pressed button dropped into that tube and disappeared — so a
+# valve read as behind the tube when down and in front when up.
+VALVE_Y = -0.045
 VALVE_UP_CLR = (0.93, 0.94, 0.97)
 VALVE_DOWN_CLR = (0.07, 0.065, 0.06)
 SLIDE_TRAVEL = 0.45      # m from closed to fully out
@@ -193,8 +200,8 @@ def build_trumpet(body_mat):
     bow = _uloop((-0.38, 0.0, z_bot), (-0.38, 0.0, z_top), (-0.11, 0.0, 0.0), r_tube, body_mat)
     bell_tube = _tube((-0.38, 0.0, z_top), (0.30, 0.0, z_top), 0.016, 0.022, body_mat)
     bell, garland = _bell((0.30, 0.0, z_top), (0.80, 0.0, z_top), 0.022, 0.17, body_mat, name="trumpet_bell")
-    casings = [_tube((x, 0.0, z_bot - 0.03), (x, 0.0, z0 + 0.07), 0.025, 0.025, silver) for x in vx]
-    stems, buttons = _pistons(vx, 0.0, z0 + 0.07, silver, ww.make_pad_material())
+    casings = [_tube((x, VALVE_Y, z_bot - 0.03), (x, VALVE_Y, z0 + 0.07), 0.025, 0.025, silver) for x in vx]
+    stems, buttons = _pistons(vx, VALVE_Y, z0 + 0.07, silver, ww.make_pad_material())
     vslides = [
         _uloop((vx[0] - 0.02, 0.0, z_bot + 0.028), (vx[0] - 0.02, 0.0, z_bot - 0.028), (-0.17, 0.0, 0.0), 0.012, body_mat),
         _uloop((vx[1] - 0.018, 0.0, z_bot - 0.02), (vx[1] + 0.018, 0.0, z_bot - 0.02), (0.0, 0.0, -0.10), 0.012, body_mat),
