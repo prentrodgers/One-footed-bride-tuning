@@ -22097,5 +22097,105 @@ bwv264  viterbi-tunings-8-25   opt     1  1.250  17     49.0      167 |    0    
 ————————————————————————————————————
 9/13/26 Post to Twitter and Substack the trio of Chorale Preludes 
       Heading: Video of an orchestra of invisible musicians playing a Chorale Prelude on BWV437 tuned to the One Footed Bride Tuning.
-      Sparse: Uploads/ball9-t37d_lm19_r1.38_df1_t2_d12_11_t084.mp3 - this is one of the crazy ones.
-            python chord_report --input_numpy_file Archive/straw-man/t2_r1.375_lm19/bwv437-opt.npy      
+      432 is df3, 434 is df5, 437 is df1
+
+      sox Uploads/ball9-t32d_lm19_r1.25_df3_t3_d03_30_t118.mp3
+      python chord_report.py --input_numpy_file Archive/straw-man/viterbi-tunings-9-11/bwv432_t3_r1.250_lm19-opt.npy | grep -E '/19|19/|/17|17/|/13|13/' -c
+            7 # number of 13, 17, 19 ratios
+
+      sox Uploads/ball9-t34d_lm19_r1.25_df5_t1_d09_21_t106.mp3
+      python chord_report.py --input_numpy_file Archive/straw-man/viterbi-tunings-9-11/bwv434_t1_r1.250_lm19-opt.npy | grep -E '/19|19/|/17|17/|/13|13/' -c
+            9
+
+      sox Uploads/ball9-t37d_lm19_r1.38_df1_t2_d12_11_t084.mp3
+      python chord_report.py --input_numpy_file Archive/straw-man/viterbi-tunings-9-11/bwv437_t2_r1.375_lm19-opt.npy | grep -E '/19|19/|/17|17/|/13|13/' -c
+            45
+
+      This is a high number for ratios with these numerators and denominators.
+            python chord_report.py --input_numpy_file Archive/straw-man/t1_r1.25_lm17/bwv427-opt.npy | grep -E '/19|19/|/17|17/|/13|13/' -c
+                  0
+      
+      Now find another set of chorales to tune while you write your next substack post. Try these:
+                  415  416  417  418  419  420  421  422  423  424  425  426 
+            CHORALES=${1:-$(echo bwv{415..426})}
+            rm k8s-jobs/*.yaml && ./generate-grid-search-jobs.sh 
+            INTERVAL=20 ./deploy-grid-search-jobs.sh # if you don't set the interval it will take 14 hours just to deploy
+
+      Monitor the tuning pods:
+            watch -n 20 "kubectl get po -l app=grid-search   -o custom-columns=NAME:.metadata.name,PHASE:.status.phase,NODE:.spec.nodeName --sort-by=.status.phase "
+      And the nodes:
+            watch -n 20 "kubectl top node --sort-by cpu"
+      And the jobs:
+            kubectl get jobs -l app=grid-search --no-headers | awk '{print $2}' | sort | uniq -c
+      Still none running on fs6. That seems odd to me. And since we set the nodes to low-power in tuned-adm, we can safely double the insertion speed. He is changing the INTERVAL=15 from what it was, with a skip the finished ones (only 21 out of 288). Claude Fable modified the deploy-grid-search-jobs to skip-existing: The skip-existing behaviour is a small addition to deploy-grid-search-jobs.sh, uncommitted, that makes any future restart of a deploy cheap.
+
+      Temps are under control now:
+            for n in fs2 fs3 fs4 fs5 fs6 fs7 fs8 fs9 ; do echo $n ; ssh $n 'sensors | grep -E "Package|Composite|Tctl"' ; done
+                  fs2   250K
+                  Package id 0:  +46.0°C  (high = +85.0°C, crit = +105.0°C)
+                  Composite:    +41.9°C  (low  =  -5.2°C, high = +82.8°C)
+                  fs3   250KF 18 threads
+                  Package id 0:  +52.0°C  (high = +85.0°C, crit = +105.0°C)
+                  Composite:    +60.9°C  (low  = -40.1°C, high = +83.8°C)
+                  Composite:    +49.9°C  (low  = -273.1°C, high = +80.8°C)
+                  fs4   265k  20 threads
+                  Package id 0:  +57.0°C  (high = +85.0°C, crit = +105.0°C)
+                  Composite:    +42.9°C  (low  = -273.1°C, high = +81.8°C)
+                  Composite:    +48.9°C  (low  = -273.1°C, high = +81.8°C)
+                  fs5   285K  24 threads
+                  Package id 0:  +49.0°C  (high = +85.0°C, crit = +105.0°C)
+                  Composite:    +55.9°C  (low  = -273.1°C, high = +80.8°C)
+                  Composite:    +58.9°C  (low  = -273.1°C, high = +80.8°C)
+                  Composite:    +54.9°C  (low  =  -0.1°C, high = +85.8°C)
+                  fs6   7800X3D     16 threads
+                  Tctl:         +55.5°C
+                  Composite:    +41.9°C  (low  = -273.1°C, high = +81.8°C)
+                  fs7   270K  24 threads
+                  Package id 0:  +45.0°C  (high = +85.0°C, crit = +105.0°C)
+                  Composite:    +35.9°C  (low  = -40.1°C, high = +83.8°C)
+                  Composite:    +40.9°C  (low  = -273.1°C, high = +80.8°C)
+                  fs8   250K  18 threads
+                  Package id 0:  +66.0°C  (high = +85.0°C, crit = +105.0°C)
+                  Composite:    +46.9°C  (low  = -273.1°C, high = +80.8°C)
+                  Composite:    +56.9°C  (low  = -273.1°C, high = +81.8°C)
+                  fs9   7900  24 threads
+                  Tctl:         +59.8°C
+                  Composite:    +48.9°C  (low  =  -5.2°C, high = +82.8°C)
+
+      Claude figured out why fs6 isn't getting any work. It was not included in the allowed nodes list on purpose, since when it was in the DeskMeet x600 it couldn't handle the work. I had forgotten that. Claude is trying to fix that while the engines are running. Now running 17 at a time. 
+          
+      Claude is starting a ratcheting set of jobs based on high GapSum values. See ratchet-cells.txt for the list. I don't see them executing though. There was a delay but they are active now. Any set of options with a higher gapsum than 5 is being rerun. Submitted every 15 seconds. 
+      But does it make sense to only run the hyperparameters that had high GapSum values? I'm starting to think the hyperparameters mean less than just the fact that everything about the scoring is probabalistic. Anyway that may not be true and he's in charge of the search now. He identified bwv423 as being done. I ran this in the pod PVC. 
+            CHORALES=${1:-$(echo bwv{415..426})}
+            python select_best_and_render.py --numpy_dir_root Archive/straw-man --chorale_list $CHORALES --suffix="-opt.npy" --sort_by p90 > new-chorales-report.txt 
+
+                  Chorale: bwv423   sorted by p90 (ordering only, not a ranking)
+                  --------------- ------ ----- -- -------- -------- |-- ------ ---- ---- ---- ---- | ----
+                  Directory       sfx  t ratio lm ChordAvg ChordMax | N GapSum  Avg  Med  p90  Max |  >10
+                  --------------- ------ ----- -- -------- -------- |-- ------ ---- ---- ---- ---- | ----
+                  t1_r1.625_lm17  opt  1 1.625 17     53.6      145 | 0      0  0.0  0.0  0.0  0.0 |    0
+                  t1_r1.625_lm19  opt  1 1.625 19     53.7      145 | 0      0  0.0  0.0  0.0  0.0 |    0
+                  t2_r1.375_lm17  opt  2 1.375 17     53.6      145 | 0      0  0.0  0.0  0.0  0.0 |    0
+                  t2_r1.50_lm19   opt  2 1.500 19     53.6      145 | 0      0  0.0  0.0  0.0  0.0 |    0
+                  t2_r1.625_lm17  opt  2 1.625 17     53.7      145 | 0      0  0.0  0.0  0.0  0.0 |    0
+      Score less than 54: yes 
+      GapSum less than 5: yes 
+      p90 equal to zero:  yes
+      It looks like he picked the 3 best GapSum from each chorale to rerun. "So the three closest to zero are the three most likely to get there." To zero, that is. 
+
+      Publish an album to Dropbox and file-service. Done and done.
+
+      If you ever want to preserve your notes:
+            git commit -m "Update the session notes" WreckingCrew.txt
+            opsignin
+            git push
+
+      I asked Claude to keeep submitting jobs for the best runs that still get improvements with additional runs. Start up a new batch consisting of the ones that moved. Then if they continue to move, keep running until you no longer get significant improvements. My motto is that probabilistic processes tend towards deterministic ones the more repetitions you take.
+
+      Claude impelented this rule: The stopping rule, which is your motto made mechanical. After every pass the script takes a fresh report and re-picks each chorale's three lowest-GapSum cells, so the search follows the best cells as they move. A chorale counts as improved if its best cell's GapSum, gap count, p90 or worst gap fell, or its chord average dropped by 0.3 or more without GapSum rising; anything else is a stall. Two consecutive stalls retire the chorale, and the loop ends when all are retired or after twenty rounds. Since the tuner's own ratchet keeps whichever result is better, a pass can only hold or improve a cell, so the sequence is monotone and the stalls are the signal that the process has become deterministic.
+
+      Both chorales start at a single 2-cent gap, so the only movement left is to zero or to a better chord average at the same gap. The fleet stays on powersave-gpu for the whole loop and returns to balanced when it exits.
+
+      The new pieces are ratchet-until-still.sh and its parser ratchet_best.py, plus a switch in ratchet-passes.sh that lets a caller own the power switching. All uncommitted with the rest.
+
+      In other words, keep running chorales as long as they keep improving. 
