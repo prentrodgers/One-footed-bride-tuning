@@ -22,7 +22,7 @@ RATIOS=(1.25 1.375 1.50 1.625)
 # original twelve.  Space-separated, bwv prefix included:
 #     ./generate-grid-search-jobs.sh "$(echo bwv{427..438})"
 #     CHORALES="bwv262 bwv267" ./generate-grid-search-jobs.sh
-CHORALES=(${1:-${CHORALES:-$(echo bwv{253..264})}})
+CHORALES=(${1:-${CHORALES:-$(echo bwv{415..426})}})
 for c in "${CHORALES[@]}"; do
     case "$c" in bwv*) ;; *) echo "chorale names need the bwv prefix: got '$c'" >&2; exit 2;; esac
 done
@@ -39,8 +39,11 @@ echo "Template: $TEMPLATE"
 echo "Output directory: $OUTPUT_DIR"
 echo ""
 
-# Create output directory
+# Create output directory, and clear the previous batch's manifests: the
+# deploy submits every file in it, so leftovers would run again (a cells-file
+# ratchet on top of a full batch submitted 321 jobs instead of 33 on 13 Sep 2026).
 mkdir -p "$OUTPUT_DIR"
+rm -f "$OUTPUT_DIR"/grid-search-job-*.yaml
 
 # One line per job, "limit_max tolerance ratio chorale", from the product of
 # the arrays or straight from CELLS_FILE.

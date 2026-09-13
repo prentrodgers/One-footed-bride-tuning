@@ -1,34 +1,7 @@
-# Cells to ratchet again — one job each, via
-#     CELLS_FILE=ratchet-cells.txt ./generate-grid-search-jobs.sh
-# Picked 11 Sep 2026 from the bwv427-438 batch: per chorale the three cells
-# with the lowest GapSum (ties broken by fewer gaps, then lower ChordAvg).
-# 427, 431 and 436 are done (GapSum 0) and left out.
-#
-# limit_max tolerance ratio chorale        GapSum / N / ChordAvg at pick time
-19 2 1.25  bwv428     #   4 / 2 / 55.7
-19 2 1.375 bwv428     #   4 / 2 / 55.8
-19 2 1.50  bwv428     #   4 / 2 / 56.5
-17 2 1.25  bwv429     #  35 / 2 / 54.9   two 18c gaps
-17 2 1.375 bwv429     #  35 / 2 / 54.7
-19 3 1.25  bwv429     #  34 / 6 / 53.9
-19 1 1.375 bwv430     #  54 / 6 / 54.9
-17 3 1.375 bwv430     #  58 / 9 / 53.1
-19 3 1.25  bwv430     #  69 / 9 / 53.6
-19 3 1.25  bwv432     #  83 / 13 / 62.1
-19 3 1.375 bwv432     # 131 / 17 / 61.3
-19 2 1.50  bwv432     # 132 / 13 / 63.7
-19 3 1.375 bwv433     #  15 / 6 / 52.6   nothing over 3c
-19 3 1.25  bwv433     #  17 / 4 / 52.5
-19 1 1.375 bwv433     #  22 / 2 / 53.7
-19 2 1.375 bwv434     #   2 / 1 / 58.1
-19 1 1.25  bwv434     #   4 / 1 / 58.8
-19 2 1.50  bwv434     #   4 / 2 / 59.6
-17 3 1.375 bwv435     #  33 / 6 / 54.9
-19 3 1.375 bwv435     #  40 / 5 / 54.4
-19 3 1.625 bwv435     #  40 / 5 / 55.5
-19 2 1.25  bwv437     # 589 / 66 / 60.8  pump-like, see bwv267
-19 2 1.375 bwv437     # 617 / 66 / 60.9
-19 2 1.625 bwv437     # 660 / 74 / 60.8
-19 2 1.625 bwv438     #  28 / 3 / 57.2
-19 2 1.375 bwv438     #  47 / 5 / 57.4
-19 3 1.375 bwv438     #  61 / 7 / 56.7
+# written by ratchet_best.py: lowest-GapSum cells per chorale
+19 2 1.50 bwv415     # 2 / 1 / 2.0 / 58.5
+19 3 1.375 bwv415     # 3 / 1 / 3.0 / 56.1
+19 2 1.25 bwv415     # 36 / 4 / 12.0 / 57.6
+19 2 1.25 bwv419     # 2 / 1 / 2.0 / 54.6
+19 3 1.375 bwv419     # 20 / 3 / 9.6 / 53.0
+19 1 1.625 bwv419     # 21 / 2 / 10.9 / 54.8

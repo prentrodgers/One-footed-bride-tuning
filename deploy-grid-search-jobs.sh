@@ -91,6 +91,13 @@ for job_file in "$JOBS_DIR"/grid-search-job-*.yaml; do
     i=$((i + 1))
     name=$(basename "$job_file" .yaml)
     printf '[%3d/%3d] %-46s ' "$i" "$job_count" "$name"
+    # Already submitted (a restarted deploy, e.g. to change INTERVAL): a Job's
+    # spec is immutable so apply would be a no-op — skip it without the pause.
+    if kubectl get job "${name#grid-search-job-}" >/dev/null 2>&1 \
+       || kubectl get job "grid-search-${name#grid-search-job-}" >/dev/null 2>&1; then
+        echo "exists, skipped"
+        continue
+    fi
     if kubectl apply -f "$job_file" >/dev/null 2>&1; then
         # Counts are for tuning INTERVAL, not for gating submission.
         counts=$(kubectl get po -l app=grid-search --no-headers 2>/dev/null \

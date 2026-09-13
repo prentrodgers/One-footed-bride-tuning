@@ -21,8 +21,12 @@ export POWER=0
 n_jobs=$(ls k8s-jobs/grid-search-job-*.yaml 2>/dev/null | wc -l)
 [ "$n_jobs" -gt 0 ] || { echo "no manifests in k8s-jobs/ — run generate-grid-search-jobs.sh first" >&2; exit 1; }
 
-./power-save-all.sh | grep -E "all hosts|problems|FAILED|MISMATCH"
-trap './power-balanced.sh | grep -E "all hosts|problems"' EXIT
+# RATCHET_POWER=0 leaves the profiles to the caller (ratchet-until-still.sh
+# switches once around many short passes instead of on every one).
+if [ "${RATCHET_POWER:-1}" = 1 ]; then
+    ./power-save-all.sh | grep -E "all hosts|problems|FAILED|MISMATCH"
+    trap './power-balanced.sh | grep -E "all hosts|problems"' EXIT
+fi
 
 for pass in $(seq 1 "$PASSES"); do
     echo "===== pass $pass of $PASSES: $n_jobs jobs  $(date +%F\ %T)"

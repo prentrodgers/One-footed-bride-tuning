@@ -39,6 +39,8 @@ spec:
                 - fs3
                 - fs4
                 - fs5
+                - fs6   # was left out while it lived in a DeskMeet X600 that could
+                        # not cool the load; back since its move to a bigger case (13 Sep 2026)
                 - fs7
                 - fs8
                 - fs9
