@@ -15,14 +15,19 @@ set -u
 VERIFY_ONLY=0
 [ "${1:-}" = "--verify" ] && { VERIFY_ONLY=1; shift; }
 HOSTS=("$@")
-[ ${#HOSTS[@]} -eq 0 ] && HOSTS=(fs2 fs3 fs4 fs5 fs7 fs8)
+[ ${#HOSTS[@]} -eq 0 ] && HOSTS=(fs2 fs3 fs4 fs5 fs6 fs7 fs8 fs9)   # fs6/fs9 (Ryzen + B580) added 13 Sep 2026
 SSH="ssh -o BatchMode=yes -o ConnectTimeout=5"
 
 failed=()
 if [ $VERIFY_ONLY = 0 ]; then
   for n in "${HOSTS[@]}"; do
     echo "== $n"
-    $SSH "$n" "sudo tuned-adm profile balanced" || { echo "   FAILED on $n"; failed+=("$n"); }
+    # A host running tuned-ppd (fs2, KDE) is switched through its desktop
+  # power mode, which ppd.conf maps onto the tuned profile — a tuned-adm
+  # call there would be undone at the next mode change.
+  $SSH "$n" "if systemctl is-active -q tuned-ppd; then
+            sudo busctl set-property org.freedesktop.UPower.PowerProfiles /org/freedesktop/UPower/PowerProfiles org.freedesktop.UPower.PowerProfiles ActiveProfile s balanced
+          else sudo tuned-adm profile balanced; fi" || { echo "   FAILED on $n"; failed+=("$n"); }
   done
   echo
 fi
@@ -35,7 +40,19 @@ for n in "${HOSTS[@]}"; do
     ok=1
     prof=$(tuned-adm active 2>/dev/null | sed "s/Current active profile: //")
     [ "$prof" = balanced ] || ok=0
-    nt=$(cat /sys/devices/system/cpu/intel_pstate/no_turbo 2>/dev/null)
+    # turbo state, normalised to no_turbo terms (1 = off): intel_pstate
+    # exposes no_turbo; the Ryzens on fs6/fs9 (amd-pstate, active mode)
+    # take tuned'"'"'s boost=0 in the PER-POLICY cpu*/cpufreq/boost files —
+    # the global cpufreq/boost stays 1 there and means nothing.
+    if [ -e /sys/devices/system/cpu/intel_pstate/no_turbo ]; then
+      nt=$(cat /sys/devices/system/cpu/intel_pstate/no_turbo)
+    elif [ -e /sys/devices/system/cpu/cpu0/cpufreq/boost ]; then
+      nt=$(( 1 - $(cat /sys/devices/system/cpu/cpu0/cpufreq/boost) ))
+    elif [ -e /sys/devices/system/cpu/cpufreq/boost ]; then
+      nt=$(( 1 - $(cat /sys/devices/system/cpu/cpufreq/boost) ))
+    else
+      nt=""
+    fi
     [ "$nt" = 0 ] || ok=0
     printf "%-4s profile=%-14s no_turbo=%s" "$(hostname)" "$prof" "${nt:-?}"
     for d in /sys/class/drm/card[0-9]; do

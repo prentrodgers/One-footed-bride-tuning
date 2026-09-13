@@ -23,6 +23,13 @@
 # tile0/gt0/freq0, so the card numbering (which differs per host and
 # reorders on fs5 after a reboot) does not matter.
 #
+# Hosts running tuned-ppd (Fedora's default — fs2, fs3, fs9 at least) are
+# switched through the desktop power mode instead of tuned-adm: tuned-ppd
+# re-applies its own mode at boot and on any mode change, which is how a
+# tuned-adm setting on fs3 quietly reverted to balanced. ppd.conf maps
+# power-saver to powersave-gpu (installed here if missing); busctl runs as
+# root because over ssh there is no polkit agent to authorise it.
+#
 # Undo with ./power-balanced.sh. Requires passwordless sudo on the nodes.
 #
 # Usage:  ./power-save-all.sh [--verify] [host ...]
@@ -32,7 +39,7 @@ set -u
 VERIFY_ONLY=0
 [ "${1:-}" = "--verify" ] && { VERIFY_ONLY=1; shift; }
 HOSTS=("$@")
-[ ${#HOSTS[@]} -eq 0 ] && HOSTS=(fs2 fs3 fs4 fs5 fs7 fs8)
+[ ${#HOSTS[@]} -eq 0 ] && HOSTS=(fs2 fs3 fs4 fs5 fs6 fs7 fs8 fs9)   # fs6/fs9 (Ryzen + B580) added 13 Sep 2026
 SSH="ssh -o BatchMode=yes -o ConnectTimeout=5"
 
 PROFILE='[main]
@@ -55,7 +62,11 @@ if [ $VERIFY_ONLY = 0 ]; then
     echo "== $n"
     if ! $SSH "$n" "sudo mkdir -p /etc/tuned/profiles/powersave-gpu &&
           printf '%s' \"\$(cat)\" | sudo tee /etc/tuned/profiles/powersave-gpu/tuned.conf >/dev/null &&
-          sudo tuned-adm profile powersave-gpu" <<<"$PROFILE"; then
+          if systemctl is-active -q tuned-ppd; then
+            grep -q '^power-saver=powersave-gpu' /etc/tuned/ppd.conf ||
+              { sudo sed -i 's/^power-saver=.*/power-saver=powersave-gpu/' /etc/tuned/ppd.conf && sudo systemctl restart tuned-ppd && sleep 2; }
+            sudo busctl set-property org.freedesktop.UPower.PowerProfiles /org/freedesktop/UPower/PowerProfiles org.freedesktop.UPower.PowerProfiles ActiveProfile s power-saver
+          else sudo tuned-adm profile powersave-gpu; fi" <<<"$PROFILE"; then
       echo "   FAILED to apply on $n"; failed+=("$n"); continue
     fi
   done
@@ -71,7 +82,19 @@ for n in "${HOSTS[@]}"; do
     ok=1; note=""
     prof=$(tuned-adm active 2>/dev/null | sed "s/Current active profile: //")
     [ "$prof" = powersave-gpu ] || ok=0
-    nt=$(cat /sys/devices/system/cpu/intel_pstate/no_turbo 2>/dev/null)
+    # turbo state, normalised to no_turbo terms (1 = off): intel_pstate
+    # exposes no_turbo; the Ryzens on fs6/fs9 (amd-pstate, active mode)
+    # take tuned'"'"'s boost=0 in the PER-POLICY cpu*/cpufreq/boost files —
+    # the global cpufreq/boost stays 1 there and means nothing.
+    if [ -e /sys/devices/system/cpu/intel_pstate/no_turbo ]; then
+      nt=$(cat /sys/devices/system/cpu/intel_pstate/no_turbo)
+    elif [ -e /sys/devices/system/cpu/cpu0/cpufreq/boost ]; then
+      nt=$(( 1 - $(cat /sys/devices/system/cpu/cpu0/cpufreq/boost) ))
+    elif [ -e /sys/devices/system/cpu/cpufreq/boost ]; then
+      nt=$(( 1 - $(cat /sys/devices/system/cpu/cpufreq/boost) ))
+    else
+      nt=""
+    fi
     [ "$nt" = 1 ] || ok=0
     printf "%-4s profile=%-14s no_turbo=%s" "$(hostname)" "$prof" "${nt:-?}"
     for d in /sys/class/drm/card[0-9]; do

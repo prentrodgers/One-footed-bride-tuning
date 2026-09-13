@@ -24,6 +24,10 @@
 #   ./render_farm.sh --progress
 #   ./render_farm.sh --stop
 #
+# The fleet rests on tuned's balanced profile; a launch switches it to
+# powersave-gpu (./power-save-all.sh) and a detached waiter switches it back
+# once every pod has finished (--stop does too). POWER=0 skips both.
+#
 # Pods are started one at a time, STAGGER seconds apart. "Mounting" the
 # CephFS volume takes ~60-90s per pod, and five at once put every one of them
 # past the kubelet's CreateContainer deadline: all five died with "context
@@ -77,16 +81,19 @@ RES_Y=720
 # their nodes' CPUs are now slower, while the B580s barely moved. The fleet
 # stays on powersave, so these are the rates to size slices by.
 # 12 Sep 2026: the B50 moved from fs3 to fs4 and fs3 got a third B580.
-# The B580 rate is the fs6/fs9 average; the B50's is what it did on fs3
-# for bwv437 (3.36) — fs4's CPU is the faster of the two, so that is a
-# safe ceiling. Both get replaced by measurements after the first run.
+# Their Cycles rates are from the bwv432 render that evening (6188
+# frames, powersave-gpu): the B580 on fs3 runs 15-20% behind the ones on
+# fs6/fs9 (fs3 carries the Ceph MDS and an OSD, and its PCIe link is
+# pinned to Gen4), and the B50 on fs4 is slower than it was on fs3
+# because it now shares fs4's CPU with the iGPU worker. The iGPUs did
+# 39-40 s/frame on that run: pass IGPU_RATE_CYC=40.
 WORKERS=(
   "b70a   fs5  8086:e223  0           1.701  3.995"
   "b70b   fs5  8086:e223  1           1.751  3.992"
   "b580f6 fs6  8086:e20b  -           1.651  3.821"
   "b580f9 fs9  8086:e20b  -           1.829  3.688"
-  "b580f3 fs3  8086:e20b  -           1.740  3.750"
-  "b50f4  fs4  8086:e212  -           2.129  3.400"
+  "b580f3 fs3  8086:e20b  -           1.740  4.323"
+  "b50f4  fs4  8086:e212  -           2.129  4.793"
 )
 # The Core Ultra iGPUs (Xe-LPG, PCI 0x7d67), opt-in with IGPU=1. fs4 now
 # also carries the B50, so it fields two workers; each pod keeps only the
@@ -158,7 +165,25 @@ while [ $# -gt 0 ]; do
             }'
           done
       exit 0;;
-    --stop) kubectl -n "$NS" delete po -l job=blender-farm --wait=false; exit 0;;
+    # Stopping ends the load, so the fleet goes back to balanced here too
+    # (the waiter spawned at launch would do it, but not if POWER=0).
+    --stop) kubectl -n "$NS" delete po -l job=blender-farm --wait=false
+            [ "${POWER:-1}" = 1 ] && ./power-balanced.sh; exit 0;;
+    # Spawned detached by a launch: waits for every farm pod to finish, prints
+    # each slice's timing, and returns the fleet to balanced.
+    --wait-then-balanced)
+      while kubectl -n "$NS" get po -l job=blender-farm --no-headers 2>/dev/null \
+              | awk '{print $3}' | grep -qE "Running|Pending|ContainerCreating|Init"; do
+        sleep 60
+      done
+      echo "$(date +%T) farm finished:"
+      for pod in $(kubectl -n "$NS" get po -l job=blender-farm --no-headers 2>/dev/null | awk '{print $1}'); do
+        printf "  %-22s %s  %s\n" "${pod#blender-farm-}" \
+               "$(kubectl -n "$NS" get po "$pod" --no-headers | awk '{print $3}')" \
+               "$(kubectl -n "$NS" logs "$pod" 2>/dev/null | grep -a '\[stage\] done' | sed 's/.*done: //' | cut -c1-50)"
+      done
+      ./power-balanced.sh
+      exit 0;;
     # Pass-through for blender_stage.py: the flag, plus its value if the next
     # token is not itself a flag (--engine cycles, --samples 96, --cycles-hw-rt).
     --*) EXTRA+=("$1"); shift
@@ -189,6 +214,16 @@ echo "render: $TOTAL frames over ${#WORKERS[@]} GPUs  ($(awk -v w="$total_w" 'BE
 "eta $(awk -v t="$TOTAL" -v w="$total_w" 'BEGIN{printf "%.0f", t/w/60}') min)"
 
 start=0
+# Power: the fleet rests on tuned's balanced profile and renders under
+# powersave-gpu (power-save-all.sh) — the office circuit cannot take the
+# farm at full clocks. Switched here at launch and back by the detached
+# waiter once every pod is done. POWER=0 leaves the profiles alone.
+if [ "$DRYRUN" -eq 0 ] && [ "${POWER:-1}" = 1 ] && [ -z "$ONLY" ]; then
+  echo "== fleet to powersave-gpu for the render"
+  ./power-save-all.sh | tail -n +2 | grep -vE "^$|^== verify"
+  echo
+fi
+
 for i in "${!WORKERS[@]}"; do
   read -r label node select ordinal _ _ <<<"${WORKERS[$i]}"
   if [ "$i" -eq $((${#WORKERS[@]} - 1)) ]; then
@@ -254,6 +289,12 @@ YAML
 done
 
 [ "$DRYRUN" -eq 1 ] && exit 0
+if [ "${POWER:-1}" = 1 ] && [ -z "$ONLY" ]; then
+  WAITLOG=${TMPDIR:-/tmp}/render_farm_wait_${OUT##*/}.log
+  setsid nohup "$0" --wait-then-balanced > "$WAITLOG" 2>&1 < /dev/null &
+  echo
+  echo "power:  back to balanced when the farm finishes (log: $WAITLOG)"
+fi
 echo
 echo "watch:  ./render_farm.sh --status"
 echo "count:  kubectl -n $NS exec deploy/one-footed-bride -c pod-ssh -- ls $REPO/$OUT | wc -l"

@@ -4,6 +4,11 @@
 #     INTERVAL=180 ./deploy-grid-search-jobs.sh      # one job every 3 minutes
 #     INTERVAL=30  ./deploy-grid-search-jobs.sh      # one every 30s
 #     SKIP_SYNC=1  ./deploy-grid-search-jobs.sh      # repo already current
+#     POWER=0      ./deploy-grid-search-jobs.sh      # don't touch the tuned profiles
+#
+# The fleet rests on tuned's balanced profile; this switches it to
+# powersave-gpu before submitting and a detached waiter switches it back
+# once every job has finished.
 #
 # Earlier versions watched the cluster and submitted when a slot looked free.
 # That kept deadlocking: a pod wedged in CreateContainerError reports
@@ -23,6 +28,20 @@
 set -euo pipefail
 
 JOBS_DIR="k8s-jobs"
+POWER="${POWER:-1}"
+
+# Spawned detached after submission: waits until no grid-search job still
+# has a pod active, then returns the fleet to balanced.
+if [ "${1:-}" = "--wait-then-balanced" ]; then
+    while :; do
+        active=$(kubectl get jobs -l app=grid-search -o jsonpath='{range .items[*]}{.status.active}{"\n"}{end}' 2>/dev/null | grep -c '^[1-9]' || true)
+        [ "$active" -eq 0 ] && break
+        sleep 60
+    done
+    echo "$(date +%T) grid search finished: $(kubectl get jobs -l app=grid-search --no-headers 2>/dev/null | awk '{print $2}' | sort | uniq -c | tr '\n' ' ')"
+    ./power-balanced.sh
+    exit 0
+fi
 INTERVAL="${INTERVAL:-180}"
 SKIP_SYNC="${SKIP_SYNC:-0}"
 
@@ -55,6 +74,18 @@ else
 fi
 echo ""
 
+# Power: the fleet rests on tuned's balanced profile; the tuner's CPU load
+# across every node runs under powersave-gpu (power-save-all.sh) to keep
+# the office circuit under its limit. Switched here before the first job,
+# and back by the detached waiter below once the last job is done. POWER=0
+# leaves the profiles alone (ratchet-passes.sh sets it, and handles the
+# switching itself around all of its passes).
+if [ "$POWER" = 1 ]; then
+    echo "== fleet to powersave-gpu for the tuning run"
+    ./power-save-all.sh | grep -E "OK|MISMATCH|FAILED|all hosts|problems" | sed 's/  iGPU.*//; s/  Arc.*//'
+    echo ""
+fi
+
 i=0
 for job_file in "$JOBS_DIR"/grid-search-job-*.yaml; do
     i=$((i + 1))
@@ -74,6 +105,11 @@ for job_file in "$JOBS_DIR"/grid-search-job-*.yaml; do
 done
 
 echo ""
+if [ "$POWER" = 1 ]; then
+    WAITLOG=${TMPDIR:-/tmp}/grid_search_wait.log
+    setsid nohup "$0" --wait-then-balanced > "$WAITLOG" 2>&1 < /dev/null &
+    echo "power: back to balanced when the last job finishes (log: $WAITLOG)"
+fi
 echo "All $job_count submitted. Monitor with:"
 echo "  kubectl get po -l app=grid-search -o wide --sort-by=.status.phase"
 echo "  kubectl get jobs -l app=grid-search --field-selector status.successful=1 --no-headers | wc -l"
