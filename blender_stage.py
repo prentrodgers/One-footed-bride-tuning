@@ -307,7 +307,8 @@ CAMERA_CUES = [
 # Hand cues always win — generated shots are dropped near them.
 # (start, end, seed) ranges the generator fills.  Starts at 0:10 so the
 # opening wide holds first; generated shots run 10-15s each.
-CAMERA_AUTOGEN = [(10.0, 556.85, 7)]  # bwv434: Uploads/ball9-t34d_..._t106, tempo 106, 9:17
+CAMERA_AUTOGEN = [(10.0, 206.24, 7)]  # bwv432: Uploads/ball9-t32d_..._t118, tempo 118, 3:26
+    # CAMERA_AUTOGEN = [(10.0, 556.85, 7)]  # bwv434: Uploads/ball9-t34d_..._t106, tempo 106, 9:17
     # CAMERA_AUTOGEN = [(10.0, 725.6, 7)]   # bwv437: Uploads/ball9-t37d_..._t084, tempo 84, 12:06
     # CAMERA_AUTOGEN = [(10.0, 377.5, 7)]   # bwv260: Uploads/ball9-t60d_..._t084, tempo 84, 6:17
     # CAMERA_AUTOGEN = [(10.0, 268.1, 7)]   # bwv259: Uploads/ball9-t59d_..._t072, tempo 72, 4:28
