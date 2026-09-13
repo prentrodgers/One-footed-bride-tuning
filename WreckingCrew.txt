@@ -22093,3 +22093,9 @@ bwv264  viterbi-tunings-8-25   opt     1  1.250  17     49.0      167 |    0    
       We should have one more b580 to join the farm today. My plan is to remove the b50 from the fs3 and replace it with the B580, then move the B50 to some other machine, perhaps the fs4 or fs8. If I put it in the fs2 the 16GB ram will be a point of contention.
       A requested Claude to render the busiest chorale prelude with df5 as bwv434 Uploads/ball9-t34d_lm19_r1.25_df5_t1_d09_21_t106.mp3/.npy
       Then ask Claude to do the moderately sparse one as bwv432 Uploads/ball9-t32d_lm19_r1.25_df3_t3_d03_30_t118.mp3/.npy
+
+————————————————————————————————————
+9/13/26 Post to Twitter and Substack the trio of Chorale Preludes 
+      Heading: Video of an orchestra of invisible musicians playing a Chorale Prelude on BWV437 tuned to the One Footed Bride Tuning.
+      Sparse: Uploads/ball9-t37d_lm19_r1.38_df1_t2_d12_11_t084.mp3 - this is one of the crazy ones.
+            python chord_report --input_numpy_file Archive/straw-man/t2_r1.375_lm19/bwv437-opt.npy      
