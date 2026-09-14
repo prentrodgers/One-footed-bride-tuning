@@ -78,10 +78,21 @@ def print_chords(version, input_file, numpy_dir, measure, tolerance,
         print(f'\nprinting only measure {measure}')
 
     header1 = ' # Fr/To Cents Ratio\t # Fr/To Cents Ratio\t # Fr/To Cents Ratio'
+    if measure > 0:
+        # The bar's columns as the score has them (music21's measure numbers),
+        # not a fixed sixteen per measure: a chorale whose first beat is silent
+        # starts the array a beat into bar 1.
+        bars = {n: (a, b) for n, a, b in atu.measure_columns(version)}
+        if measure not in bars:
+            print(f'no measure {measure}: the score has measures {min(bars)}-{max(bars)}')
+            return
+        first_col, end_col = bars[measure]
+    else:
+        first_col, end_col = 0, cents.shape[1]
     prev_chord = np.zeros(4, dtype=int)
     for inx, chord_in_cents in zip(count(0, 1), cents.T):
         if not np.array_equal(prev_chord, chord_in_cents):
-            if measure == 0 or 16 * (measure - 1) <= inx < 16 * measure:
+            if first_col <= inx < end_col:
                 tuned_pcs = np.array(atu.pitch_class_from_cents(chord_in_cents), dtype=int) % 12
                 if PRINT_INDIVIDUAL_CHORDS:
                     # Tuned note names (from cents), not original MIDI pitch classes.
@@ -146,6 +157,11 @@ def main():
         werck_top_notes=USE_WERCK_TOP_NOTES)
 
     cents = np.rint(np.load(path, allow_pickle=True)).astype(int)
+    if cents.shape[1] != _chorale.shape[1]:
+        print(f'WARNING: {os.path.basename(path)} has {cents.shape[1]} chords but the score '
+              f'has {_chorale.shape[1]} sixteenths. It was tuned from the pre-14 Sep 2026 '
+              f'reading of the score (voices dealt into rows, rests ignored), so its chords '
+              f'do not line up with the measures; re-tune {chorale} before trusting it.')
     scores = np.array([chord_scorer.score_chord(c, tolerance=tolerance) for c in cents.T])
 
     print('_' * 40)

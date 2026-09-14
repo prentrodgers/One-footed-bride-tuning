@@ -39,8 +39,10 @@ report "$WORK/before.tsv.raw" "${active[@]}"
 python3 ratchet_best.py "$WORK/before.tsv.raw" > "$WORK/before.tsv"
 log "start: $(cat "$WORK/before.tsv" | awk '{printf "%s sum=%s n=%s p90=%s avg=%s; ", $1, $5, $4, $6, $3}')"
 
+rounds=0
 for round in $(seq 1 "$MAX_ROUNDS"); do
     [ ${#active[@]} -gt 0 ] || break
+    rounds=$round
     log "===== round $round: ${active[*]}"
     python3 ratchet_best.py "$WORK/before.tsv.raw" --top "$TOP" --cells ratchet-cells.txt >/dev/null
     # only the still-active chorales
@@ -61,4 +63,4 @@ for round in $(seq 1 "$MAX_ROUNDS"); do
     active=("${still[@]}")
     cp "$WORK/after.tsv.raw" "$WORK/before.tsv.raw"; cp "$WORK/after.tsv" "$WORK/before.tsv"
 done
-log "done after $round round(s); final: $(cat "$WORK/before.tsv" | awk '{printf "%s sum=%s n=%s p90=%s avg=%s; ", $1, $5, $4, $6, $3}')"
+log "done after $rounds round(s); final: $(cat "$WORK/before.tsv" | awk '{printf "%s sum=%s n=%s p90=%s avg=%s; ", $1, $5, $4, $6, $3}')"

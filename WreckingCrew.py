@@ -2204,6 +2204,12 @@ def chorale_to_wave_v4(version, album, include_sections, ratio_factor, limit_max
         print(f"Warning: {top_notes_file} not found. Using default top notes.")
         top_notes = None
     _, top_notes, chorale, root, mode, keys = atu.load_chorale_in_cents(version, numpy_dir)
+    if cent_value_chorale.shape[1] != chorale.shape[1]:
+        raise SystemExit(
+            f'{cent_file_name} has {cent_value_chorale.shape[1]} chords but {version} has '
+            f'{chorale.shape[1]} sixteenths. The tuning was made from the pre-14 Sep 2026 '
+            f'reading of the score (voices dealt into rows, rests ignored) and would play '
+            f'chords that are not in the piece: re-tune {version} first.')
     print(f'root key: {keys[root]}, {mode = }')
     print(f'After loading top_notes for {version = } by reading numpy file: {version}top-notes.npy')
     atu.log_top_notes(top_notes)

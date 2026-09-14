@@ -1849,16 +1849,28 @@ def build_glides_report(chorale_in_cents_slides, glides,  stored_gliss): # chora
                             total_slides += 1
     logging.info(f'{total_slides = }, {max_glide = }, {min_glide = }') 
 
-# This function converts a corpus into a numpy array of start, midi, duration, then into a chorale of 4-part notes
-# this replaces the previous version that required a conversion to the mido library. This one only uses music21
+# This function converts a corpus into a numpy array of 4-part chords, one column per sixteenth note.
+# It only uses music21 (the previous version required a conversion to the mido library).
 def stream_to_midi_array(corpus, save_midi_file = False):
     """
-    Convert a music21 corpus work to a NumPy array of MIDI information.
+    Convert a music21 corpus work to a (4, n_sixteenths) array of MIDI numbers.
 
-    Extracts notes, timing, and key information, then converts to a 4-voice
-    chorale format by distributing notes across voices based on arrival time.
+    Row v is part v of the score (soprano, alto, tenor, bass) sampled on the
+    sixteenth-note grid: column k holds the MIDI number of the note that part
+    is sounding at sixteenth k, so every column is a chord that actually
+    sounds in the piece and a held note repeats its MIDI number for as many
+    columns as it lasts.  The array has no way to say "silence", so a rest is
+    filled with the note that part played before it (a leading rest with the
+    first note it will play), and sixteenths where all four parts rest are
+    dropped at the start and end of the piece and held through in the middle.
+
+    (Until 14 Sep 2026 this dealt the flattened notes of the whole score into
+    whichever row had the fewest sixteenths so far, ignoring parts, rests and
+    dotted rhythms; any chorale whose voices did not move in lockstep came out
+    with columns stitched from neighbouring beats.  Chorales whose voices do
+    move in lockstep produce exactly the same array either way.)
     """
-    stream = m21.corpus.parse(corpus) # Create the strem from the corpus
+    stream = m21.corpus.parse(corpus) # Create the stream from the corpus
     key = stream.analyze('key')
     root = key.tonic.midi % 12
     mode = key.mode
@@ -1866,40 +1878,91 @@ def stream_to_midi_array(corpus, save_midi_file = False):
     ts_str = str(my_part[m21.meter.TimeSignature][0])
     time_sig = ts_str[ts_str.find(' '):-1]
     time_sig = time_sig[1:]
-
     logging.debug(f'{time_sig =}')
-    notes = stream.flatten().notes # Extract the notes from the Stream
-    midi_notes = []  # Create an empty list to store the MIDI note numbers
-    for n in notes: # Loop through each note in the Stream
-        midi_note = n.pitch.midi # Get the MIDI note number
-        start_time = n.offset * 4 # get the note starting time
-        duration = n.quarterLength * 4 # Get the duration (in quarter notes) of the note
-        note_tuple = (start_time, midi_note, duration) # Create a tuple of the MIDI number, start time, duration
-        midi_notes.append(note_tuple) # Add the current note information list    
-    midi_array = np.array(midi_notes).astype(int) # Convert the list of MIDI notes to a NumPy array
 
-    # now convert this midi_array of 3 features into a four part chorale with chords for each time step.
-    prev_start = -1
-    current_voice = 0
-    chr_inx = np.zeros([4],dtype = int)
-    trimmed_chorale = np.zeros([4,512],dtype = int) # we will trim this to the right shape at the end of the function
-    for note_num, note in zip(count(0,1),midi_array): # for every row of note information in the array
-        start, midi, dur = note # assign them to local variables
-        current_voice = np.argmin(chr_inx) # put the next arriving note in the voice that has the fewest notes.
-        if start > prev_start: # you have a note you need to save in a new row on trimmed_chorale
-                trimmed_chorale[current_voice,chr_inx[current_voice]:chr_inx[current_voice] + dur] = midi 
-                prev_start = start
-                chr_inx[current_voice] += dur
-        elif start == prev_start:
-                trimmed_chorale[current_voice,chr_inx[current_voice]:chr_inx[current_voice] + dur] = midi 
-                chr_inx[current_voice] += dur
-        if current_voice > 3: current_voice = 0
+    parts = list(stream.parts)
+    if len(parts) < 4:
+        raise ValueError(f'{corpus}: expected 4 parts, found {len(parts)}')
+    if len(parts) > 4:
+        logging.warning(f'{corpus}: {len(parts)} parts, using the first four')
+        parts = parts[:4]
+
+    # Slot k covers score time [k/4, (k+1)/4) in quarter notes.  A note that
+    # sounds over [onset, end) therefore covers slots ceil(4*onset) .. ceil(4*end)-1,
+    # which also copes with triplets and other durations that are not a whole
+    # number of sixteenths (each slot takes whatever is sounding at its start).
+    def slot(t):
+        return math.ceil(Fraction(t).limit_denominator(64) * 4)
+
+    part_notes = []  # per part: list of (first_slot, last_slot_exclusive, midi)
+    for p in parts:
+        spans = []
+        for n in p.flatten().notes:
+            if isinstance(n, m21.chord.Chord):
+                logging.warning(f'{corpus}: chord {n} in part {p.partName}, keeping its highest note')
+                midi = n.pitches[-1].midi
+            else:
+                midi = n.pitch.midi
+            a, b = slot(n.offset), slot(n.offset + n.duration.quarterLength)
+            if b > a:
+                spans.append((a, b, midi))
+        part_notes.append(spans)
+    n_slots = max(b for spans in part_notes for _, b, _ in spans)
+
+    chorale = np.zeros([4, n_slots], dtype = int)
+    for v, spans in enumerate(part_notes):
+        row = chorale[v]
+        for a, b, midi in spans:
+            row[a:b] = midi
+        # Fill rests: hold the previous note, and give a leading rest the first note.
+        sounding = np.flatnonzero(row)
+        if len(sounding) == 0:
+            raise ValueError(f'{corpus}: part {v} has no notes')
+        row[:sounding[0]] = row[sounding[0]]
+        for k in range(sounding[0], n_slots):
+            if row[k] == 0:
+                row[k] = row[k - 1]
+
+    # Drop sixteenths at the start and end where nobody sounds.
+    anyone = np.zeros(n_slots, dtype = bool)
+    for spans in part_notes:
+        for a, b, _ in spans:
+            anyone[a:b] = True
+    first, last = np.flatnonzero(anyone)[[0, -1]]
+    if first > 0 or last < n_slots - 1:
+        logging.info(f'{corpus}: dropping {first} leading and {n_slots - 1 - last} trailing sixteenths of silence')
+    chorale = chorale[:, first:last + 1]
+
     logging.info(f'{save_midi_file = }, ')
     if save_midi_file: 
         result = stream.write('midi', fp = corpus + '.mid')
         logging.info(f'Wrote out a midi file named {result = }')
-    # s.write('midi', fp='fileout.mid')
-    return trimmed_chorale[:,:np.max(chr_inx)], root, mode, time_sig, stream
+    return chorale, root, mode, time_sig, stream
+
+def measure_columns(corpus):
+    """
+    Which columns of stream_to_midi_array's output belong to which bar.
+
+    Returns a list of (measure_number, first_column, end_column) in score order,
+    measure numbers as music21 numbers them, end_column exclusive.  Sixteenths
+    of silence before the first note are not columns of the array, so a bar is
+    shifted or shortened accordingly; a bar that has ended before the first
+    note is left out.
+    """
+    stream = m21.corpus.parse(corpus)
+    parts = list(stream.parts)[:4]
+
+    def slot(t):
+        return math.ceil(Fraction(t).limit_denominator(64) * 4)
+
+    first = min(slot(n.offset) for p in parts for n in p.flatten().notes)
+    result = []
+    for m in parts[0].getElementsByClass(m21.stream.Measure):
+        a, b = slot(m.offset), slot(m.offset + m.duration.quarterLength)
+        if b <= first:
+            continue
+        result.append((m.number, max(a, first) - first, b - first))
+    return result
 
 # this is obsolete and should be removed. 
 def print_interval_cent_report(chorale_in_cents, chorale, top_notes, tonal_diamond, keys,\
