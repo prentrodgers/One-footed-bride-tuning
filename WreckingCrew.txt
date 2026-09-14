@@ -22199,3 +22199,154 @@ bwv264  viterbi-tunings-8-25   opt     1  1.250  17     49.0      167 |    0    
       The new pieces are ratchet-until-still.sh and its parser ratchet_best.py, plus a switch in ratchet-passes.sh that lets a caller own the power switching. All uncommitted with the rest.
 
       In other words, keep running chorales as long as they keep improving. 
+
+      Results: The loop ran two rounds and stopped: neither chorale changed on any measure, so both retired at the patience limit, and the fleet is back on balanced.
+
+      chorale	GapSum	gaps	p90 / max	ChordAvg	rounds without change
+      bwv415	2	1	2.0 / 2.0	58.5	2
+      bwv419	2	1	2.0 / 2.0	54.6	2
+
+      So the process has gone deterministic on these two, in your terms: the ratchet found nothing better in six more jobs each, and a single 2-cent move is below the tolerance the tuner works to, so there may be nothing better to find. Along with 421, 426 and 422 at two to four such moves and 423 at zero, six of the twelve are as still as this method makes them.
+
+      One cosmetic fix: the log says "done after 3 rounds" because the counter had advanced before the loop noticed nothing was left; I'll correct that when the script is next touched. Nothing else is pending; the next move is your choice of chorales to render.
+
+      One additional measure is how many chorales have ratios of 13, 17, 19. This needs to follow the select_best_and_render. 
+            python select_best_and_render.py --numpy_dir_root Archive/straw-man --chorale_list $CHORALES --suffix="-opt.npy" --sort_by gapsum --copy_npy_to Archive/straw-man/viterbi-tunings-9-13
+            for n in Archive/straw-man/viterbi-tunings-9-13/*.npy ; do echo $n ; python chord_report.py --input_numpy_file $n | grep -E '/19|19/|/17|17/|/13|13/' -c ; done
+                  Archive/straw-man/viterbi-tunings-9-13/bwv415_t2_r1.500_lm19-opt.npy 7
+                  Archive/straw-man/viterbi-tunings-9-13/bwv416_t1_r1.500_lm17-opt.npy 8
+                  Archive/straw-man/viterbi-tunings-9-13/bwv417_t2_r1.250_lm19-opt.npy 6
+                  Archive/straw-man/viterbi-tunings-9-13/bwv418_t1_r1.250_lm19-opt.npy 0
+                  Archive/straw-man/viterbi-tunings-9-13/bwv419_t2_r1.250_lm19-opt.npy 10
+                  Archive/straw-man/viterbi-tunings-9-13/bwv420_t3_r1.625_lm19-opt.npy 4
+                  Archive/straw-man/viterbi-tunings-9-13/bwv421_t3_r1.375_lm19-opt.npy 4
+                  Archive/straw-man/viterbi-tunings-9-13/bwv422_t3_r1.250_lm19-opt.npy 5
+                  Archive/straw-man/viterbi-tunings-9-13/bwv423_t1_r1.625_lm17-opt.npy 6
+                  Archive/straw-man/viterbi-tunings-9-13/bwv424_t1_r1.500_lm19-opt.npy 7
+                  Archive/straw-man/viterbi-tunings-9-13/bwv425_t3_r1.250_lm19-opt.npy 14
+                  Archive/straw-man/viterbi-tunings-9-13/bwv426_t3_r1.375_lm19-opt.npy 8
+      Much better than the previous set. 
+
+————————————————————————
+9/14/26 I feel like I'm getting ahead of myself. What's next?
+      1. Write a Substack post of the 437, 432, 434 videos. Restate the objectives, and the results on a number of metrics. Post it to Facebook and X. Include this measure:
+            for n in Archive/straw-man/viterbi-tunings-9-11/*-opt.npy ; do echo $n ; python chord_report.py --input_numpy_file $n | grep -E '/19|19/|/17|17/|/13|13/' -c ; done
+                  bwv432_t3_r1.250_lm19-opt.npy 7
+                  bwv434_t1_r1.250_lm19-opt.npy 9
+                  bwv437_t2_r1.375_lm19-opt.npy 45
+
+      The the tuning process consists of searching for the lowest possible numerator and denominator for all six intervals in each 4 note chord in the chorale. This is considered the chord score. In addition, the algorithm seeks to avoid changing the cent value for the same pitch class in adjacent chords. This is tracked by a number of measures, all designed to evaluate the painfulness of the gaps that are required to get a good chord score. I evaluate each tuning by its average chord score and the painfulness of the cent gaps for the same pitch class of notes in adjacent chords. 
+
+      The Search Process:
+      There are two key techniques involved: Simualated Annealing and Viterbi Optimization. Simulated Annealing is the process of iterating over a set of interval ratios in a chord, trying many different alternative intervals, each a low number ratio, accepting better tunings (lower sum of numerator and denominator), and sometimes worse tunings (higher sum of numerator and denominator) in a gradual process that systematically tends towards only accepting better results over a number of repetitions. It is a method that rewards exploration at the start, looking far and wide for options, then moves to exploitation of the best results over time. We preserve several possible tunings for each chord. The next step is Viterbi Optimization. This process then finds the best path through each of the several possible tunings that minimizes the movement of cent values for notes of the same pitch class. We don't want a note to start at one cent value, then have the very next chord have that same note 30+ cents higher or lower than the previous note. Composers intended a note to be a stable pitch. Any large change in the cent value of a note sounds out of character, or worse, an intentional change that was not at all intended by the composer.
+
+      The Interval Search Process:
+      The search for ideal cent values is done by first building an array of ratios using integers for numerators and denominators starting at 3 and going as high as the limit value, which is either 17 or 19. I've tried lower or higher values, but they almost never produce better results. This produces a tonality diamond to the limit value, the same structure that Harry Partch used to obtain low number ratios. I then take a chord and split it up into the six intervals, then build a list of all the ratios close to the interval, that would retain the same pitch class as the interval, sorted by the sum of the numerator and denominator of the integer ratios. 
+      
+      The Hyperparameter Grid Search Process:
+      In machine learning lexicon, hyperparameters are values that influence the model process. Think of them as levers to control some aspect of the tuning algorithm's actions. In my case, I have three levers that I have found over time can positively affect the Simulated Annealing and Viterbi Optimization processes: Ratio Factor, Tolerance, and Limit Max.
+
+      Ratio Factor is lever that can influence the choice of ratios to pick for each interval. It might pick the lowest sum of numerator and denominator or the one closest to the interval being built. This decision is influenced by a value bewtween 1.25 and 1.625, with low values favoring near the requested interval and large value favoring lower integer ratios. I've tried higher or lower values for this factor, but these values produce the best results. 
+
+      The second lever is Limit Max, which is the highest integer in the numerator and denominator in the list of available ratios that can be selected for an interval. I've found good results only with 17 and 19 for lmit max. 
+      
+      The third lever is Tolerance, which is how many cents away from the actual ratio cent value will be considered to be that ratio. If the tolerance is one, then if it's plus or minus one cent from the ratio's cent value, it's considered that ratio. I allow from one to three cent variation in the search. Surprisingly the best tunings are those with a tolerance of one. Any higher than 3 doesn't produce any better results. These three factors, called hyperparameters in machine learning lexicon, are then the values that influence the search. For every chorale, I try every one of them. Limit maximums of 17 and 19 have been proven empirically to be the best. Tolerances of 1, 2, and 3 are best for that parameter. Ratios for interval choice influence of 1.25, 1.375, 1.50, and 1.625 are used. 
+      
+      The grid to search over is calculated by multiplying each lever together: 2 limit max times 3 tolerances times 4 ratio factors ends up with 24 choices for each chorale. I generally tune the chorales in batches of 12, so that makes 288 tuning runs per set.
+      
+      When the run is finished, I try to improve the best results by selectively running the three best combination of hyperparameters of each chorale until they either end up with good chord scores and near zero cent value gaps for the same pitch class in adjacent chords, or stop improving. This essentially turns a probabalistic process, simulated annealing and Viterbi optimization, into a deterministic one. Eventually I end up with the best tuning discoverable rising to the top of the charts.
+
+      The Challenging Chorales:
+      I've started tuning different chorales from the ones I've been working on over the past year. Those were Bach's Wedding Chorales BWV253 through BWV264. The next batch is the highest numbered chorales in https://www.bach-chorales.com/ which are BWV427 through BWV438. One sticks out for its tremendous complexity and tuning challenge. The tuning algorithm really struggled with BWV437. It has the highest average chord score of 60.9. It has the highest sum of cent value gaps in notes between adjacent chords of 469, when 0 is the desired value. But 90% of the gaps are less than 17 cents, which my Csound code hides in glissandi between adjacent notes with different cent values. The result when played is quite, shall we say, challenging. Intervals using integers of 13, 17, and 19 appear in 45 of the ratios in the chorale intervals. Here are some examples from chords 10 through 15:
+            python chord_report.py --input_numpy_file Archive/straw-man/viterbi-tunings-9-11/bwv437_t2_r1.375_lm19-opt.npy --measure 1 
+      #    +---- cents -----+ note names  chord score
+      10:  526 1024  708  419	F♮ B♭ G♮ E♮	135.0
+      # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+      1 F♮ B♭   498  4/3      2 F♮ G♮   182  10/9     3 F♮ E♮   107 17/16 
+      4 B♭ G♮   316  6/5      5 B♭ E♮   595 24/17     6 G♮ E♮   289 13/11 
+      11:  526 1024  708  708	F♮ B♭ G♮ G♮	67.0
+      # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+      1 F♮ B♭   498  4/3      2 F♮ G♮   182  10/9     3 F♮ G♮   182  10/9 
+      4 B♭ G♮   316  6/5      5 B♭ G♮   316  6/5      6 G♮ G♮     0  1/1  
+      12:  210 1024  912  708	D♮ B♭ A♮ G♮	82.0
+      # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+      1 D♮ B♭   386  5/4      2 D♮ A♮   498  4/3      3 D♮ G♮   498  4/3  
+      4 B♭ A♮   112 16/15     5 B♭ G♮   316  6/5      6 A♮ G♮   204  9/8  
+      13:  426 1023  924  707	E♮ B♭ A♮ G♮	163.0
+      # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+      1 E♮ B♭   597 24/17     2 E♮ A♮   498  4/3      3 E♮ G♮   281 20/17 
+      4 B♭ A♮    99 18/17     5 B♭ G♮   316  6/5      6 A♮ G♮   217 17/15 
+      14:  426  110  924  707	E♮ D♭ A♮ G♮	137.0
+      # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+      1 E♮ D♭   316  6/5      2 E♮ A♮   498  4/3      3 E♮ G♮   281 20/17 
+      4 D♭ A♮   386  5/4      5 D♭ G♮   597 24/17     6 A♮ G♮   217 17/15 
+      15:  426  110  926  518	E♮ D♭ A♮ F♮	132.0
+      # Fr/To Cents Ratio	 # Fr/To Cents Ratio	 # Fr/To Cents Ratio
+      1 E♮ D♭   316  6/5      2 E♮ A♮   500  4/3      3 E♮ F♮    92 19/18 
+      4 D♭ A♮   384  5/4      5 D♭ F♮   408 19/15     6 A♮ F♮   408 19/15 
+      
+      Trouble. I can't find chord 8 in any of the first measure. I asked Claude to explain the discrepancy: I matched the lilypond engraving created with "python chorale_pdf.py bwv437" with the version here: https://www.bach-chorales.com/BWV0437.htm . But when looking at the output of a tuned version of the chorale with "python chord_report.py --input_numpy_file Archive/straw-man/viterbi-tunings-9-11/bwv437_t2_r1.375_lm19-opt.npy --measure 1" I'm not seeing the same chords as the other two sources. For example chord 8 is listed in the chord_report.py output as this 8:  526  210  708  210  F♮ D♮ G♮ D♮     55.0
+      # Fr/To Cents Ratio     # Fr/To Cents Ratio     # Fr/To Cents Ratio
+      1 F♮ D♮   316  6/5      2 F♮ G♮   182  10/9     3 F♮ D♮   316  6/5  
+      4 D♮ G♮   498  4/3      5 D♮ D♮     0  1/1      6 G♮ D♮   498  4/3   ##  I don't see that chord in measure 1 (the first measure in this numbering system).
+      I suspect it's the fact that my initial midi to numpy array process is getting confused by the rests. It never handled them properly. It is, and it's been there for at least a year.
+
+      Claude says: You've found a real bug, and it's in the tuner's reading of the score, not in chord_report's arithmetic, though that has a quirk too.
+
+      What chord_report's --measure means. It isn't a score measure. It slices the array sixteen chords at a time: measure 1 is columns 0 to 15, measure 2 is 16 to 31, and so on. That's right only for a chorale in 4/4 sampled at sixteenths with no leading rest, so it drifts from the engraved numbering in general; bwv437's array holds 498 columns for a score of 512 sixteenths.
+
+      Why chord 8 isn't in the score anywhere. The tuner never reads the four parts. stream_to_midi_array flattens every note of the piece into one list ordered by onset, then deals each note into whichever of four rows currently holds the fewest sixteenth-note slots, filling that row for the note's duration. The rows aren't soprano, alto, tenor and bass, and their time axes drift apart whenever the voices don't move in the same rhythm. bwv437 opens with the soprano alone for a beat, so row 0 is four slots ahead from the outset, and from column 4 on the columns are stitched from neighbouring beats: D-A-D-A, then your F-D-G-D, exist nowhere in the score. Only 57 of the 498 columns are a chord that sounds at that sixteenth.
+
+      Who else is affected. I ran the same comparison for every chorale tuned so far, matching each array column against the score's chord at that sixteenth:
+
+      match	chorales
+      100%	bwv253 to 260, 262, 263, 267, 415 to 423, 428 to 430, 434, 435, 438
+      78%	bwv432
+      55%	bwv436
+      24 to 41%	bwv426, 433, 261, 427, 425, 431, 264, 424
+      11%	bwv437
+      Chorales whose voices move together and never rest come out perfect, which is why the method has looked sound; the eleven with independent rhythm or a rest in any voice are scrambled. Two of the original twelve are among them, bwv261 and bwv264, and so are the "pump-like" bwv424 and bwv425, whose structural-looking gaps now need re-reading: the tuner was optimising chords that aren't in the piece.
+
+      The renders inherited it. WreckingCrew composes from the same greedy array, one column per time step and one row per voice, with the tuned cents laid over it. Every note Bach wrote is in the array somewhere, so the preludes contain all the right pitches, but in the affected passages they sound in the wrong simultaneities and slots. As free reworkings they still please the ear, as you found with bwv437, but they aren't the chorale's harmony there.
+
+      The fix is to build the array from the parts: sample each of soprano, alto, tenor and bass on the sixteenth grid so rows are true voices aligned in time, holding a voice's previous note across a rest since the array has no notion of silence. The 26 exact chorales would produce identical arrays, so nothing changes for them; the eleven would need re-tuning, since their saved tunings describe chords that don't exist. That's a change to the heart of the pipeline, so I've stopped at the diagnosis; say the word and I'll make it, with the alignment check as its test.
+
+      Me: It's those darn rests. I can't believe I ignored the rests. I've ignored the occasional weird realizations since I first started doing this in May of 2023. Three years of one hidden bug. I'm laughing at myself while I cry. Let's fix the broken code, and I'll decide what has to change. Thank you for finding it.
+
+      Claude: I'll rewrite stream_to_midi_array to sample the four parts on the sixteenth grid, then verify with the alignment check across all 37 chorales.
+
+      Claude: Fixed, tested, and left uncommitted for you to review. It was the rests, and also dotted rhythms: bwv432 has no rests at all and still came out 22% wrong, because a voice's next note arrived while another row had fewer slots.
+
+      The rewrite in adaptive_tuning_util.py reads each of the four parts and samples it on the sixteenth grid, so row 0 is always the soprano and column k is always what sounds at sixteenth k. Rests get filled since the array can't say "silence": an interior rest holds the voice's previous note, a leading rest takes its first note, and sixteenths where nobody sounds are dropped at the start and end. The triplet-safe slot arithmetic also removes the old fixed buffer of 512 columns, which would have silently truncated anything longer.
+
+      Verification against an independent per-part grid, all 37 chorales:
+
+      The 26 lockstep chorales produce byte-identical arrays, so their tunings stand.
+      The 11 affected now have every sounding note in its own voice's row at the right sixteenth. bwv437 grew from 498 to 512 columns and opens on D minor with the soprano's pickup, as engraved.
+      test_stream_to_midi_array.py is the check as a repo test, in the same plain-assert style as the others. It and test_chord_report.py pass.
+      Guard rails for the stale tunings. Their column counts no longer match the score, so WreckingCrew.py:2207 now refuses such a file with a message saying to re-tune, and chord_report.py prints a warning at the top of its report. The tuner already declines to seed from a file of the wrong length, so a fresh grid run on those chorales starts clean.
+
+      chord_report's --measure now uses real bar lines from a new atu.measure_columns helper instead of sixteen columns per measure. For these chorales music21 numbers full bars from 1 with no pickups, so the numbering you were using is unchanged; the difference only shows in bwv424 and bwv433, whose silent first beat is dropped so bar 1 has twelve columns.
+
+      What this means for the work so far. Only bwv262 tunings live on fs2, so I couldn't run your bwv437 file, but the same command on the archived bwv264 tuning now leads with the warning. The eleven needing a fresh tuning are bwv261, 264, 424, 425, 426, 427, 431, 432, 433, 436 and 437. The renders of bwv437, 432, 261 and 264 came from the scrambled array, and the comma-pump readings of the bwv424 and bwv425 gaps were partly artifacts. The ratchet-until-still round-counter fix is still uncommitted too; I'll fold everything into one commit when you say so.
+
+      ____________________________
+      
+      Of course I like it the most of all, but it's up to the listener to make sense of it. Here is my orchestra of invisible musicians playing BWV437 "Wir glauben all an einen Gott" (We All Believe in One God).
+
+      LIMIT_MAXES=(17 19)
+      TOLERANCES=(1 2 3)
+      RATIOS=(1.25 1.375 1.50 1.625)
+                  bwv427_t1_r1.250_lm17-opt.npy 0
+                  bwv428_t2_r1.250_lm19-opt.npy 4
+                  bwv429_t3_r1.375_lm19-opt.npy 9
+                  bwv430_t3_r1.250_lm19-opt.npy 7
+                  bwv431_t1_r1.375_lm17-opt.npy 2
+                  bwv432_t3_r1.250_lm19-opt.npy 7
+                  bwv433_t3_r1.250_lm19-opt.npy 2
+                  bwv434_t1_r1.250_lm19-opt.npy 9
+                  bwv435_t3_r1.375_lm19-opt.npy 6
+                  bwv436_t1_r1.500_lm19-opt.npy 4
+                  bwv437_t2_r1.375_lm19-opt.npy 45
+                  bwv438_t2_r1.625_lm19-opt.npy 7
+      2. Create an album of short_repeats of 415 - 426 and listen to them.
