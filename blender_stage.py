@@ -307,6 +307,8 @@ CAMERA_CUES = [
 # Hand cues always win — generated shots are dropped near them.
 # (start, end, seed) ranges the generator fills.  Starts at 0:10 so the
 # opening wide holds first; generated shots run 10-15s each.
+# --autogen start:end:seed on the command line replaces this list, and is
+# how the farm renders set it now; the value here is only the default.
 CAMERA_AUTOGEN = [(10.0, 206.24, 7)]  # bwv432: Uploads/ball9-t32d_..._t118, tempo 118, 3:26
     # CAMERA_AUTOGEN = [(10.0, 556.85, 7)]  # bwv434: Uploads/ball9-t34d_..._t106, tempo 106, 9:17
     # CAMERA_AUTOGEN = [(10.0, 725.6, 7)]   # bwv437: Uploads/ball9-t37d_..._t084, tempo 84, 12:06
@@ -688,6 +690,12 @@ def parse_args():
     # its rows separate (the melody row sits in front of the marimba and,
     # from the stock 21-degree angle, its vibraphone overlaps it).
     p.add_argument("--cue-elevation", type=float, default=0.0)
+    # Replace CAMERA_AUTOGEN from the command line: each value is one range,
+    # "start:end:seed" in seconds (one token, so render_farm.sh passes it
+    # through untouched).  Saves editing the source for every piece.
+    #   --autogen 10:288.5:7
+    p.add_argument("--autogen", action="append", default=None,
+                   help="camera generator range start:end:seed (repeatable)")
     return p.parse_args(argv)
 
 
@@ -1625,8 +1633,13 @@ def build_stage_env(bounds):
 
 def main():
     args = parse_args()
+    global CAMERA_CUES, CAMERA_AUTOGEN, CUE_ELEVATION
+    if args.autogen:
+        CAMERA_AUTOGEN = []
+        for spec in args.autogen:
+            t0, t1, seed = spec.split(":")
+            CAMERA_AUTOGEN.append((float(t0), float(t1), int(seed)))
     if args.cue:
-        global CAMERA_CUES, CAMERA_AUTOGEN, CUE_ELEVATION
         focus = tuple(args.cue.split(",")) if "," in args.cue else args.cue
         CAMERA_CUES = [("0:00", focus)]
         CAMERA_AUTOGEN = []
