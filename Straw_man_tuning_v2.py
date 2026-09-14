@@ -375,6 +375,13 @@ def load_and_merge_previous(output_file, best_cents, best_scores, chord_scorer, 
         prev = np.load(output_file)          # shape (4, N)
     except (EOFError, ValueError):
         return best_cents, best_scores, True
+    if prev.shape[1] != best_cents.shape[0]:
+        # A different number of chords means the saved tuning was made from a
+        # different reading of the score (before 14 Sep 2026 voices were dealt
+        # into rows and rests ignored).  It is not comparable: take the new one.
+        print(f'  Saved tuning has {prev.shape[1]} chords, this run {best_cents.shape[0]} '
+              f'— replacing it')
+        return best_cents, best_scores, True
     prev_chords = (prev.T) % 1200        # shape (N, 4)
     prev_scores = np.array([chord_scorer.score_chord(prev_chords[i], tolerance)
                              for i in range(prev_chords.shape[0])])
