@@ -72,6 +72,12 @@ poc_notes.npy
 Uploads/Old Renders/
 /merged_*.mp4
 /Uploads/merged_*.mp4
+/*.mp4
+
+# Farm frame dumps: one directory per render, tens of thousands of PNGs.
+# Unignored, a plain `git stash -u` walks into them and tries to take the lot
+# into LFS (16 Sep 2026, on the PVC checkout, before it was killed).
+frames_*/
 
 # Blender portable tarball for the 0.8 image build (COPYied into the container, kept local)
 parallel-jobs/blender-*-linux-x64.tar.xz
