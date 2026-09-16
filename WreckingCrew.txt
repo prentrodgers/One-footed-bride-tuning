@@ -12629,7 +12629,7 @@ python WreckingCrew.py --short_repeats --chorale_name $CHORALES --cent_file_part
 
     It resulted in much better sound than before, not perfect, but as close as I can get. I can run the triangle wave samples if I need to. Now try the unbounded version. 
 
-    I asked Claude to modify select_best_and_render.py to require --short-repeats if we want that option passed to WreckingCrew.py, otherwize it's not passed. The command line to run without it is what used to be the command to run with it. 
+    I asked Claude to modify select_best_and_render.py to require --short_repeats if we want that option passed to WreckingCrew.py, otherwize it's not passed. The command line to run without it is what used to be the command to run with it. 
         python select_best_and_render.py --numpy_dir_root Archive/straw-man --chorale_list bwv253 bwv254 bwv255 bwv256 bwv257 bwv258 bwv259 bwv260 bwv261 bwv262 bwv263 bwv264 --spread_weight 0.5 --render 
 
     I wonder what the --short_repeats would sound like if I set --spread_weight to 0.9? This would favot the distance more than the ratio_factor. 
@@ -14141,7 +14141,7 @@ t1_r1.25_s0_md33_sn0_lm17
         rm Uploa...
 
     Enough with the analysis, let's create some results.
-        python select_best_and_render.py --numpy_dir_root Archive/straw-man --chorale_list $(echo bwv{253..264}) --render --short-repeats
+        python select_best_and_render.py --numpy_dir_root Archive/straw-man --chorale_list $(echo bwv{253..264}) --render --short_repeats
 
         python select_best_and_render.py --numpy_dir_root Archive/straw-man --chorale_list $(echo bwv{253..264}) --render 
 
@@ -16841,7 +16841,7 @@ done
 
       The next thing I want to do is do the same thing to the tuba part but not quite as dramatic just make it so that every other octave one tube apart should be turned into a do the same thing to the tuba part basically if it’s active zero
 
-      So I also wanna create a new --short-repeats realizations of WreckingCrew.py using triangle samples tunedn using 12-TET and Werckmeister III, compared to Archive/straw-man/viterbi-tunings-5-21 numpy tuning arrays.
+      So I also wanna create a new --short_repeats realizations of WreckingCrew.py using triangle samples tunedn using 12-TET and Werckmeister III, compared to Archive/straw-man/viterbi-tunings-5-21 numpy tuning arrays.
 
       I asked bob to do the following: 
       I listened and found that there is too much activity in the bass. I suggest we scale back the number of octave 0 to octave 1 by an overall 50% in general, and 75% in the sparse sections and 25% in the dense sections. Also, I've added a new ftable to @/ball9.csd at # 308 adjacent to the # 307 that dropped the sample by 1 octave. # 308 drops it by 2 octaves. In the code:  
@@ -17102,7 +17102,7 @@ done
 
 -----------------------------
 5/25/26 To do today: lilypond notation from cents numpy array. 
-      Prompt: I'd like to create a lilypond script to notate on sheet music the cent values using the Sagittal font. Take the numpy output from WreckingCrew.py --short-repeats stored in @bwv255_features_array.npy and create a lilypond script to create sheet music.
+      Prompt: I'd like to create a lilypond script to notate on sheet music the cent values using the Sagittal font. Take the numpy output from WreckingCrew.py --short_repeats stored in @bwv255_features_array.npy and create a lilypond script to create sheet music.
 
       2 minutes later, Copilot says: I’m implementing this as a reusable converter plus a generated LilyPond file for bwv255_features_array.npy, so you can rerun it for other chorales with one command. I’ll include Sagittal font usage hooks and cent annotations per event.
 
@@ -22011,10 +22011,6 @@ bwv264  viterbi-tunings-8-25   opt     1  1.250  17     49.0      167 |    0    
             ssh one-footed-bride-pod 
             cd Repos/One-footed-bride-tuning
             
-            CHORALES=bwv437
-            n_dir=t2_r1.50_lm19
-            python WreckingCrew.py --numpy_dir Archive/straw-man/$n_dir --chorale_list $CHORALES --cent_file_partial="-opt.npy" --short_repeats
-
             CHORALES=bwv432
             n_dir=t3_r1.375_lm17
       I suspect this one is just wrong. Totally off the written score in bach-chorales.com. Ditch them both. 
@@ -22067,6 +22063,7 @@ bwv264  viterbi-tunings-8-25   opt     1  1.250  17     49.0      167 |    0    
       
       Run an album of chorale preludes based on this set of tunings 
             python select_best_and_render.py --numpy_dir_root Archive/straw-man --chorale_list $CHORALES --suffix="-opt.npy" --sort_by p90 --copy_npy_to Archive/straw-man/viterbi-tunings-9-11
+
             CHORALES=${1:-$(echo bwv{427..438})}
             python WreckingCrew.py --numpy_dir Archive/straw-man/viterbi-tunings-9-11 --chorale_list $CHORALES --auto_density --shuffle_density --deep_bass_backoff 0.25 --back_off_clicks 0.25 --album 7 --mod d --rondo_section_a 0 32 --rondo_insert_a_after 63 127
 
@@ -22404,27 +22401,28 @@ ____________________________
             git push
             ssh fs9 'git -C /home/prent/Repos/One-footed-bride-tuning pull -q'
       Wait for ratchet round 4 if you can; it started at 08:45 and should finish by about 09:05. The chain driver, the ratchet loop and my watches all run on fs2 and die with it. The cluster jobs themselves keep running. If you leave earlier, nothing is lost: after resuming, tell me to restart ratchet-until-still on bwv433, bwv261 and bwv424 and to stage all nine, and I'll pick it up from the results on the PVC.
-      Drain fs2 before shutting down, since it's a cluster node running tuning pods:
-
-            kubectl drain fs2 --ignore-daemonsets --delete-emptydir-data
-      and   
-            kubectl uncordon fs2 # when it's back.
       Copy the session as the last thing on fs2, after closing this window so the transcript is final:
 
             rsync -a ~/.claude/projects/-home-prent-Repos-One-footed-bride-tuning/ fs9:~/.claude/projects/-home-prent-Repos-One-footed-bride-tuning/
       That directory holds the transcript and the memory files, and its name is derived from the repo path, which is why the same path on fs9 matters.
       Resume from Windows in a terminal:
-
             ssh fs9
             cd /home/prent/Repos/One-footed-bride-tuning
-            claude --resume 98a41979-dc3f-4f6e-8a0f-16a620ff2f93
+            claude --resume 98a...
+
       VS Code's Remote SSH to fs9 with the Claude Code extension works too; the resume picker will list this session.
       
-
-
       1. Bring the documentation on the two newly tuned and rendered chorales bwv432 and bwv437
             python chord_report.py --input_numpy_file Archive/straw-man/viterbi-tunings-9-14/bwv432_t2_r1.250_lm19-opt.npy | grep -E '/19|19/|/17|17/|/13|13/' -c       
             6
+
             ((.venv) ) prent@one-footed-bride-564b95b59f-hcljl:~/Repos/One-footed-bride-tuning$ python chord_report.py --input_numpy_file Archive/straw-man/viterbi-tunings-9-14/bwv437_t1_r1.375_lm19-opt.npy | grep -E '/19|19/|/17|17/|/13|13/' -c 
             31
-      2. Start a 9-15 tuning run on the remaining faulty numpy arrays
+
+      2. Start a 9-15 tuning run on the remaining faulty numpy arrays - Done
+
+
+      CHORALES=(bwv424 bwv425 bwv426 bwv427 bwv431 bwv432 bwv433 bwv436 bwv437)
+      python WreckingCrew.py --numpy_dir Archive/straw-man/viterbi-tunings-9-14/ --chorale_list $CHORALES --cent_file_partial=-opt.npy --short_repeats
+
+      Prompt to Claude: I want to try something new for a video. I'm thinking of a two part stage, with the top half containing a scrolling musical staff, with a cursor indicating where we are in the --short_repeats version of the chorale, which is basically just the chorale with no alteration in rhythm. The bottom half of of the stage will have a copy of the output of the python chord_report.py command, but scrolling vertically to the horizontal scrolling of the top half. The top half will show the current two measures, then move to the left as the music progresses. The bottom half will have all the chords in the current measure, or at least most of them, at a minimum the two previous, the current, and the future two chords. Text will be highlighted to show the current chord. The musical staff should have soprano, alto, tenor and bass staffs. Does that make sense? Ask me any questions you may have. If this works, start with Uploads/ball9-t61a_lm17_r1.25_df5_t3_d02_22_t034.npy/mp3, chorale bwv261.
