@@ -60,3 +60,15 @@ assert bars[0] == (1, 0, 16), bars[0]
 chorale, *_ = atu.stream_to_midi_array('bwv262')
 assert bars[-1][2] == chorale.shape[1], (bars[-1], chorale.shape)
 print('ok measure_columns')
+
+# tuning_matches_score: a tuning made from the old greedy reader must be
+# rejected even when it has the right number of columns (bwv432's did).
+chorale, *_ = atu.stream_to_midi_array('bwv432')
+twelve_tet = (chorale % 12) * 100.0
+assert atu.tuning_matches_score(twelve_tet, chorale) == 1.0
+assert atu.tuning_matches_score(twelve_tet + 50.0, chorale) == 1.0    # a quarter-tone chord still counts
+assert atu.tuning_matches_score(twelve_tet + 60.0, chorale) < 1.0
+rolled = np.roll(twelve_tet, 1, axis=1)                               # right length, wrong chords
+assert 0.0 < atu.tuning_matches_score(rolled, chorale) < 1.0
+assert atu.tuning_matches_score(twelve_tet[:, :-4], chorale) == 0.0   # wrong length
+print('ok tuning_matches_score')

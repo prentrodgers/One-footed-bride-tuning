@@ -157,11 +157,13 @@ def main():
         werck_top_notes=USE_WERCK_TOP_NOTES)
 
     cents = np.rint(np.load(path, allow_pickle=True)).astype(int)
-    if cents.shape[1] != _chorale.shape[1]:
-        print(f'WARNING: {os.path.basename(path)} has {cents.shape[1]} chords but the score '
-              f'has {_chorale.shape[1]} sixteenths. It was tuned from the pre-14 Sep 2026 '
-              f'reading of the score (voices dealt into rows, rests ignored), so its chords '
-              f'do not line up with the measures; re-tune {chorale} before trusting it.')
+    match = atu.tuning_matches_score(cents, _chorale)
+    if match < 1.0:
+        print(f'WARNING: {os.path.basename(path)} plays {100 * match:.1f}% of the chords in '
+              f'{chorale} ({cents.shape[1]} chords against {_chorale.shape[1]} sixteenths). '
+              f'It was tuned from the pre-14 Sep 2026 reading of the score (voices dealt into '
+              f'rows, rests ignored), so the chords below are not the ones in the measures; '
+              f're-tune {chorale} before trusting it.')
     scores = np.array([chord_scorer.score_chord(c, tolerance=tolerance) for c in cents.T])
 
     print('_' * 40)

@@ -1939,6 +1939,30 @@ def stream_to_midi_array(corpus, save_midi_file = False):
         logging.info(f'Wrote out a midi file named {result = }')
     return chorale, root, mode, time_sig, stream
 
+def tuning_matches_score(cents, chorale):
+    """What fraction of a tuning's chords are the chords the score asks for.
+
+    `cents` is a saved (4, N) tuning, `chorale` the (4, N) MIDI array from
+    stream_to_midi_array.  A voice is counted right when its cent value is
+    within half a semitone of the scale degree the score gives it, so a chord
+    tuned as much as 50 cents from 12-TET still counts (the tuner does that,
+    and pitch_class_from_cents rounds up at exactly 50).  1.0 means the tuning
+    plays the piece; anything less means it was made from a different reading
+    of the score and its chords are not Bach's.
+
+    Length alone will not tell you: the pre-14 Sep 2026 reader dealt notes
+    into rows without regard to voice, and for a chorale whose voices never
+    rest (bwv432) that produced an array of the right length holding the
+    wrong chords.
+    """
+    cents = np.asarray(cents, dtype=float)
+    ref = np.asarray(chorale, dtype=float) % 12
+    if cents.shape != ref.shape:
+        return 0.0
+    off = (cents / 100.0 - ref + 6.0) % 12.0 - 6.0
+    return float((np.abs(off) <= 0.5 + 1e-6).all(axis=0).mean())
+
+
 def measure_columns(corpus):
     """
     Which columns of stream_to_midi_array's output belong to which bar.

@@ -44,9 +44,10 @@ waveform_demos/
 test.py
 test.log
 
-# Archive/straw-man tuning directories — only viterbi-tunings-5-18 is tracked
+# Archive/straw-man tuning directories: the grid cells are working files and
+# stay out of git; best-tunings is the chosen tuning per chorale and IS tracked
+# (16 Sep 2026, when it replaced the dated viterbi-tunings-* directories).
 Archive/straw-man/t*_r*/
-Archive/straw-man/best-tunings/
 Archive/straw-man/viterbi-tunings-0.90-old/
 Archive/straw-man/viterbi-tunings-5-19/
 Archive/straw-man/bwv*top-notes.npy
