@@ -22426,3 +22426,38 @@ ____________________________
       python WreckingCrew.py --numpy_dir Archive/straw-man/viterbi-tunings-9-14/ --chorale_list $CHORALES --cent_file_partial=-opt.npy --short_repeats
 
       Prompt to Claude: I want to try something new for a video. I'm thinking of a two part stage, with the top half containing a scrolling musical staff, with a cursor indicating where we are in the --short_repeats version of the chorale, which is basically just the chorale with no alteration in rhythm. The bottom half of of the stage will have a copy of the output of the python chord_report.py command, but scrolling vertically to the horizontal scrolling of the top half. The top half will show the current two measures, then move to the left as the music progresses. The bottom half will have all the chords in the current measure, or at least most of them, at a minimum the two previous, the current, and the future two chords. Text will be highlighted to show the current chord. The musical staff should have soprano, alto, tenor and bass staffs. Does that make sense? Ask me any questions you may have. If this works, start with Uploads/ball9-t61a_lm17_r1.25_df5_t3_d02_22_t034.npy/mp3, chorale bwv261.
+
+____________________________
+9/16/26 Clean up and organize the valid tuning files into one place.
+      Asked claude Opus 5 high: I want to clean up and consolidate the tuning files, removing those from before we discovered the rest problem on 9/14/26 that resulted in this conclusion:
+      match	chorales
+      100%	bwv253 to 260, 262, 263, 267, 415 to 423, 428 to 430, 434, 435, 438
+      78%	bwv432 
+      55%	bwv436
+      24 to 41%	bwv426, 433, 261, 427, 425, 431, 264, 424
+      11%	bwv437 
+      Remove the ones created before 9/14/26 that contain errors. The 100% correct ones should be consolidated in one directory, along with the replacements made on or after 9/14/26. Tell me your plan to accomplish this before executing any deletions.      
+
+      Then once we are certain about the results, create albums of the 253-264, 415-426, and 427-438 short_repeats and full chorale preludes.
+
+      Start with 427-438 s&f. Use this new method that is much more direct and simpler than the old echo method:
+            python WreckingCrew.py --chorale_list bwv{427..438} --cent_file_partial=-opt.npy --short_repeats
+      Notice that --numpy_dir Archive/straw-man/best-tunings  is the default here, and it now is the holding directory for all validated numpy tuning files.
+
+      Then make videos like score_bwv261_av1.mp4
+            ./make_score_videos.sh bwv{427..438}
+
+      Before I start this, add a title and closing frame. The title page should read like this:
+      Bach Chorale BWVxxx 
+      Tuned by Prent Rodgers
+      with considerable help from Claude Code
+      Tuning is based on my One Footed Bride Tuning, minimizing ratios of the numerator and denominator using Simulated Annealing and Viterbi Optimization.
+      Chorale tuning information:
+      bwv427  bwv427_t2_r1.250_lm19-opt.npy
+      Source: /home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/best-tunings
+      Hyperparameters: tolerance: 2, limit_max: 19, ratio_factor: 1.25
+      Tonal Diamond size: 84, chords: 224
+      Quality metrics: Average score: 51.3, max score: 93.0, found at max chord #: 2
+      Key: E♭ major
+
+      Closing frame should have the final frame of the original video, faded by 50%, with "The End" superimposed in black
