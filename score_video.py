@@ -319,7 +319,7 @@ def title_text(chorale, header, tail=()):
     mx = find(r'max score: ([\d.]+)')
     mxc = find(r'max chord: (\d+)')
     key = find(r'^(Key: .*)$')
-    return [
+    lines = [
         (f'Bach Chorale {chorale.upper()}', 'big'),
         ('Tuned by Prent Rodgers', 'mid'),
         ('with considerable help from Claude Code', 'mid'),
@@ -335,9 +335,14 @@ def title_text(chorale, header, tail=()):
         (f'    Quality metrics: Average score: {avg}, max score: {mx}, '
          f'found at max chord #: {mxc}', 'body'),
         (f'    {key}', 'body'),
-        ('', 'body'),
-        (primes_sentence(high_prime_counts(tail)), 'wrap'),
     ]
+    # Only when the report actually carries a SUMMARY line: a report written
+    # before the histogram existed knows nothing about the primes, and saying
+    # "none" for it would be a claim the file does not make.
+    counts = high_prime_counts(tail)
+    if counts:
+        lines += [('', 'body'), (primes_sentence(counts), 'wrap')]
+    return lines
 
 
 def render_title(chorale, header, tail=()):
