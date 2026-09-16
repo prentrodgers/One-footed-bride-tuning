@@ -26,6 +26,7 @@ import os
 import re
 import subprocess
 import sys
+import textwrap
 from fractions import Fraction
 
 import numpy as np
@@ -258,6 +259,87 @@ def encoder_args(choice):
     return options['openh264']
 
 
+# ── title card and closing frame ────────────────────────────────────────────
+def title_text(chorale, header):
+    """The opening card's lines, from chord_report's header block.
+
+    That header carries everything but the ratio factor, which is in the
+    tuning's filename (bwv427_t2_r1.250_lm19-opt.npy)."""
+    def find(pat, default=''):
+        for line in header:
+            m = re.search(pat, line)
+            if m:
+                return m.group(1)
+        return default
+    tuning = header[1] if len(header) > 1 else ''
+    source = header[2] if len(header) > 2 else ''
+    ratio = find(r'_r([\d.]+)_lm')
+    if ratio:
+        ratio = ratio.rstrip('0').rstrip('.')
+    tol = find(r'tolerance: (\d+)')
+    lm = find(r'limit_max: (\d+)')
+    diamond = find(r'tonal diamond: \((\d+),')
+    chords = find(r'chords: (\d+)')
+    avg = find(r'Average score: ([\d.]+)')
+    mx = find(r'max score: ([\d.]+)')
+    mxc = find(r'max chord: (\d+)')
+    key = find(r'^(Key: .*)$')
+    return [
+        (f'Bach Chorale {chorale.upper()}', 'big'),
+        ('Tuned by Prent Rodgers', 'mid'),
+        ('with considerable help from Claude Code', 'mid'),
+        ('', 'body'),
+        ('Tuning is based on my One Footed Bride Tuning, minimizing ratios of the '
+         'numerator and denominator using Simulated Annealing and Viterbi Optimization.', 'wrap'),
+        ('', 'body'),
+        ('Chorale tuning information:', 'body'),
+        (f'    {tuning.strip()}', 'body'),
+        (f'    Source: {source.strip()}', 'body'),
+        (f'    Hyperparameters: tolerance: {tol}, limit_max: {lm}, ratio_factor: {ratio}', 'body'),
+        (f'    Tonal Diamond size: {diamond}, chords: {chords}', 'body'),
+        (f'    Quality metrics: Average score: {avg}, max score: {mx}, '
+         f'found at max chord #: {mxc}', 'body'),
+        (f'    {key}', 'body'),
+    ]
+
+
+def render_title(chorale, header):
+    """The opening card: black on white, in the score's own typeface."""
+    im = Image.new('RGB', (W, H), (255, 255, 255))
+    d = ImageDraw.Draw(im)
+    fonts = {'big': ImageFont.truetype(MONO_BOLD, 54), 'mid': ImageFont.truetype(MONO, 34),
+             'body': ImageFont.truetype(MONO, 26), 'wrap': ImageFont.truetype(MONO, 26)}
+    heights = {'big': 78, 'mid': 46, 'body': 36, 'wrap': 36}
+    lines = []
+    for text, kind in title_text(chorale, header):
+        if kind == 'wrap':
+            for part in textwrap.wrap(text, width=96) or ['']:
+                lines.append((part, 'body'))
+        else:
+            lines.append((text, kind))
+    total = sum(heights[k] for _, k in lines)
+    y = max(40, (H - total) // 2)
+    for text, kind in lines:
+        if text:
+            f = fonts[kind]
+            x = (W - d.textlength(text, font=f)) / 2 if kind in ('big', 'mid') else 200
+            d.text((x, y), text, font=f, fill=(20, 20, 20))
+        y += heights[kind]
+    return im
+
+
+def render_end(last_frame):
+    """The last frame at half strength with THE END over it, in black."""
+    im = Image.blend(last_frame, Image.new('RGB', (W, H), (255, 255, 255)), 0.5)
+    d = ImageDraw.Draw(im)
+    f = ImageFont.truetype(MONO_BOLD, 96)
+    text = 'The End'
+    # Centred in the score half, which is pale; across the middle it would
+    # straddle the chord panel's dark edge.
+    d.text(((W - d.textlength(text, font=f)) / 2, H / 4 - 60), text, font=f, fill=(0, 0, 0))
+    return im
+
+
 # ── frames ──────────────────────────────────────────────────────────────────
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0],
@@ -269,6 +351,10 @@ def main():
     ap.add_argument('--out', required=True)
     ap.add_argument('--work', default=None)
     ap.add_argument('--measures', type=float, default=2.0, help='measures visible across the width')
+    ap.add_argument('--title-seconds', type=float, default=10.0,
+                    help='hold the opening title card this long before the music (0 for none)')
+    ap.add_argument('--end-seconds', type=float, default=5.0,
+                    help='hold the closing "The End" frame this long (0 for none)')
     ap.add_argument('--encoder', default='auto',
                     help='libx264, av1 (SVT-AV1), openh264, vaapi, or auto: libx264 if present, else av1')
     ap.add_argument('--stills', default=None, help='comma-separated seconds: write those frames as PNGs and stop')
@@ -389,20 +475,40 @@ def main():
             print('wrote', p)
         return
 
+    title_frames = int(round(args.title_seconds * FPS))
+    end_frames = int(round(args.end_seconds * FPS))
     cmd = ['ffmpeg', '-y', '-loglevel', 'error']
     video = encoder_args(args.encoder)
     cmd += video['pre']
     cmd += ['-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', f'{W}x{H}', '-r', str(FPS), '-i', '-',
-            '-i', args.mp3] + video['post'] + ['-c:a', 'aac', '-shortest', args.out]
-    print('encoder:', video['name'])
+            '-i', args.mp3] + video['post'] + ['-c:a', 'aac']
+    if title_frames:
+        # The card is silent: hold the music back until the score appears.
+        cmd += ['-filter_complex', f'[1:a]adelay={int(args.title_seconds * 1000)}:all=1[a]',
+                '-map', '0:v', '-map', '[a]']
+    # No -shortest: the closing frame outlasts the audio by --end-seconds.
+    cmd += [args.out]
+    print(f'encoder: {video["name"]}, {title_frames} title + {n_frames} score + '
+          f'{end_frames} closing frames')
     proc = subprocess.Popen(cmd, stdin=subprocess.PIPE)
+    if title_frames:
+        card = render_title(args.chorale, header).tobytes()
+        for _ in range(title_frames):
+            proc.stdin.write(card)
+    last = None
     for f in range(n_frames):
-        proc.stdin.write(frame_at(f / FPS).tobytes())
+        last = frame_at(f / FPS)
+        proc.stdin.write(last.tobytes())
         if f % 600 == 0:
             print(f'frame {f}/{n_frames}', flush=True)
+    if end_frames and last is not None:
+        closing = render_end(last).tobytes()
+        for _ in range(end_frames):
+            proc.stdin.write(closing)
     proc.stdin.close()
     proc.wait()
-    print('wrote', args.out, 'frames', n_frames, 'exit', proc.returncode)
+    total = title_frames + n_frames + end_frames
+    print('wrote', args.out, 'frames', total, 'exit', proc.returncode)
 
 
 if __name__ == '__main__':
