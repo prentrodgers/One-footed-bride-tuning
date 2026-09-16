@@ -1783,7 +1783,7 @@ def expand_chorale(repeats, chorale_in_cents_slides, glides, stored_gliss, voice
     repeats_average = int(round(np.average(repeats)))
     logging.info(f'{repeats.shape = }, {repeats_average = }, {quantization = }')
     if repeats_average == 2:
-        tempo = rng.choice(np.arange(30, 40, 4))
+        tempo = rng.choice(np.arange(20, 25, 1))
     elif repeats_average * quantization > 65:
         tempo = rng.choice(np.arange(106, 124, 4)) 
     elif repeats_average * quantization > 40:
