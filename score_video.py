@@ -206,10 +206,21 @@ def fit_time_axis(notes):
 
 
 # ── chord_report text ───────────────────────────────────────────────────────
+# Where chord_report's prime histogram starts: everything from here is a
+# summary of the whole piece, not another chord.
+TAIL = re.compile(r'^(Prime content|SUMMARY|\s+(Prime limit|High primes|Chords using))')
+
+
 def parse_report(path):
-    """[(column, [chord line, interval line 1, interval line 2])], plus the
-    header lines (key, top notes) for the static strip."""
+    """[(column, [chord line, interval line 1, interval line 2])], the header
+    lines (key, top notes), and the prime histogram at the end."""
     lines = open(path, encoding='utf-8').read().expandtabs(8).splitlines()
+    for cut, line in enumerate(lines):
+        if TAIL.match(line):
+            lines, tail = lines[:cut], lines[cut:]
+            break
+    else:
+        tail = []
     blocks, header = [], []
     i = 0
     while i < len(lines):
@@ -227,7 +238,7 @@ def parse_report(path):
             if not blocks and lines[i].strip():
                 header.append(lines[i])
             i += 1
-    return blocks, header
+    return blocks, header, tail
 
 
 # ── video encoder ───────────────────────────────────────────────────────────
@@ -260,7 +271,31 @@ def encoder_args(choice):
 
 
 # ── title card and closing frame ────────────────────────────────────────────
-def title_text(chorale, header):
+def high_prime_counts(tail):
+    """{11: 70, 13: 21, ...} from chord_report's SUMMARY line, if it has one."""
+    for line in tail:
+        if line.startswith('SUMMARY'):
+            body = line.split('high', 1)[-1].split('chords')[0]
+            return {int(p): int(n) for p, n in re.findall(r'(\d+):(\d+)', body)}
+    return {}
+
+
+def primes_sentence(counts):
+    """The high primes in plain words, for the title card."""
+    present = [(p, n) for p, n in sorted(counts.items()) if n]
+    lead = 'Ratios containing higher prime numbers in numerator and denominator: '
+    if not present:
+        return lead + 'none.'
+    def times(n):
+        return '1 time' if n == 1 else f'{n} times'
+    items = [f'{p} occurs {times(n)}' if i == 0 else f'{p} {times(n)}'
+             for i, (p, n) in enumerate(present)]
+    if len(items) == 1:
+        return lead + items[0] + '.'
+    return lead + ', '.join(items[:-1]) + ' and ' + items[-1] + '.'
+
+
+def title_text(chorale, header, tail=()):
     """The opening card's lines, from chord_report's header block.
 
     That header carries everything but the ratio factor, which is in the
@@ -300,10 +335,12 @@ def title_text(chorale, header):
         (f'    Quality metrics: Average score: {avg}, max score: {mx}, '
          f'found at max chord #: {mxc}', 'body'),
         (f'    {key}', 'body'),
+        ('', 'body'),
+        (primes_sentence(high_prime_counts(tail)), 'wrap'),
     ]
 
 
-def render_title(chorale, header):
+def render_title(chorale, header, tail=()):
     """The opening card: black on white, in the score's own typeface."""
     im = Image.new('RGB', (W, H), (255, 255, 255))
     d = ImageDraw.Draw(im)
@@ -311,7 +348,7 @@ def render_title(chorale, header):
              'body': ImageFont.truetype(MONO, 26), 'wrap': ImageFont.truetype(MONO, 26)}
     heights = {'big': 78, 'mid': 46, 'body': 36, 'wrap': 36}
     lines = []
-    for text, kind in title_text(chorale, header):
+    for text, kind in title_text(chorale, header, tail):
         if kind == 'wrap':
             for part in textwrap.wrap(text, width=96) or ['']:
                 lines.append((part, 'body'))
@@ -407,7 +444,7 @@ def main():
                                 '-of', 'csv=p=0', args.mp3], capture_output=True, text=True).stdout)
     n_frames = math.ceil(dur * FPS)
     sec_per_col = 15.0 / args.tempo
-    blocks, header = parse_report(args.report)
+    blocks, header, tail = parse_report(args.report)
     block_times = [c * sec_per_col for c, _ in blocks]
 
     font = ImageFont.truetype(MONO, 22)
@@ -492,7 +529,7 @@ def main():
           f'{end_frames} closing frames')
     proc = subprocess.Popen(cmd, stdin=subprocess.PIPE)
     if title_frames:
-        card = render_title(args.chorale, header).tobytes()
+        card = render_title(args.chorale, header, tail).tobytes()
         for _ in range(title_frames):
             proc.stdin.write(card)
     last = None
