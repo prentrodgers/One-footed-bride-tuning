@@ -1,6 +1,11 @@
-# Containerfile — python-music:0.10
-# Adds Cycles-on-the-GPU (oneAPI / Level Zero) for Intel Arc, relative to 0.9
-# (which added headless Blender 5.2.0 LTS with Vulkan EEVEE).
+# Containerfile — python-music:0.11
+# Adds Ray (see RAY_VER below) so the tuning grid can run as tasks on a
+# KubeRay cluster instead of one Kubernetes Job per cell, relative to 0.10
+# (which added Cycles-on-the-GPU, oneAPI / Level Zero, for Intel Arc) and 0.9
+# (headless Blender 5.2.0 LTS with Vulkan EEVEE).
+#
+# Build with parallel-jobs/build-image.sh, which runs podman on fs2 (the
+# build host that holds the Blender tarball) and leaves the push to you.
 #
 # EEVEE uses Blender's Vulkan backend (Intel ANV); Cycles uses oneAPI over
 # Level Zero. Both talk to a passed-through DRM render node — no Xvfb (that
@@ -144,6 +149,18 @@ WORKDIR /app
 COPY requirements.txt /app/requirements.txt
 RUN python -m pip install --upgrade pip && \
     python -m pip install --no-cache-dir --prefer-binary -r requirements.txt
+
+# ── Ray, for the KubeRay tuning cluster ─────────────────────────────────────
+# Pinned, and kept out of requirements.txt on purpose: Ray refuses to connect
+# a driver to a cluster running a different Ray version, so head, workers and
+# whichever pod submits the job (all this image) have to agree — the pin is
+# the thing that makes them agree.  [default] brings the dashboard and the
+# `ray job submit` API the ratchet driver uses.  A separate layer, after the
+# requirements, so bumping RAY_VER does not reinstall jupyterlab and friends.
+# Ray 2.58.0 publishes a cp312 manylinux wheel for the python:3.12 base.
+ARG RAY_VER=2.58.0
+RUN python -m pip install --no-cache-dir "ray[default]==${RAY_VER}" && \
+    python -c "import ray; print('ray', ray.__version__)"
 
 # Entrypoint maps JOB_COMPLETION_INDEX -> per-pod args for parallel Jobs.
 # When ARG_LIST_FILE is unset the container falls through to bash,

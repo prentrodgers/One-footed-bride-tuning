@@ -50,7 +50,7 @@
 set -euo pipefail
 
 NS=default
-IMAGE=${IMAGE:-quay.io/prentrodgers/python-music:0.10}
+IMAGE=${IMAGE:-quay.io/prentrodgers/python-music:0.11}
 PULL_SECRET=regcred
 REPO=/home/prent/Repos/One-footed-bride-tuning
 FPS=30

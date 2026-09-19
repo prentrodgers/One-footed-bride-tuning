@@ -50,7 +50,7 @@ spec:
       # checkout serialised them on .git/index.lock and killed 23 of them.
       containers:
       - name: grid-search
-        image: quay.io/prentrodgers/python-music:0.10
+        image: quay.io/prentrodgers/python-music:0.11
         imagePullPolicy: IfNotPresent
         securityContext:
           runAsUser: 1000
@@ -69,8 +69,9 @@ spec:
             # Scoped to one chorale per job: chorales are independent, and a
             # job that ran all twelve serially spent 12 x ~60s single-threaded
             # (the per-chorale loop, the Viterbi DP and enforce_continuity)
-            # with most cores idle.  The cross-chorale table has to come from
-            # the aggregation job once every job for a cell has finished.
+            # with most cores idle.  The cross-chorale table is
+            # select_best_and_render.py over Archive/straw-man, by hand, once
+            # every job has finished.
             exec bash grid_search.sh \
                 --limit_max LIMIT_MAX_VALUE \
                 --tolerance TOLERANCE_VALUE \

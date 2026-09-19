@@ -51,7 +51,10 @@ spec:
                 - fs9
       containers:
       - name: git-sync
-        image: quay.io/prentrodgers/python-music:0.7
+        # The same tag the tuning pods run, so this pulls nothing extra: only
+        # git is used here, but with IfNotPresent a tag no other pod uses
+        # would fetch a multi-GB image onto whichever node it landed on.
+        image: quay.io/prentrodgers/python-music:0.11
         imagePullPolicy: IfNotPresent
         securityContext:
           runAsUser: 0
