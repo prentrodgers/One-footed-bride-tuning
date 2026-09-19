@@ -1765,7 +1765,7 @@ def expand_chorale(repeats, chorale_in_cents_slides, glides, stored_gliss, voice
     stability_factor=0.0, max_delta=33, spread=7, fp_density_starts=None, fp_hold_scale=1.0, density_level=None,
     fatigue_thin_ratio=0.0, fatigue_min_chain=2, fatigue_density_threshold=1, version='',
     deep_bass_backoff=1.0, back_off_clicks=0.0,
-    rondo_sections=None, rondo_insertions=None):
+    rondo_sections=None, rondo_insertions=None, primes_tag=''):
     # As of 1/10/26 the chorale_in_cents_slides has already been repeated according to the repeats array. (no longer an integer)
     # send the arrays to the file new_output.csd which csound will convert to a wave file to make music
     # duration, volume_function = expand_chorale(repeats, chorale_in_cents, chorale_in_cents_slides, glides, stored_gliss, voice_time, \
@@ -2039,7 +2039,7 @@ def expand_chorale(repeats, chorale_in_cents_slides, glides, stored_gliss, voice
     # I want to switch the mod string to include the ratio_factor instead of avg_probs
     # and I want to switch the round(1 - max_silence, 2) to tolerance.
     density_tag = f'_df{density_level}' if density_level is not None else f'_md{int(max_delta):02d}'
-    mod = f'{mod}_r{ratio_factor:.2f}{density_tag}_t{tolerance}_d{dur_short}_t{tempo:03}'
+    mod = f'{mod}_r{ratio_factor:.2f}{density_tag}_t{tolerance}_d{dur_short}_t{tempo:03}{primes_tag}'
     mod = atu.windows_compliant_filename(mod) # get rid of the windows invalid characters in the file name
     print(f'{mod = }')
     # Provenance: park a copy of the features array beside the mp3 this run is
@@ -2249,13 +2249,16 @@ def chorale_to_wave_v4(version, album, include_sections, ratio_factor, limit_max
     logging.info(f'{version = }, {chorale.shape = }, {cent_value_chorale.shape = }, {top_notes.shape = }, {short_repeats = }')
 
     # create a string of the key variables for use in the name of the MP3 file.    
-    mod = f'{version[-2:]}{mod_letter}_lm{limit_max}'
+    # Three digits since 19 Sep 2026: t433a is BWV 433. Two digits made bwv433
+    # and bwv233 the same t33a, and daily_chorale_tweet.py read it as 233.
+    mod = f'{version[-3:]}{mod_letter}_lm{limit_max}'
 
     # initialize some values based on other values
     # if you are just playing a chorale straight as Bach wrote it, only repeats=2, otherwise many more repeats
     octave = chorale // 12
     print(f'{cent_value_chorale.shape = }, {octave.shape = }')
     chorale_in_cents_octaves = np.stack((cent_value_chorale, octave), axis=2)  # shape (time_steps, 2)
+    primes_tag = ''   # goes on the end of the filename: which repeat pattern this run drew
     if short_repeats: 
         repeats = np.array([2]) # How many times to repeat each chord. 
         choral_octaves_repeated = chorale_in_cents_octaves # keep original 4 SATB voices
@@ -2266,6 +2269,7 @@ def chorale_to_wave_v4(version, album, include_sections, ratio_factor, limit_max
         # all_primes = np.array([1, 2, 4, 8, 16, 32, 48, 72])
         # all_primes = rng.choice([np.array([1, 2, 4, 8, 16, 32, 48, 72]), np.array([1, 3, 5, 11, 17, 31, 47, 71])])
         all_primes = rng.choice([np.array([4,4,8,8,16,16]), np.array([1, 3, 5, 11, 17, 31])])
+        primes_tag = f'_ap{int(all_primes[0])}'   # _ap4 or _ap1, named by the pattern's first value
         
         primes = all_primes[:int(np.clip(prime_count, 1, all_primes.shape[0]))]
         # the previous line is just a super-safe way to slice the all_primes array to the first prime_count elements of the all_primes array. 
@@ -2312,7 +2316,7 @@ def chorale_to_wave_v4(version, album, include_sections, ratio_factor, limit_max
         fp_density_starts=fp_density_starts, fp_hold_scale=fp_hold_scale, density_level=density_level,
         fatigue_thin_ratio=fatigue_thin_ratio, fatigue_min_chain=fatigue_min_chain, fatigue_density_threshold=fatigue_density_threshold, version=version,
         deep_bass_backoff=deep_bass_backoff, back_off_clicks=back_off_clicks,
-        rondo_sections=rondo_sections, rondo_insertions=rondo_insertions)
+        rondo_sections=rondo_sections, rondo_insertions=rondo_insertions, primes_tag=primes_tag)
 
     if csound: # send the results to csound
         result_of_call = play_csound(csound = True, play = False)

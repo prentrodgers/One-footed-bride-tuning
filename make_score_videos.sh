@@ -4,9 +4,16 @@
 #     ./make_score_videos.sh bwv261
 #     ./make_score_videos.sh bwv{427..438}
 #     DRY_RUN=1 ./make_score_videos.sh bwv{427..438}
+#     SUFFIX=_slow ./make_score_videos.sh bwv434      -> score_bwv434_slow.mp4
+#     MP3=ball9-t34a_..._t022.mp3 SUFFIX=_slow ./make_score_videos.sh bwv434
+#
+# SUFFIX keeps a second version of a chorale beside the first -- a slower
+# rendering, say -- instead of overwriting it.  MP3 pins one rendering by
+# name when the newest is not the one you mean; it takes a basename in
+# Uploads or a full path on the PVC, and suits a single chorale at a time.
 #
 # For each chorale it finds the newest --short_repeats rendering on the PVC
-# (Uploads/ball9-t<NN>a_*.mp3, where NN is the chorale's last two digits),
+# (Uploads/ball9-t<NNN>a_*.mp3, NNN the BWV number; older files have two digits),
 # reads the tempo out of its filename (..._t034.mp3 -> 34), writes the chord
 # report for the tuning in best-tunings, renders the video, and copies it back
 # to the PVC as score_<chorale>.mp4.
@@ -26,6 +33,8 @@ REPO=/home/prent/Repos/One-footed-bride-tuning
 TUNINGS=Archive/straw-man/best-tunings
 WORK=${WORK:-score_videos}
 DRY_RUN=${DRY_RUN:-0}
+SUFFIX=${SUFFIX:-}
+MP3=${MP3:-}
 [ $# -gt 0 ] || { sed -n '2,12p' "$0"; exit 2; }
 mkdir -p "$WORK"
 
@@ -34,11 +43,18 @@ fail=0
 
 for chorale in "$@"; do
     case "$chorale" in bwv*) ;; *) echo "chorale names need the bwv prefix: $chorale" >&2; fail=1; continue;; esac
-    track=${chorale#bwv}; track=${track: -2}
+    # WreckingCrew names the track after the BWV number: all three digits
+    # since 19 Sep 2026 (t433a), the last two before (t33a).  Look for both.
+    track=${chorale#bwv}; track2=${track: -2}
 
-    mp3=$(ssh -n "$POD" "ls -t $REPO/Uploads/ball9-t${track}a_*.mp3 2>/dev/null | head -1" 2>/dev/null)
+    if [ -n "$MP3" ]; then
+        case "$MP3" in /*) mp3=$MP3;; *) mp3=$REPO/Uploads/$MP3;; esac
+        ssh -n "$POD" "test -f '$mp3'" 2>/dev/null || { echo "$chorale: no $mp3 on the PVC" >&2; fail=1; continue; }
+    else
+        mp3=$(ssh -n "$POD" "ls -t $REPO/Uploads/ball9-t${track}a_*.mp3 $REPO/Uploads/ball9-t${track2}a_*.mp3 2>/dev/null | head -1" 2>/dev/null)
+    fi
     if [ -z "$mp3" ]; then
-        echo "$chorale: no Uploads/ball9-t${track}a_*.mp3 on the PVC — render one with --short_repeats first" >&2
+        echo "$chorale: no Uploads/ball9-t${track}a_*.mp3 (or t${track2}a) on the PVC — render one with --short_repeats first" >&2
         fail=1; continue
     fi
     base=$(basename "$mp3")
@@ -65,7 +81,7 @@ for chorale in "$@"; do
         grep -m1 '^WARNING' "$report" && { echo "$chorale: stale tuning — skipping" >&2; fail=1; continue; }
     fi
 
-    out=score_${chorale}.mp4
+    out=score_${chorale}${SUFFIX}.mp4
     run python score_video.py --chorale "$chorale" --tempo "$tempo" \
         --mp3 "$WORK/$base" --report "$report" --out "$out" --work "$WORK/${chorale}_work" \
         || { echo "$chorale: score_video.py failed" >&2; fail=1; continue; }

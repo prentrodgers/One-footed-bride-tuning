@@ -57,6 +57,32 @@ BWV_TITLES = {
     "262": "Alle Menschen müssen sterben",
     "263": "Alles ist an Gottes Segen",
     "264": "Als der gütige Gott",
+    # 267 and 415-438, checked against bach-chorales.com on 19 Sep 2026
+    "267": "An Wasserflüssen Babylon",
+    "415": "Valet will ich dir geben",
+    "416": "Vater unser im Himmelreich",
+    "417": "Von Gott will ich nicht lassen",
+    "418": "Von Gott will ich nicht lassen",
+    "419": "Von Gott will ich nicht lassen",
+    "420": "Warum betrübst du dich, mein Herz",
+    "421": "Warum betrübst du dich, mein Herz",
+    "422": "Warum sollt ich mich denn grämen",
+    "423": "Was betrübst du dich, mein Herze",
+    "424": "Was bist du doch, o Seele so betrübet",
+    "425": "Was willst du dich, o meine Seele, kränken",
+    "426": "Weltlich Ehr und zeitlich Gut",
+    "427": "Wenn ich in Angst und Not",
+    "428": "Wenn mein Stündlein vorhanden ist",
+    "429": "Wenn mein Stündlein vorhanden ist",
+    "430": "Wenn mein Stündlein vorhanden ist",
+    "431": "Wenn wir in höchsten Nöten sein",
+    "432": "Wenn wir in höchsten Nöten sein",
+    "433": "Wer Gott vertraut, hat wohl gebaut",
+    "434": "Wer nur den lieben Gott lässt walten",
+    "435": "Wie bist du, Seele, in mir so gar betrübt",
+    "436": "Wie schön leuchtet der Morgenstern",
+    "437": "Wir glauben all an einen Gott",
+    "438": "Wo Gott zum Haus nicht gibt sein Gunst",
 }
 
 # Filename pattern:
@@ -64,7 +90,8 @@ BWV_TITLES = {
 #
 # Abbreviations:
 #   ball9    = Csound orchestra file (ball9.csd)
-#   t53a     = track 53 variant a → BWV 253  (last 2 digits = BWV suffix)
+#   t53a     = track 53 variant a → BWV 253  (files before 19 Sep 2026: last 2 digits)
+#   t433a    = BWV 433 variant a  (files since: all 3 digits, so 433 and 233 differ)
 #   lm23     = limit: 23-limit tonality diamond (just intonation)
 #   r1.50    = ratio factor: 1.50 (scaling weight for interval ratios)
 #   sf1.25   = stability factor: weighting for pitch stability across chords
@@ -74,6 +101,9 @@ BWV_TITLES = {
 #   t1       = tolerance: ±1 cent from ideal just-intonation ratio
 #   d09_55   = duration: 9 minutes 55 seconds
 #   t110     = tempo: 110 BPM
+#   ap4      = repeat pattern drawn for this run: ap4 is the even pattern
+#              (4,4,8,8,16,16), ap1 the prime one (1,3,5,11,17,31); absent on
+#              --short_repeats renderings and on files before 19 Sep 2026
 
 FILENAME_RE = re.compile(
     r"ball9-t(\d{2,3})(\w?)_"        # track number + variant letter
@@ -85,6 +115,7 @@ FILENAME_RE = re.compile(
     r"t(\d+)_"                        # tolerance
     r"d(\d+)_(\d+)_"                  # duration mm_ss
     r"t(\d+)"                         # tempo
+    r"(?:_ap(\d+))?"                  # repeat pattern (optional — newer filenames only)
     r"\.mp3$"
 )
 
@@ -111,8 +142,14 @@ def parse_filename(fname, base_url=BASE_URL):
     if not m:
         return None, f"{fname}\n{url}", url
 
-    track, variant, limit, ratio, detail_value, tol, dur_m, dur_s, tempo = m.groups()
-    bwv = f"2{track}"  # e.g. track 53 → BWV 253
+    track, variant, limit, ratio, detail_value, tol, dur_m, dur_s, tempo, _primes = m.groups()
+    # Three digits carry the whole BWV number.  Two-digit files (before 19 Sep
+    # 2026) dropped the hundreds: the tuned chorales are 253-267 and 415-438,
+    # whose last two digits never collide, so the one with a title is the one.
+    if len(track) == 3:
+        bwv = track
+    else:
+        bwv = next((c for c in (f"2{track}", f"4{track}") if c in BWV_TITLES), f"2{track}")
     title = BWV_TITLES.get(bwv, "Bach Chorale")
 
     desc = (

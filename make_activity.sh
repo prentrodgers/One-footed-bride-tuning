@@ -24,7 +24,9 @@ base=$(basename "$npy")
 tempo=$(printf '%s' "$base" | sed -n 's/.*_t\([0-9]\{1,\}\)\.npy$/\1/p')
 piece=$(printf '%s' "$base" | sed -n 's/^ball9-t\([0-9]\{1,\}\)c_.*/\1/p')
 [ -n "$tempo" ] || { echo "make_activity: no _t<tempo> in $base" >&2; exit 1; }
-out=${2:-${piece:+activity_bwv2$piece}}
+# t433c carries the BWV number; the older t33c carried its last two digits (all 2xx)
+[ ${#piece} -eq 2 ] && piece=2$piece
+out=${2:-${piece:+activity_bwv$piece}}
 [ -n "$out" ] || { echo "make_activity: no t<NN>c in $base — pass a name" >&2; exit 1; }
 
 dur=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$mp3")

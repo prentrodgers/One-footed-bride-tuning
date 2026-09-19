@@ -9,7 +9,7 @@ built (see WreckingCrew.py ~line 2221 and trim.sh) like:
 
 where:
     <NN>        = last two digits of the BWV number  (bwv261 -> 61, bwv253 -> 53,
-                  bwv846 -> 46)  — WreckingCrew.py:  mod = f'{version[-2:]}...'
+                  bwv433 -> 433) — WreckingCrew.py:  mod = f'{version[-3:]}...'
     <letter>    = a single density/mod letter (a, b, c, d, ...)
     <tempo:03>  = tempo zero-padded to 3 digits, e.g. 106 -> "106"
 
@@ -45,18 +45,20 @@ DEFAULT_UPLOADS_DIR = "Uploads"
 
 
 def chorale_number(chorale: str) -> str:
-    """'bwv261' -> '61', 'bwv253' -> '53', 'bwv846' -> '46' (last two BWV digits)."""
+    """'bwv261' -> '261', 'bwv433' -> '433': the BWV number, as the track name
+    has carried it since 19 Sep 2026."""
     m = re.fullmatch(r"\s*bwv(\d+)\s*", chorale, re.IGNORECASE)
     if not m:
         raise ValueError(f"Not a BWV chorale name (expected 'bwv###'): {chorale!r}")
-    return m.group(1)[-2:].zfill(2)
+    return m.group(1)
 
 
 def _mp3_regex(chorale: str) -> re.Pattern:
-    # ball9-t<NN><letter>_....mp3  — <letter> is a single non-digit (density tag).
-    # Anchored so "t61" never accidentally matches "t610" or "t611".
-    num = re.escape(chorale_number(chorale))
-    return re.compile(rf"^ball9-t{num}[A-Za-z]_.*\.mp3$")
+    # ball9-t<NNN><letter>_....mp3  — <letter> is a single non-digit (density tag).
+    # Files before 19 Sep 2026 carry only the last two digits (t61a for bwv261),
+    # so both spellings match.  Anchored on the letter so "t61" never matches "t610".
+    num = chorale_number(chorale)
+    return re.compile(rf"^ball9-t(?:{re.escape(num)}|{re.escape(num[-2:])})[A-Za-z]_.*\.mp3$")
 
 
 def list_mp3s_for_chorale(chorale: str, uploads_dir: str = DEFAULT_UPLOADS_DIR) -> list[str]:
