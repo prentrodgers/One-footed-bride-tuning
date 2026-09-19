@@ -1,0 +1,299 @@
+# k8s-ray-cluster.yaml — the Ray cluster the tuning grid runs on.
+#
+# One (cell x chorale) tuning is one Ray task (ray_ratchet.py); this is the
+# pool of worker processes those tasks run in.  It replaces the one-Job-per-
+# cell scheme (k8s-grid-search-job-template.yaml, still there for a single
+# cell by hand): a Job paid pod start-up — image check, SELinux relabel of the
+# 25k-file repo mount, container create — for every tuning (~5.5 minutes for
+# bwv415 on 4 CPUs), which is why deploy-grid-search-jobs.sh had to trickle
+# them out one every 15-30s and 288 of them took over an hour to submit.
+# Here the pods start once (about 100s for all nine) and a task is scheduled
+# in milliseconds.
+#
+# Applied by ray-ratchet.sh at the start of a run and deleted at the end.  It
+# is not meant to sit resident: its worker pods hold their CPU and memory
+# whether or not a task is running, and that is most of what fs2-fs9 have
+# free.  KubeRay (install-kuberay.sh) turns this manifest into pods.
+#
+# Everything mount- and security-related is copied from the Job template,
+# where the comments explain each hard-won piece: the repo as a subPath (not
+# the PVC root — relabelling the whole Dropbox is what wedged pods), the
+# emptyDir home around it (the image's /home/prent is root's), seLinux level
+# s0, uid 1000, node affinity to the nodes that can mount dropbox-pvc.
+#
+# ── Sizing (19 Sep 2026) ──────────────────────────────────────────────────
+# One worker pod per node, sized to what the node has FREE after its resident
+# pods (blender-farm, monitoring, the jupyter deployment), not to its
+# allocatable total.  A task takes 4 CPU (matching VITERBI_WORKERS=4; more
+# workers than that only contend, see the Job template) so each pod's CPU is
+# a multiple of 4:
+#
+#            allocatable   committed    pod        tasks
+#   fs2       18 / 15Gi    0.5 / 1.7Gi  16 / 12Gi    4     (15Gi node: memory bound)
+#   fs3       18 / 31Gi    1.7 / 5.5Gi  16 / 12Gi    4
+#   fs5       24 / 46Gi    5.9 / 34Gi   16 / 12Gi    4     (blender b70a/b70b hold 34Gi)
+#   fs7       24 / 30Gi    6.0 / 16Gi   16 / 12Gi    4
+#   fs9       24 / 30Gi    5.9 / 16Gi   16 / 12Gi    4
+#   fs4       20 / 62Gi    7.1 / 22Gi   12 / 12Gi    3
+#   fs8       18 / 31Gi    5.4 / 16Gi   12 / 12Gi    3
+#   fs6       16 / 30Gi    6.9 / 20Gi    8 /  8Gi    2
+#                                                   28 concurrent tasks
+#   plus the head (0.5 CPU / 1.5Gi requested) on fs6, fs7 or fs9 — see the
+#   headGroupSpec comment.
+#
+# Requests equal limits (Guaranteed QoS) so Ray's idea of the node matches
+# what the kubelet enforces.  A task declares memory=2.5GiB to Ray so four fit
+# in a 12Gi pod with the object store taken out — the Job template allowed
+# 8Gi per task but requested 1Gi, and the real peak has not been measured;
+# the Ray dashboard shows it per task, adjust --task_memory_gb in
+# ray_ratchet.py if it turns out larger.  If a pod is Pending, something new
+# is resident on that node: `kubectl describe node fsN | grep -A12 Allocated`.
+apiVersion: ray.io/v1
+kind: RayCluster
+metadata:
+  name: tuning
+  labels:
+    app: ray-tuning
+spec:
+  rayVersion: "2.58.0"        # must match the ray in the image (parallel-jobs/Containerfile RAY_VER)
+
+  headGroupSpec:
+    rayStartParams:
+      # No tasks on the head: it runs the GCS, the dashboard and the ratchet
+      # driver, and a 4-CPU tuning next to those would starve them.
+      num-cpus: "0"
+      dashboard-host: "0.0.0.0"
+    template:
+      metadata:
+        labels:
+          app: ray-tuning
+      spec:
+        securityContext:
+          seLinuxOptions:
+            level: s0
+        # The head shares a node with one of the workers, so it can only go
+        # where the table's arithmetic leaves room for it after that worker:
+        # fs6 (1.1 CPU, 2.5Gi left), fs7 (2.0, 2.4Gi) and fs9 (2.1, 2.4Gi).
+        # Anywhere else it takes the CPU the node's worker needed and that
+        # worker sits Pending — which is what happened on fs3 the first time.
+        affinity:
+          nodeAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              nodeSelectorTerms:
+              - matchExpressions:
+                - key: kubernetes.io/hostname
+                  operator: In
+                  values: [fs6, fs7, fs9]
+        containers:
+        - name: ray-head
+          image: quay.io/prentrodgers/python-music:0.11
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            runAsUser: 1000
+            runAsGroup: 1000
+          ports:
+          - containerPort: 6379
+            name: gcs
+          - containerPort: 8265
+            name: dashboard
+          - containerPort: 10001
+            name: client
+          # KubeRay's default probes call wget, which python:3.12-slim does
+          # not have (curl is in the image).  Same endpoints, with curl.
+          livenessProbe: &head-probe
+            exec:
+              command: ["bash", "-c", "curl -sf http://localhost:52365/api/local_raylet_healthz && curl -sf http://localhost:8265/api/gcs_healthz"]
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 12
+          readinessProbe: *head-probe
+          # Small requests so it fits in that slack; burstable limits because
+          # select_best_and_render.py runs here at the end of a run.
+          resources:
+            requests: {cpu: "500m", memory: "1536Mi"}
+            limits:   {cpu: "2", memory: "3Gi"}
+          volumeMounts: &mounts
+          - mountPath: /home/prent
+            name: home
+          - mountPath: /home/prent/Repos/One-footed-bride-tuning
+            name: ceph-files
+            subPath: Repos/One-footed-bride-tuning
+          - mountPath: /dev/shm
+            name: shm
+          env: &env
+          # The tuner's environment, as in the Job template.  Ray worker
+          # processes inherit the raylet's environment, and the task's
+          # subprocess inherits theirs, so this reaches grid_search.sh.
+          - name: FRESH
+            value: "0"
+          - name: VITERBI_WORKERS
+            value: "4"
+          - name: SFDIR
+            value: "/home/prent/Music/sflib"
+          - name: SSDIR
+            value: "/home/prent/Music/sflib"
+          - name: TZ
+            value: "America/Los_Angeles"
+          - name: HOME
+            value: "/home/prent"
+          - name: LOGNAME
+            value: "prent"
+        volumes: &volumes
+        - name: home
+          emptyDir: {}
+        - name: ceph-files
+          persistentVolumeClaim:
+            claimName: dropbox-pvc
+            readOnly: false
+        # Ray's object store lives in /dev/shm; a container's default 64MB
+        # makes Ray fall back to /tmp with a warning.  Tasks here return a
+        # dict of a dozen numbers, so the store (rayStartParams below) is
+        # small and this only needs to be a little bigger than it.
+        - name: shm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 1Gi
+        imagePullSecrets:
+        - name: regcred
+
+  workerGroupSpecs:
+  # Three groups differing only in size and node list — see the table above.
+  # The group name is in the pod name (tuning-w16-worker-xxxxx).
+  - groupName: w16
+    replicas: 5
+    minReplicas: 5
+    maxReplicas: 5
+    rayStartParams:
+      num-cpus: "16"
+      object-store-memory: "500000000"
+    template:
+      metadata:
+        labels:
+          app: ray-tuning
+      spec:
+        securityContext:
+          seLinuxOptions:
+            level: s0
+        affinity:
+          nodeAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              nodeSelectorTerms:
+              - matchExpressions:
+                - key: kubernetes.io/hostname
+                  operator: In
+                  values: [fs2, fs3, fs5, fs7, fs9]
+          # One pod per node: a second on the same node would not fit anyway,
+          # and this makes the failure a clear Pending instead of a surprise.
+          podAntiAffinity: &one-per-node
+            requiredDuringSchedulingIgnoredDuringExecution:
+            - topologyKey: kubernetes.io/hostname
+              labelSelector:
+                matchLabels:
+                  app: ray-tuning
+                  ray.io/node-type: worker
+        containers:
+        - name: ray-worker
+          image: quay.io/prentrodgers/python-music:0.11
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            runAsUser: 1000
+            runAsGroup: 1000
+          livenessProbe: &worker-probe
+            exec:
+              command: ["bash", "-c", "curl -sf http://localhost:52365/api/local_raylet_healthz"]
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 12
+          readinessProbe: *worker-probe
+          resources:
+            requests: {cpu: "16", memory: "12Gi"}
+            limits:   {cpu: "16", memory: "12Gi"}
+          volumeMounts: *mounts
+          env: *env
+        volumes: *volumes
+        imagePullSecrets:
+        - name: regcred
+
+  - groupName: w12
+    replicas: 2
+    minReplicas: 2
+    maxReplicas: 2
+    rayStartParams:
+      num-cpus: "12"
+      object-store-memory: "500000000"
+    template:
+      metadata:
+        labels:
+          app: ray-tuning
+      spec:
+        securityContext:
+          seLinuxOptions:
+            level: s0
+        affinity:
+          nodeAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              nodeSelectorTerms:
+              - matchExpressions:
+                - key: kubernetes.io/hostname
+                  operator: In
+                  values: [fs4, fs8]
+          podAntiAffinity: *one-per-node
+        containers:
+        - name: ray-worker
+          image: quay.io/prentrodgers/python-music:0.11
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            runAsUser: 1000
+            runAsGroup: 1000
+          livenessProbe: *worker-probe
+          readinessProbe: *worker-probe
+          resources:
+            requests: {cpu: "12", memory: "12Gi"}
+            limits:   {cpu: "12", memory: "12Gi"}
+          volumeMounts: *mounts
+          env: *env
+        volumes: *volumes
+        imagePullSecrets:
+        - name: regcred
+
+  - groupName: w8
+    replicas: 1
+    minReplicas: 1
+    maxReplicas: 1
+    rayStartParams:
+      num-cpus: "8"
+      object-store-memory: "500000000"
+    template:
+      metadata:
+        labels:
+          app: ray-tuning
+      spec:
+        securityContext:
+          seLinuxOptions:
+            level: s0
+        affinity:
+          nodeAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              nodeSelectorTerms:
+              - matchExpressions:
+                - key: kubernetes.io/hostname
+                  operator: In
+                  values: [fs6]
+          podAntiAffinity: *one-per-node
+        containers:
+        - name: ray-worker
+          image: quay.io/prentrodgers/python-music:0.11
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            runAsUser: 1000
+            runAsGroup: 1000
+          livenessProbe: *worker-probe
+          readinessProbe: *worker-probe
+          resources:
+            requests: {cpu: "8", memory: "8Gi"}
+            limits:   {cpu: "8", memory: "8Gi"}
+          volumeMounts: *mounts
+          env: *env
+        volumes: *volumes
+        imagePullSecrets:
+        - name: regcred

@@ -1,194 +1,123 @@
-# Kubernetes Grid Search Parallelization
+# Tuning grid on the cluster
 
-This directory contains Kubernetes manifests and scripts to parallelize the grid search across your cluster, reducing execution time from ~60 hours to ~3 hours.
+The grid searches `limit_max` × `tolerance` × `ratio_factor` — 24 cells — over
+a set of chorales, one tuning per (cell, chorale). Each tuning is
+`grid_search.sh` in single-cell mode, which runs `Straw_man_tuning_v2.py` with
+`--keep_previous` (FRESH=0): the result is written to
+`Archive/straw-man/t{t}_r{ratio}_lm{lm}/{chorale}-opt.npy` only if it beats
+what is already there, and the next run of the same cell is seeded from that
+file. So a cell can be re-run indefinitely and only ever holds or improves —
+the *ratchet*. Getting a good tuning is a matter of giving every cell enough
+passes to stall.
 
-## Overview
+Two ways to run it on the cluster. Both run the same command from the same
+checkout on the shared `dropbox-pvc`; they differ in how the work is
+scheduled.
 
-The grid search tests 20 parameter combinations:
-- 2 LIMIT_MAXES: 17, 19
-- 2 TOLERANCES: 1, 2
-- 5 RATIOS: 1.125, 1.25, 1.375, 1.5, 1.625
-
-Each combination runs independently for ~3 hours on 1 core, processing 12 chorales (bwv253-264).
-
-## Architecture
-
-- **20 Kubernetes Jobs**: One per parameter combination, running in parallel
-- **Shared Storage**: All jobs write to `dropbox-pvc` at `/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/`
-- **Multi-node Distribution**: K8s scheduler spreads jobs across available nodes
-- **Aggregation Job**: Runs after all 20 jobs complete to rank results
-
-## Files
-
-- `k8s-grid-search-job-template.yaml` - Template for individual parameter combination jobs
-- `generate-grid-search-jobs.sh` - Generates 20 job manifests from template
-- `deploy-grid-search-jobs.sh` - Deploys all jobs to cluster
-- `k8s-grid-search-aggregation-job.yaml` - Final aggregation job
-- `k8s-jobs/` - Directory containing generated job manifests (created by script)
-
-## Usage
-
-### Step 1: Generate Job Manifests
+## Ray (the current way)
 
 ```bash
-./generate-grid-search-jobs.sh
+./ray-ratchet.sh                                          # 24 cells × bwv415..426, ratchet until still
+./ray-ratchet.sh --chorales bwv415 bwv419 --patience 3    # anything ray_ratchet.py accepts
+./ray-ratchet.sh --cells_file ratchet-cells.txt           # a hand-picked list: "lm t ratio chorale" lines
+./ray-ratchet.sh --dry_run                                # print the plan, start nothing
+./ray-ratchet.sh --attach                                 # follow a run this shell lost
 ```
 
-This creates 20 YAML files in `k8s-jobs/`, one for each parameter combination.
+`ray-ratchet.sh` syncs the PVC checkout to `origin/main`
+(`k8s-git-sync-job.yaml` — **unpushed commits do not run**), switches the
+fleet to powersave-gpu, applies `k8s-ray-cluster.yaml` (one worker pod per
+node on fs2–fs9, 28 four-CPU task slots), submits `ray_ratchet.py` as a Ray
+job on the head, follows its log, and deletes the cluster when the job ends.
+The job runs on the head, so a dropped ssh session does not stop it;
+`--attach` picks the log back up. Environment knobs: `SKIP_SYNC=1`,
+`KEEP_CLUSTER=1`, `POWER=0`.
 
-### Step 2: Deploy Jobs to Cluster
+`ray_ratchet.py` is the driver. It submits every (cell, chorale) once, then
+re-submits each one as its previous pass finishes, until that cell has been
+rejected by the ratchet `--patience` passes in a row (default 2), or reaches
+`--max_passes` (default 8), or its GapSum is 0. Every cell gets its pass *N*
+before any cell gets pass *N+1*. It prints one line per finished pass, a
+status table every `--status_every` seconds, and at the end runs
+`select_best_and_render.py --sort_by gapsum`. Every pass is also appended to
+`Archive/straw-man/ray-ratchet-<start>.tsv`.
+
+A pass takes about 5½ minutes on 4 CPUs (bwv415). The full default grid to
+stall — 288 cells × ~5 passes — is roughly 4–5 hours.
+
+Dashboard while it runs: `kubectl port-forward svc/tuning-head-svc 8265:8265`,
+then http://localhost:8265 — per-task CPU and memory, worker logs.
+
+Pieces:
+
+| file | what |
+|---|---|
+| `install-kuberay.sh` | one-time: the KubeRay operator (v1.7.0, namespace `default`) |
+| `parallel-jobs/build-image.sh` | builds `python-music:<tag>` on fs2; 0.11 added Ray 2.58.0 |
+| `k8s-ray-cluster.yaml` | the RayCluster: head + three worker groups sized to each node's free CPU/memory (table in the file) |
+| `ray_ratchet.py` | the driver; `run_cell` is the task |
+| `ray-ratchet.sh` | brings it all up and down |
+| `k8s-git-sync-job.yaml` | the one-shot sync of the PVC checkout, run before every batch |
+
+If a worker pod stays Pending, something new is resident on its node and
+the sizes in `k8s-ray-cluster.yaml` no longer fit:
+`kubectl describe node fsN | grep -A12 Allocated`.
+
+## Kubernetes Jobs (the previous way, kept for single cells by hand)
 
 ```bash
-./deploy-grid-search-jobs.sh
+./generate-grid-search-jobs.sh                        # k8s-jobs/*.yaml, one per (cell, chorale)
+CELLS_FILE=ratchet-cells.txt ./generate-grid-search-jobs.sh
+INTERVAL=30 ./deploy-grid-search-jobs.sh              # submit one every INTERVAL seconds
+PASSES=4 ./ratchet-passes.sh                          # repeat the whole batch PASSES times
+./ratchet-until-still.sh bwv415 bwv419                # re-run each chorale's TOP=3 cells until none improves
 ```
 
-This applies all 20 job manifests to your Kubernetes cluster. Jobs will start immediately and run in parallel.
-
-### Step 3: Monitor Progress
+One Job per (cell, chorale), from `k8s-grid-search-job-template.yaml`. Each
+Job is a fresh pod, and pod start-up here is expensive (the comments in the
+template say why), so `deploy-grid-search-jobs.sh` submits at a fixed rate
+and 288 jobs take over an hour just to submit. The ratchet scripts re-run
+only the best few cells per chorale and cost a full delete/deploy/wait cycle
+per round. This is what the Ray path replaces; it still works, and is the
+simplest way to run one cell once:
 
 ```bash
-# Watch job status in real-time
-kubectl get jobs -l app=grid-search -w
-
-# List all jobs
-kubectl get jobs -l app=grid-search
-
-# Count completed jobs
-kubectl get jobs -l app=grid-search --field-selector status.successful=1 | wc -l
-
-# View logs from a specific job
-kubectl logs -l job-name=grid-search-01-lm17-t1-r1-125 --tail=100
-
-# View logs from all running jobs
-kubectl logs -l app=grid-search --tail=50
+kubectl apply -f k8s-git-sync-job.yaml && kubectl wait --for=condition=complete job/grid-search-git-sync
+kubectl apply -f k8s-jobs/grid-search-job-001-lm17-t1-r1-25-bwv415.yaml
 ```
 
-### Step 4: Run Aggregation (After All Jobs Complete)
+## Reading the results
 
-Once all 20 jobs show `COMPLETIONS: 1/1`, run the aggregation job:
+Nothing on the cluster picks a winner. When a run is done:
 
 ```bash
-kubectl apply -f k8s-grid-search-aggregation-job.yaml
+python select_best_and_render.py --numpy_dir_root Archive/straw-man \
+    --chorale_list bwv415 bwv416 --suffix=-opt.npy --sort_by gapsum
 ```
 
-This runs `select_best_and_render.py` to rank all parameter combinations by their combined score and spread.
+`--sort_by` only orders the rows (`gapsum`, `p90`, `maxgap`, `over20`,
+`score`, `name`); the script's docstring explains why it stopped declaring a
+best. `--copy_npy_to DIR` copies each chorale's leading row.
 
-### Step 5: View Results
+## How a job decides whether to keep or replace a tuning
 
-```bash
-# Check aggregation job logs
-kubectl logs -l job-type=aggregation
+`Straw_man_tuning_v2.py` runs SA candidate generation, the Viterbi path
+selection and `enforce_continuity`, and only then — last — compares the
+finished array with the one on disk (`load_and_merge_previous`). The
+comparison is `mean_score + spread_weight × max circular MAD + gap_weight ×
+max adjacent gap`; the lower wins and is what gets saved. The sidecar
+`{chorale}-opt.txt` records `last_improved`, which changes only when the new
+tuning won — `ray_ratchet.py` reads it before and after a pass to know
+whether the ratchet accepted.
 
-# Or access the results directly from the shared volume
-# Results are in Archive/straw-man/t{t}_r{r}_s{s}_md{md}_sn{sn}_lm{lm}/
-```
-
-## Resource Requirements
-
-Each job requests:
-- **CPU**: 1 core (limit: 2 cores)
-- **Memory**: 4Gi (limit: 8Gi)
-
-For 20 parallel jobs:
-- **Total CPU**: 20 cores minimum (40 cores for limits)
-- **Total Memory**: 80Gi minimum (160Gi for limits)
-
-Your cluster with multiple 20+ core nodes can easily handle this.
+The comparison is per file, so the twelve chorales of one cell can run at
+once in the same directory; two passes of the *same* (cell, chorale) must not
+overlap, and the driver never lets them.
 
 ## Cleanup
 
 ```bash
-# Delete all grid search jobs
-kubectl delete jobs -l app=grid-search
-
-# Delete aggregation job
-kubectl delete job grid-search-aggregation
-
-# Remove generated manifests
+kubectl delete raycluster tuning                 # if a run left it up (KEEP_CLUSTER=1, or a failure)
+kubectl delete jobs -l app=grid-search           # old-style jobs
 rm -rf k8s-jobs/
 ```
-
-## Troubleshooting
-
-### Job Failed
-
-```bash
-# View job details
-kubectl describe job <job-name>
-
-# View pod logs
-kubectl logs -l job-name=<job-name>
-
-# Delete and re-run failed job
-kubectl delete job <job-name>
-kubectl apply -f k8s-jobs/<job-file>.yaml
-```
-
-### Insufficient Resources
-
-If jobs are pending due to insufficient resources:
-
-```bash
-# Check node resources
-kubectl top nodes
-
-# Check pending pods
-kubectl get pods -l app=grid-search --field-selector status.phase=Pending
-
-# Reduce parallelism by deleting some jobs and running them later
-```
-
-### Storage Issues
-
-All jobs share the same PVC (`dropbox-pvc`). Ensure:
-- PVC has sufficient space for all results
-- PVC access mode supports `ReadWriteMany` for multi-node access
-
-## Performance
-
-- **Sequential (original)**: ~60 hours (20 combinations × 3 hours each)
-- **Parallel (20 jobs)**: ~3 hours (all combinations run simultaneously)
-- **Speedup**: 20x faster
-
-## Notes
-
-- Each job writes to a unique directory, so there are no conflicts
-- Jobs can run on different nodes thanks to shared storage
-- The aggregation job must run AFTER all 20 jobs complete
-- Failed jobs can be retried independently without affecting others
-
-## How jobs decide whether to keep or replace existing numpy arrays
-
-Each job runs three steps. The keep/discard logic differs by step.
-
-### Step 1 — `Straw_man_tuning_v2.py` produces `{version}-opt.npy`
-
-Before saving, the script calls `load_and_merge_previous()` (defined at line 313 of
-`Straw_man_tuning_v2.py`). It loads the existing `.npy` file (if present), rescores both
-the old and new result using a combined metric:
-
-```
-combined = mean_score + spread_weight * weighted_spread
-```
-
-`spread_weight` defaults to **0.5** and is not overridden in the job YAML, so both score
-and pitch-class spread matter equally. Whichever result has the lower combined value is
-what gets written to disk. If the old file was better, its data is written back unchanged.
-
-### Step 2 — `horizontal_transpose.py` produces `{version}-trans-sa-opt.npy`
-
-This step always overwrites unconditionally (`np.save(dest, adjusted)` at line 261 of
-`horizontal_transpose.py`). There is no comparison with a previous file. This is safe
-because it merely re-derives a horizontal-consistency pass from the `-opt.npy` that won
-in Step 1, so the `-trans-sa-opt.npy` always reflects the current best tuning.
-
-### Step 3 — `analyze_spread.py`
-
-Read-only analysis; writes no `.npy` files.
-
-### Bottom line
-
-The selection is fully handled inside each job. You do **not** need to run
-`select_best_and_render.py` to protect against regression — that already happened.
-`select_best_and_render.py` is for ranking the 24 parameter combinations against each
-other after all jobs finish, not for guarding individual files.
