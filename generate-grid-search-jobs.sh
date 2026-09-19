@@ -108,6 +108,7 @@ echo "Next steps:"
 echo "  1. Review the generated manifests in $OUTPUT_DIR/"
 echo "  2. Deploy all jobs: ./deploy-grid-search-jobs.sh"
 echo "  3. Monitor progress: kubectl get jobs -l app=grid-search"
-echo "  4. After all complete, run the aggregation job"
+echo "  4. After all complete, read the report:"
+echo "       python select_best_and_render.py --numpy_dir_root Archive/straw-man --chorale_list ${CHORALES[*]} --sort_by gapsum"
 
 # Made with Bob

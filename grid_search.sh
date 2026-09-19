@@ -16,9 +16,10 @@
 #   bash grid_search.sh --limit_max 19 --tolerance 2 --ratio 1.50 --chorale bwv262 [--job_id N]
 #       One cell, one chorale, no ranking table.  This is what each Kubernetes
 #       job runs: k8s-grid-search-job-template.yaml calls this script with the
-#       placeholders generate-grid-search-jobs.sh fills in.  The cross-chorale
-#       table then comes from the separate aggregation job once every job for
-#       a cell has finished.
+#       placeholders generate-grid-search-jobs.sh fills in.  It is also what
+#       each Ray task runs (ray_ratchet.py).  The cross-chorale table is then
+#       select_best_and_render.py over Archive/straw-man, run by hand once
+#       every job has finished.
 #
 #   --dry_run prints the commands instead of running them.
 #
