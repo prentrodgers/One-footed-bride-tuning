@@ -123,19 +123,22 @@ spec:
           env:
           # Where the Ray dashboard's Metrics tab finds Grafana and Prometheus
           # (kube-prometheus-stack, namespace prometheus).  The first two are
-          # for the head itself, in-cluster; IFRAME_HOST is what the BROWSER
-          # loads the embedded panels from, so it is Grafana's NodePort on a
-          # node IP.  Scraping is k8s-ray-monitoring.yaml, the dashboards
-          # ray-grafana-dashboards.sh.  Head only: workers do not serve a
-          # dashboard.  Embedding also needs Grafana to allow iframes
-          # (allow_embedding) and anonymous viewing, which is Grafana-side
-          # configuration, not Ray's.
+          # for the head itself, in-cluster.  IFRAME_HOST is what the BROWSER
+          # loads the embedded panels from: localhost:3000, a port-forward to
+          # Grafana next to the one for this dashboard (ray-ratchet.sh prints
+          # both).  Same site as localhost:8265, so the browser sends the
+          # normal Grafana login cookie into the iframes — via a node IP it
+          # would not, and Grafana would have to allow anonymous viewing.
+          # Grafana must also allow embedding at all; see
+          # k8s-prometheus-stack-values.yaml.  Scraping is
+          # k8s-ray-monitoring.yaml, the dashboards ray-grafana-dashboards.sh.
+          # Head only: workers do not serve a dashboard.
           - name: RAY_GRAFANA_HOST
             value: "http://kube-prometheus-stack-grafana.prometheus:80"
           - name: RAY_PROMETHEUS_HOST
             value: "http://kube-prometheus-stack-prometheus.prometheus:9090"
           - name: RAY_GRAFANA_IFRAME_HOST
-            value: "http://192.168.68.14:30814"
+            value: "http://localhost:3000"
           - name: RAY_PROMETHEUS_NAME
             value: "Prometheus"
           # The tuner's environment, shared with the workers below.

@@ -46,7 +46,8 @@ A pass takes about 5½ minutes on 4 CPUs (bwv415). The full default grid to
 stall — 288 cells × ~5 passes — is roughly 4–5 hours.
 
 Dashboard while it runs: `kubectl port-forward svc/tuning-head-svc 8265:8265`,
-then http://localhost:8265 — per-task CPU and memory, worker logs.
+then http://localhost:8265 — per-task CPU and memory, worker logs. See
+"Monitoring" below for the Grafana side.
 
 Pieces:
 
@@ -62,6 +63,33 @@ Pieces:
 If a worker pod stays Pending, something new is resident on its node and
 the sizes in `k8s-ray-cluster.yaml` no longer fit:
 `kubectl describe node fsN | grep -A12 Allocated`.
+
+### Monitoring
+
+Prometheus (kube-prometheus-stack, namespace `prometheus`) scrapes every Ray
+pod through `k8s-ray-monitoring.yaml`, applied once. Ray's own Grafana
+dashboards — tasks by state, CPU and memory per node, object store — are
+loaded into Grafana by `ray-grafana-dashboards.sh` (needs a running
+cluster; re-run after a Ray version bump). In Grafana, search **"Ray:"**.
+
+Three ways in:
+
+| | |
+|---|---|
+| Grafana on the LAN | http://192.168.68.14:30814 (any node IP; NodePort). Login as usual. |
+| Ray dashboard | `kubectl port-forward svc/tuning-head-svc 8265:8265` → http://localhost:8265 |
+| Grafana panels *inside* the Ray dashboard (its Metrics tab) | also `kubectl port-forward -n prometheus svc/kube-prometheus-stack-grafana 3000:80`, so Grafana is on `localhost:3000` — same site as the Ray dashboard, so your Grafana login cookie reaches the embedded panels. Grafana must allow embedding: `GF_SECURITY_ALLOW_EMBEDDING=true` on its deployment. |
+
+Useful queries: `sum(ray_tasks{State="RUNNING"})` (busy slots),
+`ray_node_cpu_utilization` by `node`, `up{job="ray-tuning"}` (one per pod).
+
+`k8s-prometheus-stack-values.yaml` records how the live release differs
+from the chart defaults (NodePorts, embedding, the admin password). Read
+it before any `helm upgrade` of kube-prometheus-stack: an upgrade without
+those values reverts them.
+
+The older `ofb-tuning` dashboard in `k8s-grafana-dashboards.yaml` counts
+`grid-search-*` Jobs and shows nothing for a Ray run.
 
 ## Kubernetes Jobs (the previous way, kept for single cells by hand)
 

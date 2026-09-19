@@ -26,7 +26,9 @@
 #   5. delete the RayCluster — its pods hold most of what fs2-fs9 have free.
 #
 # Dashboard while it runs:  kubectl port-forward svc/tuning-head-svc 8265:8265
-# then http://localhost:8265 (per-task CPU and memory, worker logs).
+# then http://localhost:8265 (per-task CPU and memory, worker logs).  Its
+# Metrics tab embeds Grafana panels, which need Grafana on localhost:3000 too:
+#   kubectl port-forward -n prometheus svc/kube-prometheus-stack-grafana 3000:80
 set -euo pipefail
 CLUSTER=tuning
 REPO=/home/prent/Repos/One-footed-bride-tuning
@@ -109,6 +111,8 @@ if [ "$ready" -lt $((want + 1)) ]; then
 fi
 log "cluster up: 1 head + $want workers"
 rayx ray status 2>/dev/null | sed -n '/Resources/,/Demands/p' | grep -E "CPU|memory" | sed 's/^/    /'
+echo "    dashboard:  kubectl port-forward svc/tuning-head-svc 8265:8265 & kubectl port-forward -n prometheus svc/kube-prometheus-stack-grafana 3000:80"
+echo "                then http://localhost:8265  (Grafana panels in its Metrics tab need the second forward)"
 
 # 4. the job — on the head, detached from this shell
 id="ratchet-$(date +%Y%m%d-%H%M%S)"

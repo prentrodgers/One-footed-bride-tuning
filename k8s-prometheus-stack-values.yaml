@@ -1,0 +1,42 @@
+# k8s-prometheus-stack-values.yaml — the ways the live kube-prometheus-stack
+# release (namespace prometheus, chart 86.1.1, helm on fs9) differs from the
+# chart's defaults.  READ THIS BEFORE `helm upgrade`.
+#
+# The release was installed with no values (`helm get values` says null) and
+# then changed by hand with kubectl.  Helm knows nothing of those changes, so
+# an upgrade re-renders the defaults and undoes them — verified 19 Sep 2026
+# by rendering 86.1.1 and `kubectl diff`ing against the cluster.  This file
+# is what the upgrade needs to keep them:
+#
+#     ssh fs9
+#     helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+#     helm upgrade kube-prometheus-stack prometheus-community/kube-prometheus-stack \
+#         -n prometheus --version 86.1.1 \
+#         -f k8s-prometheus-stack-values.yaml \
+#         --set grafana.adminPassword="$(kubectl get secret -n prometheus kube-prometheus-stack-grafana -o jsonpath='{.data.admin-password}' | base64 -d)"
+#
+# The --set is the third piece of drift: the chart generates a new random
+# admin password on every render unless one is given, so an upgrade without
+# it changes the Grafana login.  Passing the current one back keeps it.
+#
+# Nothing here has been applied with helm yet.  The embedding setting below
+# is live via `kubectl set env` on the Grafana deployment (see
+# README-k8s-grid-search.md, "Monitoring"); the NodePorts were patched by
+# hand before that.  Both are described here so the next upgrade is safe.
+grafana:
+  # Grafana on the LAN: http://<any node IP>:30814 (and 30013 -> 3000).
+  # The chart default is ClusterIP.
+  service:
+    type: NodePort
+    nodePort: 30814
+  extraExposePorts:
+  - name: http
+    port: 3000
+    targetPort: 3000
+    nodePort: 30013
+  # The Ray dashboard's Metrics tab embeds Grafana panels in iframes, which
+  # Grafana refuses by default.  Same-site (both via localhost port-forwards)
+  # so the normal login cookie applies — no anonymous access.
+  grafana.ini:
+    security:
+      allow_embedding: true
