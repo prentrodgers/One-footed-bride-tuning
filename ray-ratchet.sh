@@ -40,7 +40,18 @@ DASH=http://127.0.0.1:8265                                   # the dashboard, fr
 # --attach: follow the newest job on a cluster that is already up.
 if [ "${1:-}" = "--attach" ]; then
     [ -n "$(head_pod)" ] || { echo "no $CLUSTER cluster is running" >&2; exit 1; }
-    id=$(rayx curl -s "$DASH/api/jobs/" | python3 -c 'import json,sys; j=json.load(sys.stdin); print(sorted(j, key=lambda x: x.get("start_time") or 0)[-1]["submission_id"])')
+    # Empty until the launcher has submitted, which is after every pod is
+    # ready — a minute or two after `kubectl apply`.
+    id=$(rayx curl -s "$DASH/api/jobs/" 2>/dev/null | python3 -c '
+import json, sys
+jobs = json.load(sys.stdin)
+if jobs: print(sorted(jobs, key=lambda j: j.get("start_time") or 0)[-1]["submission_id"])')
+    if [ -z "$id" ]; then
+        ready=$(kubectl get pod -l "ray.io/cluster=$CLUSTER" -o jsonpath='{range .items[*]}{.status.containerStatuses[0].ready}{"\n"}{end}' 2>/dev/null | grep -c true || true)
+        total=$(kubectl get pod -l "ray.io/cluster=$CLUSTER" --no-headers 2>/dev/null | wc -l)
+        echo "cluster is up ($ready/$total pods ready) but no job has been submitted yet — try again in a minute" >&2
+        exit 1
+    fi
     log "following job $id (ctrl-c leaves it running)"
     exec kubectl exec -it "$(head_pod)" -c ray-head -- ray job logs --address "$DASH" -f "$id"
 fi
