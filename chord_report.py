@@ -13,6 +13,13 @@ carries them (bwv262_t3_r1.500_lm19-opt.npy) and otherwise from the directory
 name (t3_r1.50_lm19).  --tolerance / --limit_max override, and are the only way
 to report on a file whose path encodes neither.
 
+In the listing a ratio built on 11 or higher is marked *, and a cent value
+that moved more than a cent from the same pitch class in the previous chord
+is printed in red, since those moves are what the ear catches between chords.
+The red needs a terminal: --color auto (the default) uses it only when stdout
+is one, so a report written to a file stays plain text; --color always or
+never overrides.
+
 After the chords comes a histogram of the primes in the ratios: how many
 numerators and denominators carry each prime, and how much of the piece rests
 on the high ones (11, 13, 17, 19).  --histogram_only prints that alone, which
@@ -35,7 +42,7 @@ if base_dir not in sys.path:
     sys.path.insert(0, base_dir)
 
 import adaptive_tuning_util as atu
-from select_best_and_render import parse_dir_params
+from select_best_and_render import collect_gaps, parse_dir_params
 
 # The notebook's settings block, kept as constants: these never varied in use.
 MEASURE = 0                     # 0 means print all measures
@@ -50,6 +57,12 @@ USE_WERCK_TOP_NOTES = False
 # how often the piece leans on them.
 HIGH_PRIMES = (11, 13, 17, 19)
 HIGH_MARK = '*'          # against a ratio in the chord listing
+
+# A pitch class that moved more than this many cents between adjacent chords
+# is a gap: the same threshold select_best_and_render's GapSum counts, and
+# the tuner's own idea of "no movement".
+GAP_CENTS = 1.0
+RED, BOLD_RED, RESET = '\033[31m', '\033[1;31m', '\033[0m'
 
 # Archived collections encode the parameters in the filename.
 FILE_PARAMS = re.compile(r'_t(\d+)_r([\d.]+)_lm(\d+)')
@@ -121,6 +134,25 @@ def is_high(text):
     return any(p >= min(HIGH_PRIMES) for p in num + den)
 
 
+def gap_voices(cents):
+    """{(chord index, voice): cents moved} for every voice whose pitch class was
+    in the previous chord more than GAP_CENTS away.  Held chords (identical
+    columns) are skipped, so 'previous' means the previous distinct chord."""
+    return {(i, v): gap for gap, i, v, _pc, _prev, _curr in collect_gaps(cents)
+            if gap > GAP_CENTS}
+
+
+def format_chord_cents(chord_in_cents, inx, gaps, color):
+    """The four cent values as format_chord prints them, a moved one in red."""
+    parts = []
+    for v, val in enumerate(chord_in_cents):
+        text = f'{int(val):4d}'
+        if color and (inx, v) in gaps:
+            text = f'{BOLD_RED}{text}{RESET}'
+        parts.append(text)
+    return ' '.join(parts)
+
+
 def print_prime_histogram(intervals, n_chords, chorale=''):
     """How the piece's ratios are built: which primes, and how often.
 
@@ -190,7 +222,7 @@ def print_prime_histogram(intervals, n_chords, chorale=''):
 
 def print_chords(version, input_file, numpy_dir, measure, tolerance,
                  chord_scorer, tonal_diamond, keys, top_notes, root, mode,
-                 cents, offset=0, listing=True):
+                 cents, offset=0, listing=True, color=False):
     """Print the chords, and return (intervals, chord count) for the histogram.
 
     The ratios are worked out whether or not they are printed, so
@@ -222,6 +254,14 @@ def print_chords(version, input_file, numpy_dir, measure, tolerance,
     else:
         first_col, end_col = 0, cents.shape[1]
     all_intervals, n_chords = [], 0
+    gaps = gap_voices(cents)
+    if listing and gaps:
+        moved = sorted({i for i, _v in gaps})
+        shown = [i for i in moved if first_col <= i < end_col]
+        print(f'{len(gaps)} cent values moved more than {GAP_CENTS:g} cent from the same pitch '
+              f'class in the previous chord, in {len(moved)} chords'
+              + (f' ({len(shown)} of them in this measure)' if measure > 0 else '')
+              + (': shown in red' if color else '; --color always shows them in red'))
     prev_chord = np.zeros(4, dtype=int)
     for inx, chord_in_cents in zip(count(0, 1), cents.T):
         if not np.array_equal(prev_chord, chord_in_cents):
@@ -231,7 +271,7 @@ def print_chords(version, input_file, numpy_dir, measure, tolerance,
                 if PRINT_INDIVIDUAL_CHORDS and listing:
                     # Tuned note names (from cents), not original MIDI pitch classes.
                     pitches = ' '.join(map(str, keys[tuned_pcs]))
-                    print(f'{inx}: {atu.format_chord(chord_in_cents, 4)}\t{pitches}\t'
+                    print(f'{inx}: {format_chord_cents(chord_in_cents, inx, gaps, color)}\t{pitches}\t'
                           f'{chord_scorer.score_chord(chord_in_cents, tolerance=tolerance)}')
                 intervals = []
                 for inx1, inx2 in combinations(np.arange(4), 2):
@@ -269,6 +309,9 @@ def main():
                    help='Print only this measure; 0 prints all (default: 0)')
     p.add_argument('--histogram_only', action='store_true',
                    help='print only the prime histogram, not the chords')
+    p.add_argument('--color', choices=('auto', 'always', 'never'), default='auto',
+                   help='red for cent values that moved between adjacent chords: '
+                        'auto (default) only when printing to a terminal')
     p.add_argument('--tolerance', type=int, default=1,
                    help='Used only when the path encodes no tolerance (default: 1)')
     p.add_argument('--limit_max', type=int, default=17,
@@ -316,10 +359,11 @@ def main():
     print(f'Average score: {round(np.average(scores), 1)}, max score: {np.max(scores)}, '
           f'max chord: {np.argmax(scores)}')
 
+    color = args.color == 'always' or (args.color == 'auto' and sys.stdout.isatty())
     intervals, n_chords = print_chords(
         chorale, path, numpy_dir, args.measure, tolerance, chord_scorer,
         tonal_diamond, keys, top_notes, root, mode, cents,
-        listing=not args.histogram_only)
+        listing=not args.histogram_only, color=color)
     print_prime_histogram(intervals, n_chords, chorale)
 
     if PRINT_HITS_MISSES:

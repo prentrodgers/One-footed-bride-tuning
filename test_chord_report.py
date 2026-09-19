@@ -33,3 +33,17 @@ assert cr.ratio_primes('16/15') == ([], [3, 5])
 assert cr.is_high('13/11') and cr.is_high('11/8') and cr.is_high('24/17')
 assert not cr.is_high('16/15') and not cr.is_high('7/4') and not cr.is_high('1/1')
 print('ok prime histogram helpers')
+
+# gap_voices: a voice whose pitch class was in the previous distinct chord more
+# than a cent away.  Held (identical) columns are not transitions.
+import numpy as np
+c = np.array([[0, 0, 0, 5, 5],          # C: held, then 5 cents up at column 3
+              [386, 386, 386, 386, 386],
+              [702, 702, 703, 703, 703], # G: 1 cent is noise, not a gap
+              [1200, 1200, 1200, 1200, 1200]])
+g = cr.gap_voices(c)
+assert g == {(3, 0): 5.0}, g
+assert 'x1b' not in repr(cr.format_chord_cents(c[:, 3], 3, g, color=False))
+assert cr.format_chord_cents(c[:, 3], 3, g, color=False) == '   5  386  703 1200'
+assert cr.RESET in cr.format_chord_cents(c[:, 3], 3, g, color=True)
+print('ok gap_voices')
