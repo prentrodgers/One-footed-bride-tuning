@@ -120,10 +120,25 @@ spec:
             subPath: Repos/One-footed-bride-tuning
           - mountPath: /dev/shm
             name: shm
-          env: &env
-          # The tuner's environment, as in the Job template.  Ray worker
-          # processes inherit the raylet's environment, and the task's
-          # subprocess inherits theirs, so this reaches grid_search.sh.
+          env:
+          # Where the Ray dashboard's Metrics tab finds Grafana and Prometheus
+          # (kube-prometheus-stack, namespace prometheus).  The first two are
+          # for the head itself, in-cluster; IFRAME_HOST is what the BROWSER
+          # loads the embedded panels from, so it is Grafana's NodePort on a
+          # node IP.  Scraping is k8s-ray-monitoring.yaml, the dashboards
+          # ray-grafana-dashboards.sh.  Head only: workers do not serve a
+          # dashboard.  Embedding also needs Grafana to allow iframes
+          # (allow_embedding) and anonymous viewing, which is Grafana-side
+          # configuration, not Ray's.
+          - name: RAY_GRAFANA_HOST
+            value: "http://kube-prometheus-stack-grafana.prometheus:80"
+          - name: RAY_PROMETHEUS_HOST
+            value: "http://kube-prometheus-stack-prometheus.prometheus:9090"
+          - name: RAY_GRAFANA_IFRAME_HOST
+            value: "http://192.168.68.14:30814"
+          - name: RAY_PROMETHEUS_NAME
+            value: "Prometheus"
+          # The tuner's environment, shared with the workers below.
           - name: FRESH
             value: "0"
           - name: VITERBI_WORKERS
@@ -209,7 +224,24 @@ spec:
             requests: {cpu: "16", memory: "12Gi"}
             limits:   {cpu: "16", memory: "12Gi"}
           volumeMounts: *mounts
-          env: *env
+          env: &env
+          # The tuner's environment, as in the Job template.  Ray worker
+          # processes inherit the raylet's environment, and the task's
+          # subprocess inherits theirs, so this reaches grid_search.sh.
+          - name: FRESH
+            value: "0"
+          - name: VITERBI_WORKERS
+            value: "4"
+          - name: SFDIR
+            value: "/home/prent/Music/sflib"
+          - name: SSDIR
+            value: "/home/prent/Music/sflib"
+          - name: TZ
+            value: "America/Los_Angeles"
+          - name: HOME
+            value: "/home/prent"
+          - name: LOGNAME
+            value: "prent"
         volumes: *volumes
         imagePullSecrets:
         - name: regcred

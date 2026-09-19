@@ -1,0 +1,46 @@
+# k8s-ray-monitoring.yaml — Prometheus scrapes the Ray cluster.
+#
+# Every Ray pod (head and workers) serves its metrics on the `metrics` port
+# (8080) KubeRay adds to the container.  kube-prometheus-stack's Prometheus
+# picks up any PodMonitor carrying release=kube-prometheus-stack, in any
+# namespace, so this is all the scrape side needs; it is applied once and
+# outlives the RayCluster, which comes and goes per run.
+#
+# The dashboards side is ray-grafana-dashboards.sh, which turns the JSON Ray
+# generates into a ConfigMap Grafana's sidecar loads.  The Ray dashboard's
+# own Metrics tab embeds those Grafana panels once the head knows where
+# Grafana and Prometheus are (RAY_GRAFANA_HOST etc. in k8s-ray-cluster.yaml)
+# and Grafana allows iframe embedding.
+#
+#     kubectl apply -f k8s-ray-monitoring.yaml
+#     # then, in Prometheus (kubectl port-forward -n prometheus svc/kube-prometheus-stack-prometheus 9090):
+#     #   up{job="ray-tuning"}   -> one series per Ray pod, value 1
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: ray-tuning
+  namespace: default
+  labels:
+    release: kube-prometheus-stack     # the selector Prometheus is configured with
+    app: ray-tuning
+spec:
+  jobLabel: ray-tuning
+  selector:
+    matchLabels:
+      ray.io/is-ray-node: "yes"        # KubeRay puts this on every Ray pod, any cluster
+  namespaceSelector:
+    matchNames: [default]
+  podMetricsEndpoints:
+  - port: metrics
+    interval: 15s
+    relabelings:
+    # Ray's Grafana dashboards filter on these; KubeRay's pod labels carry
+    # them, so copy each into a metric label of the name the dashboards use.
+    - sourceLabels: [__meta_kubernetes_pod_label_ray_io_cluster]
+      targetLabel: ray_io_cluster
+    - sourceLabels: [__meta_kubernetes_pod_label_ray_io_node_type]
+      targetLabel: ray_io_node_type
+    - sourceLabels: [__meta_kubernetes_pod_label_ray_io_group]
+      targetLabel: ray_io_group
+    - sourceLabels: [__meta_kubernetes_pod_node_name]
+      targetLabel: node
