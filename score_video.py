@@ -270,6 +270,59 @@ def encoder_args(choice):
     return options['openh264']
 
 
+# ── red cents: a pitch class that moved since the previous chord ────────────
+CHORD_LINE = re.compile(r'^(\d+): ')
+CENT_TOKEN = re.compile(r'-?\d+')
+RED = (235, 60, 50)
+
+
+def chord_cents(line):
+    """[(cents, start col, end col)] for the four cent values in a chord line
+    such as '120: 1094  434  781 1199\tB♮ E♮ G♯ C♮\t131.0' (tabs expanded)."""
+    m = CHORD_LINE.match(line)
+    if not m:
+        return []
+    out = []
+    pos = m.end()
+    for tok in CENT_TOKEN.finditer(line, pos):
+        out.append((int(tok.group()), tok.start(), tok.end()))
+        if len(out) == 4:
+            break
+    return out
+
+
+def gap_spans(blocks):
+    """{block index: [(start col, end col)]} of the cent values to paint red:
+    the same gaps chord_report marks, from select_best_and_render's collect_gaps,
+    so the video and the report agree on every one."""
+    from select_best_and_render import collect_gaps
+    per_block = [chord_cents(b[1][0]) for b in blocks]
+    if any(len(c) != 4 for c in per_block):
+        return {}
+    cents = np.array([[c[0] for c in row] for row in per_block], dtype=float).T   # (4, N)
+    spans = {}
+    for gap, i, v, _pc, _prev, _curr in collect_gaps(cents):
+        if gap > 1.0:
+            _val, a, b = per_block[i][v]
+            spans.setdefault(i, []).append((a, b))
+    return spans
+
+
+def draw_runs(pd, x, y, text, font, colour, red, char_w):
+    """Draw a monospaced line, the given [(start, end)] character spans in red."""
+    if not red:
+        pd.text((x, y), text, font=font, fill=colour)
+        return
+    pos = 0
+    for a, b in sorted(red):
+        if a > pos:
+            pd.text((x + pos * char_w, y), text[pos:a], font=font, fill=colour)
+        pd.text((x + a * char_w, y), text[a:b], font=font, fill=RED)
+        pos = b
+    if pos < len(text):
+        pd.text((x + pos * char_w, y), text[pos:], font=font, fill=colour)
+
+
 # ── title card and closing frame ────────────────────────────────────────────
 def high_prime_counts(tail):
     """{11: 70, 13: 21, ...} from chord_report's SUMMARY line, if it has one."""
@@ -465,6 +518,12 @@ def main():
     key_line = next((l for l in header if l.startswith('Key:')), '')
     title = f'{args.chorale}   {key_line}   tempo {args.tempo:g}   {os.path.basename(args.report)}'
     col_head = ' #   cents (S A T B)       note names    score      intervals: # from to  cents  ratio'
+    red_spans = gap_spans(blocks)
+    n_red = sum(len(v) for v in red_spans.values())
+    red_note = (f'red: {n_red} cent value{"s" if n_red != 1 else ""} moved more than a cent '
+                f'from the previous chord' if n_red else 'no pitch class moves more than a cent between chords')
+    char_w = font.getlength('0')
+    char_w_b = font_b.getlength('0')
 
     def frame_at(t):
         im = Image.new('RGB', (W, H), (255, 255, 255))
@@ -484,6 +543,8 @@ def main():
         d.line([0, bottom_top, W, bottom_top], fill=(90, 90, 90), width=2)
         d.text((24, bottom_top + 8), title, font=font_b, fill=(230, 230, 230))
         d.text((24, bottom_top + 8 + line_h), col_head, font=font_small, fill=(150, 150, 150))
+        d.text((W - 24 - d.textlength(red_note, font=font_small), bottom_top + 8 + line_h),
+               red_note, font=font_small, fill=RED if n_red else (150, 150, 150))
         # which block sounds now, and how far through it we are
         i = max(0, np.searchsorted(block_times, t, side='right') - 1)
         t_i = block_times[i]
@@ -504,7 +565,11 @@ def main():
             else:
                 colour, f0 = (185, 190, 200), font
             for li, text in enumerate(lines[:3]):
-                pd.text((24, y + li * line_h), text, font=f0 if li == 0 else font, fill=colour)
+                if li == 0:
+                    draw_runs(pd, 24, y, text, f0, colour, red_spans.get(j),
+                              char_w_b if j == i else char_w)
+                else:
+                    pd.text((24, y + li * line_h), text, font=font, fill=colour)
         im.paste(panel, (0, scroll_top))
         d.line([0, scroll_top - 1, W, scroll_top - 1], fill=(60, 60, 60), width=1)
         return im
