@@ -44,3 +44,15 @@ spec:
       targetLabel: ray_io_group
     - sourceLabels: [__meta_kubernetes_pod_node_name]
       targetLabel: node
+    # The dashboards' per-node breakdown and their Instance dropdown use
+    # `instance`, which Prometheus sets to the scrape address — a pod IP
+    # (10.244.x.x) that has to be looked up with `kubectl get po -o wide`.
+    # Replace it with the node name: workers are one per node, so "fs5" is
+    # exact; the head shares a node with a worker, so it is "fs9/head".
+    - sourceLabels: [__meta_kubernetes_pod_node_name, __meta_kubernetes_pod_label_ray_io_node_type]
+      separator: /
+      targetLabel: instance
+    - sourceLabels: [instance]
+      regex: (.*)/worker
+      replacement: $1
+      targetLabel: instance
