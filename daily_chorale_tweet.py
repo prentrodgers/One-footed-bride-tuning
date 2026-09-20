@@ -236,9 +236,11 @@ def list_albums(bucket=None):
                 album, _, fname = obj["Key"].partition("/")
                 if not fname or "/" in fname or not fname.startswith("ball9-") or not fname.endswith(".mp3"):
                     continue
-                a = albums.setdefault(album, {"files": [], "newest": obj["LastModified"]})
+                # LastModified is UTC; shown in local time, as the cron log is read.
+                when = obj["LastModified"].astimezone()
+                a = albums.setdefault(album, {"files": [], "newest": when})
                 a["files"].append(fname)
-                a["newest"] = max(a["newest"], obj["LastModified"])
+                a["newest"] = max(a["newest"], when)
     except Exception as e:                       # botocore raises a zoo of these
         print(f"Could not list bucket {bucket}: {e}", file=sys.stderr)
         sys.exit(1)
