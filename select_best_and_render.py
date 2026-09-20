@@ -394,7 +394,15 @@ def main():
                 continue
             dest_filename = (f'{version}_t{params["tolerance"]}'
                              f'_r{params["ratio_factor"]:.3f}_lm{params["limit_max"]}{w_suffix}')
-            shutil.copy2(src, os.path.join(dest, dest_filename))
+            dest_path = os.path.join(dest, dest_filename)
+            # The leading row is often the destination itself: a tuning
+            # promoted earlier that no grid cell has since beaten.  Copying a
+            # file onto itself raises SameFileError, which used to stop the
+            # loop at the first such chorale with nothing copied.
+            if os.path.exists(dest_path) and os.path.samefile(src, dest_path):
+                print(f'  {version}  =   {dest_filename}  (already the leader; unchanged)')
+                continue
+            shutil.copy2(src, dest_path)
             print(f'  {version}  →  {dest_filename}  (from {os.path.basename(d)})')
         print('\nDone copying.')
 
