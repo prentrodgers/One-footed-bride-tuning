@@ -63,6 +63,10 @@ spec:
       # driver, and a 4-CPU tuning next to those would starve them.
       num-cpus: "0"
       dashboard-host: "0.0.0.0"
+    # The dashboard's NodePort is the separate Service at the end of this
+    # file, not a headService here: KubeRay appends its own generated ports
+    # to a user-supplied headService, so a fixed nodePort on the dashboard
+    # port collides with the generated copy and the Service is rejected.
     template:
       metadata:
         labels:
@@ -124,21 +128,21 @@ spec:
           # Where the Ray dashboard's Metrics tab finds Grafana and Prometheus
           # (kube-prometheus-stack, namespace prometheus).  The first two are
           # for the head itself, in-cluster.  IFRAME_HOST is what the BROWSER
-          # loads the embedded panels from: localhost:3000, a port-forward to
-          # Grafana next to the one for this dashboard (ray-ratchet.sh prints
-          # both).  Same site as localhost:8265, so the browser sends the
-          # normal Grafana login cookie into the iframes — via a node IP it
-          # would not, and Grafana would have to allow anonymous viewing.
-          # Grafana must also allow embedding at all; see
-          # k8s-prometheus-stack-values.yaml.  Scraping is
-          # k8s-ray-monitoring.yaml, the dashboards ray-grafana-dashboards.sh.
-          # Head only: workers do not serve a dashboard.
+          # loads the embedded panels from: Grafana's NodePort, on the same
+          # host IP as this dashboard's NodePort (headService above) so the
+          # browser treats them as one site and sends the Grafana login
+          # cookie into the iframes.  Open the dashboard on THIS IP
+          # (fs7, which also runs Grafana), not another node's, or the
+          # frames show login pages instead.  Grafana must also allow
+          # embedding at all; see k8s-prometheus-stack-values.yaml.
+          # Scraping is k8s-ray-monitoring.yaml, the dashboards
+          # ray-grafana-dashboards.sh.  Head only: workers serve no dashboard.
           - name: RAY_GRAFANA_HOST
             value: "http://kube-prometheus-stack-grafana.prometheus:80"
           - name: RAY_PROMETHEUS_HOST
             value: "http://kube-prometheus-stack-prometheus.prometheus:9090"
           - name: RAY_GRAFANA_IFRAME_HOST
-            value: "http://localhost:3000"
+            value: "http://192.168.68.14:30814"
           - name: RAY_PROMETHEUS_NAME
             value: "Prometheus"
           # The tuner's environment, shared with the workers below.
@@ -332,3 +336,36 @@ spec:
         volumes: *volumes
         imagePullSecrets:
         - name: regcred
+---
+# The Ray dashboard on the LAN, like Grafana:  http://<any node IP>:30265
+# — no port-forward.  A Service of our own beside KubeRay's tuning-head-svc
+# (which stays ClusterIP and carries gcs, the port the workers join
+# through); it selects the head pod by the labels KubeRay gives it.
+#
+# Same host IP as Grafana's NodePort (30814) means the two are one site to
+# the browser, so the Grafana login cookie reaches the panels the
+# dashboard's Metrics tab embeds — Grafana needs allow_embedding, not
+# anonymous access.
+#
+# Trade-off, chosen 20 Sep 2026: the Ray dashboard has no login of its own
+# and its API submits jobs, so while the cluster is up anyone on the LAN
+# can run code on it.  The cluster only exists for the hours of a run
+# (ray-ratchet.sh deletes it, and this Service with it), and the LAN is
+# the one kubectl runs from.  Prefer a port-forward?  Delete this Service
+# and use   kubectl port-forward svc/tuning-head-svc 8265:8265
+apiVersion: v1
+kind: Service
+metadata:
+  name: tuning-dashboard
+  labels:
+    app: ray-tuning
+spec:
+  type: NodePort
+  selector:
+    ray.io/cluster: tuning
+    ray.io/node-type: head
+  ports:
+  - name: dashboard
+    port: 8265
+    targetPort: 8265
+    nodePort: 30265

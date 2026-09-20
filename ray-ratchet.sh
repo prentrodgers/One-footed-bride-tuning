@@ -25,10 +25,10 @@
 #      run continues and `./ray-ratchet.sh --attach` picks the log back up.
 #   5. delete the RayCluster — its pods hold most of what fs2-fs9 have free.
 #
-# Dashboard while it runs:  kubectl port-forward svc/tuning-head-svc 8265:8265
-# then http://localhost:8265 (per-task CPU and memory, worker logs).  Its
-# Metrics tab embeds Grafana panels, which need Grafana on localhost:3000 too:
-#   kubectl port-forward -n prometheus svc/kube-prometheus-stack-grafana 3000:80
+# Dashboard while it runs: http://192.168.68.14:30265 (a NodePort, the
+# Service at the end of k8s-ray-cluster.yaml) — per-task CPU and memory,
+# worker logs, and in its Metrics tab the Grafana panels, embedded from
+# Grafana's NodePort on the same IP.
 set -euo pipefail
 CLUSTER=tuning
 REPO=/home/prent/Repos/One-footed-bride-tuning
@@ -79,10 +79,10 @@ fi
 cleanup(){
     rc=$?
     if [ "$KEEP_CLUSTER" = 1 ]; then
-        log "KEEP_CLUSTER=1 — cluster left up:  kubectl delete raycluster $CLUSTER"
+        log "KEEP_CLUSTER=1 — cluster left up:  kubectl delete -f k8s-ray-cluster.yaml"
     else
-        log "deleting the RayCluster"
-        kubectl delete raycluster "$CLUSTER" --ignore-not-found --wait=false >/dev/null
+        log "deleting the RayCluster (and the dashboard NodePort)"
+        kubectl delete -f k8s-ray-cluster.yaml --ignore-not-found --wait=false >/dev/null
     fi
     [ "$POWER" = 1 ] && ./power-balanced.sh | grep -E "all hosts|problems" || true
     exit $rc
@@ -111,8 +111,7 @@ if [ "$ready" -lt $((want + 1)) ]; then
 fi
 log "cluster up: 1 head + $want workers"
 rayx ray status 2>/dev/null | sed -n '/Resources/,/Demands/p' | grep -E "CPU|memory" | sed 's/^/    /'
-echo "    dashboard:  kubectl port-forward svc/tuning-head-svc 8265:8265 & kubectl port-forward -n prometheus svc/kube-prometheus-stack-grafana 3000:80"
-echo "                then http://localhost:8265  (Grafana panels in its Metrics tab need the second forward)"
+echo "    dashboard:  http://192.168.68.14:30265   grafana: http://192.168.68.14:30814 (search \"Ray:\")"
 
 # 4. the job — on the head, detached from this shell
 id="ratchet-$(date +%Y%m%d-%H%M%S)"

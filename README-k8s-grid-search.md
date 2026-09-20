@@ -45,9 +45,9 @@ status table every `--status_every` seconds, and at the end runs
 A pass takes about 5½ minutes on 4 CPUs (bwv415). The full default grid to
 stall — 288 cells × ~5 passes — is roughly 4–5 hours.
 
-Dashboard while it runs: `kubectl port-forward svc/tuning-head-svc 8265:8265`,
-then http://localhost:8265 — per-task CPU and memory, worker logs. See
-"Monitoring" below for the Grafana side.
+Dashboard while it runs: http://192.168.68.14:30265 (NodePort; any node IP
+works, but use this one so the embedded Grafana panels get your login
+cookie) — per-task CPU and memory, worker logs. See "Monitoring" below.
 
 Pieces:
 
@@ -76,9 +76,9 @@ Three ways in:
 
 | | |
 |---|---|
-| Grafana on the LAN | http://192.168.68.14:30814 (any node IP; NodePort). Login as usual. |
-| Ray dashboard | `kubectl port-forward svc/tuning-head-svc 8265:8265` → http://localhost:8265 |
-| Grafana panels *inside* the Ray dashboard (its Metrics tab) | also `kubectl port-forward -n prometheus svc/kube-prometheus-stack-grafana 3000:80`, so Grafana is on `localhost:3000` — same site as the Ray dashboard, so your Grafana login cookie reaches the embedded panels. Grafana must allow embedding: `GF_SECURITY_ALLOW_EMBEDDING=true` on its deployment. |
+| Grafana | http://192.168.68.14:30814 (NodePort; any node IP). Login as usual. |
+| Ray dashboard | http://192.168.68.14:30265 (NodePort, while a cluster is up). No login of its own — see the `tuning-dashboard` Service comment in `k8s-ray-cluster.yaml` for what that means. |
+| Grafana panels *inside* the Ray dashboard (its Metrics tab) | Open both on the **same IP**: same site to the browser, so your Grafana login cookie reaches the embedded panels without anonymous access. Grafana must allow embedding: `GF_SECURITY_ALLOW_EMBEDDING=true` on its deployment (`k8s-prometheus-stack-values.yaml`). |
 
 Useful queries: `sum(ray_tasks{State="RUNNING"})` (busy slots),
 `ray_node_cpu_utilization` by `node`, `up{job="ray-tuning"}` (one per pod).
@@ -145,7 +145,7 @@ overlap, and the driver never lets them.
 ## Cleanup
 
 ```bash
-kubectl delete raycluster tuning                 # if a run left it up (KEEP_CLUSTER=1, or a failure)
+kubectl delete -f k8s-ray-cluster.yaml           # if a run left it up (KEEP_CLUSTER=1, or a failure)
 kubectl delete jobs -l app=grid-search           # old-style jobs
 rm -rf k8s-jobs/
 ```

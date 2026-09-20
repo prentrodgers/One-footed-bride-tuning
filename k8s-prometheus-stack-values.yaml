@@ -35,8 +35,9 @@ grafana:
     targetPort: 3000
     nodePort: 30013
   # The Ray dashboard's Metrics tab embeds Grafana panels in iframes, which
-  # Grafana refuses by default.  Same-site (both via localhost port-forwards)
-  # so the normal login cookie applies — no anonymous access.
+  # Grafana refuses by default.  Both dashboards are NodePorts on the same
+  # node IP, so the browser treats them as one site and the normal login
+  # cookie applies — no anonymous access.
   grafana.ini:
     security:
       allow_embedding: true
