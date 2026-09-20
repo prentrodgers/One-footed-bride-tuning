@@ -118,8 +118,12 @@ def build_keys(a):
 
 
 def parse_args():
+    # allow_abbrev=False: argparse otherwise accepts any unambiguous prefix,
+    # so `--chorale bwv428` (singular) silently meant --chorales and started
+    # a run instead of failing.
     p = argparse.ArgumentParser(description=__doc__.split('\n\n')[0],
-                                formatter_class=argparse.RawDescriptionHelpFormatter)
+                                formatter_class=argparse.RawDescriptionHelpFormatter,
+                                allow_abbrev=False)
     p.add_argument('--chorales', nargs='+', default=[f'bwv{n}' for n in range(415, 427)])
     p.add_argument('--limit_maxes', nargs='+', type=int, default=[17, 19])
     p.add_argument('--tolerances', nargs='+', type=int, default=[1, 2, 3])

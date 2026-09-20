@@ -5,12 +5,17 @@
 # + ratchet-until-still.sh.
 #
 #     ./ray-ratchet.sh                                       # 24 cells x bwv415..426
-#     ./ray-ratchet.sh --chorales bwv415 bwv419 --patience 3 # anything ray_ratchet.py takes
+#     ./ray-ratchet.sh --chorales bwv428 bwv429 bwv430       # several chorales, one run
+#     ./ray-ratchet.sh --chorales bwv415 --patience 3        # anything ray_ratchet.py takes (--help lists it)
 #     ./ray-ratchet.sh --dry_run                             # the plan only; no cluster
 #     ./ray-ratchet.sh --attach                              # follow a run this shell lost
 #     SKIP_SYNC=1    ./ray-ratchet.sh ...                    # the PVC checkout is already current
 #     KEEP_CLUSTER=1 ./ray-ratchet.sh ...                    # leave the cluster up afterwards
 #     POWER=0        ./ray-ratchet.sh ...                    # don't touch the tuned profiles
+#
+# Chorale names take the bwv prefix (bwv428, not 428), space-separated after
+# one --chorales.  Every cell x chorale becomes a task, so one run over many
+# chorales is the efficient way — 28 tasks run at once regardless.
 #
 # In order:
 #   1. sync the PVC checkout to origin/main (k8s-git-sync-job.yaml) — the
@@ -34,6 +39,14 @@ CLUSTER=tuning
 REPO=/home/prent/Repos/One-footed-bride-tuning
 SKIP_SYNC="${SKIP_SYNC:-0}"; KEEP_CLUSTER="${KEEP_CLUSTER:-0}"; POWER="${POWER:-1}"
 log(){ echo "$(date +%T) $*"; }
+
+# --help: this header, then the driver's own options.
+case " $* " in *" -h "*|*" --help "*)
+    sed -n '2,/^set -euo/p' "$0" | sed '$d' | sed 's/^# \{0,1\}//'
+    echo "---- ray_ratchet.py options (all pass straight through) ----"
+    python3 ray_ratchet.py --help | sed -n '/^options:/,$p'
+    exit 0;;
+esac
 
 head_pod(){ kubectl get pod -l "ray.io/cluster=$CLUSTER,ray.io/node-type=head" -o jsonpath='{.items[0].metadata.name}' 2>/dev/null; }
 rayx(){ kubectl exec "$(head_pod)" -c ray-head -- "$@"; }   # run on the head
@@ -60,6 +73,14 @@ fi
 
 # --dry_run needs no cluster: the plan is printed by the driver locally.
 case " $* " in *" --dry_run "*) exec python3 ray_ratchet.py "$@";; esac
+
+# Pre-flight: parse the arguments and print the plan HERE, before the sync,
+# the power switch and the cluster.  A typo (--chorale, a name without its
+# bwv prefix) used to surface only after all that, from the job on the head.
+echo "== plan"
+python3 ray_ratchet.py "$@" --dry_run | sed '/^dry run/d; s/^/    /' \
+    || { echo "ray_ratchet.py rejected the arguments — nothing started (./ray-ratchet.sh --help)" >&2; exit 2; }
+echo
 
 # 1. sync
 if [ "$SKIP_SYNC" = 1 ]; then
