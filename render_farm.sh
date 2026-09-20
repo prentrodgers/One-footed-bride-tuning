@@ -20,13 +20,40 @@
 # a better card would not.
 #
 #   ./render_farm.sh --npy Uploads/x.npy --tempo 104 --duration 281.7 --out frames
-#   ./render_farm.sh --status
-#   ./render_farm.sh --progress
-#   ./render_farm.sh --stop
+#   ./render_farm.sh ... --engine cycles          # anything else --x goes to blender_stage.py
+#   ./render_farm.sh ... --dry-run                # the slices, no pods
+#   ./render_farm.sh --status                     # the pods
+#   ./render_farm.sh --progress                   # per-slice frames done, rate, eta
+#   ./render_farm.sh --stop                       # delete the pods, fleet back to balanced
+#   ./render_farm.sh --only b70a ...              # relaunch one slice (same args as the launch)
+#   ./render_farm.sh --help
+#
+# Environment:
+#   PER_CARD=2      two Blender processes per card instead of one (see below)
+#   IGPU=1          add the Core Ultra iGPUs (IGPU_RATE_EEVEE / IGPU_RATE_CYC)
+#   POWER=0         leave the tuned profiles alone
+#   STAGGER=45      seconds between pod launches
+#   IMAGE=...       another image tag
 #
 # The fleet rests on tuned's balanced profile; a launch switches it to
 # powersave-gpu (./power-save-all.sh) and a detached waiter switches it back
 # once every pod has finished (--stop does too). POWER=0 skips both.
+#
+# PER_CARD. A Blender process renders a frame in two strictly serial phases:
+# the per-frame Python (mallet slots, tine bends, sway, mesh edits — one CPU
+# thread) and then the GPU render. The card idles through the first, the CPU
+# through the second; on Grafana it shows as CPU and GPU taking turns.
+# PER_CARD=2 launches two pods on each card, each with half the card's slice,
+# so one's Python phase overlaps the other's render and the card stays busy.
+# Cycles takes concurrent contexts on one card without complaint. The cost
+# is memory — a Blender process is 1-2 GB plus its VRAM — so fs5, which
+# holds two B70s beside ComfyUI, is the node to watch. Not yet measured
+# (added 20 Sep 2026): the rate table is per single process, so a card's
+# slice is the same size either way and the two pods split it; expect them
+# to finish early, then re-measure the rates with two per card and update the
+# table. Pods are named <label>-1, <label>-2; --only takes either one of
+# those or the bare label for both, and needs the same PER_CARD as the launch
+# so the frame ranges come out identical.
 #
 # Pods are started one at a time, STAGGER seconds apart. "Mounting" the
 # CephFS volume takes ~60-90s per pod, and five at once put every one of them
@@ -117,9 +144,14 @@ if [ "${IGPU:-0}" = 1 ]; then WORKERS+=(
 ); fi
 
 STAGGER=${STAGGER:-45}
+PER_CARD=${PER_CARD:-1}
+case "$PER_CARD" in 1|2|3|4) ;; *) echo "PER_CARD must be 1-4, got '$PER_CARD'" >&2; exit 2;; esac
 NPY=""; TEMPO=""; DURATION=""; OUT=""; DRYRUN=0; ONLY=""; EXTRA=()
 while [ $# -gt 0 ]; do
   case "$1" in
+    # The header, comment markers stripped: usage, the environment knobs, and
+    # the notes on how the slicing and the cards work.
+    -h|--help) sed -n '2,/^set -euo/p' "$0" | sed '$d' | sed 's/^# \{0,1\}//'; exit 0;;
     --npy) NPY=$2; shift 2;;
     --tempo) TEMPO=$2; shift 2;;
     --duration) DURATION=$2; shift 2;;
@@ -191,7 +223,7 @@ while [ $# -gt 0 ]; do
     *) echo "unknown argument: $1" >&2; exit 2;;
   esac
 done
-[ -n "$NPY$TEMPO$DURATION$OUT" ] || { sed -n '2,20p' "$0"; exit 2; }
+[ -n "$NPY$TEMPO$DURATION$OUT" ] || { sed -n '2,/^#   IMAGE=/p' "$0" | sed 's/^# \{0,1\}//'; echo "(--help for the rest)"; exit 2; }
 # Which rate column to split by: 6 (Cycles) when the pass-through asks for
 # it, else 5 (EEVEE).
 RATE_COL=5; case " ${EXTRA[*]:-} " in *" cycles "*) RATE_COL=6;; esac
@@ -210,7 +242,8 @@ for w in "${WORKERS[@]}"; do
   total_w=$(awk -v a="$total_w" -v b="$weight" 'BEGIN{print a+b}')
 done
 
-echo "render: $TOTAL frames over ${#WORKERS[@]} GPUs  ($(awk -v w="$total_w" 'BEGIN{printf "%.2f", w}') frames/s, "\
+echo "render: $TOTAL frames over ${#WORKERS[@]} GPUs$([ "$PER_CARD" -gt 1 ] && echo ", $PER_CARD processes per card")  "\
+"($(awk -v w="$total_w" 'BEGIN{printf "%.2f", w}') frames/s at one per card, "\
 "eta $(awk -v t="$TOTAL" -v w="$total_w" 'BEGIN{printf "%.0f", t/w/60}') min)"
 
 start=0
@@ -224,35 +257,53 @@ if [ "$DRYRUN" -eq 0 ] && [ "${POWER:-1}" = 1 ] && [ -z "$ONLY" ]; then
   echo
 fi
 
+launched=0
 for i in "${!WORKERS[@]}"; do
   read -r label node select ordinal _ _ <<<"${WORKERS[$i]}"
+  # This card's slice, from its rate.
   if [ "$i" -eq $((${#WORKERS[@]} - 1)) ]; then
-    end=$((TOTAL - 1))
+    card_end=$((TOTAL - 1))
   else
     share=$(awk -v w="${weights[$i]}" -v tw="$total_w" -v t="$TOTAL" 'BEGIN{printf "%d", (w/tw)*t}')
-    end=$((start + share - 1))
+    card_end=$((start + share - 1))
   fi
-  if [ -n "$ONLY" ] && [ "$ONLY" != "$label" ]; then
-    start=$((end + 1))
-    continue
-  fi
-  printf "  %-7s %-4s %-11s frames %6d..%-6d (%d)%s\n" "$label" "$node" "$select" "$start" "$end" $((end - start + 1)) \
-         "${EXTRA[*]:+  ${EXTRA[*]}}"
+  card_start=$start
+  start=$((card_end + 1))
+  card_span=$((card_end - card_start + 1))
 
-  if [ "$DRYRUN" -eq 0 ]; then
-    # Keep the Nth render node whose PCI device id matches this worker's
-    # card; hide all the others (dGPU siblings and iGPUs alike). Runs inside
-    # the pod, where sysfs is the host's and /dev/dri is the passed-through
-    # directory, so the choice is made against what is actually there.
-    [ "$ordinal" = "-" ] && ordinal=0
-    hide_cmd="dev=0x${select#*:}; keep=''; n=0; for s in /sys/class/drm/renderD*; do [ \"\$(cat \$s/device/device)\" = \"\$dev\" ] || continue; [ \$n -eq $ordinal ] && keep=\$(basename \$s); n=\$((n+1)); done; [ -n \"\$keep\" ] || { echo \"[farm] no card \$dev ordinal $ordinal on this node\" >&2; exit 3; }; for d in /dev/dri/renderD*; do [ \"\$(basename \$d)\" = \"\$keep\" ] || mount --bind /dev/null \$d; done; echo \"[farm] rendering on \$keep\"; "
+  # Keep the Nth render node whose PCI device id matches this worker's
+  # card; hide all the others (dGPU siblings and iGPUs alike). Runs inside
+  # the pod, where sysfs is the host's and /dev/dri is the passed-through
+  # directory, so the choice is made against what is actually there.  The
+  # same ordinal for every part of a card: that is what puts them on one GPU.
+  [ "$ordinal" = "-" ] && ordinal=0
+  hide_cmd="dev=0x${select#*:}; keep=''; n=0; for s in /sys/class/drm/renderD*; do [ \"\$(cat \$s/device/device)\" = \"\$dev\" ] || continue; [ \$n -eq $ordinal ] && keep=\$(basename \$s); n=\$((n+1)); done; [ -n \"\$keep\" ] || { echo \"[farm] no card \$dev ordinal $ordinal on this node\" >&2; exit 3; }; for d in /dev/dri/renderD*; do [ \"\$(basename \$d)\" = \"\$keep\" ] || mount --bind /dev/null \$d; done; echo \"[farm] rendering on \$keep\"; "
+
+  # PER_CARD contiguous parts of the card's slice, the last taking the
+  # remainder.  With PER_CARD=1 the part is the whole slice and the pod
+  # keeps its old name, so --progress and --only work as before.
+  for ((p = 1; p <= PER_CARD; p++)); do
+    part_start=$((card_start + (p - 1) * card_span / PER_CARD))
+    if [ "$p" -eq "$PER_CARD" ]; then part_end=$card_end
+    else part_end=$((card_start + p * card_span / PER_CARD - 1)); fi
+    name=$label; [ "$PER_CARD" -gt 1 ] && name="$label-$p"
+    if [ -n "$ONLY" ] && [ "$ONLY" != "$label" ] && [ "$ONLY" != "$name" ]; then
+      continue
+    fi
+    printf "  %-9s %-4s %-11s frames %6d..%-6d (%d)%s\n" "$name" "$node" "$select" "$part_start" "$part_end" \
+           $((part_end - part_start + 1)) "${EXTRA[*]:+  ${EXTRA[*]}}"
+    [ "$DRYRUN" -eq 0 ] || continue
+
+    # Let the previous pod's volume finish mounting before asking for this one.
+    [ "$launched" -gt 0 ] && sleep "$STAGGER"
+    launched=$((launched + 1))
     kubectl apply -f - >/dev/null <<YAML
 apiVersion: v1
 kind: Pod
 metadata:
-  name: blender-farm-$label
+  name: blender-farm-$name
   namespace: $NS
-  labels: {job: blender-farm}
+  labels: {job: blender-farm, card: $label}
 spec:
   restartPolicy: Never
   nodeSelector: {kubernetes.io/hostname: $node}
@@ -269,7 +320,7 @@ spec:
     args:
     - ${hide_cmd}cd $REPO && exec blender --background --gpu-backend vulkan
       --python blender_stage.py -- --npy $NPY --tempo $TEMPO --duration $DURATION
-      --res-x $RES_X --res-y $RES_Y --out $OUT --frame-start $start --frame-end $end
+      --res-x $RES_X --res-y $RES_Y --out $OUT --frame-start $part_start --frame-end $part_end
       --gpu-name any ${EXTRA[*]:-}
     volumeMounts:
     # subPaths, not the PVC root: see the relabel note at the top.
@@ -280,12 +331,7 @@ spec:
   - {name: ceph, persistentVolumeClaim: {claimName: dropbox-pvc}}
   - {name: dri, hostPath: {path: /dev/dri}}
 YAML
-  fi
-  start=$((end + 1))
-  # Let this pod's volume finish mounting before asking for the next one.
-  if [ "$DRYRUN" -eq 0 ] && [ "$i" -lt $((${#WORKERS[@]} - 1)) ]; then
-    sleep "$STAGGER"
-  fi
+  done
 done
 
 [ "$DRYRUN" -eq 1 ] && exit 0
