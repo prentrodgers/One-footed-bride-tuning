@@ -74,6 +74,16 @@ fi
 # --dry_run needs no cluster: the plan is printed by the driver locally.
 case " $* " in *" --dry_run "*) exec python3 ray_ratchet.py "$@";; esac
 
+# This runs where kubectl is — the workstation (WSL) or fs7 — not inside the
+# one-footed-bride pod, which has the repo but no kubectl.  Run there, the
+# first kubectl call below failed into /dev/null and set -e ended the script
+# with no message at all (20 Sep 2026).
+if ! command -v kubectl >/dev/null; then
+    echo "kubectl not found: run this from the workstation or fs7, not from inside a pod" >&2; exit 2
+fi
+kubectl get --raw /readyz --request-timeout=10s >/dev/null 2>&1 \
+    || { echo "kubectl cannot reach the cluster (kubectl get nodes to see why)" >&2; exit 2; }
+
 # Pre-flight: parse the arguments and print the plan HERE, before the sync,
 # the power switch and the cluster.  A typo (--chorale, a name without its
 # bwv prefix) used to surface only after all that, from the job on the head.
@@ -148,9 +158,13 @@ log "submitting $id: python ray_ratchet.py $*"
 rayx ray job submit --address "$DASH" --submission-id "$id" --no-wait \
     -- bash -c "cd $REPO && exec python ray_ratchet.py $*" | grep -v '^$' | sed 's/^/    /'
 echo
+# The driver's output is also kept in a local file: the head pod's copy goes
+# with the cluster, and it is the only place a task failure's reason is
+# printed (the TSV records just "failed").  *.log is gitignored.
 log "following the log (ctrl-c stops following, not the run; ./ray-ratchet.sh --attach resumes)"
+log "driver log copy: $id.log"
 set +e
-kubectl exec "$(head_pod)" -c ray-head -- ray job logs --address "$DASH" -f "$id"
+kubectl exec "$(head_pod)" -c ray-head -- ray job logs --address "$DASH" -f "$id" | tee "$id.log"
 # The job's state from the dashboard API, not the CLI: `ray job status`
 # prints through its logger to stderr, decorated, and is awkward to parse.
 status=$(rayx curl -s "$DASH/api/jobs/$id" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("status", "UNKNOWN"))' 2>/dev/null || echo UNKNOWN)
