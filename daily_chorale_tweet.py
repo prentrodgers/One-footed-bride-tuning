@@ -1,33 +1,63 @@
-#!/usr/bin/env python3.10
+#!/usr/bin/env python3
 """
 Post one finished Bach chorale (just-intonation rendering) to Twitter/X daily.
 Links to mp3 files hosted on Cloudflare R2 at audio.microtonalnotes.net.
 X rewrites every outbound link to https://, so the host must have a real cert.
 
-Crontab entry (6:00 AM every day):
+Which album: the newest one IN THE R2 BUCKET — the album whose most recent
+upload is the most recent of all.  The bucket is what the links point at, so
+it is the only thing worth asking.  Earlier versions scanned
+~/Dropbox/Uploads for the highest c*/d* directory, which went wrong three
+ways: a directory named outside the pattern (DB-09-16-26) was ignored, a
+directory dropped in Dropbox just to listen to on a walk could become the
+daily album by its name alone, and nothing checked that what it picked had
+actually been published.
+
+Which file: random, without repeats, until the album is exhausted; then the
+rotation starts over.  A new album on R2 starts a new rotation on its own.
+
+The link is checked (HEAD, expects 200 audio/mpeg) before anything is posted.
+A tweet with a dead link is worse than a day without a tweet, so on any
+problem — no credentials, the bucket unreachable, the object missing — this
+exits non-zero and posts nothing.  The cron log says why.
+
+    daily_chorale_tweet.py --list        # albums on R2, newest first
+    daily_chorale_tweet.py --dry-run     # what would be posted, no tweet
+    daily_chorale_tweet.py --album DB-09-16-26 --dry-run   # a particular album
+
+Crontab entry (6:00 AM every day), on fs7:
     0 6 * * * /home/prent/miniforge3/bin/mamba run -n csound python \
         /home/prent/Repos/One-footed-bride-tuning/daily_chorale_tweet.py >> /tmp/daily_chorale_tweet.log 2>&1
-    (this runs on fs7)
 
 Before first use:
-    1. pip install tweepy
-    2. Create a Twitter/X developer account and app at https://developer.twitter.com
-    3. Create ~/.daily_chorale_tweet.env with:
+    1. In the csound env:  pip install tweepy boto3
+    2. Twitter/X developer app at https://developer.twitter.com; its four
+       keys go in ~/.daily_chorale_tweet.env (below).
+    3. An R2 API token that can READ the bucket: Cloudflare dashboard ->
+       R2 -> Manage R2 API Tokens -> Create, permission "Object Read only",
+       bucket microtonalnotes-audio.  The page shows an Access Key ID, a
+       Secret Access Key and the S3 endpoint for the account.
+    4. ~/.daily_chorale_tweet.env, mode 600:
          TWITTER_API_KEY=...
          TWITTER_API_SECRET=...
          TWITTER_ACCESS_TOKEN=...
          TWITTER_ACCESS_SECRET=...
-    4. Publish the mp3 album to the R2 bucket once a month:
-         cd ~/Repos/file-service && ./scripts/publish-album.sh <album-dir>
-    5. Update MP3_DIR to point to the local copy (for filename scanning).
+         R2_ENDPOINT=https://<account id>.r2.cloudflarestorage.com
+         R2_ACCESS_KEY_ID=...
+         R2_SECRET_ACCESS_KEY=...
+         R2_BUCKET=microtonalnotes-audio        (optional; this is the default)
+    5. Publish an album:  cd ~/Repos/file-service && ./scripts/publish-album.sh <dir>
+       It is in the rotation the next morning; nothing here to update.
+       Objects are keyed <album dir>/<filename>, and so are the links.
 """
 
-import os
-import re
 import json
+import os
 import random
+import re
 import sys
-from pathlib import Path
+import urllib.error
+import urllib.request
 from urllib.parse import quote
 
 try:
@@ -37,9 +67,8 @@ except ImportError:
     sys.exit(1)
 
 # ── Configuration ──────────────────────────────────────────────────────────
-UPLOADS_ROOT = os.path.expanduser("~/Dropbox/Uploads")
-MP3_DIR = None  # auto-detected from latest a* directory in UPLOADS_ROOT
 BASE_URL = "https://audio.microtonalnotes.net"
+DEFAULT_BUCKET = "microtonalnotes-audio"
 STATE_FILE = os.path.expanduser("~/.daily_chorale_tweet_state.json")
 ENV_FILE = os.path.expanduser("~/.daily_chorale_tweet.env")
 
@@ -131,16 +160,20 @@ def load_env():
                     os.environ.setdefault(k.strip(), v.strip())
 
 
-def parse_filename(fname, base_url=BASE_URL):
-    """Parse an mp3 filename into a human-readable description and URL."""
-    normalized_base = base_url.strip().rstrip("/")
-    if normalized_base.startswith("http://"):
-        normalized_base = "https://" + normalized_base.removeprefix("http://")
-    url = f"{normalized_base}/{quote(fname)}"
+def mp3_url(key, base_url=BASE_URL):
+    """The public URL of an object.  The key is <album>/<filename>, and the
+    album part is what keeps two albums' identical filenames apart."""
+    base = base_url.strip().rstrip("/")
+    if base.startswith("http://"):
+        base = "https://" + base.removeprefix("http://")
+    return f"{base}/{quote(key)}"
 
+
+def parse_filename(fname, url):
+    """Parse an mp3 filename into (bwv, tweet text)."""
     m = FILENAME_RE.match(fname)
     if not m:
-        return None, f"{fname}\n{url}", url
+        return None, f"{fname}\n{url}"
 
     track, variant, limit, ratio, detail_value, tol, dur_m, dur_s, tempo, _primes = m.groups()
     # Three digits carry the whole BWV number.  Two-digit files (before 19 Sep
@@ -159,73 +192,99 @@ def parse_filename(fname, base_url=BASE_URL):
         f"Composed by Prent Rodgers, with the help of Dr. Claude.\n"
         f"{url}"
     )
-    return bwv, desc, url
+    return bwv, desc
 
 
-SERIES = ("c", "d")
-
-
-def _album_key(d):
-    """Album directories are named c0, c1, ... c9, then d0, d1, ... - sort on
-    the series letter first, then the number.
-
-    The letter has to lead, because the d series supersedes the c one: d0 is
-    newer than c9 even though 0 < 9. Sorting on the number alone would rank
-    every d album below every c album, and the d series would never be picked
-    up at all - the daily post would go on serving c9 with no error to show
-    for it.
-
-    Deliberately NOT st_mtime. Dropbox rewrites mtime to whenever it synced a
-    directory down, so the ordering differs per machine: on fs2 all ten albums
-    carry the same nine-minute timestamp and c0 sorts newest, which would post
-    the June first-pass instead of the current album. fs7 is only correct today
-    because that is where the albums were created; a resync would break it
-    silently. The name means the same thing on every machine.
-
-    Returns (-1, -1) for a directory with no number after the letter - notably
-    compositions/, which also starts with c and also holds ball9-*.mp3 files
-    (three of them) - so it sorts last and is never chosen over a real album.
-    """
-    m = re.match(r"([cd])(\d+)", d.name)
-    if not m:
-        return (-1, -1)
-    return (SERIES.index(m.group(1)), int(m.group(2)))
-
-
-def find_latest_album_dir(uploads_root=UPLOADS_ROOT):
-    """Find the highest c*/d* directory containing ball9-*.mp3 files."""
-    root = Path(uploads_root)
-    candidates = sorted(
-        (d for d in root.iterdir() if d.is_dir()
-         and d.name.startswith(SERIES) and list(d.glob("ball9-*.mp3"))),
-        key=_album_key,
-        reverse=True,
+# ── The bucket ─────────────────────────────────────────────────────────────
+def r2_client():
+    """An S3 client for the R2 bucket, from the R2_* variables in the env file."""
+    load_env()
+    endpoint = os.environ.get("R2_ENDPOINT")
+    key_id = os.environ.get("R2_ACCESS_KEY_ID")
+    secret = os.environ.get("R2_SECRET_ACCESS_KEY")
+    if not all([endpoint, key_id, secret]):
+        print("Set R2_ENDPOINT, R2_ACCESS_KEY_ID and R2_SECRET_ACCESS_KEY in "
+              f"{ENV_FILE} (see the docstring for where they come from)", file=sys.stderr)
+        sys.exit(1)
+    try:
+        import boto3
+        from botocore.config import Config
+    except ImportError:
+        print("Install boto3 in the csound env: pip install boto3", file=sys.stderr)
+        sys.exit(1)
+    return boto3.client(
+        "s3", endpoint_url=endpoint, region_name="auto",
+        aws_access_key_id=key_id, aws_secret_access_key=secret,
+        config=Config(signature_version="s3v4", retries={"max_attempts": 3}),
     )
-    if not candidates or _album_key(candidates[0])[0] < 0:
-        print(f"No numbered album directory (c0, c1, ... d0, d1, ...) in {uploads_root}", file=sys.stderr)
+
+
+def list_albums(bucket=None):
+    """Every album in the bucket: {album: {"files": [...], "newest": datetime}}.
+
+    An album is the first path component of a key; its files are the
+    ball9-*.mp3 objects under it.  Objects at the bucket root — the flat
+    uploads from before keys carried the album — are ignored: publish-album.sh
+    left them for old tweets to link to, and they belong to no album.
+    """
+    bucket = bucket or os.environ.get("R2_BUCKET", DEFAULT_BUCKET)
+    s3 = r2_client()
+    albums = {}
+    try:
+        for page in s3.get_paginator("list_objects_v2").paginate(Bucket=bucket):
+            for obj in page.get("Contents", []):
+                album, _, fname = obj["Key"].partition("/")
+                if not fname or "/" in fname or not fname.startswith("ball9-") or not fname.endswith(".mp3"):
+                    continue
+                a = albums.setdefault(album, {"files": [], "newest": obj["LastModified"]})
+                a["files"].append(fname)
+                a["newest"] = max(a["newest"], obj["LastModified"])
+    except Exception as e:                       # botocore raises a zoo of these
+        print(f"Could not list bucket {bucket}: {e}", file=sys.stderr)
         sys.exit(1)
-    return str(candidates[0])
-
-
-def get_mp3_files(directory):
-    """Return sorted list of .mp3 files in directory."""
-    p = Path(directory)
-    if not p.is_dir():
-        print(f"Directory not found: {directory}", file=sys.stderr)
+    if not albums:
+        print(f"No <album>/ball9-*.mp3 objects in bucket {bucket}", file=sys.stderr)
         sys.exit(1)
-    files = sorted(f.name for f in p.glob("ball9-*.mp3"))
-    if not files:
-        print(f"No ball9-*.mp3 files in {directory}", file=sys.stderr)
-        sys.exit(1)
-    return files
+    for a in albums.values():
+        a["files"].sort()
+    return albums
 
 
+def latest_album(albums):
+    """The album whose most recent upload is the most recent of all."""
+    return max(albums, key=lambda a: albums[a]["newest"])
+
+
+def check_url(url):
+    """True if the object is there: HEAD 200 and served as audio.
+
+    The User-Agent matters: Cloudflare answers 403 to Python's default
+    "Python-urllib/3.x" on this host and 200 to anything else (curl, a
+    made-up name).  Without the header every link would fail the check."""
+    try:
+        req = urllib.request.Request(url, method="HEAD",
+                                     headers={"User-Agent": "daily_chorale_tweet/1.0"})
+        with urllib.request.urlopen(req, timeout=20) as r:
+            ctype = r.headers.get("Content-Type", "")
+            if r.status == 200 and ctype.startswith("audio/"):
+                return True
+            print(f"Link check: HTTP {r.status}, content-type {ctype!r} — not posting", file=sys.stderr)
+    except urllib.error.HTTPError as e:
+        print(f"Link check: HTTP {e.code} for {url} — not posting", file=sys.stderr)
+    except Exception as e:
+        print(f"Link check failed: {e} — not posting", file=sys.stderr)
+    return False
+
+
+# ── State ──────────────────────────────────────────────────────────────────
 def load_state():
-    """Load posted-file tracking state."""
+    """Which files of which album have been posted.  A state file from before
+    the R2 switch has 'mp3_dir' instead of 'album' and simply does not match,
+    so the rotation restarts — on a new album, as it would anyway."""
     if os.path.exists(STATE_FILE):
         with open(STATE_FILE) as f:
             return json.load(f)
-    return {"posted": [], "mp3_dir": MP3_DIR}
+    return {"posted": [], "album": None}
 
 
 def save_state(state):
@@ -233,6 +292,7 @@ def save_state(state):
         json.dump(state, f, indent=2)
 
 
+# ── Twitter ────────────────────────────────────────────────────────────────
 def twitter_client():
     """Authenticate and return tweepy.Client for v2 tweets."""
     load_env()
@@ -249,56 +309,74 @@ def twitter_client():
         )
         sys.exit(1)
 
-    client = tweepy.Client(
+    return tweepy.Client(
         consumer_key=api_key,
         consumer_secret=api_secret,
         access_token=access_token,
         access_token_secret=access_secret,
     )
-    return client
 
 
-def post_tweet(fname, description, url, dry_run=False):
-    """Post a text tweet with a link to the mp3 on ripnread.com."""
+def post_tweet(key, description, dry_run=False):
+    """Post a text tweet with a link to the mp3 on R2."""
     tweet_text = description
     if len(tweet_text) > 280:
         tweet_text = tweet_text[:277] + "..."
 
     if dry_run:
         print("=== DRY RUN ===")
-        print(f"File: {fname}")
+        print(f"Object: {key}")
         print(f"Tweet ({len(tweet_text)} chars):\n{tweet_text}")
         return True
 
     client = twitter_client()
-    print(f"Posting tweet for {fname} ...")
+    print(f"Posting tweet for {key} ...")
     response = client.create_tweet(text=tweet_text)
     tweet_id = response.data["id"]
     print(f"Posted: https://twitter.com/prentrodgers/status/{tweet_id}")
     return True
 
 
+# ── Main ───────────────────────────────────────────────────────────────────
 def main():
     import argparse
 
-    parser = argparse.ArgumentParser(description="Post a daily chorale tweet")
+    parser = argparse.ArgumentParser(description="Post a daily chorale tweet from the newest album on R2",
+                                     allow_abbrev=False)
     parser.add_argument("--dry-run", action="store_true",
                         help="Print what would be posted without actually tweeting")
-    parser.add_argument("--mp3-dir", default=None,
-                        help="Directory with mp3 files (default: latest a* dir in Uploads)")
+    parser.add_argument("--list", action="store_true",
+                        help="List the albums in the bucket, newest first, and exit")
+    parser.add_argument("--album", default=None,
+                        help="Post from this album (its key prefix in the bucket) instead of the newest")
     parser.add_argument("--base-url", default=BASE_URL,
-                        help=f"Base URL for mp3 hosting (default: {BASE_URL})")
+                        help=f"Public host of the bucket (default: {BASE_URL})")
     parser.add_argument("--reset", action="store_true",
-                        help="Reset state and start from the first file")
+                        help="Forget what has been posted and start the rotation over")
+    parser.add_argument("--no-check", action="store_true",
+                        help="Skip the HEAD check of the link before posting")
     args = parser.parse_args()
 
-    mp3_dir = args.mp3_dir or find_latest_album_dir()
-    print(f"Album directory: {mp3_dir}")
-    files = get_mp3_files(mp3_dir)
+    albums = list_albums()
+    newest = latest_album(albums)
+
+    if args.list:
+        for name in sorted(albums, key=lambda a: albums[a]["newest"], reverse=True):
+            a = albums[name]
+            mark = "  <- newest" if name == newest else ""
+            print(f"{a['newest']:%Y-%m-%d %H:%M}  {len(a['files']):>3} files  {name}{mark}")
+        return
+
+    album = args.album or newest
+    if album not in albums:
+        print(f"No album {album!r} in the bucket — --list shows what is there", file=sys.stderr)
+        sys.exit(1)
+    files = albums[album]["files"]
+    print(f"Album: {album} ({len(files)} files, newest upload {albums[album]['newest']:%Y-%m-%d %H:%M})")
 
     state = load_state()
-    if args.reset or state.get("mp3_dir") != mp3_dir:
-        state = {"posted": [], "mp3_dir": mp3_dir}
+    if args.reset or state.get("album") != album:
+        state = {"posted": [], "album": album}
 
     posted = set(state["posted"])
     remaining = [f for f in files if f not in posted]
@@ -308,14 +386,20 @@ def main():
         remaining = files[:]
 
     fname = random.choice(remaining)
-    bwv, description, url = parse_filename(fname, base_url=args.base_url)
+    key = f"{album}/{fname}"
+    url = mp3_url(key, base_url=args.base_url)
+    bwv, description = parse_filename(fname, url)
 
-    success = post_tweet(fname, description, url, dry_run=args.dry_run)
+    if not args.no_check and not check_url(url):
+        sys.exit(1)
 
-    if success:
-        state["posted"].append(fname)
-        save_state(state)
-        print(f"\n{len(remaining) - 1} chorales remaining in rotation.")
+    post_tweet(key, description, dry_run=args.dry_run)
+    if args.dry_run:
+        print(f"\n(dry run: state untouched; {len(remaining)} chorales remaining in rotation)")
+        return
+    state["posted"].append(fname)
+    save_state(state)
+    print(f"\n{len(remaining) - 1} chorales remaining in rotation.")
 
 
 if __name__ == "__main__":
