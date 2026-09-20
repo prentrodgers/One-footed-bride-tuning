@@ -89,7 +89,15 @@ else
     ahead=$(git rev-list --count '@{u}..HEAD' 2>/dev/null || echo '?')
     [ "$ahead" = 0 ] || log "NOTE: $ahead local commit(s) not pushed — the workers will not run them"
     log "syncing the PVC checkout to origin/main"
-    kubectl delete job grid-search-git-sync --ignore-not-found >/dev/null 2>&1
+    # Delete the previous sync Job AND wait for its pod to be gone: the
+    # delete returns before the pod is killed, and a pod still mid-fetch from
+    # a run started a minute earlier raced this one on refs/remotes/origin/main
+    # ("cannot lock ref ... unable to update local ref", 20 Sep 2026).
+    kubectl delete job grid-search-git-sync --ignore-not-found --wait=true >/dev/null 2>&1
+    for i in $(seq 1 30); do
+        [ -z "$(kubectl get pod -l app=grid-search-sync --no-headers 2>/dev/null)" ] && break
+        sleep 2
+    done
     kubectl apply -f k8s-git-sync-job.yaml >/dev/null
     kubectl wait --for=condition=complete --timeout=300s job/grid-search-git-sync >/dev/null \
         || { echo "git-sync did not complete: kubectl logs job/grid-search-git-sync" >&2; exit 1; }
