@@ -19782,7 +19782,7 @@ EOF
 8/15/26 Two tracks at once: Three.js enhancement, and grid_search to try to improve chorale tuning.
       First the tuning done on a limited set of LIMIT_MAXES=(17 19) TOLERANCES=(1 2 3) RATIOS=(1.25 1.50 1.75) ROLLS=4
             ============================================================================================================
-            Chorale: bwv261   sorted by gapsum (ordering only, not a ranking)
+            Chorale: bwv261
             ===========================================================================================
             Directory       sfx   t  ratio  lm ChordAvg ChordMax |    N  GapSum    Avg    Med    p90    Max |  >10  >20  >30  >=33
             --------------- ---- -- ------ --- -------- -------- | ---- ------- ------ ------ ------ ------ | ---- ---- ---- -----
@@ -20074,7 +20074,7 @@ _______________
 
       Claude clarified that that remark was not accurate. Here's what it says about the latest run with the "polish" applied.
       ============================================================================================================
-Chorale: bwv261   sorted by gapsum (ordering only, not a ranking)
+Chorale: bwv261
 ===========================================================================================
                   Directory        sfx   t  ratio  lm ChordAvg ChordMax |   N  GapSum    Avg    Med    p90    Max |  >10  >20  >30  >=33
                   ---------------- ---- -- ------ --- -------- -------- |---- ------- ------ ------ ------ ------ | ---- ---- ---- -----
@@ -21486,27 +21486,8 @@ ______________________
       If you ever get locked out of this command:
             ssh one-footed-bride-pod
                   prent@192.168.68.8: Permission denied (publickey).
-      It's because your public key has vanished from the PVC where this is:
-            k exec -it deploy/one-footed-bride -c pod-ssh -- bash # root access
-            cd $HOME
-            ls -lth .ssh
-                  total 6.0K
-                  -rw-------. 1 prent prent  370 Sep  3 14:26 authorized_keys
-            cat .ssh/authorized_keys
-                  ssh-ed25519 AA...CKI prent@ASUS-A16
-                  ssh-ed25519 AAA...le prent@fs3
-                  ssh-ed25519 AAA...4om prent@fs9
-                  ssh-ed25519 AAA...xT prent@M70q
-      No fs2.
-      on fs2:
-            cat  ~/.ssh/*.pub
-                  ssh-ed...3w prent@fs2
-      In the pod with root access:
-            echo ssh-ed...3w prent@fs2 >> .ssh/authorized_keys
-            cat .ssh/authorized_keys
-                  ssh-ed...3w prent@fs2
-      Now I have to do this every time the one-footed-bride pod restarts. Why? 
-      Now it works. Why it vanished, while the other ones did not is a mystery. Ask Claude when he finishes what he's doing now. That Fable is a token eating monster. Always coming up with ideas that don't quite work. He's now rediscovering things that Opus already knew. Oh well. 
+      It's because your public key has vanished from the PVC.
+      To fix it, look here: Set_Up_kubeadm_cluster.txtand search for "7/10/26 Trouble accessing one-footed-bride-pod from anywhere"
 
       Working on revising the container to use for future Blender work:
       That's the answer to "how can we fix this" — fixed, built, and one login away from the cluster.
@@ -21514,8 +21495,6 @@ ______________________
       What was actually wrong (it wasn't what the Containerfile note said): Debian trixie doesn't package Intel's compute runtime at all, and its Level Zero loader is too old — libze1 1.20.6 lacks zelSetDelayLoaderContextTeardown, which Blender 5.2's bundled adapter imports. The adapter fails to load and Cycles silently lists only the CPU, even though Level Zero itself could see both B70s the whole time. Cycles then also needs Intel's hardware ray-tracing library, which lives only in Intel's apt pool.
 
       python-music:0.10 is built and smoke-tested on fs2 (3.67 GB): the adapter now loads, and all seven Intel packages are in at pinned versions. The image can only reach the nodes via quay, and fs2 has no quay login, so this part is yours:
-
-
             podman login quay.io
             podman push quay.io/prentrodgers/python-music:0.10      # new tag; 0.9 is untouched
       Done. 
@@ -22334,7 +22313,7 @@ bwv264  viterbi-tunings-8-25   opt     1  1.250  17     49.0      167 |    0    
                   bwv437	t1_r1.375_lm19	512	      154	      17	13.4	14	58.2
 
       What they used to be:
-horale: bwv432   sorted by gapsum (ordering only, not a ranking)
+horale: bwv432
 ============================================================================================================
   Directory                      sfx     t  ratio  lm ChordAvg ChordMax |    N  GapSum    Avg    Med    p90    Max |  >10  >20  >30  >=33
   ------------------------------ ------ -- ------ --- -------- -------- | ---- ------- ------ ------ ------ ------ | ---- ---- ---- -----
@@ -22342,7 +22321,7 @@ horale: bwv432   sorted by gapsum (ordering only, not a ranking)
   viterbi-tunings-9-11           opt     3  1.250  19     61.8      131 |   17      82    4.8    2.0   11.0   12.0 |    3    0    0     0
   t1_r1.625_lm19                 opt     1  1.625  19     65.0      165 |   15     141    9.4   10.0   13.0   13.0 |    5    0    0     0
 
-  Chorale: bwv437   sorted by gapsum (ordering only, not a ranking)
+  Chorale: bwv437
 ============================================================================================================
   Directory                      sfx     t  ratio  lm ChordAvg ChordMax |    N  GapSum    Avg    Med    p90    Max |  >10  >20  >30  >=33
   ------------------------------ ------ -- ------ --- -------- -------- | ---- ------- ------ ------ ------ ------ | ---- ---- ---- -----
@@ -22351,7 +22330,7 @@ horale: bwv432   sorted by gapsum (ordering only, not a ranking)
   t2_r1.25_lm19                  opt     2  1.250  19     61.4      172 |   62     488    7.9    9.0   13.9   15.0 |   20    0    0     0
       ____________________________
 What they are now, Claude stored them already in 9-14:
-Chorale: bwv432   sorted by gapsum (ordering only, not a ranking)
+Chorale: bwv432
 ============================================================================================================
   Directory                      sfx     t  ratio  lm ChordAvg ChordMax |    N  GapSum    Avg    Med    p90    Max |  >10  >20  >30  >=33
   ------------------------------ ------ -- ------ --- -------- -------- | ---- ------- ------ ------ ------ ------ | ---- ---- ---- -----
@@ -22359,7 +22338,7 @@ Chorale: bwv432   sorted by gapsum (ordering only, not a ranking)
   viterbi-tunings-9-14           opt     2  1.250  19     57.1      137 |    2      13    6.5    6.5    9.3   10.0 |    0    0    0     0
   t3_r1.625_lm19                 opt     3  1.625  19     57.0      107 |    4      15    3.8    3.0    5.8    7.0 |    0    0    0     0
       
-Chorale: bwv437   sorted by gapsum (ordering only, not a ranking)
+Chorale: bwv437
 ============================================================================================================
   Directory                      sfx     t  ratio  lm ChordAvg ChordMax |    N  GapSum    Avg    Med    p90    Max |  >10  >20  >30  >=33
   ------------------------------ ------ -- ------ --- -------- -------- | ---- ------- ------ ------ ------ ------ | ---- ---- ---- -----
@@ -22444,8 +22423,10 @@ ____________________________
             python WreckingCrew.py --chorale_list bwv{427..438} --cent_file_partial=-opt.npy --short_repeats
       Notice that --numpy_dir Archive/straw-man/best-tunings  is the default here, and it now is the holding directory for all validated numpy tuning files.
 
-      Then make videos like score_bwv261_av1.mp4
-            ./make_score_videos.sh bwv{427..438}
+      Then make videos like score_bwv261_av1.mp4 
+      Run this on fs2, but first copy the numpy tuning file into Archive/straw-man/best-tunings/bwv434.., then copy the Uploads/ball9-t34...
+            ./make_score_videos.sh bwv{427..438} # for an album 
+            ./make_score_videos.sh bwv434 # for just one
 
       Before I start this, add a title and closing frame. The title page should read like this:
       Bach Chorale BWVxxx 
@@ -22461,3 +22442,348 @@ ____________________________
       Key: E♭ major
 
       Closing frame should have the final frame of the original video, faded by 50%, with "The End" superimposed in black
+      Claude Code Opus 5 High built it in no time, then rendered all 12 for me. Choose 3 and make a substack. 
+      Pick the best one to illustrate the way it works:
+            for n in Archive/straw-man/best-tunings/bwv4*-opt.npy ; do echo $n ; python chord_report.py --input_numpy_file $n --histogram_only | grep -E "Average|SUMMARY" ; done  
+                  Archive/straw-man/best-tunings/bwv427_t2_r1.250_lm19-opt.npy
+                  Average score: 51.3, max score: 93.0, max chord: 2
+                  SUMMARY bwv427   high   0.7%  11:3 13:0 17:0 19:0  chords 1/72  intervals 432
+                  ...
+                  Archive/straw-man/best-tunings/bwv438_t2_r1.625_lm19-opt.npy
+                  Average score: 57.0, max score: 141.0, max chord: 74
+                  SUMMARY bwv438   high   4.2%  11:6 13:6 17:3 19:1  chords 5/60  intervals 360
+      The easy one: 
+                  Archive/straw-man/best-tunings/bwv427_t2_r1.250_lm19-opt.npy
+                  Average score: 51.3, max score: 93.0, max chord: 2
+                  SUMMARY bwv427   high   0.7%  11:3 13:0 17:0 19:0  chords 1/72  intervals 432
+      The one in the middle:
+                  Archive/straw-man/best-tunings/bwv438_t2_r1.625_lm19-opt.npy
+                  Average score: 57.0, max score: 141.0, max chord: 74
+                  SUMMARY bwv438   high   4.2%  11:6 13:6 17:3 19:1  chords 5/60  intervals 360
+      The hard one:
+                  Archive/straw-man/best-tunings/bwv434_t1_r1.250_lm19-opt.npy
+                  Average score: 58.8, max score: 145.0, max chord: 126
+                  SUMMARY bwv434   high   7.6%  11:12 13:6 17:6 19:3  chords 8/57  intervals 342
+      
+            python WreckingCrew.py --chorale_list bwv438 --deep_bass_backoff 0.25 --back_off_clicks 0.25 --album 9 --mod e --rondo_section_a 0 32 --rondo_insert_a_after 63 127 --density_level 3
+            python WreckingCrew.py --chorale_list bwv434 --deep_bass_backoff 0.25 --back_off_clicks 0.25 --album 9 --mod e --rondo_section_a 0 32 --rondo_insert_a_after 63 127 --density_level 1
+            python WreckingCrew.py --chorale_list bwv427 --deep_bass_backoff 0.25 --back_off_clicks 0.25 --album 9 --mod e --rondo_section_a 0 32 --rondo_insert_a_after 63 127 --density_level 5
+      Retrieve from the PVC:
+            scp one-footed-bride-pod:Repos/One-footed-bride-tuning/Uploads/ball9-t27e_lm19_r1.25_df5_t2_d07_18_t106.mp3 .
+            scp one-footed-bride-pod:Repos/One-footed-bride-tuning/Uploads/ball9-t34e_lm19_r1.25_df1_t1_d02_53_t104.mp3 .
+            scp one-footed-bride-pod:Repos/One-footed-bride-tuning/Uploads/ball9-t38e_lm19_r1.62_df3_t2_d03_45_t114.mp3 .
+      Then tomorrow write the Substack post. Acutally I finished it this day, then made slight revisions on 9/17/2
+
+________________________
+9/17/26 New video ideas
+      1. Add Sagittal accidentals to the scrolling scores
+      2. Do the same for a complete Chorale Prelude. Start with a subset. --include_slice start end
+      3. Try to locate some clarino samples in the McGill University Master Samples Review the manual here: /home/prent/Dropbox/csound/McGill/McGill.htm or here: /home/prent/Dropbox/csound/McGill.dat Could it be the TRUMPET-BACH? Must be it ./McGill/Partition E/TRUMPET-BACH/TRUMPETC#4.aif Sounds like a clarino. 
+      4. Place the instruments where they are in the audio field at that moment. Have them disappear when they aren't playing. Perhaps have the marimba, finger piano, bass finger piano just appear with a single bar or tine sized appropriately for the pitch. 
+      5. Lower the volume of the flute from 2 to 0. FIx the duplicates. Done.
+      6. In addition to showing the high prime ratios, please also highlight the gaps in the cent value of the same pitch class in adjacent chords.
+
+________________________
+9/18/26 Complete the album started on 9/16.
+
+            python WreckingCrew.py --chorale_list bwv428 --deep_bass_backoff 0.25 --back_off_clicks 0.25 --album 9 --mod e --rondo_section_a 0 32 --rondo_insert_a_after 63 127 --density_level 5
+            python WreckingCrew.py --chorale_list bwv429 --deep_bass_backoff 0.25 --back_off_clicks 0.25 --album 9 --mod e --rondo_section_a 0 32 --rondo_insert_a_after 63 127 --density_level 4
+            python WreckingCrew.py --chorale_list bwv430 --deep_bass_backoff 0.25 --back_off_clicks 0.25 --album 9 --mod e --rondo_section_a 0 32 --rondo_insert_a_after 63 127 --density_level 3
+            python WreckingCrew.py --chorale_list bwv431 --deep_bass_backoff 0.25 --back_off_clicks 0.25 --album 9 --mod e --rondo_section_a 0 32 --rondo_insert_a_after 63 127 --density_level 2
+            python WreckingCrew.py --chorale_list bwv432 --deep_bass_backoff 0.25 --back_off_clicks 0.25 --album 9 --mod e --rondo_section_a 0 32 --rondo_insert_a_after 63 127 --density_level 1
+            python WreckingCrew.py --chorale_list bwv433 --deep_bass_backoff 0.25 --back_off_clicks 0.25 --album 9 --mod e --rondo_section_a 0 32 --rondo_insert_a_after 63 127 --density_level 0
+            python WreckingCrew.py --chorale_list bwv435 --deep_bass_backoff 0.25 --back_off_clicks 0.25 --album 9 --mod e --rondo_section_a 0 32 --rondo_insert_a_after 63 127 --density_level 2
+            python WreckingCrew.py --chorale_list bwv436 --deep_bass_backoff 0.25 --back_off_clicks 0.25 --album 9 --mod e --rondo_section_a 0 32 --rondo_insert_a_after 63 127 --density_level 4
+            python WreckingCrew.py --chorale_list bwv437 --deep_bass_backoff 0.25 --back_off_clicks 0.25 --album 9 --mod e --rondo_section_a 0 32 --rondo_insert_a_after 63 127 --density_level 5
+            python WreckingCrew.py --chorale_list bwv438 --deep_bass_backoff 0.25 --back_off_clicks 0.25 --album 9 --mod e --rondo_section_a 0 32 --rondo_insert_a_after 63 127 --density_level 3
+
+___________________
+9/19/26 Which ones should I make a video of?
+      The post on 9/16 included BWV434 (most challenging), bwv438 (less challenging), and bwv427 (least challenging).
+      
+      When I rendered them, I made 
+      bwv434 as df1, which is nice mix of sparse and violins, Uploads/ball9-t34e_lm19_r1.25_df1_t1_d02_53_t104.mp3/npy
+      bwv427 as df5, which is super, Uploads/ball9-t27a_lm19_r1.25_df5_t2_d02_32_t023.mp3/npy
+      bwv438 as df3, which is good, Uploads/ball9-t38e_lm19_r1.62_df3_t2_d03_45_t114.mp3/npy
+      Now to make videos of them. The mode recent existing ones were made on 9/11 and 9/12. The fix for incorrect rest handling resulted in out of synch chorale numpy tuning files was made on 9/14. Anything prior to 9/14 is bad. 
+
+      Claude created all three in about 5 hours of runtime. Which is the worst? Use the new Ray-based cluster style.
+            CHORALES=${1:-$(echo bwv{427..438})}
+            python select_best_and_render.py --numpy_dir_root Archive/straw-man/best-tunings --chorale_list $CHORALES --suffix="-opt.npy" --sort_by gapsum | grep -E "Chorale|best-tunings"
+                  Chorale Directory    sfx  t ratio lm ChordAvg ChordMax |  N GapSum  Avg  Med   p90   Max | >10
+                  bwv427  best-tunings opt  2 1.250 19     51.3       93 |  0      0  0.0  0.0   0.0   0.0 |   0
+                  bwv428  best-tunings opt  2 1.250 19     55.5      123 |  2      4  2.0  2.0   2.0   2.0 |   0
+                  bwv429  best-tunings opt  3 1.375 19     54.0      137 | 12     40  3.3  3.0   3.0  12.0 |   1
+                  bwv430  best-tunings opt  3 1.250 19     53.5      119 |  3      7  2.3  2.0   2.8   3.0 |   0
+                  bwv431  best-tunings opt  1 1.250 19     54.4      140 |  0      0  0.0  0.0   0.0   0.0 |   0
+                  bwv432  best-tunings opt  2 1.250 19     57.1      137 |  2     13  6.5  6.5   9.3  10.0 |   0
+                  bwv433  best-tunings opt  3 1.375 19     51.7       93 |  3      6  2.0  2.0   2.0   2.0 |   0
+                  bwv434  best-tunings opt  1 1.250 19     58.8      145 |  0      0  0.0  0.0   0.0   0.0 |   0
+                  bwv435  best-tunings opt  3 1.375 19     54.0      127 |  6     46  7.7  8.5  10.0  10.0 |   0
+                  bwv436  best-tunings opt  1 1.625 19     51.1      135 |  0      0  0.0  0.0   0.0   0.0 |   0
+                  bwv437  best-tunings opt  1 1.375 19     58.2      145 | 17    154  9.1 10.0  13.4  14.0 |   7
+                  bwv438  best-tunings opt  2 1.625 19     57.0      141 |  3     28  9.3  8.0  11.2  12.0 |   1
+      The worst is clearly bwv437, then 429, then 435
+      The best are 427, 431, 434, 436 
+      The ones that could really use some help: 428, 430, 432, 433, 438
+      I ran the ray backed tuning run on bwv433. Saw some improvement, but not sure how to find it.
+----------------------
+9/20/26 To do today: Fix the daily tweet on the fs7. 
+      1. It needs to have Dropbox/Uploads/d9-09-13-26/ uploaded, since it thinks that is the most recent directory available. 
+      2. My workaround to name directories with letters instead of numbers ends up sorting out at the bottom of the list.
+      3. The real fix is to have daily_chorale_tweet.py read from the bucket instead of Dropbox. 
+
+      Prompt: Did you have to change source code to enable ray multiprocessing?
+      Claude: No. None of the tuning code changed — Straw_man_tuning_v2.py, viterbi_optimization.py, adaptive_tuning_util.py, analyze_*.py and grid_search.sh are all exactly as they were (the only edit to grid_search.sh was a comment). That was deliberate, for three reasons:
+
+      The unit of work was already right. A Ray task is the same bash grid_search.sh --limit_max … --chorale … command a Kubernetes Job ran — run_cell in ray_ratchet.py just launches it with subprocess.run. Ray's job is to place those commands on the cluster and hand the results back; the tuner doesn't know Ray exists.
+
+      The tuner's own parallelism still works inside the task. The per-chord candidate generation in viterbi_optimization.py uses a 4-process multiprocessing.Pool (fork). That pool runs inside the subprocess, in the Ray worker pod's cgroup, using the 4 CPUs the task declared with num_cpus=4. So each task is a 4-core job exactly as each Job pod was, and Ray packs 3–5 of them per node. Ray tasks are ordinary processes; nothing about them prevents a child from forking its own pool.
+
+      It keeps one code path. Workstation run, old-style Job, Ray task — all execute the same script. If the tuner's parallelism had been rewritten in Ray (e.g. one Ray task per chord), the tuner would only run on a Ray cluster, and a workstation run would need a local Ray too.
+
+      What is new is entirely around the tuner: the driver (ray_ratchet.py — plan, submit, re-submit, retire, log), the cluster manifest, the launcher, the image with ray installed, and the monitoring. The driver reads results from the files the tuner already writes ({chorale}-opt.npy and the .txt sidecar's last_improved) and computes the gap numbers with functions imported from select_best_and_render.py — again unchanged.
+
+      The one line that touches the tuner's behaviour is environment, not code: the worker pods set VITERBI_WORKERS=4 and FRESH=0, the same values the Job template set.
+
+      Results from today were five improvements:
+            CHORALES=${1:-$(echo bwv{427..438})}
+            python select_best_and_render.py --numpy_dir_root Archive/straw-man --chorale_list $CHORALES --suffix="-opt.npy" --sort_by gapsum | grep Chorale -A4
+                  Chorale Directory      sfx t ratio lm ChordAvg ChordMax |  N GapSum  Avg  Med  p90  Max | >10
+                  bwv427  best-tunings   opt 2 1.250 19     51.3       93 |  0      0  0.0  0.0  0.0  0.0 |   0 
+                  bwv428  best-tunings   opt 2 1.250 19     55.5      123 |  2      4  2.0  2.0  2.0  2.0 |   0 
+                  bwv429  t1_r1.625_lm19 opt 1 1.625 19     54.6      149 |  0      0  0.0  0.0  0.0  0.0 |   0 # major improvement
+                  bwv430  best-tunings   opt 3 1.250 19     53.5      119 |  3      7  2.3  2.0  2.8  3.0 |   0 
+                  bwv431  best-tunings   opt 1 1.250 19     54.4      140 |  0      0  0.0  0.0  0.0  0.0 |   0 
+                  bwv432  t3_r1.50_lm17  opt 3 1.500 17     55.3      107 |  2      7  3.5  3.5  4.7  5.0 |   0 # major improvement
+                  bwv433  t2_r1.625_lm19 opt 2 1.625 19     51.9       97 |  0      0  0.0  0.0  0.0  0.0 |   0 # major improvement
+                  bwv434  best-tunings   opt 1 1.250 19     58.8      145 |  0      0  0.0  0.0  0.0  0.0 |   0 
+                  bwv435  t2_r1.25_lm19  opt 2 1.250 19     56.5      145 |  3     27  9.0 10.0 10.0 10.0 |   0 # major improvement
+                  bwv436  best-tunings   opt 1 1.625 19     51.1      135 |  0      0  0.0  0.0  0.0  0.0 |   0 
+                  bwv437  best-tunings   opt 1 1.375 19     58.2      145 | 17    154  9.1 10.0 13.4 14.0 |   7 
+                  bwv438  t3_r1.50_lm19  opt 3 1.500 19     57.0      127 |  0      0  0.0  0.0  0.0  0.0 |   0 # major improvement
+      Previous results:
+                  Chorale Directory      sfx t ratio lm ChordAvg ChordMax |  N GapSum  Avg  Med  p90  Max | >10
+                  bwv427  best-tunings   opt 2 1.250 19     51.3       93 |  0      0  0.0  0.0  0.0  0.0 |   0
+                  bwv428  best-tunings   opt 2 1.250 19     55.5      123 |  2      4  2.0  2.0  2.0  2.0 |   0
+                  bwv429  best-tunings   opt 3 1.375 19     54.0      137 | 12     40  3.3  3.0  3.0 12.0 |   1
+                  bwv430  best-tunings   opt 3 1.250 19     53.5      119 |  3      7  2.3  2.0  2.8  3.0 |   0
+                  bwv431  best-tunings   opt 1 1.250 19     54.4      140 |  0      0  0.0  0.0  0.0  0.0 |   0
+                  bwv432  best-tunings   opt 2 1.250 19     57.1      137 |  2     13  6.5  6.5  9.3 10.0 |   0
+                  bwv433  best-tunings   opt 3 1.375 19     51.7       93 |  3      6  2.0  2.0  2.0  2.0 |   0
+                  bwv434  best-tunings   opt 1 1.250 19     58.8      145 |  0      0  0.0  0.0  0.0  0.0 |   0
+                  bwv435  best-tunings   opt 3 1.375 19     54.0      127 |  6     46  7.7  8.5 10.0 10.0 |   0
+                  bwv436  best-tunings   opt 1 1.625 19     51.1      135 |  0      0  0.0  0.0  0.0  0.0 |   0
+                  bwv437  best-tunings   opt 1 1.375 19     58.2      145 | 17    154  9.1 10.0 13.4 14.0 |   7
+                  bwv438  best-tunings   opt 2 1.625 19     57.0      141 |  3     28  9.3  8.0 11.2 12.0 |   1
+      Claude suggests I don't give up on bwv437, so I started another render:
+
+            ./ray-ratchet.sh --chorales bwv437 --patience 3 --max_passes 12
+            CHORALES=${1:-$(echo bwv{427..438})}
+            python select_best_and_render.py --numpy_dir_root Archive/straw-man/best-tunings --chorale_list $CHORALES --suffix=-opt.npy --sort_by gapsum | grep Chorale -A4
+                  Chorale Directory     sfx  t ratio lm ChordAvg ChordMax |  N GapSum  Avg  Med  p90  Max | >10
+                  bwv427  best-tunings  opt  2 1.250 19     51.3       93 |  0      0  0.0  0.0  0.0  0.0 | 0
+                  bwv428  best-tunings  opt  2 1.250 19     55.5      123 |  2      4  2.0  2.0  2.0  2.0 | 0
+                  bwv429  best-tunings  opt  1 1.625 19     54.6      149 |  0      0  0.0  0.0  0.0  0.0 | 0
+                  bwv430  best-tunings  opt  3 1.250 19     53.5      119 |  3      7  2.3  2.0  2.8  3.0 | 0
+                  bwv431  best-tunings  opt  1 1.250 19     54.4      140 |  0      0  0.0  0.0  0.0  0.0 | 0
+                  bwv432  best-tunings  opt  3 1.500 17     55.3      107 |  2      7  3.5  3.5  4.7  5.0 | 0
+                  bwv433  best-tunings  opt  2 1.625 19     51.9       97 |  0      0  0.0  0.0  0.0  0.0 | 0
+                  bwv434  best-tunings  opt  1 1.250 19     58.8      145 |  0      0  0.0  0.0  0.0  0.0 | 0
+                  bwv435  best-tunings  opt  2 1.250 19     56.5      145 |  3     27  9.0 10.0 10.0 10.0 | 0
+                  bwv436  best-tunings  opt  1 1.625 19     51.1      135 |  0      0  0.0  0.0  0.0  0.0 | 0
+                  bwv437  best-tunings  opt  1 1.625 19     58.4      145 |  9     72  8.0 10.0 11.0 11.0 | 4 # improvement
+                  bwv438  best-tunings  opt  3 1.500 19     57.0      127 |  0      0  0.0  0.0  0.0  0.0 | 0
+      Now do 415-426
+            ./ray-ratchet.sh --chorales bwv{415..426}
+      
+      I asked Claude to implement an improved data pipeline for the blender render. He thinks if we increase the PER_CARD we will break the wait for CPU while the GPU runs and waits for GPU while the CPU runs through an overlap. 
+            PER_CARD=2 ./render_farm.sh --npy Uploads/x.npy --tempo 104 --duration 281.7 --out frames --engine cycles
+
+_________________________
+9/21/26 To do today: 
+      1. Check the results of last night's tuning run of 415-426 compared to what was there previously. This was an estimated 5 hour run, so one hopes for much better results
+      2. Post the most recently completed videos on Substack. 434 (challenging) 438 (less challenging)  427 (easiest) These were all posted on 9/16, which is after the 9/13 fix for the bug in rest processing, but before the latest run that improved the tuning. 
+      How this decision was made:
+      The easy one: 
+                  Archive/straw-man/best-tunings/bwv427_t2_r1.250_lm19-opt.npy
+                  Average score: 51.3, max score: 93.0, max chord: 2
+                  SUMMARY bwv427   high   0.7%  11:3 13:0 17:0 19:0  chords 1/72  intervals 432
+      The one in the middle:
+                  Archive/straw-man/best-tunings/bwv438_t2_r1.625_lm19-opt.npy
+                  Average score: 57.0, max score: 141.0, max chord: 74
+                  SUMMARY bwv438   high   4.2%  11:6 13:6 17:3 19:1  chords 5/60  intervals 360
+      The hard one:
+                  Archive/straw-man/best-tunings/bwv434_t1_r1.250_lm19-opt.npy
+                  Average score: 58.8, max score: 145.0, max chord: 126
+                  SUMMARY bwv434   high   7.6%  11:12 13:6 17:6 19:3  chords 8/57  intervals 342
+      Current status:
+                                   % high primes
+                                   |            +-- 11 occured 12 times
+                                   |            |     +-- 13 occured 6 times
+                                   |            |     |    +-- 17 occured 6 times
+                                   |            |     |    |    +-- 19 occured 3 times
+                                   |            |     |    |    |     +-- number of chords that had a high prime out of the total chords
+                                   |            |     |    |    |     |            +-- number of intervals in the chorale
+                  SUMMARY bwv434   high   7.6%  11:12 13:6 17:6 19:3  chords 8/57  intervals 342
+            434 - the most challenging, lowest power
+            python chord_report.py --input_numpy_file Archive/straw-man/best-tunings/bwv434_t1_r1.250_lm19-opt.npy # 9/20/26
+                  SUMMARY bwv434   high   7.6%  11:12 13:6 17:6 19:3  chords 8/57  intervals 342
+                      Chorale Directory     sfx  t ratio lm ChordAvg ChordMax |  N GapSum  Avg  Med  p90  Max | >10
+                - was bwv434  best-tunings  opt  1 1.250 19     58.8      145 |  0      0  0.0  0.0  0.0  0.0 |   0 
+                - now bwv434  best-tunings  opt  1 1.250 19     58.8      145 |  0      0  0.0  0.0  0.0  0.0 |   0
+                  No change. Still challenging? Based on 7.6% high primes, yes.
+            438 - the one in the middle
+            python chord_report.py --input_numpy_file Archive/straw-man/best-tunings/bwv438_t2_r1.625_lm19-opt.npy # 9/20/26
+                  - SUMMARY bwv438   high   4.2%  11:6 13:6 17:3 19:1  chords 5/60  intervals 360 - same
+                  was - bwv438  best-tunings   opt 2 1.625 19     57.0      141 |  3     28  9.3  8.0 11.2 12.0 |   1
+                  now - bwv438  t3_r1.50_lm19  opt 3 1.500 19     57.0      127 |  0      0  0.0  0.0  0.0  0.0 |   0 # major improvement
+                  still medium? Yes, based on 4.2% high primes.
+            427 - the highest power, least challenging
+            python chord_report.py --input_numpy_file Archive/straw-man/best-tunings/bwv427_t2_r1.250_lm19-opt.npy # 9/20/26
+                  - SUMMARY bwv427   high   0.7%  11:3 13:0 17:0 19:0  chords 1/72  intervals 432 - same
+                  was: bwv427  best-tunings   opt 2 1.250 19     51.3       93 |  0      0  0.0  0.0  0.0  0.0 |   0
+                  now: bwv427  best-tunings   opt 2 1.250 19     51.3       93 |  0      0  0.0  0.0  0.0  0.0 |   0 
+                  No change, still easy, based on 0.7% high primes.
+      Given that these were already posted, I suggest that we rerender the bouncing ball video of 438, since that has improved. 
+      
+      What about the full chorale blender renders? 
+            cd ~/Dropbox/Uploads/d8-09-13-26-videos-4xx 
+            ls -lth *.mp4
+                  8.3M Sep 19 11:19 stage_full_bwv434_df1.mp4 # from Uploads/ball9-t34e_lm19_r1.25_df1_t1_d02_53_t104.mp3
+            the rest were from before the rest bug was fixed so not eligible 
+                   13M Sep 12 17:35 stage_full_bwv432.mp4
+                   37M Sep 12 15:43 stage_full_bwv434.mp4
+                   37M Sep 11 19:09 stage_full_bwv437.mp4
+      The only one I can use is the stage_full_bwv434_df1.mp4 since it has the correct rest processing, and there was no change to the tuning. It's the same as the current contents of DB-09-16-26.
+      The other two, 432 and 437 were not shown before on substack. That's ok, I can just run them and include them in the new substack post. 
+            432 - a decent medium 
+            python chord_report.py --input_numpy_file Archive/straw-man/best-tunings/bwv432_t2_r1.250_lm19-opt.npy
+                  SUMMARY bwv432   high   2.3%  11:0 13:5 17:3 19:1  chords 3/66  intervals 396
+                  was - bwv432  t3_r1.50_lm17  opt 3 1.500 17     55.3      107 |  2      7  3.5  3.5  4.7  5.0 |   0 # major improvement
+                  now - bwv432  best-tunings   opt 2 1.250 19     57.1      137 |  2     13  6.5  6.5  9.3 10.0 |   0
+            437 - an excellent challenging one, but from before the rest bug fix.
+            python chord_report.py --input_numpy_file Archive/straw-man/best-tunings/bwv437_t1_r1.375_lm19-opt.npy
+                  SUMMARY bwv437   high   7.8%  11:70 13:21 17:24 19:3  chords 37/249  intervals 1494
+                  was - bwv437  best-tunings   opt 1 1.375 19     58.2      145 | 17    154  9.1 10.0 13.4 14.0 |   7
+                  now - bwv437  best-tunings   opt 1 1.375 19     58.2      145 | 17    154  9.1 10.0 13.4 14.0 |   7 
+      So the conclusion is that I need to make two new blender renders: 
+      427 - Uploads/ball9-t27e_lm19_r1.25_df5_t2_d07_18_t106.mp3/npy
+      438 - Uploads/ball9-t38e_lm19_r1.62_df3_t2_d03_45_t114.mp3/npy
+
+      __________________________
+      Meanwhile, last nights run finished
+      I ran it from the windows machine:
+        ./ray-ratchet.sh --chorales bwv{415..426}
+      Claude estimated 5 hours, but the log shows 4:01:32. Not bad for powersave mode. 
+      Look at the log from ratchet-20260920-144835.log
+            2026-09-20 14:48:39,684	INFO cli.py:42 -- Job submission server address http://10.244.6.246:8265
+            2026-09-20 18:50:25,198	SUCC cli.py:68
+            done in 4:01:32.531646: 1074 passes over 288 cells; retired: 266 stalled 2, 17 GapSum 0, 5 max passes 8
+            per-pass log: Archive/straw-man/ray-ratchet-20260920-1448.tsv
+      Looking at the log, I see many improvements. 
+      Now to copy them to the best-tunings:
+            CHORALES=${1:-$(echo bwv{415..426})}
+            python select_best_and_render.py --numpy_dir_root Archive/straw-man --chorale_list $CHORALES --suffix=-opt.npy --sort_by gapsum --copy_npy_to Archive/straw-man/best-tunings
+      It looks like this command was already run, must have been after the log report that I saved in save2.txt on the M70q. 
+            python select_best_and_render.py --numpy_dir_root Archive/straw-man --chorale_list $CHORALES --suffix=-opt.npy --sort_by gapsum | grep -E "Chorale:|best-tunings"
+                  Chorale Directory     sfx t ratio lm ChordAvg ChordMax |  N GapSum  Avg  Med  p90  Max |>10 
+                  bwv415  best-tunings  opt 2 1.500 19     58.5      148 |  1      2  2.0  2.0  2.0  2.0 |  0 
+                  bwv416  best-tunings  opt 1 1.500 17     55.3      140 |  2     22 11.0 11.0 11.0 11.0 |  2 
+                  bwv417  best-tunings  opt 2 1.250 19     56.3      145 |  5     42  8.4 10.0 10.0 10.0 |  0 
+                  bwv418  best-tunings  opt 1 1.250 19     52.7      113 |  2     26 13.0 13.0 13.0 13.0 |  2 
+                  bwv419  best-tunings  opt 2 1.250 19     54.6      145 |  1      2  2.0  2.0  2.0  2.0 |  0 
+                  bwv420  best-tunings  opt 3 1.625 19     56.0      112 |  3     24  8.0 10.0 10.8 11.0 |  1 
+                  bwv421  best-tunings  opt 3 1.375 19     54.9      129 |  2      4  2.0  2.0  2.0  2.0 |  0 
+                  bwv422  best-tunings  opt 3 1.250 19     53.1      113 |  4      8  2.0  2.0  2.0  2.0 |  0 
+                  bwv423  best-tunings  opt 1 1.625 17     53.6      145 |  0      0  0.0  0.0  0.0  0.0 |  0 
+                  bwv424  best-tunings  opt 3 1.375 19     53.8      131 | 16    112  7.0  7.0 12.5 13.0 |  3 
+                  bwv425  best-tunings  opt 3 1.500 19     55.5      132 | 14     64  4.6  3.0 10.0 12.0 |  1 
+                  bwv426  best-tunings  opt 2 1.250 19     54.3      149 |  4      8  2.0  2.0  2.0  2.0 |  0 
+      How about the measure based on high primes:
+            for n in Archive/straw-man/best-tunings/bwv4*-opt.npy ; do echo $n ; python chord_report.py --input_numpy_file $n | grep SUMMARY ; done 
+Archive/straw-man/best-tunings/bwv415_t2_r1.500_lm19-opt.npy
+            SUMMARY bwv415   high   5.2%  11:11 13:0 17:4 19:7  chords 8/71  intervals 426
+            Archive/straw-man/best-tunings/bwv416_t1_r1.500_lm17-opt.npy
+            SUMMARY bwv416   high   4.5%  11:9 13:12 17:0 19:0  chords 5/70  intervals 420
+            Archive/straw-man/best-tunings/bwv417_t2_r1.250_lm19-opt.npy
+            SUMMARY bwv417   high   3.0%  11:6 13:3 17:6 19:1  chords 6/89  intervals 534
+            Archive/straw-man/best-tunings/bwv418_t1_r1.250_lm19-opt.npy
+            SUMMARY bwv418   high   2.2%  11:12 13:0 17:0 19:0  chords 4/90  intervals 540
+            Archive/straw-man/best-tunings/bwv419_t2_r1.250_lm19-opt.npy
+            SUMMARY bwv419   high   3.8%  11:3 13:10 17:3 19:1  chords 5/70  intervals 420
+            Archive/straw-man/best-tunings/bwv420_t3_r1.625_lm19-opt.npy
+            SUMMARY bwv420   high   6.3%  11:20 13:2 17:3 19:0  chords 9/66  intervals 396
+            Archive/straw-man/best-tunings/bwv421_t3_r1.375_lm19-opt.npy
+            SUMMARY bwv421   high   3.9%  11:10 13:2 17:2 19:1  chords 6/60  intervals 360
+            Archive/straw-man/best-tunings/bwv422_t3_r1.250_lm19-opt.npy
+            SUMMARY bwv422   high   3.8%  11:13 13:0 17:3 19:3  chords 8/80  intervals 480
+            Archive/straw-man/best-tunings/bwv423_t1_r1.625_lm17-opt.npy
+            SUMMARY bwv423   high   3.9%  11:18 13:6 17:3 19:0  chords 7/106  intervals 636
+            Archive/straw-man/best-tunings/bwv424_t3_r1.375_lm19-opt.npy
+            SUMMARY bwv424   high   6.9%  11:11 13:5 17:4 19:1  chords 7/48  intervals 288
+            Archive/straw-man/best-tunings/bwv425_t3_r1.500_lm19-opt.npy
+            SUMMARY bwv425   high   5.2%  11:47 13:3 17:7 19:7  chords 26/196  intervals 1176
+            Archive/straw-man/best-tunings/bwv426_t2_r1.250_lm19-opt.npy
+            SUMMARY bwv426   high   3.4%  11:3 13:15 17:0 19:3  chords 7/103  intervals 618
+            Archive/straw-man/best-tunings/bwv427_t2_r1.250_lm19-opt.npy
+      Second batch:
+            SUMMARY bwv427   high   0.7%  11:3 13:0 17:0 19:0  chords 1/72  intervals 432
+            Archive/straw-man/best-tunings/bwv428_t2_r1.250_lm19-opt.npy
+            SUMMARY bwv428   high   1.1%  11:1 13:1 17:2 19:2  chords 3/91  intervals 546
+            Archive/straw-man/best-tunings/bwv429_t3_r1.375_lm19-opt.npy
+            SUMMARY bwv429   high   2.4%  11:5 13:8 17:3 19:1  chords 7/106  intervals 636
+            Archive/straw-man/best-tunings/bwv430_t3_r1.250_lm19-opt.npy
+            SUMMARY bwv430   high   2.8%  11:13 13:7 17:2 19:0  chords 8/108  intervals 648
+            Archive/straw-man/best-tunings/bwv431_t1_r1.250_lm19-opt.npy
+            SUMMARY bwv431   high   1.9%  11:6 13:3 17:0 19:0  chords 2/70  intervals 420
+            Archive/straw-man/best-tunings/bwv432_t2_r1.250_lm19-opt.npy
+            SUMMARY bwv432   high   2.3%  11:0 13:5 17:3 19:1  chords 3/66  intervals 396
+            Archive/straw-man/best-tunings/bwv433_t3_r1.375_lm19-opt.npy
+            SUMMARY bwv433   high   0.4%  11:0 13:3 17:0 19:0  chords 1/117  intervals 702
+            Archive/straw-man/best-tunings/bwv434_t1_r1.250_lm19-opt.npy
+            SUMMARY bwv434   high   7.6%  11:12 13:6 17:6 19:3  chords 8/57  intervals 342
+            Archive/straw-man/best-tunings/bwv435_t3_r1.375_lm19-opt.npy
+            SUMMARY bwv435   high   2.0%  11:2 13:5 17:2 19:1  chords 5/82  intervals 492
+            Archive/straw-man/best-tunings/bwv436_t1_r1.625_lm19-opt.npy
+            SUMMARY bwv436   high   2.7%  11:6 13:3 17:3 19:0  chords 4/73  intervals 438
+            Archive/straw-man/best-tunings/bwv437_t1_r1.375_lm19-opt.npy
+            SUMMARY bwv437   high   7.8%  11:70 13:21 17:24 19:3  chords 37/249  intervals 1494
+            Archive/straw-man/best-tunings/bwv438_t2_r1.625_lm19-opt.npy
+            SUMMARY bwv438   high   4.2%  11:6 13:6 17:3 19:1  chords 5/60  intervals 360
+
+      Now to the render of 
+      427 - Uploads/ball9-t27e_lm19_r1.25_df5_t2_d07_18_t106.mp3/npy
+      438 - Uploads/ball9-t38e_lm19_r1.62_df3_t2_d03_45_t114.mp3/npy
+
+      First get the duration:
+            ffprobe -v error -show_entries format=duration -of csv=p=0 Uploads/ball9-t27e_lm19_r1.25_df5_t2_d07_18_t106.mp3
+                  434.285700
+
+            ./render_farm.sh --stop      # four Completed pods from 47h ago are still around
+
+            PER_CARD=2 ./render_farm.sh --npy Uploads/ball9-t27e_lm19_r1.25_df5_t2_d07_18_t106.npy --tempo 106 --duration 434.3 --out frames_bwv427 --engine cycles --look studio --autogen 10:429:7
+      
+            ffmpeg -y -framerate 30 -i frames_bwv427/frame_%06d.png -i Uploads/ball9-t27e_lm19_r1.25_df5_t2_d07_18_t106.mp3 -c:v libx264 -pix_fmt yuv420p -c:a aac -shortest stage_full_bwv427.mp4
+
+
+      Once that finishes, run the second render stack:
+            ffprobe -v error -show_entries format=duration -of csv=p=0 Uploads/ball9-t38e_lm19_r1.62_df3_t2_d03_45_t114.mp3
+                  221.309375
+
+            ./render_farm.sh --stop      
+            PER_CARD=2 ./render_farm.sh --npy Uploads/ball9-t38e_lm19_r1.62_df3_t2_d03_45_t114.npy --tempo 114 --duration 221.3 --out frames_bwv438 --engine cycles --look studio --autogen 10:216:7 # start with a wide short for 10 secs, then wander for 216 sec, random seed 7
+            ffmpeg -y -framerate 30 -i frames_bwv438/frame_%06d.png -i Uploads/ball9-t38e_lm19_r1.62_df3_t2_d03_45_t114.mp3 -c:v libx264 -pix_fmt yuv420p -c:a aac -shortest stage_full_bwv438.mp4
+
+      Monitor:
+            watch -n 20 "./render_farm.sh --progress ; ./render_farm.sh --status"
+
+-------------------------------
+9/22/26 Next steps:
+      1. Post the BWV427, 438, and 434 videos and bouncing ball videos to Substack
+            scp one-footed-bride-pod:/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/best-tunings/bwv427*-opt.npy Archive/straw-man/best-tunings/
+      I just discovered that there are multiple cent tuning numpy files in best-tunings on the PVC for several chorales. Which ones are the most recent? Ooops
+            ./make_score_videos.sh bwv427
+            ./make_score_videos.sh bwv434
+            ./make_score_videos.sh bwv438
+      2. Create bouncing ball videos of 415-426
