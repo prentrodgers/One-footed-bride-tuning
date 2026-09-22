@@ -497,6 +497,16 @@ def main():
         print(f'WARNING: score is {score.size[1]} px tall, cropping to {top_h}', file=sys.stderr)
     score_y = max(0, (top_h - score.size[1]) // 2)
 
+    # The audio drops every sixteenth of silence before the first note
+    # (adaptive_tuning_util.stream_to_midi_array), so t=0 in the mp3 is that
+    # note, not score offset 0.  Without this a chorale that opens on a rest
+    # (bwv424 rests a quarter in all four voices) scrolls that rest's worth
+    # of music ahead of the sound.
+    lead_quarters = math.ceil(min(n[1] for n in notes) * 4) / 4
+    if lead_quarters:
+        print(f'score opens with {lead_quarters:g} quarter notes of rest; '
+              f'the audio starts at the first note')
+
     # Audio length sets the frame count.
     dur = float(subprocess.run(['ffprobe', '-v', 'error', '-show_entries', 'format=duration',
                                 '-of', 'csv=p=0', args.mp3], capture_output=True, text=True).stdout)
@@ -527,7 +537,7 @@ def main():
 
     def frame_at(t):
         im = Image.new('RGB', (W, H), (255, 255, 255))
-        beat = t * args.tempo / 60.0
+        beat = lead_quarters + t * args.tempo / 60.0
         x_units = x0 + k * beat
         x_px = int(round(x_units * px_per_unit))
         im.paste(score, (CURSOR_X - x_px, score_y))
