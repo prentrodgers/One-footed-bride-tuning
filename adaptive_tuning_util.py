@@ -3,7 +3,6 @@ import diamond_music_utils as dmu
 import numpy as np
 from fractions import Fraction
 rng = np.random.default_rng()
-from functools import cache
 import os
 import threading
 import math
@@ -12,6 +11,14 @@ import music21 as m21
 import logging
 from collections import defaultdict, Counter
 from itertools import count, combinations, permutations
+
+# logging.debug(f'...') builds its message whether or not anything will
+# print it, and the f-strings in the tuning hot path format numpy arrays and
+# build Fractions by way of limit_format.  That cost about half the run time
+# of a chorale with logging off, so the four hot functions ask first.
+def _debugging():
+    """True when DEBUG messages will actually be emitted."""
+    return logging.getLogger().isEnabledFor(logging.DEBUG)
 
 def set_accidentals(flats):
     """Generate an array of note names with either flats or sharps."""
@@ -821,20 +828,21 @@ def best_ratio_index(distance, tolerance, tonal_diamond):
     Searches within tolerance range for ratios matching the distance, preferring
     those with lower limit scores (more consonant intervals).
     """
-    logging.debug(f'{distance = }, {tolerance = }, {tonal_diamond.shape = }')
+    dbg = _debugging()
+    if dbg: logging.debug(f'{distance = }, {tolerance = }, {tonal_diamond.shape = }')
     min_score = 9999
     min_loc = 9999
     distance = np.abs(distance)
     for gap in sequence_generator(tolerance):
         index_to_limits = np.min([np.searchsorted(tonal_diamond[:, 1], distance + gap), tonal_diamond.shape[0] - 1])
-        logging.debug(f'in best_ratio_index. {index_to_limits = }, {distance + gap = }, {tonal_diamond[index_to_limits, 1] = }')
+        if dbg: logging.debug(f'in best_ratio_index. {index_to_limits = }, {distance + gap = }, {tonal_diamond[index_to_limits, 1] = }')
         if tonal_diamond[index_to_limits, 1] == distance + gap:  
                 if tonal_diamond[index_to_limits, 2] < min_score:
                     min_score = tonal_diamond[index_to_limits, 2]
                     min_loc = index_to_limits
     if min_loc == 9999: min_loc = index_to_limits # if the tolerance is not sufficient to find a ratio at all
     
-    logging.debug(f'{min_loc = }, {min_score = }, {distance = }, {tolerance = }, {tonal_diamond.shape = }')
+    if dbg: logging.debug(f'{min_loc = }, {min_score = }, {distance = }, {tolerance = }, {tonal_diamond.shape = }')
     return min_loc
 
 
@@ -2158,38 +2166,39 @@ class LowNumberRatioIntervals():
         + delta_from_prev * stability_factor  (when prev chord is available)
         """
         # midi_note = np.zeros(2, dtype=int)
+        dbg = _debugging()
         num_ratios = 20 // 2 # changed from 30 to 20 12/11/25 this is to limit the number of ratios returned. This will return 20 ratios - made this increase from 15 to 30 on 12/1/25 to deal with the fact that we are returning fewer intervals because we are checking if the interval cent target is more than max_delta from the previous chord cent for the same pitch class as the target pitch class. 
             
         cent_value_delta, cent_value_moves, cent_value_target = cent_value_interval(interval)
         pitch_class_int = pitch_class_from_cents(interval)
         pitch_class_delta, pitch_class_moves, pitch_class_target = pitch_class_interval(pitch_class_int)
-        logging.debug(f'In _select_ratios. {interval = }, {cent_value_delta = }, {cent_value_moves = }, {cent_value_target = }')
-        logging.debug(f'{pitch_class_delta = }, {pitch_class_moves = }, {pitch_class_target = }')
+        if dbg: logging.debug(f'In _select_ratios. {interval = }, {cent_value_delta = }, {cent_value_moves = }, {cent_value_target = }')
+        if dbg: logging.debug(f'{pitch_class_delta = }, {pitch_class_moves = }, {pitch_class_target = }')
         # best_ratio_index returns the index to the lowest number ratio within +/- tolerance range in the tonal diamond. It returns just one index value. This is the starting point to finding the optimum ratio.
         initial_ratio_index = best_ratio_index(cent_value_delta, tolerance, self.tonal_diamond) 
         indices_to_tonal_diamond = np.array(list(sequence_generator(num_ratios))) # returns 2*num_ratios values, up and down. It basically starts at the ideal ratio and provides indexes to ratios that are higher and lower.
         # increment the list of 0,-1, 1, -2, 2 to the target index into tonal_diamond
         indices_to_tonal_diamond += initial_ratio_index 
-        logging.debug(f'in _select_ratios. after recentering: {indices_to_tonal_diamond = }')
+        if dbg: logging.debug(f'in _select_ratios. after recentering: {indices_to_tonal_diamond = }')
         # clip indices_to_tonal_diamond to one less than tonal_diamond.shape[0] so you don't use non-existing ratios
         indices_to_tonal_diamond = indices_to_tonal_diamond[(indices_to_tonal_diamond >= 0) & (indices_to_tonal_diamond < self.tonal_diamond.shape[0])]  # was 65 before 12/1/25
-        logging.debug(f'in _select_ratios. after clipping: {indices_to_tonal_diamond = }')
+        if dbg: logging.debug(f'in _select_ratios. after clipping: {indices_to_tonal_diamond = }')
         # create a list of booleans indicating valid ratios based on keeping the same midi values.
         # we need to offset this by the cents up or down that all four midi notes dictate based on the top_notes. 
-        logging.debug(f'in _select_ratios: before creating list of allowed_intervals: {pitch_class_delta = }, {[limit_format(inx) for inx in self.tonal_diamond[indices_to_tonal_diamond]]}')
-        logging.debug(f'intervals: {interval[0] = }, {interval[1] = }, {cent_value_moves = } {pitch_class_moves = }, {pitch_class_delta}, {pitch_class_target = }')
+        if dbg: logging.debug(f'in _select_ratios: before creating list of allowed_intervals: {pitch_class_delta = }, {[limit_format(inx) for inx in self.tonal_diamond[indices_to_tonal_diamond]]}')
+        if dbg: logging.debug(f'intervals: {interval[0] = }, {interval[1] = }, {cent_value_moves = } {pitch_class_moves = }, {pitch_class_delta}, {pitch_class_target = }')
         # changed section on 12/1/25 - 12/3/25
         
         # Step 1: strict pitch-class filter
         allowed_intervals = np.array([pitch_class_from_cents(interval[0] + self.tonal_diamond[inx,1] * cent_value_moves) == pitch_class_target for inx in indices_to_tonal_diamond])
         
         indices_after_pitch_class = indices_to_tonal_diamond[allowed_intervals]
-        logging.debug(f'after step 1. strict pitch class filter. {interval[0] = }, {interval[1] = } {pitch_class_delta = }, {indices_after_pitch_class = }')
+        if dbg: logging.debug(f'after step 1. strict pitch class filter. {interval[0] = }, {interval[1] = } {pitch_class_delta = }, {indices_after_pitch_class = }')
         if indices_after_pitch_class.size == 0:
-                logging.debug(f'in _select_ratios: no allowed intervals after step 1 pitch class filter. returning empty list.')
+                if dbg: logging.debug(f'in _select_ratios: no allowed intervals after step 1 pitch class filter. returning empty list.')
                 return np.array([], dtype=int), cent_value_moves
-        logging.debug(f'in _select_ratios: after creating list of allowed_intervals:, {[limit_format(inx) for inx in self.tonal_diamond[indices_after_pitch_class]]}')
-        logging.debug(f'about to step 2. compare with previous cent {pitch_class_moves = }, {cent_value_target_prev = }')
+        if dbg: logging.debug(f'in _select_ratios: after creating list of allowed_intervals:, {[limit_format(inx) for inx in self.tonal_diamond[indices_after_pitch_class]]}')
+        if dbg: logging.debug(f'about to step 2. compare with previous cent {pitch_class_moves = }, {cent_value_target_prev = }')
 
         # Step 2: cent-delta filter (only applied to survivors)
         stability_deltas = None  # will be set when prev chord is available
@@ -2213,13 +2222,13 @@ class LowNumberRatioIntervals():
                     deltas.append(min_gap)
                 deltas = np.asarray(deltas)
                 if deltas.shape[0] < 5:
-                    logging.debug(f'{deltas.shape = }, {deltas = }')
+                    if dbg: logging.debug(f'{deltas.shape = }, {deltas = }')
                 mask_cent_delta = deltas <= max_delta
-                logging.debug(f'{mask_cent_delta}')
+                if dbg: logging.debug(f'{mask_cent_delta}')
                 indices_after_cent_delta = indices_after_pitch_class[mask_cent_delta]
                 stability_deltas = deltas[mask_cent_delta]  # reuse in sort key
         if indices_after_cent_delta.size == 0:
-            logging.debug(f'in _select_ratios: no allowed intervals after step 2 cent delta filter. returning empty list.')
+            if dbg: logging.debug(f'in _select_ratios: no allowed intervals after step 2 cent delta filter. returning empty list.')
             return np.array([], dtype=int), cent_value_moves
         # Step 3: sort by combined key: limit_score * ratio_factor + distance_from_interval * (1/ratio_factor)
         #         + stability_deltas * stability_factor (when prev chord is available)
@@ -2235,8 +2244,8 @@ class LowNumberRatioIntervals():
         # sorted_indices = indices_to_tonal_diamond[np.argsort(self.tonal_diamond[indices_after_cent_delta, 2])] # sort based on sum of numerator and denominator
         
         # added 12/2/25 to ensure ratios that are far from the previous chord get allowed    
-        logging.debug(f'in _select_ratios: {sorted_indices = }, {cent_value_moves = }')
-        logging.debug(f'in _select_ratios: allowed intervals: {[limit_format(inx) for inx in self.tonal_diamond[sorted_indices]]}')
+        if dbg: logging.debug(f'in _select_ratios: {sorted_indices = }, {cent_value_moves = }')
+        if dbg: logging.debug(f'in _select_ratios: allowed intervals: {[limit_format(inx) for inx in self.tonal_diamond[sorted_indices]]}')
         return sorted_indices, cent_value_moves
 
     def select_ratios(self, interval, cent_value_target_prev, tolerance, max_delta=33, ratio_factor=1.0, stability_factor=0.0): # We already passed tonal_diamond when we constructed the object.
@@ -2266,8 +2275,10 @@ class LowNumberRatioIntervals():
                 return result
       
     def reset_cache(self):
-        """Clear the cache."""
+        """Clear the cache and its hit/miss counters."""
         self.cache = {}
+        self.hits = 0
+        self.misses = 0
             
     def return_cache_results(self):
         """Get cache statistics."""
@@ -2297,6 +2308,7 @@ class ChordScorer():
 
         Searches for the interval closest to the given distance within tolerance.
         """
+        dbg = _debugging()
         distance = abs(distance)
 
         # Find the absolute difference to every cent value in tonal_diamond
@@ -2309,11 +2321,11 @@ class ChordScorer():
         if best_diff <= tolerance:
                 # Within tolerance → success
                 _, _, interval_score = self.tonal_diamond[best_idx]
-                logging.debug(f'found an interval within {tolerance = } returning {best_idx = }, with {interval_score = }')
+                if dbg: logging.debug(f'found an interval within {tolerance = } returning {best_idx = }, with {interval_score = }')
                 return best_idx, True
         else:
                 # Outside tolerance → fail
-                logging.debug(f'closest interval to {distance} was {limit_format(self.tonal_diamond[best_idx])}. but {tolerance = } < {best_diff = }')
+                if dbg: logging.debug(f'closest interval to {distance} was {limit_format(self.tonal_diamond[best_idx])}. but {tolerance = } < {best_diff = }')
                 return best_idx, False
             
     def _score_chord(self, cent_values_chord, tolerance=1, method=combinations):
@@ -2323,21 +2335,22 @@ class ChordScorer():
         Calculates all intervals between note pairs and sums their limit scores.
         Adds penalty (1000) for intervals not found in tonal diamond.
         """
+        dbg = _debugging()
         score = 0
         for notes in method(cent_values_chord, 2):  # this used to be combinations(cent_values_chord, 2):
             cent_value_interval_pair = np.array([notes[0], notes[1]]) 
             cent_value_delta, cent_value_moves, cent_value_target = cent_value_interval(cent_value_interval_pair)
-            logging.debug(f'In _score_chord. {cent_value_delta, cent_value_moves, cent_value_target = }')
+            if dbg: logging.debug(f'In _score_chord. {cent_value_delta, cent_value_moves, cent_value_target = }')
             found = False
             if cent_value_delta > 0:
                 best_index = 0
                 best_index, found = self.find_best_interval(cent_value_delta, tolerance)
-                logging.debug(f'In _score_chord. {best_index = }, {found = }')
-                if found: logging.debug(f'In _score_chord. found cent value for interval: {limit_format(self.tonal_diamond[best_index])}')
+                if dbg: logging.debug(f'In _score_chord. {best_index = }, {found = }')
+                if found and dbg: logging.debug(f'In _score_chord. found cent value for interval: {limit_format(self.tonal_diamond[best_index])}')
                 if not found:
                         score += 1000  
                 score += self.tonal_diamond[best_index, 2]  
-                logging.debug(f'{score = }')
+                if dbg: logging.debug(f'{score = }')
         return round(score, 1)
       
     def score_chord(self, cent_values_chord, tolerance=1, method=combinations):
@@ -2360,8 +2373,10 @@ class ChordScorer():
                 return result
             
     def reset_cache(self):
-        """Clear the cache."""
+        """Clear the cache and its hit/miss counters."""
         self.cache = {}
+        self.hits = 0
+        self.misses = 0
       
     def return_cache_results(self):
         """Get cache statistics."""
