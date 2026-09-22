@@ -22783,7 +22783,11 @@ Archive/straw-man/best-tunings/bwv415_t2_r1.500_lm19-opt.npy
       1. Post the BWV427, 438, and 434 videos and bouncing ball videos to Substack
             scp one-footed-bride-pod:/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/best-tunings/bwv427*-opt.npy Archive/straw-man/best-tunings/
       I just discovered that there are multiple cent tuning numpy files in best-tunings on the PVC for several chorales. Which ones are the most recent? Ooops
-            ./make_score_videos.sh bwv427
-            ./make_score_videos.sh bwv434
-            ./make_score_videos.sh bwv438
-      2. Create bouncing ball videos of 415-426
+            for n in bwv427 bwv434 bwv438 ; do ./make_score_videos.sh $n ; done 
+            for n in bwv434 bwv438 ; do ./make_score_videos.sh $n ; done
+      2. Create bouncing ball videos of 415-426. I asked claude to see if GPU would help reduce the duration of these renders. He said it would not, but he found other ways to save time using caching.
+            for n in bwv{415..426} ; do echo $n ; ./make_score_videos.sh $n ; done
+            for n in bwv{415..423} ; do echo $n ; ./make_score_videos.sh $n ; done
+      I was missing some of the --short_repeats mp3. 
+            python WreckingCrew.py --chorale_list bwv{415..423} --cent_file_partial=-opt.npy --short_repeats
+            for n in bwv{415..423} ; do echo $n ; ./make_score_videos.sh $n ; done
