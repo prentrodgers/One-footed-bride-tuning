@@ -21,6 +21,7 @@ Needs lilypond (only fs2 has it), ffmpeg, Pillow, music21.  Working files go
 in --work (default: a directory next to --out).
 """
 import argparse
+import functools
 import math
 import os
 import re
@@ -535,26 +536,56 @@ def main():
     char_w = font.getlength('0')
     char_w_b = font_b.getlength('0')
 
+    # Nothing under the cursor is redrawn from one frame to the next: the
+    # staff labels and the header never change, and a chord block has only two
+    # appearances, plain and highlighted.  Rasterize each one once and paste
+    # it.  Drawing the text every frame is what a 1808-frame bwv424 spent 85%
+    # of its 91 seconds on -- 49,468 FreeType renders of 296 distinct tiles.
+    labels_tile = Image.new('RGB', (45, top_h), (255, 255, 255))
+    ld = ImageDraw.Draw(labels_tile)
+    for name, sy in zip('SATB', staves):
+        ld.text((12, score_y + sy * px_per_unit - 14), name, font=label_font, fill=(40, 40, 40))
+
+    header_strip = Image.new('RGB', (W, strip_h), (16, 20, 26))
+    hd = ImageDraw.Draw(header_strip)
+    hd.text((24, 8), title, font=font_b, fill=(230, 230, 230))
+    hd.text((24, 8 + line_h), col_head, font=font_small, fill=(150, 150, 150))
+    hd.text((W - 24 - hd.textlength(red_note, font=font_small), 8 + line_h),
+            red_note, font=font_small, fill=RED if n_red else (150, 150, 150))
+
+    # A tile starts at the top of the highlight rectangle, six pixels above
+    # the block's first line, so it pastes at y - 6.  Only eight blocks are on
+    # screen at once and the window slides forward, so a small cache builds
+    # every tile exactly once however long the chorale is.
+    @functools.lru_cache(maxsize=64)
+    def block_tile(j, current):
+        tile = Image.new('RGB', (W, block_h), (16, 20, 26))
+        td = ImageDraw.Draw(tile)
+        if current:
+            td.rectangle([12, 0, W - 12, block_h - 4], fill=(64, 52, 10))
+            colour, f0 = (255, 220, 90), font_b
+        else:
+            colour, f0 = (185, 190, 200), font
+        for li, text in enumerate(blocks[j][1][:3]):
+            if li == 0:
+                draw_runs(td, 24, 6, text, f0, colour, red_spans.get(j),
+                          char_w_b if current else char_w)
+            else:
+                td.text((24, 6 + li * line_h), text, font=font, fill=colour)
+        return tile
+
     def frame_at(t):
         im = Image.new('RGB', (W, H), (255, 255, 255))
         beat = lead_quarters + t * args.tempo / 60.0
         x_units = x0 + k * beat
         x_px = int(round(x_units * px_per_unit))
         im.paste(score, (CURSOR_X - x_px, score_y))
+        im.paste(labels_tile, (0, 0))          # staff labels pinned at the left edge
         d = ImageDraw.Draw(im)
-        # staff labels pinned at the left edge
-        d.rectangle([0, 0, 44, top_h], fill=(255, 255, 255))
-        for name, sy in zip('SATB', staves):
-            y = score_y + sy * px_per_unit
-            d.text((12, y - 14), name, font=label_font, fill=(40, 40, 40))
         d.line([CURSOR_X, 4, CURSOR_X, top_h - 4], fill=(200, 30, 30), width=3)
-        # bottom half
-        d.rectangle([0, bottom_top, W, H], fill=(16, 20, 26))
+        # bottom half: the header strip, then the scrolling panel below it
+        im.paste(header_strip, (0, bottom_top))
         d.line([0, bottom_top, W, bottom_top], fill=(90, 90, 90), width=2)
-        d.text((24, bottom_top + 8), title, font=font_b, fill=(230, 230, 230))
-        d.text((24, bottom_top + 8 + line_h), col_head, font=font_small, fill=(150, 150, 150))
-        d.text((W - 24 - d.textlength(red_note, font=font_small), bottom_top + 8 + line_h),
-               red_note, font=font_small, fill=RED if n_red else (150, 150, 150))
         # which block sounds now, and how far through it we are
         i = max(0, np.searchsorted(block_times, t, side='right') - 1)
         t_i = block_times[i]
@@ -563,23 +594,11 @@ def main():
         # The chord list scrolls inside its own panel so nothing spills into
         # the header or the score above.
         panel = Image.new('RGB', (W, H - scroll_top), (16, 20, 26))
-        pd = ImageDraw.Draw(panel)
         for j in range(max(0, i - 3), min(len(blocks), i + 5)):
             y = (anchor - scroll_top) + (j - i - frac) * block_h
             if y + block_h < 0 or y > panel.size[1]:
                 continue
-            col, lines = blocks[j]
-            if j == i:
-                pd.rectangle([12, y - 6, W - 12, y + block_h - 10], fill=(64, 52, 10))
-                colour, f0 = (255, 220, 90), font_b
-            else:
-                colour, f0 = (185, 190, 200), font
-            for li, text in enumerate(lines[:3]):
-                if li == 0:
-                    draw_runs(pd, 24, y, text, f0, colour, red_spans.get(j),
-                              char_w_b if j == i else char_w)
-                else:
-                    pd.text((24, y + li * line_h), text, font=font, fill=colour)
+            panel.paste(block_tile(j, j == i), (0, int(round(y)) - 6))
         im.paste(panel, (0, scroll_top))
         d.line([0, scroll_top - 1, W, scroll_top - 1], fill=(60, 60, 60), width=1)
         return im
