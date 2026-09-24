@@ -114,39 +114,43 @@ BWV_TITLES = {
     "438": "Wo Gott zum Haus nicht gibt sein Gunst",
 }
 
-# Filename pattern:
-#   ball9-t53a_lm23_r1.50_sf1.25_md33_sp07_t1_d09_55_t110.mp3
+# Filename pattern (renamed 9/24/26; everything before that is the old
+# ball9-t53a_lm23_r1.50_..._t110.mp3 scheme, which this no longer reads):
+#   b424f_df0_t3_d04_08_t092_ap4_lm19_r1.25.mp3
 #
 # Abbreviations:
-#   ball9    = Csound orchestra file (ball9.csd)
-#   t53a     = track 53 variant a → BWV 253  (files before 19 Sep 2026: last 2 digits)
-#   t433a    = BWV 433 variant a  (files since: all 3 digits, so 433 and 233 differ)
-#   lm23     = limit: 23-limit tonality diamond (just intonation)
-#   r1.50    = ratio factor: 1.50 (scaling weight for interval ratios)
-#   sf1.25   = stability factor: weighting for pitch stability across chords
-#   md33     = legacy max delta: 33 cents max allowed shift for repeated pitch classes
-#   df5      = density level: higher values are denser (e.g. 4-5), lower values are sparser (e.g. 0-1)
-#   sp07     = spread: 7 (weighted pitch-class cent-spread parameter)
-#   t1       = tolerance: ±1 cent from ideal just-intonation ratio
-#   d09_55   = duration: 9 minutes 55 seconds
-#   t110     = tempo: 110 BPM
+#   b        = the rendered chorale (Csound orchestra ball9.csd)
+#   424f     = BWV 424, variant f — always 3 digits, so 433 and 233 cannot collide
+#   df0      = density level: higher is denser (4-5), lower is sparser (0-1)
+#   md33     = legacy max delta, written instead of df when density_level is None
+#   t3       = tolerance: ±3 cents from the ideal just-intonation ratio
+#   d04_08   = duration: 4 minutes 8 seconds
+#   t092     = tempo: 92 BPM
 #   ap4      = repeat pattern drawn for this run: ap4 is the even pattern
-#              (4,4,8,8,16,16), ap1 the prime one (1,3,5,11,17,31); absent on
-#              --short_repeats renderings and on files before 19 Sep 2026
+#              (4,4,8,8,16,16), ap1 the prime one (1,3,5,11,17,31), ap3 the
+#              slow-floor one (3,3,6,6,9,9,18,18).  ABSENT on --short_repeats.
+#   lm19     = limit: 19-limit tonality diamond (just intonation)
+#   r1.25    = ratio factor: scaling weight for interval ratios
+#
+# The settings that vary least (ap/lm/r) sit at the tail, so the leading ~20
+# characters carry chorale, variant, density, tolerance and running time — which
+# is all a phone or car display shows.  Tempo is therefore NOT the last token.
 
 FILENAME_RE = re.compile(
-    r"ball9-t(\d{2,3})(\w?)_"        # track number + variant letter
-    r"lm(\d+)_"                       # limit
-    r"r([\d.]+)_"                     # ratio factor
-    r"(?:sf[\d.]+_)?"                 # stability factor (optional — removed from new filenames)
+    r"b(\d{3})(\w?)_"                 # BWV number + variant letter
     r"(?:md|df)(\d+)_"                # detail value (legacy md max-delta / newer df density-level)
-    r"(?:sp\d+_)?"                    # spread (optional — removed from new filenames)
     r"t(\d+)_"                        # tolerance
     r"d(\d+)_(\d+)_"                  # duration mm_ss
     r"t(\d+)"                         # tempo
-    r"(?:_ap(\d+))?"                  # repeat pattern (optional — newer filenames only)
+    r"(?:_ap(\d+))?"                  # repeat pattern (absent on --short_repeats)
+    r"_lm(\d+)"                       # limit
+    r"_r([\d.]+)"                     # ratio factor
     r"\.mp3$"
 )
+
+# Which bucket objects are ours.  The prefix is now a single "b", so a bare
+# startswith("b") would sweep up anything at all — anchor on b + three digits.
+BUCKET_FILE_RE = re.compile(r"^b\d{3}[A-Za-z]?_.*\.mp3$")
 
 
 def load_env():
@@ -175,14 +179,9 @@ def parse_filename(fname, url):
     if not m:
         return None, f"{fname}\n{url}"
 
-    track, variant, limit, ratio, detail_value, tol, dur_m, dur_s, tempo, _primes = m.groups()
-    # Three digits carry the whole BWV number.  Two-digit files (before 19 Sep
-    # 2026) dropped the hundreds: the tuned chorales are 253-267 and 415-438,
-    # whose last two digits never collide, so the one with a title is the one.
-    if len(track) == 3:
-        bwv = track
-    else:
-        bwv = next((c for c in (f"2{track}", f"4{track}") if c in BWV_TITLES), f"2{track}")
+    # Group order follows the filename: lm and r moved to the tail on 9/24/26.
+    bwv, variant, detail_value, tol, dur_m, dur_s, tempo, _primes, limit, ratio = m.groups()
+    # The BWV number is always three digits now, so no hundreds digit to infer.
     title = BWV_TITLES.get(bwv, "Bach Chorale")
 
     desc = (
@@ -223,7 +222,7 @@ def list_albums(bucket=None):
     """Every album in the bucket: {album: {"files": [...], "newest": datetime}}.
 
     An album is the first path component of a key; its files are the
-    ball9-*.mp3 objects under it.  Objects at the bucket root — the flat
+    b<NNN>*.mp3 objects under it.  Objects at the bucket root — the flat
     uploads from before keys carried the album — are ignored: publish-album.sh
     left them for old tweets to link to, and they belong to no album.
     """
@@ -234,7 +233,7 @@ def list_albums(bucket=None):
         for page in s3.get_paginator("list_objects_v2").paginate(Bucket=bucket):
             for obj in page.get("Contents", []):
                 album, _, fname = obj["Key"].partition("/")
-                if not fname or "/" in fname or not fname.startswith("ball9-") or not fname.endswith(".mp3"):
+                if not fname or "/" in fname or not BUCKET_FILE_RE.match(fname):
                     continue
                 # LastModified is UTC; shown in local time, as the cron log is read.
                 when = obj["LastModified"].astimezone()
@@ -245,7 +244,9 @@ def list_albums(bucket=None):
         print(f"Could not list bucket {bucket}: {e}", file=sys.stderr)
         sys.exit(1)
     if not albums:
-        print(f"No <album>/ball9-*.mp3 objects in bucket {bucket}", file=sys.stderr)
+        print(f"No <album>/b<NNN>*.mp3 objects in bucket {bucket} "
+              f"(renamed 9/24/26 — files published under the old ball9-t* scheme "
+              f"are no longer matched)", file=sys.stderr)
         sys.exit(1)
     for a in albums.values():
         a["files"].sort()

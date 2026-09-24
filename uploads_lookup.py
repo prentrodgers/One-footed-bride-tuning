@@ -5,13 +5,25 @@ uploads_lookup.py — find the latest rendered MP3 in Uploads/ for a given chora
 WreckingCrew.py writes its rendered MP3s into the Uploads/ directory with names
 built (see WreckingCrew.py ~line 2221 and trim.sh) like:
 
-    ball9-t<NN><letter>_lm<lm>_r<rf><density_tag>_t<tol>_d<dur>_t<tempo:03>.mp3
+    b<NNN><letter><density_tag>_t<tol>_d<dur>_t<tempo:03>[_ap<n>]_lm<lm>_r<rf>.mp3
+
+for example:
+
+    b424f_df0_t3_d04_08_t092_ap4_lm19_r1.25.mp3
 
 where:
-    <NN>        = last two digits of the BWV number  (bwv261 -> 61, bwv253 -> 53,
-                  bwv433 -> 433) — WreckingCrew.py:  mod = f'{version[-3:]}...'
+    <NNN>       = the BWV number, always 3 digits (bwv424 -> 424)
+                  — WreckingCrew.py:  mod = f'{version[-3:]}{mod_letter}'
     <letter>    = a single density/mod letter (a, b, c, d, ...)
     <tempo:03>  = tempo zero-padded to 3 digits, e.g. 106 -> "106"
+    _ap<n>      = repeat pattern; ABSENT on --short_repeats renders, so anything
+                  reading this name must treat it as optional
+
+Renamed 9/24/26 (was ball9-t<NN><letter>_lm..._r..._t<tempo>.mp3). The settings that
+vary least now sit at the tail, so the leading ~20 characters carry the chorale,
+variant, density, tolerance and running time — what a phone or car display shows.
+Tempo is therefore NO LONGER the last token: parse it against the _lm/_r tail, never
+against end-of-string.
 
 Given a chorale name such as "bwv261", this module finds the most-recently-
 modified MP3 in Uploads/ whose name matches that chorale — i.e. the file
@@ -54,11 +66,10 @@ def chorale_number(chorale: str) -> str:
 
 
 def _mp3_regex(chorale: str) -> re.Pattern:
-    # ball9-t<NNN><letter>_....mp3  — <letter> is a single non-digit (density tag).
-    # Files before 19 Sep 2026 carry only the last two digits (t61a for bwv261),
-    # so both spellings match.  Anchored on the letter so "t61" never matches "t610".
+    # b<NNN><letter>_....mp3  — <letter> is a single non-digit (density tag).
+    # Anchored on the letter so "b424" can never match "b4240".
     num = chorale_number(chorale)
-    return re.compile(rf"^ball9-t(?:{re.escape(num)}|{re.escape(num[-2:])})[A-Za-z]_.*\.mp3$")
+    return re.compile(rf"^b{re.escape(num)}[A-Za-z]_.*\.mp3$")
 
 
 def list_mp3s_for_chorale(chorale: str, uploads_dir: str = DEFAULT_UPLOADS_DIR) -> list[str]:
@@ -82,7 +93,7 @@ def _not_found_message(chorale: str, uploads_dir: str) -> str:
     num = chorale_number(chorale)
     return (
         f"No MP3 matching chorale {chorale!r} "
-        f"(ball9-t{num}[a-z]_*.mp3) found in {uploads_dir!r}. "
+        f"(b{num}[a-z]_*.mp3) found in {uploads_dir!r}. "
         f"Render one first, e.g.:  python WreckingCrew.py --chorale_name {chorale} ..."
     )
 
@@ -96,12 +107,18 @@ def latest_mp3_for_chorale_strict(chorale: str, uploads_dir: str = DEFAULT_UPLOA
 
 
 def tempo_from_mp3_name(path: str) -> int:
-    """Extract tempo from the trailing '_t<NNN>.mp3' token, e.g. '..._t106.mp3' -> 106."""
+    """Extract the tempo, e.g. 'b424f_df0_t3_d04_08_t092_ap4_lm19_r1.25.mp3' -> 92.
+
+    Tempo is no longer the last token (renamed 9/24/26), and a bare '_t<n>' is
+    ambiguous — '_t3' is the TOLERANCE.  So anchor on the tail that always follows
+    the tempo: an optional '_ap<n>' (absent on --short_repeats), then '_lm<n>_r<x>'.
+    """
     base = os.path.basename(path)
-    m = re.search(r"_t(\d+)\.mp3$", base)
+    m = re.search(r"_t(\d+)_(?:ap\d+_)?lm\d+_r[\d.]+\.mp3$", base)
     if not m:
         raise ValueError(
-            f"Could not extract tempo from {base!r} (expected '..._t<BPM>.mp3')")
+            f"Could not extract tempo from {base!r} "
+            f"(expected '..._t<BPM>[_ap<n>]_lm<n>_r<ratio>.mp3')")
     return int(m.group(1))
 
 

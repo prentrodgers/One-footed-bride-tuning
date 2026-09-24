@@ -6,7 +6,7 @@
 #
 # The script:
 #   1. Locates the most-recently-modified MP3 in Uploads/ whose name matches
-#      the chorale (ball9-t<NN><letter>_*.mp3, NN = last two BWV digits), via
+#      the chorale (b<NNN><letter>_*.mp3, NNN = the BWV number), via
 #      uploads_lookup.py — the same helper compose_stage_merge.py and
 #      string_section_poc.py use, so all three agree on the file.
 #   2. Takes the features array PAIRED with that mp3 — Uploads/<stem>.npy,
@@ -14,7 +14,7 @@
 #      in the audio. Falls back, loudly, to <chorale>_features_array.npy for
 #      mp3s rendered before WreckingCrew started writing the paired copy.
 #   3. Extracts the tempo (BPM) from the _t<N> token at the end of the
-#      filename, e.g. "ball9-t61d_lm19_r1.25_df5_t3_d00_43_t106.mp3" → 106.
+#      filename, e.g. "b424f_df0_t3_d04_08_t092_ap4_lm19_r1.25.mp3" → 92.
 #   4. Computes the render duration from the features array + tempo via
 #      Python (last note end + 2 s reverb tail), then rounds up to one
 #      decimal place.
@@ -51,7 +51,7 @@ source .venv/bin/activate
 # Use the shared uploads_lookup helper so gen-video.sh, compose_stage_merge.py,
 # and string_section_poc.py all agree on "the MP3 for this chorale": the
 # most-recently-modified Uploads/*.mp3 whose name matches the chorale
-# (ball9-t<NN><letter>_*.mp3, where NN = last two digits of the BWV number).
+# (b<NNN><letter>_*.mp3, where NNN = the BWV number).
 # Exits with a clear message if WreckingCrew hasn't rendered one yet.
 if ! MP3="$(python3 uploads_lookup.py "$CHORALE")"; then
     # helper already printed a readable "no MP3 matching chorale ..." message

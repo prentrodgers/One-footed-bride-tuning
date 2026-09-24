@@ -8,7 +8,7 @@ output for the tuning that was rendered, scrolling in step, the sounding
 chord highlighted, with the two previous and two following chords in view.
 
     python score_video.py --chorale bwv261 --tempo 34 \\
-        --mp3 Uploads/ball9-t61a_lm17_r1.25_df5_t3_d02_22_t034.mp3 \\
+        --mp3 Uploads/b261a_df5_t3_d02_22_t034_ap4_lm17_r1.25.mp3 \\
         --report chord_report_bwv261.txt --out score_bwv261.mp4
 
 --report is the saved output of

@@ -69,6 +69,21 @@ TRIM_SCRIPT = os.path.join(local_dir, 'trim.sh')
 CS_SOURCE_DIR = local_dir
 numpy_dir = os.path.join(local_dir, 'Archive', 'opt')
 
+# Chord-repeat patterns, keyed by their first value, which is also the _ap tag in the
+# filename. create_repeat_array_pattern() resamples the array with replacement, so what
+# matters musically is the *mean* (sets repeats_average, which picks the tempo band, which
+# together set total duration) and the *floor* (the shortest note, which sets how fast the
+# quickest onsets can come). Figures below are relative to _ap4, over 40k simulated runs:
+#   _ap4  mean  9.33  floor 4   duration 1.00x   shortest note 1.00x   (baseline)
+#   _ap1  mean 11.33  floor 1   duration 1.15x   shortest note 0.43x   (fastest onsets)
+#   _ap3  mean  9.00  floor 3   duration 0.97x   shortest note 0.76x
+# Patterns may differ in length: prime_count slices each to at most its own length.
+PRIME_PATTERNS = {
+    4: np.array([4, 4, 8, 8, 16, 16]),
+    1: np.array([1, 3, 5, 11, 17, 31]),
+    3: np.array([3, 3, 6, 6, 9, 9, 18, 18]),
+}
+
 # Density levels 0 (sparsest) to 5 (densest).
 # Columns: bass_hold_scale, bass_hold_swing, fp_hold_scale, fp_density_map_index, num_primes
 # num_primes controls how many entries from [1,3,5,11,17,31,47,71] are used for chord repeats.
@@ -1765,7 +1780,7 @@ def expand_chorale(repeats, chorale_in_cents_slides, glides, stored_gliss, voice
     stability_factor=0.0, max_delta=33, spread=7, fp_density_starts=None, fp_hold_scale=1.0, density_level=None,
     fatigue_thin_ratio=0.0, fatigue_min_chain=2, fatigue_density_threshold=1, version='',
     deep_bass_backoff=1.0, back_off_clicks=0.0,
-    rondo_sections=None, rondo_insertions=None, primes_tag=''):
+    rondo_sections=None, rondo_insertions=None, primes_tag='', lm_tag=''):
     # As of 1/10/26 the chorale_in_cents_slides has already been repeated according to the repeats array. (no longer an integer)
     # send the arrays to the file new_output.csd which csound will convert to a wave file to make music
     # duration, volume_function = expand_chorale(repeats, chorale_in_cents, chorale_in_cents_slides, glides, stored_gliss, voice_time, \
@@ -2039,7 +2054,13 @@ def expand_chorale(repeats, chorale_in_cents_slides, glides, stored_gliss, voice
     # I want to switch the mod string to include the ratio_factor instead of avg_probs
     # and I want to switch the round(1 - max_silence, 2) to tolerance.
     density_tag = f'_df{density_level}' if density_level is not None else f'_md{int(max_delta):02d}'
-    mod = f'{mod}_r{ratio_factor:.2f}{density_tag}_t{tolerance}_d{dur_short}_t{tempo:03}{primes_tag}'
+    # 9/24/26 name scheme: b<bwv3><letter>_df<n>_t<tol>_d<mm_ss>_t<tempo>_ap<n>_lm<n>_r<ratio>
+    # The tail (_ap/_lm/_r) carries what varies least between runs, so the leading ~20
+    # characters — all a phone or car display shows — hold the chorale, the variant, the
+    # density, the tolerance and the running time.
+    # Note _ap is empty on --short_repeats runs, so anything parsing this must treat it as
+    # optional and anchor the tempo on the _lm/_r tail rather than on end-of-string.
+    mod = f'{mod}{density_tag}_t{tolerance}_d{dur_short}_t{tempo:03}{primes_tag}{lm_tag}_r{ratio_factor:.2f}'
     mod = atu.windows_compliant_filename(mod) # get rid of the windows invalid characters in the file name
     print(f'{mod = }')
     # Provenance: park a copy of the features array beside the mp3 this run is
@@ -2050,13 +2071,13 @@ def expand_chorale(repeats, chorale_in_cents_slides, glides, stored_gliss, voice
     # that aren't in the mp3 it was muxed with.
     if version:
         _npy_src = f'{version}_features_array.npy'
-        _npy_dst = os.path.join(UPLOADS_DIR, f'ball9-t{mod}.npy')
+        _npy_dst = os.path.join(UPLOADS_DIR, f'b{mod}.npy')
         if os.path.exists(_npy_src):
             os.makedirs(UPLOADS_DIR, exist_ok=True)
             shutil.copyfile(_npy_src, _npy_dst)
-            print(f'Saved {_npy_dst} (pairs with ball9-t{mod}.mp3)')
+            print(f'Saved {_npy_dst} (pairs with b{mod}.mp3)')
         else:
-            print(f'WARNING: {_npy_src} missing, no paired .npy written for ball9-t{mod}')
+            print(f'WARNING: {_npy_src} missing, no paired .npy written for b{mod}')
     return duration, volume_function, mod
 # end of expand_chorale
 
@@ -2140,7 +2161,7 @@ def chorale_to_wave_v4(version, album, include_sections, ratio_factor, limit_max
       cent_file_partial='-cents.npy', show_volumes=False, woodwinds_volume=15,\
     melody_sustain=15, bass_sustain=15, bass_hold_scale=1.0, bass_hold_swing=0.75, bass_hold_cycles=4,
     use_werck_top_notes=False, mp3=True, tolerance=1,\
-      stability_factor=0.0, max_delta=33, spread=7, fp_density_starts=None, fp_hold_scale=1.0, prime_count=8, density_level=5,
+      stability_factor=0.0, max_delta=33, spread=7, fp_density_starts=None, fp_hold_scale=1.0, prime_count=8, ap=None, density_level=5,
         fatigue_min_chain=2, fatigue_density_threshold=1, include_slice=None,
         deep_bass_backoff=1.0, back_off_clicks=0.0,
         rondo_sections=None, rondo_insertions=None):
@@ -2251,7 +2272,11 @@ def chorale_to_wave_v4(version, album, include_sections, ratio_factor, limit_max
     # create a string of the key variables for use in the name of the MP3 file.    
     # Three digits since 19 Sep 2026: t433a is BWV 433. Two digits made bwv433
     # and bwv233 the same t33a, and daily_chorale_tweet.py read it as 233.
-    mod = f'{version[-3:]}{mod_letter}_lm{limit_max}'
+    mod = f'{version[-3:]}{mod_letter}'
+    # _lm moved out of the head and onto the tail (9/24/26). expand_chorale assembles the
+    # rest of the name, and limit_max is not in scope there — the `limit` it receives is an
+    # unrelated seconds cap — so the tag travels as its own argument, like primes_tag.
+    lm_tag = f'_lm{limit_max}'
 
     # initialize some values based on other values
     # if you are just playing a chorale straight as Bach wrote it, only repeats=2, otherwise many more repeats
@@ -2268,8 +2293,22 @@ def chorale_to_wave_v4(version, album, include_sections, ratio_factor, limit_max
         # all_primes = np.array([1, 3, 5, 11, 17, 31, 47, 71])
         # all_primes = np.array([1, 2, 4, 8, 16, 32, 48, 72])
         # all_primes = rng.choice([np.array([1, 2, 4, 8, 16, 32, 48, 72]), np.array([1, 3, 5, 11, 17, 31, 47, 71])])
-        all_primes = rng.choice([np.array([4,4,8,8,16,16]), np.array([1, 3, 5, 11, 17, 31])])
-        primes_tag = f'_ap{int(all_primes[0])}'   # _ap4 or _ap1, named by the pattern's first value
+        # 9/23/26: --ap pins the repeat pattern so a run is reproducible and comparable;
+        # leave it off and one is drawn at random, as before. The patterns live in
+        # PRIME_PATTERNS at module level (see there for the duration/onset figures).
+        # They are no longer all the same length, so they cannot be passed to rng.choice()
+        # as a list: numpy 2.x raises when it tries to stack a ragged list into one 2-D
+        # array. Both of the original patterns were length 6, which is why the old call worked.
+        if ap is None:
+            _ap_key = int(rng.choice(list(PRIME_PATTERNS)))
+        else:
+            _ap_key = int(ap)
+            if _ap_key not in PRIME_PATTERNS:
+                raise ValueError(f'ap={ap} is not a known repeat pattern; choose from {sorted(PRIME_PATTERNS)}')
+        all_primes = PRIME_PATTERNS[_ap_key]
+        primes_tag = f'_ap{int(all_primes[0])}'   # _ap4, _ap1 or _ap3, named by the pattern's first value
+        logging.info(f'repeat pattern {primes_tag} = {all_primes.tolist()} '
+                     f'({"pinned by --ap" if ap is not None else "chosen at random"})')
         
         primes = all_primes[:int(np.clip(prime_count, 1, all_primes.shape[0]))]
         # the previous line is just a super-safe way to slice the all_primes array to the first prime_count elements of the all_primes array. 
@@ -2316,7 +2355,7 @@ def chorale_to_wave_v4(version, album, include_sections, ratio_factor, limit_max
         fp_density_starts=fp_density_starts, fp_hold_scale=fp_hold_scale, density_level=density_level,
         fatigue_thin_ratio=fatigue_thin_ratio, fatigue_min_chain=fatigue_min_chain, fatigue_density_threshold=fatigue_density_threshold, version=version,
         deep_bass_backoff=deep_bass_backoff, back_off_clicks=back_off_clicks,
-        rondo_sections=rondo_sections, rondo_insertions=rondo_insertions, primes_tag=primes_tag)
+        rondo_sections=rondo_sections, rondo_insertions=rondo_insertions, primes_tag=primes_tag, lm_tag=lm_tag)
 
     if csound: # send the results to csound
         result_of_call = play_csound(csound = True, play = False)
@@ -2346,7 +2385,7 @@ def mainline(chorale_override=None, short_repeats=False, just_triangle=False, in
              mp3=True, max_cents_slide=35, melody_sustain=3, bass_sustain=15,
              bass_hold_scale=1.0, bass_hold_swing=0.75, bass_hold_cycles=4, cent_file_partial='-trans-sa-opt.npy', \
              show_volumes=True, mod_letter='a', album=3, use_werck_top_notes=False, tolerance=1, ratio_factor=0.75, \
-             numpy_dir_arg=None, stability_factor=0.0, max_delta=33, spread=7, limit_max=23, auto_density=False, prime_count=8, density_level=None, shuffle_density=False, auto_density_weights=None,
+             numpy_dir_arg=None, stability_factor=0.0, max_delta=33, spread=7, limit_max=23, auto_density=False, prime_count=8, ap=None, density_level=None, shuffle_density=False, auto_density_weights=None,
              fatigue_min_chain=2, fatigue_density_threshold=1, include_slice=None,
              deep_bass_backoff=1.0, back_off_clicks=0.0,
              rondo_sections=None, rondo_insertions=None):
@@ -2502,7 +2541,7 @@ def mainline(chorale_override=None, short_repeats=False, just_triangle=False, in
                 bass_hold_scale=_bhs, bass_hold_swing=_bhsw, bass_hold_cycles=bass_hold_cycles,
                   cent_file_partial=cent_file_partial, use_werck_top_notes=use_werck_top_notes, mp3=mp3,\
                   tolerance=tolerance, stability_factor=stability_factor, max_delta=max_delta,\
-                  spread=spread, fp_density_starts=_fp_starts, fp_hold_scale=_fhs, prime_count=_np, density_level=_active_level,
+                  spread=spread, fp_density_starts=_fp_starts, fp_hold_scale=_fhs, prime_count=_np, ap=ap, density_level=_active_level,
                                     fatigue_min_chain=fatigue_min_chain, fatigue_density_threshold=fatigue_density_threshold,
                                     include_slice=include_slice,
                                     deep_bass_backoff=deep_bass_backoff, back_off_clicks=back_off_clicks,
@@ -2595,6 +2634,13 @@ if __name__ == "__main__":
                           help="Pin all chorales to one density level 0-5 (0=sparsest, 5=densest). Overrides --auto_density. If omitted, defaults to 5 unless --auto_density is set.")
       parser.add_argument("--prime_count", dest="prime_count", type=int, default=8,
                           help="How many primes from [1,3,5,11,17,31,47,71] to use for chord repeats (1-8, default: 8); overridden per-chorale when --auto_density is set")
+      parser.add_argument("--ap", dest="ap", type=int, default=None, choices=sorted(PRIME_PATTERNS),
+                          help="Pin the chord-repeat pattern (the _ap tag in the output filename) instead of "
+                               "drawing one at random. Relative to ap4: "
+                               "4 = [4,4,8,8,16,16], the baseline; "
+                               "1 = [1,3,5,11,17,31], 1.15x duration and shortest note 0.43x (quickest onsets); "
+                               "3 = [3,3,6,6,9,9,18,18], 0.97x duration and shortest note 0.76x. "
+                               "Ignored when --short_repeats is set. Default: random.")
       parser.add_argument("--fatigue_min_chain", dest="fatigue_min_chain", type=int, default=2,
                           help="Minimum consecutive 0.25-duration notes/bins before staccato thinning is applied (default: 2)")
       parser.add_argument("--fatigue_density_threshold", dest="fatigue_density_threshold", type=int, default=1,
@@ -2683,7 +2729,7 @@ if __name__ == "__main__":
                mod_letter=args.mod_letter, album=args.album, use_werck_top_notes=args.use_werck_top_notes,
                tolerance=args.tolerance, ratio_factor=args.ratio_factor, numpy_dir_arg=args.numpy_dir,
                stability_factor=args.stability_factor, max_delta=args.max_delta,
-               spread=args.spread, limit_max=args.limit_max, auto_density=args.auto_density, prime_count=args.prime_count, density_level=args.density_level, shuffle_density=args.shuffle_density,
+               spread=args.spread, limit_max=args.limit_max, auto_density=args.auto_density, prime_count=args.prime_count, ap=args.ap, density_level=args.density_level, shuffle_density=args.shuffle_density,
                auto_density_weights=parsed_auto_density_weights,
                fatigue_min_chain=args.fatigue_min_chain, fatigue_density_threshold=args.fatigue_density_threshold,
                include_slice=args.include_slice,

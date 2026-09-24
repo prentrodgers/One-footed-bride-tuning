@@ -3,7 +3,7 @@
 # CAMERA_CUES against. Wraps the two halves of the job — bpy only exists
 # inside Blender, matplotlib only outside it — so you run one thing:
 #
-#     ./make_activity.sh Uploads/ball9-t57c_lm19_r1.12_df5_t3_d05_07_t106.npy
+#     ./make_activity.sh Uploads/b424f_df0_t3_d04_08_t092_ap4_lm19_r1.25.npy
 #
 # writes activity_bwv257.json + activity_bwv257.png.
 #
@@ -21,13 +21,17 @@ mp3="${npy%.npy}.mp3"
 [ -f "$mp3" ] || { echo "make_activity: no mp3 beside $npy" >&2; exit 1; }
 
 base=$(basename "$npy")
-tempo=$(printf '%s' "$base" | sed -n 's/.*_t\([0-9]\{1,\}\)\.npy$/\1/p')
-piece=$(printf '%s' "$base" | sed -n 's/^ball9-t\([0-9]\{1,\}\)c_.*/\1/p')
-[ -n "$tempo" ] || { echo "make_activity: no _t<tempo> in $base" >&2; exit 1; }
-# t433c carries the BWV number; the older t33c carried its last two digits (all 2xx)
-[ ${#piece} -eq 2 ] && piece=2$piece
+# b424f_df0_t3_d04_08_t092_ap4_lm19_r1.25.npy -> tempo 92, piece 424.
+# Tempo stopped being the last token when the name was reordered (9/24/26), and a bare
+# _t<n> is ambiguous — _t3 is the TOLERANCE — so anchor on the tail that always follows
+# the tempo: an optional _ap<n> (absent on --short_repeats), then _lm<n>_r<ratio>.
+tempo=$(printf '%s' "$base" | sed -n 's/.*_t\([0-9]\{1,\}\)_\(ap[0-9]\{1,\}_\)\{0,1\}lm[0-9]\{1,\}_r[0-9.]\{1,\}\.npy$/\1/p')
+# b<NNN><letter>_ — any variant letter, where this used to assume "c".
+piece=$(printf '%s' "$base" | sed -n 's/^b\([0-9]\{3\}\)[a-z]_.*/\1/p')
+[ -n "$tempo" ] || { echo "make_activity: no _t<tempo>[_ap<n>]_lm<n>_r<ratio> in $base" >&2; exit 1; }
+tempo=$((10#$tempo))   # drop the zero padding; 092 must not be read as octal
 out=${2:-${piece:+activity_bwv$piece}}
-[ -n "$out" ] || { echo "make_activity: no t<NN>c in $base — pass a name" >&2; exit 1; }
+[ -n "$out" ] || { echo "make_activity: no b<NNN><letter> in $base — pass a name" >&2; exit 1; }
 
 dur=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$mp3")
 echo "make_activity: $out  tempo=$tempo  duration=${dur}s"

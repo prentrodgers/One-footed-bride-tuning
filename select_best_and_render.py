@@ -364,12 +364,17 @@ def main():
         os.makedirs(dest, exist_ok=True)
         print(f'\nCopying MP3s to {dest} ...\n')
         for version, d, params, _sfx, _path in leaders:
-            bwv_num = version[-2:]   # '53' for bwv253, '60' for bwv260
+            bwv_num = version[-3:]   # '253' for bwv253, '424' for bwv424
+            # b<NNN><letter>_<density>_t<tol>_d<mm_ss>_t<tempo>[_ap<n>]_lm<n>_r<ratio>.mp3
+            # Renamed 9/24/26.  This also drops _sf/_md/_sp, which WreckingCrew stopped
+            # emitting a while back — the old glob could not have matched a current file.
+            # The middle is wildcarded because density, duration, tempo and the repeat
+            # pattern are all decided during the render, not here; tolerance, limit and
+            # ratio are what identify the leader we asked for.
             pattern = os.path.join(
                 uploads,
-                f'ball9-t{bwv_num}?_lm{params["limit_max"]}_r{params["ratio_factor"]:.2f}'
-                f'_sf{params["stability_factor"]:.2f}_md{params["max_delta"]:02d}'
-                f'_sp??_t{params["tolerance"]}_*.mp3'
+                f'b{bwv_num}?_*_t{params["tolerance"]}_*'
+                f'_lm{params["limit_max"]}_r{params["ratio_factor"]:.2f}.mp3'
             )
             matches = glob.glob(pattern)
             if render_start_time is not None:

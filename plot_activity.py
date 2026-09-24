@@ -9,7 +9,7 @@ matplotlib doesn't exist inside Blender's bundled Python and bpy doesn't
 exist outside it:
 
     blender --background --python blender_stage.py -- \\
-        --npy Uploads/ball9-t56c_..._t118.npy --tempo 118 --duration 475.0 \\
+        --npy Uploads/b424f_df0_t3_..._t118_ap4_lm19_r1.25.npy --tempo 118 --duration 475.0 \\
         --dump-activity activity.json
 
     .venv/bin/python plot_activity.py activity.json -o activity.png

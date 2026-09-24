@@ -5,7 +5,7 @@
 #     ./make_score_videos.sh bwv{427..438}
 #     DRY_RUN=1 ./make_score_videos.sh bwv{427..438}
 #     SUFFIX=_slow ./make_score_videos.sh bwv434      -> score_bwv434_slow.mp4
-#     MP3=ball9-t34a_..._t022.mp3 SUFFIX=_slow ./make_score_videos.sh bwv434
+#     MP3=b434a_df0_t3_..._t022_ap4_lm19_r1.25.mp3 SUFFIX=_slow ./make_score_videos.sh bwv434
 #
 # SUFFIX keeps a second version of a chorale beside the first -- a slower
 # rendering, say -- instead of overwriting it.  MP3 pins one rendering by
@@ -13,8 +13,8 @@
 # Uploads or a full path on the PVC, and suits a single chorale at a time.
 #
 # For each chorale it finds the newest --short_repeats rendering on the PVC
-# (Uploads/ball9-t<NNN>a_*.mp3, NNN the BWV number; older files have two digits),
-# reads the tempo out of its filename (..._t034.mp3 -> 34), writes the chord
+# (Uploads/b<NNN>a_*.mp3, NNN the BWV number),
+# reads the tempo out of its filename (..._t034_ap4_lm19_r1.25.mp3 -> 34), writes the chord
 # report for the tuning in best-tunings, renders the video, and copies it back
 # to the PVC as score_<chorale>.mp4.
 #
@@ -43,23 +43,25 @@ fail=0
 
 for chorale in "$@"; do
     case "$chorale" in bwv*) ;; *) echo "chorale names need the bwv prefix: $chorale" >&2; fail=1; continue;; esac
-    # WreckingCrew names the track after the BWV number: all three digits
-    # since 19 Sep 2026 (t433a), the last two before (t33a).  Look for both.
-    track=${chorale#bwv}; track2=${track: -2}
+    # WreckingCrew names the track after the BWV number, always three digits (b433a).
+    track=${chorale#bwv}
 
     if [ -n "$MP3" ]; then
         case "$MP3" in /*) mp3=$MP3;; *) mp3=$REPO/Uploads/$MP3;; esac
         ssh -n "$POD" "test -f '$mp3'" 2>/dev/null || { echo "$chorale: no $mp3 on the PVC" >&2; fail=1; continue; }
     else
-        mp3=$(ssh -n "$POD" "ls -t $REPO/Uploads/ball9-t${track}a_*.mp3 $REPO/Uploads/ball9-t${track2}a_*.mp3 2>/dev/null | head -1" 2>/dev/null)
+        mp3=$(ssh -n "$POD" "ls -t $REPO/Uploads/b${track}a_*.mp3 2>/dev/null | head -1" 2>/dev/null)
     fi
     if [ -z "$mp3" ]; then
-        echo "$chorale: no Uploads/ball9-t${track}a_*.mp3 (or t${track2}a) on the PVC — render one with --short_repeats first" >&2
+        echo "$chorale: no Uploads/b${track}a_*.mp3 on the PVC — render one with --short_repeats first" >&2
         fail=1; continue
     fi
     base=$(basename "$mp3")
-    # ..._t034.mp3 -> 34 (the tempo WreckingCrew rendered it at)
-    tempo=$(sed -n 's/.*_t\([0-9]\{3\}\)\.mp3$/\1/p' <<<"$base"); tempo=$((10#$tempo))
+    # b424a_df0_t3_d04_08_t092_ap4_lm19_r1.25.mp3 -> 92.  Tempo stopped being the last
+    # token when the name was reordered (9/24/26), and a bare _t<n> is ambiguous — _t3 is
+    # the TOLERANCE — so anchor on the tail: optional _ap<n>, then _lm<n>_r<ratio>.
+    tempo=$(sed -n 's/.*_t\([0-9]\{3\}\)_\(ap[0-9]\{1,\}_\)\{0,1\}lm[0-9]\{1,\}_r[0-9.]\{1,\}\.mp3$/\1/p' <<<"$base")
+    tempo=$((10#${tempo:-0}))
     if [ "$tempo" -le 0 ]; then
         echo "$chorale: no tempo in $base" >&2; fail=1; continue
     fi
