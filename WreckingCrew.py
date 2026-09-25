@@ -1025,7 +1025,8 @@ def bwv846_mask_patterned(
 
 # define the functions for the arpeggiated parts, finger piano, pizzicato strings, guitars, harp, etc.
 def finger_piano_part(chorale, glides, repeats, voice_names, voice_time, tpq, volume_function, probs = None, fp_volume = 0,
-                      density_start: str = 'moderate', density_profile: np.ndarray | None = None, fp_hold_scale: float = 1.0):
+                      density_start: str = 'moderate', density_profile: np.ndarray | None = None, fp_hold_scale: float = 1.0,
+                      env=None, env_p=None):
     # set the default value for probs if it is not passed as a keyword argument.
     if probs is None:
         probs = [[0.99, 0.01], [0.95627622, 0.04372378]]
@@ -1059,8 +1060,18 @@ def finger_piano_part(chorale, glides, repeats, voice_names, voice_time, tpq, vo
     gls_p = np.array([[.5, .5], [.5, .5], [.5, .5], [.5, .5]])
     ups = np.array([[-1, 0], [-2, 1], [1, 2], [-2, -1]])
     ups_p = np.array([[.5, .5], [.5, .5], [.5, .5], [.5, .5]])
-    env = np.array([[1, 0], [2, 8], [16, 17], [2, 8]])
-    env_p = np.array([[.5, .5], [.8, .2], [.5, .5], [.5, .5] ])
+    # Envelope choice, one pair per voice group. The default row [16, 17] draws the
+    # two "sustain piano/guitar" tables (f282/f281), which sit near 0.1-0.4 for most
+    # of the note and only reach full amplitude in the last few percent. On a struck
+    # bar or a plucked tine that rise cancels the sample's own decay and reads as
+    # sustain. On a wind or a brass sample, which does not decay, the same rise is
+    # just a crescendo -- and since ball9.csd stretches the table over p3, shortening
+    # the hold compresses the swell rather than removing it, so every articulated
+    # note becomes a fast crescendo chopped off at its loudest point. Callers that
+    # hand the engine sustained instruments should pass their own env/env_p.
+    env = np.array([[1, 0], [2, 8], [16, 17], [2, 8]]) if env is None else np.asarray(env, dtype=int)
+    env_p = (np.array([[.5, .5], [.8, .2], [.5, .5], [.5, .5]]) if env_p is None
+             else np.asarray(env_p, dtype=float))
     vel = np.array([[71, 74], [74, 77], [76, 79], [73, 76]])
     vel -= 2 # lower the volume on the finger piano parts to avoid clipping
     vel_p = np.array([[.5, .5], [.5, .5], [.5, .5], [.5, .5]])
@@ -1182,6 +1193,201 @@ def finger_piano_part(chorale, glides, repeats, voice_names, voice_time, tpq, vo
     # np.save('fp_part_notes_features.npy', notes_features_15)
     return notes_features_15
 # end of finger_piano_part
+
+
+def apply_self_limiting_holds(notes_features: np.ndarray,
+                              articulations=(0.12, 0.25, 0.40, 0.60, 0.80, 1.00),
+                              run_range=(20, 41),
+                              min_hold: float = 0.25) -> np.ndarray:
+    """Trim every note's HOLD so it stops at or before its own slot ends.
+
+    Column 1 is the note's slot -- how long until the next note in that voice
+    begins -- and column 2 is how long it actually sounds.  Straight out of
+    piano_roll_to_notes_features, hold = duration * 1.01, so every note bleeds 1%
+    into the one behind it.  On a marimba or a finger piano that is inaudible:
+    the sample has decayed long before.  On a sustained instrument it is the
+    difference between a line and a smear, and it is exactly why aiming the
+    arpeggio engine at the winds produces overlapping mud.
+
+    Here hold = level * duration, clamped to [min_hold, duration].  At level 1.0
+    a note runs precisely up to the next one -- legato, but never overlapping.
+    At the bottom of the range it is a 0.25-click chip of sound.  Nothing is
+    retimed: column 1 is untouched, so every start time downstream is unchanged
+    and only the sounding length moves.
+
+    The level is held for run_range notes before a new one is drawn, so the
+    articulation reads as a choice sustained across a phrase rather than
+    note-by-note jitter.  Each voice keeps its own level and its own counter,
+    so the section breathes instead of moving in lockstep.
+
+    Silent notes (octave 0) are rests.  They get the same treatment, so nothing
+    downstream sees a stale hold, but they do not count toward the run length --
+    that is about how many notes a listener actually hears at one articulation.
+    """
+    if notes_features.shape[0] == 0:
+        return notes_features
+    out = notes_features.copy()
+    levels = np.asarray(articulations, dtype=float)
+    lo, hi = int(run_range[0]), int(run_range[1])
+    before = float(np.mean(out[:, 2] / np.maximum(out[:, 1], 1e-9)))
+
+    for voice_num in np.unique(out[:, 6].astype(int)):
+        idx = np.where(out[:, 6].astype(int) == voice_num)[0]
+        level = float(rng.choice(levels))
+        remaining = int(rng.integers(lo, hi))
+        for i in idx:
+            dur = float(out[i, 1])
+            # The low clamp never exceeds the slot: a note whose slot is already
+            # shorter than min_hold simply fills it rather than running over.
+            out[i, 2] = float(np.clip(level * dur, min(min_hold, dur), dur))
+            if out[i, 5] != 0:
+                remaining -= 1
+                if remaining <= 0:
+                    level = float(rng.choice(levels))
+                    remaining = int(rng.integers(lo, hi))
+
+    after = float(np.mean(out[:, 2] / np.maximum(out[:, 1], 1e-9)))
+    logging.info(f'apply_self_limiting_holds: {out.shape[0]} notes over '
+                 f'{np.unique(out[:, 6].astype(int)).shape[0]} voices, '
+                 f'levels={list(levels)}, run={lo}-{hi - 1} notes, '
+                 f'mean hold/slot {before:.3f} -> {after:.3f}')
+    return out
+# end of apply_self_limiting_holds
+
+
+def parse_articulate(spec: str | None) -> dict:
+    """'wood_winds:4,brass_section' -> {'wood_winds': 4, 'brass_section': None}.
+
+    The count is how many of that section's instruments take the arpeggio
+    treatment; a bare section name (None) means all of them. Instruments are
+    taken from the FRONT of the section's array, which the dictionaries lay out
+    high to low -- "think SS AA TT BB" -- so a count picks the upper voices,
+    where running figuration belongs and where it does not turn to mud.
+    """
+    out: dict = {}
+    for token in (spec or '').split(','):
+        token = token.strip()
+        if not token:
+            continue
+        name, _, count = token.partition(':')
+        name, count = name.strip(), count.strip()
+        if not name:
+            continue
+        out[name] = int(count) if count else None
+    return out
+# end of parse_articulate
+
+
+def build_articulate_cfg(env_spec: str, staccato_spec: str, hold_spec: str,
+                         gain_spec: str = '0.65,0.90') -> dict:
+    """Turn the three --articulate_* strings into articulated_part's keyword arguments.
+
+    env_spec       '1,5'          the sustained shapes
+    staccato_spec  '11,13,15@0.2' short shapes and how often a quarter draws one;
+                                  'none' or '@0' turns them off
+    hold_spec      'on' | 'off'   whether to also trim each note's sounding length.
+                                  'off' pins hold to the full slot, so the envelope
+                                  is the only thing making a note short -- which is
+                                  worth hearing on its own, because e11-e15 and the
+                                  hold trim MULTIPLY: e15 sounds for ~17% of the
+                                  note, and a 0.12 hold on top of that leaves ~2%,
+                                  which is a click rather than a staccato note.
+    """
+    cfg: dict = {}
+    envs = tuple(int(e) for e in (env_spec or '').split(',') if e.strip())
+    if envs:
+        cfg['envelopes'] = envs
+    spec = (staccato_spec or '').strip()
+    if spec.lower() in ('none', 'off', ''):
+        cfg['staccato_envelopes'], cfg['staccato_prob'] = (), 0.0
+    else:
+        names, _, prob = spec.partition('@')
+        cfg['staccato_envelopes'] = tuple(int(e) for e in names.split(',') if e.strip())
+        cfg['staccato_prob'] = float(prob) if prob.strip() else 0.2
+    if (hold_spec or 'on').strip().lower() in ('off', 'none', 'no', '0'):
+        cfg['articulations'] = (1.0,)      # hold == slot: legato, still never overlapping
+    # Volume multipliers, consumed by expand_chorale after the sustained auto-balance
+    # rather than passed on to articulated_part. Amplitude is linear in this column
+    # (iamp = ampdb(iVel) * p15 / 5), so 0.65 is about -3.7 dB and 0.90 about -0.9 dB.
+    _g = [p for p in (gain_spec or '').split(',') if p.strip()]
+    cfg['staccato_gain'] = float(_g[0]) if len(_g) > 0 else 0.65
+    cfg['sustain_gain'] = float(_g[1]) if len(_g) > 1 else 0.90
+    return cfg
+# end of build_articulate_cfg
+
+
+def articulated_part(chorale, glides, repeats, voice_names, voice_time, tpq, volume_function,
+                     probs=None, fp_volume=0, density_start: str = 'moderate',
+                     density_profile: np.ndarray | None = None, fp_hold_scale: float = 1.0,
+                     articulations=(0.12, 0.25, 0.40, 0.60, 0.80, 1.00),
+                     run_range=(20, 41), min_hold: float = 0.25, envelopes=(1, 5),
+                     staccato_envelopes=(11, 13, 15), staccato_prob: float = 0.2):
+    """The finger-piano arpeggio engine, played by instruments that hold their notes.
+
+    The point is to move some of the running figuration off the marimba and the
+    finger pianos and onto the winds and brass.  finger_piano_part alone cannot
+    do it: its notes are written to sound 1% longer than their slot, which a
+    plucked sample hides and a sustained one turns into a wash of overlapping
+    tone.  This wraps the same engine and then self-limits every note, so the
+    figuration keeps its shape when a clarinet or a trombone plays it.
+
+    Everything about pitch, octave, density and rhythm comes from
+    finger_piano_part unchanged -- only the sounding lengths differ -- so an
+    articulated section and a finger-piano section rendered from the same seed
+    play the same notes at the same moments.
+    """
+    # Envelopes, audited against ball9.csd on 26 Sep 2026 (score value N selects
+    # f-table 298 - N, so e1 is f297):
+    #   e0  f298  attack, sustain, sharp ending
+    #   e1  f297  attack, sustain, sharp ending (longer sustain than e0)
+    #   e3  f295  big hump then small hump
+    #   e5  f293  labelled "default woodwind envelope": attack, long sustain, release
+    #   e11-e15   "hit and sustain 3/4, 2/3, 1/2, 1/4, 1/5 the normal length"
+    # and the ones to keep away from sustained instruments, all of which climb to
+    # full amplitude at the very end of the note:
+    #   e4 f294 small hump then big hump      e9  f289 start moderate and build
+    #   e16 f282 sustain piano sound          e17 f281 sustain guitar sound
+    #   e18 f280, e19 f279 build to end       e33 f265, e34 f264 move in gradually
+    # finger_piano_part's default set includes e16/e17, which is right for a decaying
+    # bar or tine and wrong for anything that sustains on its own.
+    # The four rows are not per-voice: add_features_glides sets
+    # break_point = notes // env.shape[0] and steps env_i forward every break_point
+    # notes, so each row owns one quarter of the piece and EVERY voice draws from
+    # it during that quarter. (finger_piano_part shuffles the rows, so which
+    # quarter gets which pair varies per render.) That is why a single bad pair
+    # is so audible: [16, 17] put reverse envelopes under the whole ensemble for
+    # a quarter of the piece, not under a quarter of the voices.
+    #
+    # Each row therefore pairs a sustained shape with a short one, so every
+    # quarter carries the same blend rather than some being all-staccato.
+    # e11-e15 are "hit and sustain 3/4, 2/3, 1/2, 1/4, 1/5 the normal length":
+    # their tables reach zero partway through and stay there, which is staccato
+    # done in the envelope rather than by trimming the note.
+    _sus = [int(e) for e in envelopes] or [1]
+    _sta = [int(e) for e in staccato_envelopes]
+    _p = float(np.clip(staccato_prob, 0.0, 1.0))
+    _env, _env_p = [], []
+    for i in range(4):
+        if _sta and _p > 0:
+            _env.append([_sus[i % len(_sus)], _sta[i % len(_sta)]])
+            _env_p.append([1.0 - _p, _p])
+        else:                                   # no staccato: alternate the sustained shapes
+            _env.append([_sus[i % len(_sus)], _sus[(i + 1) % len(_sus)]])
+            _env_p.append([0.5, 0.5])
+    env = np.array(_env, dtype=int)
+    env_p = np.array(_env_p, dtype=float)
+
+    notes_features_15 = finger_piano_part(
+        chorale, glides, repeats, voice_names, voice_time, tpq, volume_function,
+        probs=probs, fp_volume=fp_volume, density_start=density_start,
+        density_profile=density_profile, fp_hold_scale=fp_hold_scale,
+        env=env, env_p=env_p)
+    logging.info(f'articulated_part: {notes_features_15.shape[0]} notes for '
+                 f'{voice_names.shape[0]} sustained voices; env rows (one per quarter) '
+                 f'{env.tolist()} p={env_p.tolist()}; holds {articulations}')
+    return apply_self_limiting_holds(notes_features_15, articulations=articulations,
+                                     run_range=run_range, min_hold=min_hold)
+# end of articulated_part
 
 
 # define the functions for the long held parts, horns, winds, bowed strings, brass, etc.
@@ -1780,7 +1986,8 @@ def expand_chorale(repeats, chorale_in_cents_slides, glides, stored_gliss, voice
     stability_factor=0.0, max_delta=33, spread=7, fp_density_starts=None, fp_hold_scale=1.0, density_level=None,
     fatigue_thin_ratio=0.0, fatigue_min_chain=2, fatigue_density_threshold=1, version='',
     deep_bass_backoff=1.0, back_off_clicks=0.0,
-    rondo_sections=None, rondo_insertions=None, primes_tag='', lm_tag=''):
+    rondo_sections=None, rondo_insertions=None, primes_tag='', lm_tag='', articulated_sections=None,
+    articulate_cfg=None):
     # As of 1/10/26 the chorale_in_cents_slides has already been repeated according to the repeats array. (no longer an integer)
     # send the arrays to the file new_output.csd which csound will convert to a wave file to make music
     # duration, volume_function = expand_chorale(repeats, chorale_in_cents, chorale_in_cents_slides, glides, stored_gliss, voice_time, \
@@ -1870,11 +2077,90 @@ def expand_chorale(repeats, chorale_in_cents_slides, glides, stored_gliss, voice
     if fp_density_starts is None:
         fp_density_starts = {'finger_pianos': 'moderate', 'pizz_strings': 'moderate', 'marimbas': 'moderate'}
     fp_volumes = {'finger_pianos': 2, 'pizz_strings': 3, 'marimbas': 3}
-    for sec_num, section in zip(count(0,1), include_sections): 
+    articulated_sections = dict(articulated_sections or {})
+    # The gains are applied after the sustained auto-balance below, not here: that
+    # balancer scales a section's volume to hit the median of hold*loudness, so a
+    # reduction made now would simply be scaled back out.
+    _art_cfg = dict(articulate_cfg or {})
+    _stacc_gain = float(_art_cfg.pop('staccato_gain', 0.65))
+    _sus_gain = float(_art_cfg.pop('sustain_gain', 0.90))
+    _stacc_envs = [int(e) for e in _art_cfg.get('staccato_envelopes', (11, 13, 15))]
+    _art_slices: dict[str, tuple[int, int]] = {}   # the ARTICULATED rows only, per section
+
+    def _voice_nums(names):
+        """The voice numbers these instrument names carry in column 6."""
+        return [int(voice_time[str(n)]["time_tracker_number"]) for n in names]
+
+    def _normal_rows(section, sec_num):
+        """What this section would have played had --articulate not named it.
+
+        Mirrors the dispatch below, and is reached only when --articulate takes
+        PART of a section, so the instruments left behind keep their usual
+        writing. Sections handed over whole never call this.
+        """
+        insts = include_sections[section][1]
+        if section in ['pizz_strings', 'marimbas', 'finger_pianos']:
+            return finger_piano_part(chorale_in_cents_slides, glides, repeats_average, insts, voice_time, tpq,
+                volume_function[sec_num], probs=probs, fp_volume=fp_volumes.get(section, 2),
+                density_start=fp_density_starts.get(section, 'moderate'),
+                density_profile=density_profile, fp_hold_scale=fp_hold_scale)
+        if section == 'melody_section':
+            return melody_part(chorale_in_cents_slides, glides, repeats_average, insts, voice_time, tpq,
+                volume_function[sec_num], mask=mask, prob_silence=prob_silence, octave_reduce=octave_reduce,
+                woodwinds_volume=woodwinds_volume, sustain=melody_sustain, density_profile=density_profile)
+        if section == 'bass_section':
+            return bass_part(chorale_in_cents_slides, glides, repeats_average, insts, voice_time, tpq,
+                volume_function[sec_num], probs=probs, bass_sustain=bass_sustain, fp_volume=3,
+                bass_hold_scale=bass_hold_scale, bass_hold_swing=bass_hold_swing, bass_hold_cycles=bass_hold_cycles,
+                density_profile=density_profile, deep_bass_backoff=deep_bass_backoff, back_off_clicks=back_off_clicks)
+        return woodwinds_part(chorale_in_cents_slides, glides, repeats_average, insts, voice_time, tpq,
+            volume_function[sec_num], mask=mask, prob_silence=prob_silence, octave_reduce=0,
+            woodwinds_volume=woodwinds_volume, density_profile=density_profile)
+
+    for sec_num, section in zip(count(0,1), include_sections):
         if include_sections[section][0]: # if the dictionary value for this instrument section is set to True
             print(f'{sec_num}: {section}, includes instruments: {include_sections[section][1]}')
             _rows_before = notes_features_15.shape[0]
-            if section in ['pizz_strings', 'marimbas', 'finger_pianos']:
+            # Checked first, so --articulate can take any section away from whichever
+            # part function would normally have it. The intended use is to hand the
+            # winds and brass some of the figuration the marimba and finger pianos
+            # carry, which needs the arpeggio engine plus notes that stop in time.
+            if section in articulated_sections:
+                _insts = include_sections[section][1]
+                _n_all = int(_insts.shape[0])
+                _want = articulated_sections[section]
+                _n_art = _n_all if _want is None else int(np.clip(_want, 0, _n_all))
+                print(f'playing {section}: {_n_art} of {_n_all} instruments as arpeggios with '
+                      f'self-limiting holds{"" if _n_art >= _n_all else ", the rest as usual"}')
+                # Both engines are written for a full eight-voice section, so neither can
+                # be handed a slice: finger_piano_part indexes
+                # density_function[(pvoice + twin) % 4 + 4], which runs off the end of a
+                # four-instrument array, and its `voices // 4` is 0 for anything under
+                # four. So render the whole section each way and keep, from each
+                # rendering, only the instruments assigned to it. Every instrument lands
+                # in exactly one stream, which matters because a voice is a single
+                # timeline -- start times accumulate from column 1 -- so two streams on
+                # one instrument would queue up end to end rather than sound together.
+                _rows = articulated_part(chorale_in_cents_slides, glides, repeats_average, _insts,
+                    voice_time, tpq, volume_function[sec_num], probs=probs,
+                    fp_volume=fp_volumes.get(section, 2),
+                    density_start=fp_density_starts.get(section, 'moderate'),
+                    density_profile=density_profile, fp_hold_scale=fp_hold_scale,
+                    **_art_cfg)
+                _rows = (_rows[np.isin(_rows[:, 6].astype(int), _voice_nums(_insts[:_n_art]))]
+                         if _n_art > 0 else _rows[:0])
+                # Where the articulated notes land, so the gain below can find them
+                # without touching the instruments that kept their usual writing.
+                _art_slices[section] = (_rows_before, _rows_before + _rows.shape[0])
+                if _n_art < _n_all:
+                    _rest = _normal_rows(section, sec_num)
+                    _rest = _rest[np.isin(_rest[:, 6].astype(int), _voice_nums(_insts[_n_art:]))]
+                    logging.info(f'{section}: {_rows.shape[0]} articulated notes on {list(_insts[:_n_art])}, '
+                                 f'{_rest.shape[0]} normal notes on {list(_insts[_n_art:])}')
+                    _rows = np.concatenate((_rows, _rest), axis = 0)
+                notes_features_15 = np.concatenate((notes_features_15, _rows), axis = 0)
+                _save_section_npy(section, notes_features_15[_rows_before:])
+            elif section in ['pizz_strings', 'marimbas', 'finger_pianos']:
                 print(f'playing {section}')
                 notes_features_15 = np.concatenate((notes_features_15, finger_piano_part(chorale_in_cents_slides, glides, repeats_average, include_sections[section][1], voice_time, tpq, volume_function[sec_num], probs = probs,
                     fp_volume=fp_volumes.get(section, 2), density_start=fp_density_starts.get(section, 'moderate'), density_profile=density_profile, fp_hold_scale=fp_hold_scale)), axis = 0)
@@ -1936,6 +2222,27 @@ def expand_chorale(repeats, chorale_in_cents_slides, glides, stored_gliss, voice
                 0,
                 14,
             )
+
+    # Articulated notes sit back a little. This runs AFTER the auto-balance above,
+    # deliberately: that balancer equalises sections on hold*loudness, and trimming
+    # the holds lowers an articulated section's sum, so it answers by scaling the
+    # section's volume UP. Reducing before it would simply be undone.
+    #
+    # The staccato-envelope notes take the larger cut. Nothing here is intrinsically
+    # louder -- every envelope table peaks at 1.0 -- but e11-e15 deliver that peak in
+    # a short, sharply-cut package on top of the balancer's boost, which is what makes
+    # them poke out. Only the articulated rows are touched, so the instruments in the
+    # same section that kept their usual writing are left exactly as they were.
+    for section, (astart, aend) in _art_slices.items():
+        if aend <= astart:
+            continue
+        _seg = notes_features_15[astart:aend]
+        _is_stacc = np.isin(_seg[:, 8].astype(int), _stacc_envs)
+        _seg[_is_stacc, 14] *= _stacc_gain
+        _seg[~_is_stacc, 14] *= _sus_gain
+        logging.info(f'{section}: articulated gain applied to {_seg.shape[0]} notes -- '
+                     f'{int(_is_stacc.sum())} staccato x{_stacc_gain:.2f}, '
+                     f'{int((~_is_stacc).sum())} sustained x{_sus_gain:.2f}')
 
     for section in available_sustained:
         start, end = section_slices[section]
@@ -2161,7 +2468,7 @@ def chorale_to_wave_v4(version, album, include_sections, ratio_factor, limit_max
       cent_file_partial='-cents.npy', show_volumes=False, woodwinds_volume=15,\
     melody_sustain=15, bass_sustain=15, bass_hold_scale=1.0, bass_hold_swing=0.75, bass_hold_cycles=4,
     use_werck_top_notes=False, mp3=True, tolerance=1,\
-      stability_factor=0.0, max_delta=33, spread=7, fp_density_starts=None, fp_hold_scale=1.0, prime_count=8, ap=None, density_level=5,
+      stability_factor=0.0, max_delta=33, spread=7, fp_density_starts=None, fp_hold_scale=1.0, prime_count=8, ap=None, articulated_sections=None, articulate_cfg=None, density_level=5,
         fatigue_min_chain=2, fatigue_density_threshold=1, include_slice=None,
         deep_bass_backoff=1.0, back_off_clicks=0.0,
         rondo_sections=None, rondo_insertions=None):
@@ -2355,7 +2662,8 @@ def chorale_to_wave_v4(version, album, include_sections, ratio_factor, limit_max
         fp_density_starts=fp_density_starts, fp_hold_scale=fp_hold_scale, density_level=density_level,
         fatigue_thin_ratio=fatigue_thin_ratio, fatigue_min_chain=fatigue_min_chain, fatigue_density_threshold=fatigue_density_threshold, version=version,
         deep_bass_backoff=deep_bass_backoff, back_off_clicks=back_off_clicks,
-        rondo_sections=rondo_sections, rondo_insertions=rondo_insertions, primes_tag=primes_tag, lm_tag=lm_tag)
+        rondo_sections=rondo_sections, rondo_insertions=rondo_insertions, primes_tag=primes_tag, lm_tag=lm_tag,
+        articulated_sections=articulated_sections, articulate_cfg=articulate_cfg)
 
     if csound: # send the results to csound
         result_of_call = play_csound(csound = True, play = False)
@@ -2385,7 +2693,7 @@ def mainline(chorale_override=None, short_repeats=False, just_triangle=False, in
              mp3=True, max_cents_slide=35, melody_sustain=3, bass_sustain=15,
              bass_hold_scale=1.0, bass_hold_swing=0.75, bass_hold_cycles=4, cent_file_partial='-trans-sa-opt.npy', \
              show_volumes=True, mod_letter='a', album=3, use_werck_top_notes=False, tolerance=1, ratio_factor=0.75, \
-             numpy_dir_arg=None, stability_factor=0.0, max_delta=33, spread=7, limit_max=23, auto_density=False, prime_count=8, ap=None, density_level=None, shuffle_density=False, auto_density_weights=None,
+             numpy_dir_arg=None, stability_factor=0.0, max_delta=33, spread=7, limit_max=23, auto_density=False, prime_count=8, ap=None, articulated_sections=None, articulate_cfg=None, density_level=None, shuffle_density=False, auto_density_weights=None,
              fatigue_min_chain=2, fatigue_density_threshold=1, include_slice=None,
              deep_bass_backoff=1.0, back_off_clicks=0.0,
              rondo_sections=None, rondo_insertions=None):
@@ -2541,7 +2849,7 @@ def mainline(chorale_override=None, short_repeats=False, just_triangle=False, in
                 bass_hold_scale=_bhs, bass_hold_swing=_bhsw, bass_hold_cycles=bass_hold_cycles,
                   cent_file_partial=cent_file_partial, use_werck_top_notes=use_werck_top_notes, mp3=mp3,\
                   tolerance=tolerance, stability_factor=stability_factor, max_delta=max_delta,\
-                  spread=spread, fp_density_starts=_fp_starts, fp_hold_scale=_fhs, prime_count=_np, ap=ap, density_level=_active_level,
+                  spread=spread, fp_density_starts=_fp_starts, fp_hold_scale=_fhs, prime_count=_np, ap=ap, articulated_sections=articulated_sections, articulate_cfg=articulate_cfg, density_level=_active_level,
                                     fatigue_min_chain=fatigue_min_chain, fatigue_density_threshold=fatigue_density_threshold,
                                     include_slice=include_slice,
                                     deep_bass_backoff=deep_bass_backoff, back_off_clicks=back_off_clicks,
@@ -2634,6 +2942,51 @@ if __name__ == "__main__":
                           help="Pin all chorales to one density level 0-5 (0=sparsest, 5=densest). Overrides --auto_density. If omitted, defaults to 5 unless --auto_density is set.")
       parser.add_argument("--prime_count", dest="prime_count", type=int, default=8,
                           help="How many primes from [1,3,5,11,17,31,47,71] to use for chord repeats (1-8, default: 8); overridden per-chorale when --auto_density is set")
+      parser.add_argument("--articulate", dest="articulate", type=str, default=None,
+                          help="Comma-separated sections to play with the arpeggio engine and "
+                               "self-limiting note lengths. Meant for moving some of the marimba/"
+                               "finger-piano figuration onto sustained instruments, which "
+                               "finger_piano_part alone cannot do because its notes are written "
+                               "1%% longer than their slot and a wind smears them together. "
+                               "Add ':N' to hand over only the first N instruments of a section "
+                               "and leave the rest playing as they normally would -- the section "
+                               "arrays run high to low (SS AA TT BB), so a count takes the upper "
+                               "voices. 'wood_winds:4,brass_section:1' arpeggios the four high "
+                               "winds and the first trumpet; a bare 'wood_winds' takes the whole "
+                               "section. Default: none.")
+      parser.add_argument("--articulate_env", dest="articulate_env", type=str, default="1,5",
+                          help="Sustained envelope shapes the articulated instruments draw from "
+                               "(ball9.csd: score value N selects f-table 298-N). e1 is attack, "
+                               "sustain, sharp end; e5 is labelled 'default woodwind envelope'; "
+                               "e0 and e3 are the other safe ones. AVOID e4, e9, e16, e17, e18, "
+                               "e19, e33, e34 -- every one of them climbs to full amplitude at "
+                               "the end of the note, which reads as sustain on a decaying bar "
+                               "and as a crescendo on anything that sustains by itself. "
+                               "Default: 1,5")
+      parser.add_argument("--articulate_staccato", dest="articulate_staccato", type=str, default="11,13,15@0.2",
+                          help="Short envelope shapes, and how often they are drawn, as "
+                               "'<envelopes>@<probability>'. e11-e15 are 'hit and sustain 3/4, "
+                               "2/3, 1/2, 1/4, 1/5 the normal length': their tables fall to zero "
+                               "partway through and stay there, so the note stops without its "
+                               "written length changing. 'none' turns them off. "
+                               "Default: 11,13,15@0.2")
+      parser.add_argument("--articulate_hold", dest="articulate_hold", type=str, default="on",
+                          choices=["on", "off"],
+                          help="Whether articulated notes ALSO get their sounding length trimmed "
+                               "to a fraction of the gap to the next note. 'off' pins the hold to "
+                               "the full gap and lets the envelopes do all the shortening. Worth "
+                               "trying, because the two multiply: e15 sounds for ~17%% of a note, "
+                               "and a 0.12 hold on top leaves ~2%%, which is a click. Default: on")
+      parser.add_argument("--articulate_gain", dest="articulate_gain", type=str, default="0.65,0.90",
+                          help="Volume multipliers for articulated notes, as "
+                               "'<staccato>,<sustained>'. Applied AFTER the sustained "
+                               "auto-balance, which equalises sections on hold*loudness and so "
+                               "scales an articulated section UP to make up for its trimmed "
+                               "holds -- a cut made earlier would just be undone. Only the "
+                               "articulated notes are touched; instruments in the same section "
+                               "that kept their usual writing are untouched. Amplitude is linear "
+                               "here, so 0.65 is about -3.7 dB and 0.90 about -0.9 dB. "
+                               "Use '1,1' for no reduction. Default: 0.65,0.90")
       parser.add_argument("--ap", dest="ap", type=int, default=None, choices=sorted(PRIME_PATTERNS),
                           help="Pin the chord-repeat pattern (the _ap tag in the output filename) instead of "
                                "drawing one at random. Relative to ap4: "
@@ -2729,7 +3082,11 @@ if __name__ == "__main__":
                mod_letter=args.mod_letter, album=args.album, use_werck_top_notes=args.use_werck_top_notes,
                tolerance=args.tolerance, ratio_factor=args.ratio_factor, numpy_dir_arg=args.numpy_dir,
                stability_factor=args.stability_factor, max_delta=args.max_delta,
-               spread=args.spread, limit_max=args.limit_max, auto_density=args.auto_density, prime_count=args.prime_count, ap=args.ap, density_level=args.density_level, shuffle_density=args.shuffle_density,
+               spread=args.spread, limit_max=args.limit_max, auto_density=args.auto_density, prime_count=args.prime_count, ap=args.ap,
+               articulated_sections=parse_articulate(args.articulate),
+               articulate_cfg=build_articulate_cfg(args.articulate_env, args.articulate_staccato,
+                                                   args.articulate_hold, args.articulate_gain),
+               density_level=args.density_level, shuffle_density=args.shuffle_density,
                auto_density_weights=parsed_auto_density_weights,
                fatigue_min_chain=args.fatigue_min_chain, fatigue_density_threshold=args.fatigue_density_threshold,
                include_slice=args.include_slice,
