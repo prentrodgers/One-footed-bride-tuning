@@ -22583,16 +22583,7 @@ ___________________
             python select_best_and_render.py --numpy_dir_root Archive/straw-man/best-tunings --chorale_list $CHORALES --suffix=-opt.npy --sort_by gapsum | grep Chorale -A4
                   Chorale Directory     sfx  t ratio lm ChordAvg ChordMax |  N GapSum  Avg  Med  p90  Max | >10
                   bwv427  best-tunings  opt  2 1.250 19     51.3       93 |  0      0  0.0  0.0  0.0  0.0 | 0
-                  bwv428  best-tunings  opt  2 1.250 19     55.5      123 |  2      4  2.0  2.0  2.0  2.0 | 0
-                  bwv429  best-tunings  opt  1 1.625 19     54.6      149 |  0      0  0.0  0.0  0.0  0.0 | 0
-                  bwv430  best-tunings  opt  3 1.250 19     53.5      119 |  3      7  2.3  2.0  2.8  3.0 | 0
-                  bwv431  best-tunings  opt  1 1.250 19     54.4      140 |  0      0  0.0  0.0  0.0  0.0 | 0
-                  bwv432  best-tunings  opt  3 1.500 17     55.3      107 |  2      7  3.5  3.5  4.7  5.0 | 0
-                  bwv433  best-tunings  opt  2 1.625 19     51.9       97 |  0      0  0.0  0.0  0.0  0.0 | 0
                   bwv434  best-tunings  opt  1 1.250 19     58.8      145 |  0      0  0.0  0.0  0.0  0.0 | 0
-                  bwv435  best-tunings  opt  2 1.250 19     56.5      145 |  3     27  9.0 10.0 10.0 10.0 | 0
-                  bwv436  best-tunings  opt  1 1.625 19     51.1      135 |  0      0  0.0  0.0  0.0  0.0 | 0
-                  bwv437  best-tunings  opt  1 1.625 19     58.4      145 |  9     72  8.0 10.0 11.0 11.0 | 4 # improvement
                   bwv438  best-tunings  opt  3 1.500 19     57.0      127 |  0      0  0.0  0.0  0.0  0.0 | 0
       Now do 415-426
             ./ray-ratchet.sh --chorales bwv{415..426}
@@ -22702,53 +22693,12 @@ _________________________
                   bwv426  best-tunings  opt 2 1.250 19     54.3      149 |  4      8  2.0  2.0  2.0  2.0 |  0 
       How about the measure based on high primes:
             for n in Archive/straw-man/best-tunings/bwv4*-opt.npy ; do echo $n ; python chord_report.py --input_numpy_file $n | grep SUMMARY ; done 
-Archive/straw-man/best-tunings/bwv415_t2_r1.500_lm19-opt.npy
-            SUMMARY bwv415   high   5.2%  11:11 13:0 17:4 19:7  chords 8/71  intervals 426
-            Archive/straw-man/best-tunings/bwv416_t1_r1.500_lm17-opt.npy
-            SUMMARY bwv416   high   4.5%  11:9 13:12 17:0 19:0  chords 5/70  intervals 420
-            Archive/straw-man/best-tunings/bwv417_t2_r1.250_lm19-opt.npy
-            SUMMARY bwv417   high   3.0%  11:6 13:3 17:6 19:1  chords 6/89  intervals 534
-            Archive/straw-man/best-tunings/bwv418_t1_r1.250_lm19-opt.npy
-            SUMMARY bwv418   high   2.2%  11:12 13:0 17:0 19:0  chords 4/90  intervals 540
-            Archive/straw-man/best-tunings/bwv419_t2_r1.250_lm19-opt.npy
-            SUMMARY bwv419   high   3.8%  11:3 13:10 17:3 19:1  chords 5/70  intervals 420
-            Archive/straw-man/best-tunings/bwv420_t3_r1.625_lm19-opt.npy
-            SUMMARY bwv420   high   6.3%  11:20 13:2 17:3 19:0  chords 9/66  intervals 396
-            Archive/straw-man/best-tunings/bwv421_t3_r1.375_lm19-opt.npy
-            SUMMARY bwv421   high   3.9%  11:10 13:2 17:2 19:1  chords 6/60  intervals 360
-            Archive/straw-man/best-tunings/bwv422_t3_r1.250_lm19-opt.npy
-            SUMMARY bwv422   high   3.8%  11:13 13:0 17:3 19:3  chords 8/80  intervals 480
-            Archive/straw-man/best-tunings/bwv423_t1_r1.625_lm17-opt.npy
-            SUMMARY bwv423   high   3.9%  11:18 13:6 17:3 19:0  chords 7/106  intervals 636
-            Archive/straw-man/best-tunings/bwv424_t3_r1.375_lm19-opt.npy
-            SUMMARY bwv424   high   6.9%  11:11 13:5 17:4 19:1  chords 7/48  intervals 288
-            Archive/straw-man/best-tunings/bwv425_t3_r1.500_lm19-opt.npy
-            SUMMARY bwv425   high   5.2%  11:47 13:3 17:7 19:7  chords 26/196  intervals 1176
-            Archive/straw-man/best-tunings/bwv426_t2_r1.250_lm19-opt.npy
-            SUMMARY bwv426   high   3.4%  11:3 13:15 17:0 19:3  chords 7/103  intervals 618
-            Archive/straw-man/best-tunings/bwv427_t2_r1.250_lm19-opt.npy
+
       Second batch:
+            Archive/straw-man/best-tunings/bwv427_t2_r1.250_lm19-opt.npy
             SUMMARY bwv427   high   0.7%  11:3 13:0 17:0 19:0  chords 1/72  intervals 432
-            Archive/straw-man/best-tunings/bwv428_t2_r1.250_lm19-opt.npy
-            SUMMARY bwv428   high   1.1%  11:1 13:1 17:2 19:2  chords 3/91  intervals 546
-            Archive/straw-man/best-tunings/bwv429_t3_r1.375_lm19-opt.npy
-            SUMMARY bwv429   high   2.4%  11:5 13:8 17:3 19:1  chords 7/106  intervals 636
-            Archive/straw-man/best-tunings/bwv430_t3_r1.250_lm19-opt.npy
-            SUMMARY bwv430   high   2.8%  11:13 13:7 17:2 19:0  chords 8/108  intervals 648
-            Archive/straw-man/best-tunings/bwv431_t1_r1.250_lm19-opt.npy
-            SUMMARY bwv431   high   1.9%  11:6 13:3 17:0 19:0  chords 2/70  intervals 420
-            Archive/straw-man/best-tunings/bwv432_t2_r1.250_lm19-opt.npy
-            SUMMARY bwv432   high   2.3%  11:0 13:5 17:3 19:1  chords 3/66  intervals 396
-            Archive/straw-man/best-tunings/bwv433_t3_r1.375_lm19-opt.npy
-            SUMMARY bwv433   high   0.4%  11:0 13:3 17:0 19:0  chords 1/117  intervals 702
             Archive/straw-man/best-tunings/bwv434_t1_r1.250_lm19-opt.npy
             SUMMARY bwv434   high   7.6%  11:12 13:6 17:6 19:3  chords 8/57  intervals 342
-            Archive/straw-man/best-tunings/bwv435_t3_r1.375_lm19-opt.npy
-            SUMMARY bwv435   high   2.0%  11:2 13:5 17:2 19:1  chords 5/82  intervals 492
-            Archive/straw-man/best-tunings/bwv436_t1_r1.625_lm19-opt.npy
-            SUMMARY bwv436   high   2.7%  11:6 13:3 17:3 19:0  chords 4/73  intervals 438
-            Archive/straw-man/best-tunings/bwv437_t1_r1.375_lm19-opt.npy
-            SUMMARY bwv437   high   7.8%  11:70 13:21 17:24 19:3  chords 37/249  intervals 1494
             Archive/straw-man/best-tunings/bwv438_t2_r1.625_lm19-opt.npy
             SUMMARY bwv438   high   4.2%  11:6 13:6 17:3 19:1  chords 5/60  intervals 360
 
@@ -22783,11 +22733,280 @@ Archive/straw-man/best-tunings/bwv415_t2_r1.500_lm19-opt.npy
       1. Post the BWV427, 438, and 434 videos and bouncing ball videos to Substack
             scp one-footed-bride-pod:/home/prent/Repos/One-footed-bride-tuning/Archive/straw-man/best-tunings/bwv427*-opt.npy Archive/straw-man/best-tunings/
       I just discovered that there are multiple cent tuning numpy files in best-tunings on the PVC for several chorales. Which ones are the most recent? Ooops
-            for n in bwv427 bwv434 bwv438 ; do ./make_score_videos.sh $n ; done 
-            for n in bwv434 bwv438 ; do ./make_score_videos.sh $n ; done
-      2. Create bouncing ball videos of 415-426. I asked claude to see if GPU would help reduce the duration of these renders. He said it would not, but he found other ways to save time using caching.
-            for n in bwv{415..426} ; do echo $n ; ./make_score_videos.sh $n ; done
-            for n in bwv{415..423} ; do echo $n ; ./make_score_videos.sh $n ; done
-      I was missing some of the --short_repeats mp3. 
-            python WreckingCrew.py --chorale_list bwv{415..423} --cent_file_partial=-opt.npy --short_repeats
-            for n in bwv{415..423} ; do echo $n ; ./make_score_videos.sh $n ; done
+            ./make_score_videos.sh bwv427
+            ./make_score_videos.sh bwv434
+            ./make_score_videos.sh bwv438
+      2. Create bouncing ball videos of 415-426. Done.
+
+_________________________
+9/24/26 Choose the right chorales in the bwv415-bwv426 collection:
+      sort by p90, then prime%, then chord average score. 
+            sort <save.txt -k14,14n -k18,18n -k7,7n
+                  Chorale Directory     sfx t ratio lm ChordAvg ChordMax |  N GapSum  Avg  Med  p90  Max | >10 Prime%
+                  bwv416  best-tunings  opt 2 1.625 19     55.5      145 |  0      0  0.0  0.0  0.0  0.0 |  0  3.8% 
+                  bwv423  best-tunings  opt 1 1.625 17     53.6      145 |  0      0  0.0  0.0  0.0  0.0 |  0  3.9% # easiest
+                  bwv421  best-tunings  opt 1 1.375 19     57.2      149 |  0      0  0.0  0.0  0.0  0.0 |  0  4.7% 
+                  bwv422  best-tunings  opt 3 1.375 17     53.1      113 |  0      0  0.0  0.0  0.0  0.0 |  0  5.0% 
+                  bwv426  best-tunings  opt 2 1.500 17     53.4      114 |  2      4  2.0  2.0  2.0  2.0 |  0  2.9% 
+                  bwv419  best-tunings  opt 2 1.250 19     54.6      145 |  1      2  2.0  2.0  2.0  2.0 |  0  3.8% 
+                  bwv415  best-tunings  opt 2 1.500 19     58.5      148 |  1      2  2.0  2.0  2.0  2.0 |  0  5.2% 
+                  bwv418  best-tunings  opt 2 1.250 19     52.5      113 |  2     20 10.0 10.0 10.0 10.0 |  0  1.7% # medium with lots of small glides
+                  bwv417  best-tunings  opt 2 1.250 19     56.3      145 |  5     42  8.4 10.0 10.0 10.0 |  0  3.0% 
+                  bwv425  best-tunings  opt 2 1.500 19     56.7      145 | 11     52  4.7  3.0 10.0 12.0 |  1  7.3% 
+                  bwv420  best-tunings  opt 3 1.625 19     56.0      112 |  3     24  8.0 10.0 10.8 11.0 |  1  6.3% 
+                  bwv424  best-tunings  opt 3 1.250 19     54.5      131 | 12     87  7.2  7.0 12.9 14.0 |  3  8.3% # most challenging
+                  1       2             3   4 5     6      7         8   9 10 11     12   13   14   15  16 17   18
+      sort by score, then p90, then prime%
+            sort <save.txt -k7,7n -k14,14n -k18,18n
+                  Chorale Directory     sfx t ratio lm ChordAvg ChordMax |  N GapSum  Avg  Med  p90  Max | >10 Prime%
+                  1       2             3   4 5     6      7         8   9 10 11     12   13   14   15  16 17   18
+                  bwv418  best-tunings  opt 2 1.250 19     52.5      113 |  2     20 10.0 10.0 10.0 10.0 |  0  1.7% # lowest score, lowest prime %, small gaps
+                  bwv422  best-tunings  opt 3 1.375 17     53.1      113 |  0      0  0.0  0.0  0.0  0.0 |  0  5.0% 
+                  bwv426  best-tunings  opt 2 1.500 17     53.4      114 |  2      4  2.0  2.0  2.0  2.0 |  0  2.9% 
+                  bwv423  best-tunings  opt 1 1.625 17     53.6      145 |  0      0  0.0  0.0  0.0  0.0 |  0  3.9% 
+                  bwv424  best-tunings  opt 3 1.250 19     54.5      131 | 12     87  7.2  7.0 12.9 14.0 |  3  8.3% 
+                  bwv419  best-tunings  opt 2 1.250 19     54.6      145 |  1      2  2.0  2.0  2.0  2.0 |  0  3.8% 
+                  bwv416  best-tunings  opt 2 1.625 19     55.5      145 |  0      0  0.0  0.0  0.0  0.0 |  0  3.8% # medium score, medium prime, 0 gaps
+                  bwv420  best-tunings  opt 3 1.625 19     56.0      112 |  3     24  8.0 10.0 10.8 11.0 |  1  6.3% 
+                  bwv417  best-tunings  opt 2 1.250 19     56.3      145 |  5     42  8.4 10.0 10.0 10.0 |  0  3.0% 
+                  bwv425  best-tunings  opt 2 1.500 19     56.7      145 | 11     52  4.7  3.0 10.0 12.0 |  1  7.3% 
+                  bwv421  best-tunings  opt 1 1.375 19     57.2      149 |  0      0  0.0  0.0  0.0  0.0 |  0  4.7% 
+                  bwv415  best-tunings  opt 2 1.500 19     58.5      148 |  1      2  2.0  2.0  2.0  2.0 |  0  5.2% # high score, high primes, low gaps
+
+      The ones that I plan to use for the next Substack post: bwv418
+                  bwv418  best-tunings  opt 2 1.250 19     52.5      113 |  2     20 10.0 10.0 10.0 10.0 |  0  1.7% # lowest score, lowest prime %, small gaps
+                  bwv416  best-tunings  opt 2 1.625 19     55.5      145 |  0      0  0.0  0.0  0.0  0.0 |  0  3.8% # medium score, medium prime, 0 gaps
+                  bwv415  best-tunings  opt 2 1.500 19     58.5      148 |  1      2  2.0  2.0  2.0  2.0 |  0  5.2% # high score, high primes, low gaps
+      Start with these three to test out the --ap argument. 
+            time python WreckingCrew.py --chorale_list bwv418 --deep_bass_backoff 0.25 --back_off_clicks 0.25 --album 9 --mod f --rondo_section_a 0 32 --rondo_insert_a_after 63 127 --density_level 5 --ap 1
+      Created these mp3 files in the PVC: 
+      Uploads/b418f_df5_t2_d06_04_t060_ap3_lm19_r1.25.mp3 # very ticky tacky.
+      Uploads/b418f_df5_t2_d08_09_t092_ap4_lm19_r1.25.mp3 # nice, but a little repetitive and too long
+      Uploads/b418f_df5_t2_d05_30_t104_ap3_lm19_r1.25.mp3 # Better, shorter
+      Uploads/b418f_df5_t2_d06_44_t092_ap1_lm19_r1.25.mp3 # best
+            time python WreckingCrew.py --chorale_list bwv416 --deep_bass_backoff 0.25 --back_off_clicks 0.25 --album 9 --mod f --rondo_section_a 0 32 --rondo_insert_a_after 63 127 --density_level 3 --ap 4
+      Uploads/b416f_df3_t2_d06_52_t110_ap3_lm19_r1.62.mp3 # nothing special.
+      Uploads/b416f_df3_t2_d05_47_t114_ap3_lm19_r1.62.mp3 # better, not great
+      Uploads/b416f_df2_t2_d06_30_t080_ap3_lm19_r1.62.mp3 # better
+      Uploads/b416f_df3_t2_d07_09_t084_ap4_lm19_r1.62.mp3 # worse
+      Uploads/b416f_df3_t2_d03_56_t100_ap3_lm19_r1.62.mp3 # better
+      Uploads/b416f_df3_t2_d06_24_t088_ap4_lm19_r1.62.mp3 # best
+            time python WreckingCrew.py --chorale_list bwv415 --deep_bass_backoff 0.25 --back_off_clicks 0.25 --album 9 --mod f --rondo_section_a 0 32 --rondo_insert_a_after 63 127 --density_level 0 --ap 3
+      Uploads/b415f_df0_t2_d04_50_t088_ap1_lm19_r1.50.mp3 # blah 
+      Uploads/b415f_df0_t2_d05_26_t084_ap1_lm19_r1.50.mp3 # better
+      Uploads/b415f_df0_t2_d05_15_t056_ap3_lm19_r1.50.mp3 # better
+      Uploads/b415f_df0_t2_d05_26_t060_ap1_lm19_r1.50.mp3 # better
+      Uploads/b415f_df0_t2_d05_15_t056_ap3_lm19_r1.50.mp3 # best
+
+      But first, ask Claude: How does the argument --autogen 10:216:7 in render_farm.sh work. Does it actually find the busiest and loudest section or instrument to focus the camera on, or is it more or less random? It's only random for tie breakers. It's based mostly on loudness, rather than activity to give the winds, strings, and brasses a chance. It's as smart as we can get, I would say. 
+
+      In the pod each ran in between 14 and 19 seconds per chorale. Now make the video stage.
+      Start with bwv418:
+            ssh fs2 ./render_farm.sh --stop
+
+            ssh one-footed-bride-pod ffprobe -v error -show_entries format=duration -of csv=p=0 Uploads/b418f_df5_t2_d06_44_t092_ap1_lm19_r1.25.mp3
+                  # 400.3
+            PER_CARD=2 ./render_farm.sh --npy Uploads/b418f_df5_t2_d06_44_t092_ap1_lm19_r1.25.npy --tempo 92 --duration 400.3 --out frames_bwv418 --engine cycles --look studio --autogen 10:395:7 # start with a wide short for 10 secs, then wander for duration -5 seconds, using a random seed of 7
+
+      Monitor:  
+            watch -n 20 "./render_farm.sh --progress ; ./render_farm.sh --status"
+__________________________
+9/25/26 Continue with the three chorales in the range 415-426
+      Pick up where you left off. Where should this run? In the pod
+            ssh one-footed-bride-pod
+            cd Repos/One-footed-bride-tuning
+            ffmpeg -y -framerate 30 -i frames_bwv418/frame_%06d.png -i Uploads/b418f_df5_t2_d06_44_t092_ap1_lm19_r1.25.mp3 -c:v libx264 -pix_fmt yuv420p -c:a aac -shortest stage_full_bwv418.mp4
+      Then copy it on to fs2:
+            scp one-footed-bride-pod:Repos/One-footed-bride-tuning/stage_full_bwv418.mp4 .
+      And to the M70q
+            cd Repos/One-footed-bride-tuning
+            scp one-footed-bride-pod:Repos/One-footed-bride-tuning/stage_full_bwv418.mp4 .
+      
+      _______________
+      Then do bwv415:
+      In the pod: 
+      Get the precise duration value for the --duration and for the --autogen (subtract 5):
+      Find the right mp3 file:
+            ls -lth Uploads/b415f*.mp3
+                  -rw-r--r--. 1 prent prent 12M Sep 24 14:29 Uploads/b415f_df0_t2_d05_15_t056_ap3_lm19_r1.50.mp3 # <-- choose this one.
+                  -rw-r--r--. 1 prent prent 13M Sep 24 14:12 Uploads/b415f_df0_t2_d05_26_t060_ap1_lm19_r1.50.mp3
+                  -rw-r--r--. 1 prent prent 13M Sep 24 13:24 Uploads/b415f_df0_t2_d05_26_t084_ap1_lm19_r1.50.mp3
+                  -rw-r--r--. 1 prent prent 11M Sep 24 12:45 Uploads/b415f_df0_t2_d04_50_t088_ap1_lm19_r1.50.mp3
+            ffprobe -v error -show_entries format=duration -of csv=p=0 Uploads/b415f_df0_t2_d05_15_t056_ap3_lm19_r1.50.mp3
+                  310.38
+      Find the right activity numpy file
+            ls -lth Uploads/b415f*.npy
+                  -rw-r--r--. 1 prent prent 763K Sep 24 14:28 Uploads/b415f_df0_t2_d05_15_t056_ap3_lm19_r1.50.npy # <-- choose this one
+                  -rw-r--r--. 1 prent prent 850K Sep 24 14:12 Uploads/b415f_df0_t2_d05_26_t060_ap1_lm19_r1.50.npy
+                  -rw-r--r--. 1 prent prent 1.2M Sep 24 13:24 Uploads/b415f_df0_t2_d05_26_t084_ap1_lm19_r1.50.npy
+                  -rw-r--r--. 1 prent prent 999K Sep 24 12:44 Uploads/b415f_df0_t2_d04_50_t088_ap1_lm19_r1.50.npy
+      On fs2:
+      Run the render with the correct activity numpy file, tempo, duration, directory, autogen timing 
+            ./render_farm.sh --stop
+            PER_CARD=2  ./render_farm.sh --npy Uploads/b415f_df0_t2_d05_15_t056_ap3_lm19_r1.50.npy --tempo 56 --duration 310.4 --out frames_415 --engine cycles --look studio --autogen 10:305:7
+      Monitor:  
+            watch -n 20 "./render_farm.sh --progress ; ./render_farm.sh --status"
+
+      In the pod:
+      Find the right mp3 file:
+            ls -lth Uploads/b415f*.mp3
+                  -rw-r--r--. 1 prent prent 12M Sep 24 14:29 Uploads/b415f_df0_t2_d05_15_t056_ap3_lm19_r1.50.mp3 # <-- choose this one.
+                  -rw-r--r--. 1 prent prent 13M Sep 24 14:12 Uploads/b415f_df0_t2_d05_26_t060_ap1_lm19_r1.50.mp3
+                  -rw-r--r--. 1 prent prent 13M Sep 24 13:24 Uploads/b415f_df0_t2_d05_26_t084_ap1_lm19_r1.50.mp3
+                  -rw-r--r--. 1 prent prent 11M Sep 24 12:45 Uploads/b415f_df0_t2_d04_50_t088_ap1_lm19_r1.50.mp3
+      Set the right input frames directory, mp3 file name, output mp4 name
+            ffmpeg -y -framerate 30 -i frames_bwv415/frame_%06d.png -i Uploads/b415f_df0_t2_d05_15_t056_ap3_lm19_r1.50.mp3 -c:v libx264 -pix_fmt yuv420p -c:a aac -shortest stage_full_bwv415.mp4
+      Then grab the finished video from the pod to fs2 
+            scp one-footed-bride-pod:Repos/One-footed-bride-tuning/stage_full_bwv415.mp4 .
+      _______________
+      Then do bwv416:
+      In the pod: 
+      Get the precise duration value for the --duration and for the --autogen (subtract 5):
+      Find the right mp3 file:
+            ssh one-footed-bride-pod ls -lth Repos/One-footed-bride-tuning/Uploads/b416f*.mp3
+                  -rw-r--r--. 1 prent prent  15M Sep 24 14:19 Repos/One-footed-bride-tuning/Uploads/b416f_df3_t2_d06_24_t088_ap4_lm19_r1.62.mp3 # <-- choose this
+                  -rw-r--r--. 1 prent prent 8.9M Sep 24 12:33 Repos/One-footed-bride-tuning/Uploads/b416f_df3_t2_d03_56_t100_ap3_lm19_r1.62.mp3
+                  -rw-r--r--. 1 prent prent  17M Sep 24 12:25 Repos/One-footed-bride-tuning/Uploads/b416f_df3_t2_d07_09_t084_ap4_lm19_r1.62.mp3
+            ssh one-footed-bride-pod ffprobe -v error -show_entries format=duration -of csv=p=0 Repos/One-footed-bride-tuning/Uploads/b416f_df3_t2_d06_24_t088_ap4_lm19_r1.62.mp3
+                  379.55917
+      Find the right activity numpy file
+            ssh one-footed-bride-pod ls -lth Repos/One-footed-bride-tuning/Uploads/b416f*.npy
+                  -rw-r--r--. 1 prent prent 2.2M Sep 24 14:19 Repos/One-footed-bride-tuning/Uploads/b416f_df3_t2_d06_24_t088_ap4_lm19_r1.62.npy
+                  -rw-r--r--. 1 prent prent 1.8M Sep 24 12:33 Repos/One-footed-bride-tuning/Uploads/b416f_df3_t2_d03_56_t100_ap3_lm19_r1.62.npy
+                  -rw-r--r--. 1 prent prent 2.5M Sep 24 12:24 Repos/One-footed-bride-tuning/Uploads/b416f_df3_t2_d07_09_t084_ap4_lm19_r1.62.npy
+      On fs2:
+      Run the render with the correct activity numpy file, tempo, duration, directory, autogen timing 
+            ./render_farm.sh --stop
+            PER_CARD=2 ./render_farm.sh --npy Uploads/b416f_df3_t2_d06_24_t088_ap4_lm19_r1.62.npy --tempo 88 --duration 379.6 --out frames_416 --engine cycles --look studio --autogen 10:374:7
+      Monitor:  
+            watch -n 20 "./render_farm.sh --progress ; ./render_farm.sh --status"
+
+      In the pod:
+      Find the right mp3 file:
+            ssh one-footed-bride-pod ls -lth Repos/One-footed-bride-tuning/Uploads/b416f*.mp3
+                  -rw-r--r--. 1 prent prent  15M Sep 24 14:19 Repos/One-footed-bride-tuning/Uploads/b416f_df3_t2_d06_24_t088_ap4_lm19_r1.62.mp3 # <-- choose this
+                  -rw-r--r--. 1 prent prent 8.9M Sep 24 12:33 Repos/One-footed-bride-tuning/Uploads/b416f_df3_t2_d03_56_t100_ap3_lm19_r1.62.mp3
+                  -rw-r--r--. 1 prent prent  17M Sep 24 12:25 Repos/One-footed-bride-tuning/Uploads/b416f_df3_t2_d07_09_t084_ap4_lm19_r1.62.mp3
+      Set the right input frames directory, mp3 file name, output mp4 name
+            ffmpeg -y -framerate 30 -i frames_416/frame_%06d.png -i Uploads/b416f_df3_t2_d06_24_t088_ap4_lm19_r1.62.mp3 -c:v libx264 -pix_fmt yuv420p -c:a aac -shortest stage_full_bwv416.mp4
+      Then retrieve it from the pod
+            scp one-footed-bride-pod:Repos/One-footed-bride-tuning/stage_full_bwv416.mp4 .
+      ___________________
+      While the two hour render job is running, create the remaining mp3 files in the 415-426 set. You don't need to do 415, 416, or 418.
+            time python WreckingCrew.py --chorale_list bwv417 --deep_bass_backoff 0.25 --back_off_clicks 0.25 --album 9 --mod f --rondo_section_a 0 32 --rondo_insert_a_after 63 127 --density_level 4 --ap 1
+                  real    1m49.075s
+                  user    1m45.250s
+                  sys     0m4.715s
+            ls -lth Uploads/b417*.mp3
+                  -rw-r--r--. 1 prent prent 17M Sep 25 07:45 Uploads/b417f_df4_t2_d07_12_t106_ap1_lm19_r1.25.mp3
+            tuned-adm active
+                  Current active profile: powersave-gpu
+            sudo tuned-adm profile balanced
+            time python WreckingCrew.py --chorale_list bwv419 --deep_bass_backoff 0.25 --back_off_clicks 0.25 --album 9 --mod f --rondo_section_a 0 32 --rondo_insert_a_after 63 127 --density_level 2 --ap 3
+                  real    0m26.114s
+                  user    0m26.440s
+                  sys     0m1.973s
+            ls -lth Uploads/b419*.mp3
+                  -rw-r--r--. 1 prent prent 12M Sep 25 07:49 Uploads/b419f_df2_t2_d05_14_t064_ap3_lm19_r1.25.mp3
+            Four times faster? 50% more duration, but lower density.
+            time python WreckingCrew.py --chorale_list bwv420 --deep_bass_backoff 0.25 --back_off_clicks 0.25 --album 9 --mod f --rondo_section_a 0 32 --rondo_insert_a_after 63 127 --density_level 1 --ap 4
+                  12MB in 25 seconds
+            time python WreckingCrew.py --chorale_list bwv421 --deep_bass_backoff 0.25 --back_off_clicks 0.25 --album 9 --mod f --rondo_section_a 0 32 --rondo_insert_a_after 63 127 --density_level 3 --ap 1
+                  12MB in 34 seconds
+            time python WreckingCrew.py --chorale_list bwv422 --deep_bass_backoff 0.25 --back_off_clicks 0.25 --album 9 --mod f --rondo_section_a 0 32 --rondo_insert_a_after 63 127 --density_level 5 --ap 3
+                  13MB in 38 seconds
+            time python WreckingCrew.py --chorale_list bwv423 --deep_bass_backoff 0.25 --back_off_clicks 0.25 --album 9 --mod f --rondo_section_a 0 32 --rondo_insert_a_after 63 127 --density_level 0 --ap 4
+                  13mb in 23 seconds
+            time python WreckingCrew.py --chorale_list bwv424 --deep_bass_backoff 0.25 --back_off_clicks 0.25 --album 9 --mod f --rondo_section_a 0 32 --rondo_insert_a_after 63 127 --density_level 2 --ap 1
+                  18MB in 38 seconds
+            time python WreckingCrew.py --chorale_list bwv425 --deep_bass_backoff 0.25 --back_off_clicks 0.25 --album 9 --mod f --rondo_section_a 0 32 --rondo_insert_a_after 63 127 --density_level 4 --ap 3
+                  23MB in 61 seconds
+            time python WreckingCrew.py --chorale_list bwv426 --deep_bass_backoff 0.25 --back_off_clicks 0.25 --album 9 --mod f --rondo_section_a 0 32 --rondo_insert_a_after 63 127 --density_level 2 --ap 1
+                  13MB in 30 seconds
+      Get the missing bwv15, 16, 18 from the pod:
+            scp one-footed-bride-pod:Repos/One-footed-bride-tuning/Uploads/b416f_df3_t2_d06_24_t088_ap4_lm19_r1.62.mp3 Uploads
+            scp one-footed-bride-pod:Repos/One-footed-bride-tuning/Uploads/b415f_df0_t2_d05_15_t056_ap3_lm19_r1.50.mp3 Uploads 
+            scp one-footed-bride-pod:Repos/One-footed-bride-tuning/Uploads/b418f_df5_t2_d06_44_t092_ap1_lm19_r1.25.mp3 Uploads
+      What's on fs2:
+            ls -1 Uploads/*.mp3 Uploads/*.npy
+                  Uploads/b415f_df0_t2_d05_15_t056_ap3_lm19_r1.50.mp3
+                  Uploads/b415f_df0_t2_d05_15_t056_ap3_lm19_r1.50.npy
+                  ...
+                  Uploads/b426f_df2_t2_d05_41_t100_ap1_lm17_r1.50.mp3
+                  Uploads/b426f_df2_t2_d05_41_t100_ap1_lm17_r1.50.npy
+      
+      ______________________
+      New idea for WreckingCrew.py: 
+      Create a new note creation function to add to the existing bass_part, finger_piano_part, woodwinds_part, and melody_part.
+      Make them like the finger_piano_part, except notes played should be self limiting in duration, so they don't overlap in time. Make them varying degrees of duration from very stacatto, .25 clicks, to as long as until the next note occurs. Have them maintain the level of stacatto-ness for 20-40 notes, probabalisticly determined. The goal is to shift some of the notes from the marimba and finger piano to the woodwinds and brass. If I just use finger_piano_part to do that, the result is a lot of overlapping notes. 
+
+      Claude has implemented a version of this, one that allows some instruments in a section to go through one path, and others to go to a different path:
+            python WreckingCrew.py --articulate wood_winds:4,brass_section:1 ...
+      This would send 4 of the woodwinds through the new articulated clone of finger_piano_part, and 4 through woodwinds_part, and 1 brass instrument through the articulated clone of finger_piano_part and the other 7 through woodwinds_part. 
+            time python WreckingCrew.py --chorale_list bwv425 --deep_bass_backoff 0.25 --back_off_clicks 0.25 --album 9 --mod f --rondo_section_a 0 32 --rondo_insert_a_after 63 127 --density_level 4 --ap 3 --articulate wood_winds:4,brass_section:4
+
+      Claude: Two things to listen for. fp_volume defaults to 2 for these sections (tuned for finger pianos, line 1962) — the winds may want a different offset. And the auto-balancer at line 1917 still counts wood_winds and brass_section as sustained, so shortening those four winds' holds will nudge the whole section's volume up, including the four still sustaining.
+
+      I'm liking the new mix with --articulate. I have a few suggestions. I think we need to modify the envelopes that are in place for the new articulated instruments. There are too many reverse envelopes when I ran the latest batch. The envelopes are chosen from the available values in ball9.csd. I think we may need to limit them to just e3 and e1. I haven't done a thorough audit of all the envelope numbers in years. This is what I ran and there were too many start-soft-and-grow-at-the-end envelopes in play: 
+            python WreckingCrew.py --chorale_list bwv415 --deep_bass_backoff 0.25 --back_off_clicks 0.25 --album 9 --mod f --rondo_section_a 0 32 --rondo_insert_a_after 63 127 --density_level 4 --ap 4 --articulate wood_winds:4 
+      ## also, when these envelopes are applied to percussion instruments, they just provide a sustain to compensate for the gradual decrease in volume as the bars or tines slowly vibrate with less amplitude, and to compensate the code increases the volume when the soft-grow-loud envelopes are applied. When applied to woodwinds, this results in very loud instruments, not slightly longer sustain.
+
+      Make the default envelopes for the articulated section 1 and 5, with a reduced probability for e11-e15 to implement the stacatto. This could provide all the stacatto we need, instead of limiting the duration. 
+
+      Claude: The three flags:
+            --articulate_env 1,5                 # sustained shapes        (default)
+            --articulate_staccato 11,13,15@0.2   # short shapes @ how often (default)
+            --articulate_hold on|off             # also trim sounding length (default on)
+
+      Logs in slide_tuning.log:
+            25 12:44:22 - INFO - articulated_part: 3239 notes for 8 sustained voices; env rows (one per quarter) [[1, 11], [5, 13], [1, 15], [5, 11]] p=[[0.8, 0.2], [0.8, 0.2], [0.8, 0.2], [0.8, 0.2]]; holds (0.12, 0.25, 0.4, 0.6, 0.8, 1.0)
+            25 12:44:22 - INFO - wood_winds: 1594 articulated notes on ['flut1', 'clar1', 'oboe1', 'oboe2'], 297 normal notes on ['frnh1', 'frnh2', 'basn1', 'basn2']
+      
+      __________________________
+      Post the videos on YouTube
+      stage_full_bwv415.mp4 Uploads/b415f_df0_t2_d05_15_t056_ap3_lm19_r1.50.mp3 # best
+            Title: Chorale Prelude based on Bach's BWV415 "Valet will ich dir geben"
+            Description: These chorale preludes are fantasies based on the notes in Bach's chorale, as if performed by an orchestra of invisible musicians. 
+            This one is created based on the modes of BWV415, tuned using my One Footed Bride Tuning. The audio is created using a density_factor 0, the least dense of the lot, 5:15 in length, at a tempo of 56 beats per minute. Tuning is done to the 19 limit, with ratio_factor 1.5, and tolerance of 2, meaning the cent values of intervals are allowed to differ from the cent value of the actual ratio by up to plus or minus 2 cents. The video was created using Claude Code Opus 5 who wrote the python code to be run by Blender. Each action is created to imitate the appearance and movements of real instruments. Fake but almost accurate. I call it Animicrotonal Music Videos. 
+
+            The audio, video, tuning, and program code is described in detail here: https://github.com/prentrodgers/One-footed-bride-tuning
+            Link: https://youtu.be/5wjBh3Y8bhc
+      
+      stage_full_bwv416.mp4 Uploads/b416f_df3_t2_d06_24_t088_ap4_lm19_r1.62.mp3 # best
+            Title: Chorale Prelude based on Bach's BWV416 "Vater unser im Himmelreich"
+            Description: 
+            These chorale preludes are fantasies based on the notes in Bach's chorale, as if performed by an orchestra of invisible musicians. 
+            This one is created based on the modes of BWV416, tuned using my One Footed Bride Tuning. The audio is created using a density_factor 3, leading a moderately sparse yet occasionaly dense result. It is 6:24 in length, at a tempo of 88 beats per minute. Tuning is done to the 19 limit, with ratio_factor 1.625, and tolerance of 2, meaning the cent values of intervals are allowed to differ from the cent value of the actual ratio by up to plus or minus 2 cents. The video was created using Claude Code Opus 5 who wrote the python code to be run by Blender. Each action is created to imitate the appearance and movements of real instruments. Fake but almost accurate. 
+            
+            I call it Animicrotonal Music Videos. 
+
+            The audio, video, tuning, and program code is described in detail here: https://github.com/prentrodgers/One-footed-bride-tuning
+            Link: https://youtu.be/Gjg26OllqQ8
+
+      stage_full_bwv418.mp4 Uploads/b418f_df5_t2_d06_44_t092_ap1_lm19_r1.25.mp3 # best
+            Title: Chorale Prelude based on Bach's BWV418 "Von Gott will ich nicht lassen"
+            Description: These chorale preludes are fantasies based on the notes in Bach's chorale, as if performed by an orchestra of invisible musicians. 
+            This one is created based on the modes of BWV418, tuned using my One Footed Bride Tuning. The audio is created using a density_factor 5, the most dense of the lot, 6:44 in length, at a tempo of 92 beats per minute. Tuning is done to the 19 limit, with ratio_factor 1.25, and tolerance of 2, meaning the cent values of intervals are allowed to differ from the cent value of the actual ratio by up to plus or minus 2 cents. The video was created using Claude Code Opus 5 who wrote the python code to be run by Blender. Each action is created to imitate the appearance and movements of real instruments. Fake but almost accurate. I call it Animicrotonal Music Videos. 
+
+            The audio, video, tuning, and program code is described in detail here: https://github.com/prentrodgers/One-footed-bride-tuning
+            Link: https://youtu.be/g1MibPKdznQ
+
+      score_bwv415.mp4
+            Title: Original Bach Chorale BWV415 "Valet will ich dir geben"
+            Description: The notes are just as Bach wrote them but tuned by me using the One Footed Bride Tuning algorithm. Performed by woodwinds and brass, realized using Csound. Tuning is assisted by Claude Code Opus 5, who wrote or edited some of the python code. More here:  https://github.com/prentrodgers/One-footed-bride-tuning
+            link: https://youtu.be/3Zg8LrzQTm8
+
+      score_bwv416.mp4
+            Title: Original Bach Chorale BWV416 "Vater unser im Himmelreich"
+            Description: The notes are just as Bach wrote them but tuned by me using the One Footed Bride Tuning algorithm. Performed by woodwinds and brass, realized using Csound. Tuning is assisted by Claude Code Opus 5, who wrote or edited some of the python code. More here:  https://github.com/prentrodgers/One-footed-bride-tuning
+            link: https://youtu.be/aHcpuk09S60
+      score_bwv418.mp4 
+            Title: Original Bach Chorale BWV418 "Von Gott will ich nicht lassen"
+            Description: The notes are just as Bach wrote them but tuned by me using the One Footed Bride Tuning algorithm. Performed by woodwinds and brass, realized using Csound. Tuning is assisted by Claude Code Opus 5, who wrote or edited some of the python code. More here:  https://github.com/prentrodgers/One-footed-bride-tuning
+            link: 
+      Another idea. Make duplicate instruments on the left and right side of the screen, and based on where in the audio field the sound appears, a different instrument will play it, left, center, or right. Could get a bit busy. 
+
+      ___________________
+      Make some more music: Trying to tone down the articulated winds using --articulate_gain 0.65,0.90     # staccato, sustained   (default)
+
+            time python WreckingCrew.py --chorale_list bwv415 --deep_bass_backoff 0.25 --back_off_clicks 0.25 --album 9 --mod f --rondo_section_a 0 32 --rondo_insert_a_after 63 127 --density_level 4 --ap 4 --articulate wood_winds:4 --articulate_staccato 11,13,15@0.2 --articulate_gain 0.65,0.90  
