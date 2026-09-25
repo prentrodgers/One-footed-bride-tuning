@@ -188,7 +188,7 @@ def parse_filename(fname, url):
         f"Bach BWV {bwv} – \"{title}\"\n"
         f"{limit}-limit just intonation (tonality diamond).\n"
         f"{int(dur_m)}:{dur_s} at {tempo} BPM.\n"
-        f"Composed by Prent Rodgers, with the help of Dr. Claude.\n"
+        f"Composed by Prent Rodgers, with the help of Claude Code Opus 5.\n"
         f"{url}"
     )
     return bwv, desc
