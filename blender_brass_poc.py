@@ -31,6 +31,7 @@ import blender_bass_section_poc as bass
 import blender_woodwind_poc as ww
 
 VOICE_TRUMPET, VOICE_TROMBONE, VOICE_TUBA = 25, 26, 27
+VOICE_BACH_TRUMPET = 39   # btrp1-btrp4, the brass section's trumpets since 26 Sep 2026
 
 BRASS = (0.82, 0.68, 0.22)
 SILVER = (0.74, 0.76, 0.80)
@@ -313,8 +314,8 @@ SEATS_SPEC = [
     # the tuba stands alone beside the column, scaled up to match the
     # column's overall height.
     ('trombone', 'trombone', (VOICE_TROMBONE,), -1.1,  2.2, 1.56),  # top; a real trombone dwarfs a trumpet
-    ('trumpet1', 'trumpet',  (VOICE_TRUMPET,),  -1.05, 0.0, 1.0),  # middle
-    ('trumpet2', 'trumpet',  (VOICE_TRUMPET,),  -1.05, -1.6, 1.0),  # bottom
+    ('trumpet1', 'trumpet',  (VOICE_TRUMPET, VOICE_BACH_TRUMPET),  -1.05, 0.0, 1.0),  # middle
+    ('trumpet2', 'trumpet',  (VOICE_TRUMPET, VOICE_BACH_TRUMPET),  -1.05, -1.6, 1.0),  # bottom
     ('tuba',     'tuba',     (VOICE_TUBA,),     -3.0,  0.0, 1.8),  # left of the column, tucked in beside it
 ]
 

@@ -463,6 +463,25 @@ f1697 0 64 -2 0   9  11  12  14  16  17  19  21  23  24  26  28  29  31  33  35 
 f1698 0 64 -2 0 0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   
 f1699 0 64 -2 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
 ; 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 
+f1751 0 128 -17 0 1755 50 1756 52 1757 54 1758 56 1759 58 1760 60 1761 62 1762 64 1763 66 1764 68 1765 70 1766 72 1767 74 1768 76 1769 78 
+f1752 0 64 -2 0  49  51  53  55  57  59  61  63  65  67  69  71  73  75  77 
+f1753 0 64 -2 0 -6  +0  -5  +3  +3  +2  -8  -6  -2  +3  +3  +4  -15 -10 -2  
+f1754 0 64 -2 0 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 
+f1755 0 0 1 "samples/TRUMPET-BACH/TRUMPETC#4.aif" 0 0 0
+f1756 0 0 1 "samples/TRUMPET-BACH/TRUMPETD#4.aif" 0 0 0
+f1757 0 0 1 "samples/TRUMPET-BACH/TRUMPETF4.aif" 0 0 0
+f1758 0 0 1 "samples/TRUMPET-BACH/TRUMPETG4.aif" 0 0 0
+f1759 0 0 1 "samples/TRUMPET-BACH/TRUMPETA4.aif" 0 0 0
+f1760 0 0 1 "samples/TRUMPET-BACH/TRUMPETB4.aif" 0 0 0
+f1761 0 0 1 "samples/TRUMPET-BACH/TRUMPETC#5.aif" 0 0 0
+f1762 0 0 1 "samples/TRUMPET-BACH/TRUMPETD#5.aif" 0 0 0
+f1763 0 0 1 "samples/TRUMPET-BACH/TRUMPETF5.aif" 0 0 0
+f1764 0 0 1 "samples/TRUMPET-BACH/TRUMPETG5.aif" 0 0 0
+f1765 0 0 1 "samples/TRUMPET-BACH/TRUMPETA5.aif" 0 0 0
+f1766 0 0 1 "samples/TRUMPET-BACH/TRUMPETB5.aif" 0 0 0
+f1767 0 0 1 "samples/TRUMPET-BACH/TRUMPETC#6.aif" 0 0 0
+f1768 0 0 1 "samples/TRUMPET-BACH/TRUMPETD#6.aif" 0 0 0
+f1769 0 0 1 "samples/TRUMPET-BACH/TRUMPETF6.aif" 0 0 0
 f605 0 0 1 "samples/FingerP/c1.aif" 0 0 0
 f606 0 0 1 "samples/FingerP/e1.aif" 0 0 0
 f607 0 0 1 "samples/FingerP/g1.aif" 0 0 0
@@ -1462,8 +1481,8 @@ f1748 0 0 1 "./samples/Bosendor/127 emp A7-.wav" 0 0 0
 f1749 0 0 1 "./samples/Bosendor/127 emp B7-.wav" 0 0 0
 f1750 0 0 1 "./samples/Bosendor/127 emp C8-.wav" 0 0 0
 ;              1   2   3   4   5   6   7   8   9  10  11  12  13  14  15  16  17  18  19  20   21   22   23   24   25   26   27   28   29   30   31   32   33   34   35   36   37   38 
-f1 0 64 -2 0 601 630 652 667 683 705 726 742 766 787 807 830 850 872 890 909 930 953 975 999 1030 1070 1104 1130 1156 1177 1192 1212 1217 1262 1317 1363 1418 1474 1529 1585 1641 1696 
-f2 0 64 -2 0 1 2 2 2 2 2 2 1 2 2 2 2 2 2 2 2 2 2 2 1 1 1 1 1 2 2 2 1 5 5 5 5 5 5 5 5 5 5
+f1 0 64 -2 0 601 630 652 667 683 705 726 742 766 787 807 830 850 872 890 909 930 953 975 999 1030 1070 1104 1130 1156 1177 1192 1212 1217 1262 1317 1363 1418 1474 1529 1585 1641 1696 1751
+f2 0 64 -2 0 1 2 2 2 2 2 2 1 2 2 2 2 2 2 2 2 2 2 2 1 1 1 1 1 2 2 2 1 5 5 5 5 5 5 5 5 5 5 2
 ;Inst Start        Dur  Vel    Ton   Oct   Voice Stere Envlp Gliss Upsamp R-Env 2nd-gl 3rd Mult Line # ; Channel
 ;p1   p2           p3   p4     p5    p6    p7    p8    p9    p10   p11    p12   p13   p14  p15; Channel
 </CsScore>

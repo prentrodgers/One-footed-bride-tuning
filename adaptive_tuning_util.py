@@ -202,6 +202,10 @@ def init_voice_time():
             "trmb2": {"full_name": "trombone2", "start": 0, "csound_voice": 26,"time_tracker_number": 0,  "volume_factor": 0, "min_oct": 1, "max_oct": 5},
             "tuba1": {"full_name": "tuba1", "start": 0, "csound_voice": 27,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 1, "max_oct": 4},
             "tuba2": {"full_name": "tuba2", "start": 0, "csound_voice": 27,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 1, "max_oct": 4},
+            "btrp1": {"full_name": "bach trumpet1", "start": 0, "csound_voice": 39,"time_tracker_number": 0,  "volume_factor": -1, "min_oct": 2, "max_oct": 6},
+            "btrp2": {"full_name": "bach trumpet2", "start": 0, "csound_voice": 39,"time_tracker_number": 0,  "volume_factor": -1, "min_oct": 2, "max_oct": 6},
+            "btrp3": {"full_name": "bach trumpet3", "start": 0, "csound_voice": 39,"time_tracker_number": 0,  "volume_factor": -1, "min_oct": 2, "max_oct": 6},
+            "btrp4": {"full_name": "bach trumpet4", "start": 0, "csound_voice": 39,"time_tracker_number": 0,  "volume_factor": -1, "min_oct": 2, "max_oct": 6},
 
             "celp3": {"full_name": "cello pizzicato3", "start": 0, "csound_voice": 4,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 1, "max_oct": 5},
             "celp4": {"full_name": "cello pizzicato4", "start": 0, "csound_voice": 4,"time_tracker_number": 0,  "volume_factor": 1, "min_oct": 1, "max_oct": 4},
