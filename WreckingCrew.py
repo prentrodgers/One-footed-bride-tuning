@@ -1278,39 +1278,39 @@ def parse_articulate(spec: str | None) -> dict:
 # end of parse_articulate
 
 
-def build_articulate_cfg(env_spec: str, staccato_spec: str, hold_spec: str,
-                         gain_spec: str = '0.65,0.90') -> dict:
-    """Turn the three --articulate_* strings into articulated_part's keyword arguments.
+def build_articulate_cfg(env_spec: str, accent_spec: str, hold_spec: str,
+                         gain_spec: str = '0.60,0.90') -> dict:
+    """Turn the --articulate_* strings into articulated_part's keyword arguments.
 
-    env_spec       '1,5'          the sustained shapes
-    staccato_spec  '11,13,15@0.2' short shapes and how often a quarter draws one;
-                                  'none' or '@0' turns them off
-    hold_spec      'on' | 'off'   whether to also trim each note's sounding length.
-                                  'off' pins hold to the full slot, so the envelope
-                                  is the only thing making a note short -- which is
-                                  worth hearing on its own, because e11-e15 and the
-                                  hold trim MULTIPLY: e15 sounds for ~17% of the
-                                  note, and a 0.12 hold on top of that leaves ~2%,
-                                  which is a click rather than a staccato note.
+    env_spec     '1,5'        the sustained shapes
+    accent_spec  '8@0.2'      accent shapes and how often a quarter draws one;
+                              'none' or '@0' turns them off. e8 is the bass's
+                              "hit and drop most": a full-level attack that falls
+                              to half by mid-note and to zero at the end.
+    hold_spec    'on' | 'off' whether to also trim each note's sounding length.
+                              'off' pins hold to the full slot, so the envelope
+                              is the only thing shaping a note. The two multiply:
+                              e8 is down to half by mid-note, so a 0.12 hold
+                              leaves only its attack.
     """
     cfg: dict = {}
     envs = tuple(int(e) for e in (env_spec or '').split(',') if e.strip())
     if envs:
         cfg['envelopes'] = envs
-    spec = (staccato_spec or '').strip()
+    spec = (accent_spec or '').strip()
     if spec.lower() in ('none', 'off', ''):
-        cfg['staccato_envelopes'], cfg['staccato_prob'] = (), 0.0
+        cfg['accent_envelopes'], cfg['accent_prob'] = (), 0.0
     else:
         names, _, prob = spec.partition('@')
-        cfg['staccato_envelopes'] = tuple(int(e) for e in names.split(',') if e.strip())
-        cfg['staccato_prob'] = float(prob) if prob.strip() else 0.2
+        cfg['accent_envelopes'] = tuple(int(e) for e in names.split(',') if e.strip())
+        cfg['accent_prob'] = float(prob) if prob.strip() else 0.2
     if (hold_spec or 'on').strip().lower() in ('off', 'none', 'no', '0'):
         cfg['articulations'] = (1.0,)      # hold == slot: legato, still never overlapping
     # Volume multipliers, consumed by expand_chorale after the sustained auto-balance
     # rather than passed on to articulated_part. Amplitude is linear in this column
-    # (iamp = ampdb(iVel) * p15 / 5), so 0.65 is about -3.7 dB and 0.90 about -0.9 dB.
+    # (iamp = ampdb(iVel) * p15 / 5), so 0.60 is about -4.4 dB and 0.90 about -0.9 dB.
     _g = [p for p in (gain_spec or '').split(',') if p.strip()]
-    cfg['staccato_gain'] = float(_g[0]) if len(_g) > 0 else 0.65
+    cfg['accent_gain'] = float(_g[0]) if len(_g) > 0 else 0.60
     cfg['sustain_gain'] = float(_g[1]) if len(_g) > 1 else 0.90
     return cfg
 # end of build_articulate_cfg
@@ -1321,7 +1321,7 @@ def articulated_part(chorale, glides, repeats, voice_names, voice_time, tpq, vol
                      density_profile: np.ndarray | None = None, fp_hold_scale: float = 1.0,
                      articulations=(0.12, 0.25, 0.40, 0.60, 0.80, 1.00),
                      run_range=(20, 41), min_hold: float = 0.25, envelopes=(1, 5),
-                     staccato_envelopes=(11, 13, 15), staccato_prob: float = 0.2):
+                     accent_envelopes=(8,), accent_prob: float = 0.2):
     """The finger-piano arpeggio engine, played by instruments that hold their notes.
 
     The point is to move some of the running figuration off the marimba and the
@@ -1342,6 +1342,8 @@ def articulated_part(chorale, glides, repeats, voice_names, voice_time, tpq, vol
     #   e1  f297  attack, sustain, sharp ending (longer sustain than e0)
     #   e3  f295  big hump then small hump
     #   e5  f293  labelled "default woodwind envelope": attack, long sustain, release
+    #   e8  f290  "hit and drop most": full attack, half by mid-note, zero at the end;
+    #             the punch in the bass and finger-piano [2, 8] rows
     #   e11-e15   "hit and sustain 3/4, 2/3, 1/2, 1/4, 1/5 the normal length"
     # and the ones to keep away from sustained instruments, all of which climb to
     # full amplitude at the very end of the note:
@@ -1358,20 +1360,19 @@ def articulated_part(chorale, glides, repeats, voice_names, voice_time, tpq, vol
     # is so audible: [16, 17] put reverse envelopes under the whole ensemble for
     # a quarter of the piece, not under a quarter of the voices.
     #
-    # Each row therefore pairs a sustained shape with a short one, so every
-    # quarter carries the same blend rather than some being all-staccato.
-    # e11-e15 are "hit and sustain 3/4, 2/3, 1/2, 1/4, 1/5 the normal length":
-    # their tables reach zero partway through and stay there, which is staccato
-    # done in the envelope rather than by trimming the note.
+    # Each row therefore pairs a sustained shape with an accent, so every
+    # quarter carries the same blend rather than some being all-accent.
+    # (Until 26 Sep 2026 the second shape was a staccato one from e11-e15, which
+    # did not sound right; e8 gives the notes a punch instead of cutting them off.)
     _sus = [int(e) for e in envelopes] or [1]
-    _sta = [int(e) for e in staccato_envelopes]
-    _p = float(np.clip(staccato_prob, 0.0, 1.0))
+    _acc = [int(e) for e in accent_envelopes]
+    _p = float(np.clip(accent_prob, 0.0, 1.0))
     _env, _env_p = [], []
     for i in range(4):
-        if _sta and _p > 0:
-            _env.append([_sus[i % len(_sus)], _sta[i % len(_sta)]])
+        if _acc and _p > 0:
+            _env.append([_sus[i % len(_sus)], _acc[i % len(_acc)]])
             _env_p.append([1.0 - _p, _p])
-        else:                                   # no staccato: alternate the sustained shapes
+        else:                                   # no accents: alternate the sustained shapes
             _env.append([_sus[i % len(_sus)], _sus[(i + 1) % len(_sus)]])
             _env_p.append([0.5, 0.5])
     env = np.array(_env, dtype=int)
@@ -2078,13 +2079,19 @@ def expand_chorale(repeats, chorale_in_cents_slides, glides, stored_gliss, voice
         fp_density_starts = {'finger_pianos': 'moderate', 'pizz_strings': 'moderate', 'marimbas': 'moderate'}
     fp_volumes = {'finger_pianos': 2, 'pizz_strings': 3, 'marimbas': 3}
     articulated_sections = dict(articulated_sections or {})
+    # A name that matches no section would otherwise be skipped without a word:
+    # '--articulate brass:4' left the brass playing as usual.
+    _unknown = sorted(set(articulated_sections) - set(include_sections))
+    if _unknown:
+        raise SystemExit(f'--articulate: no section named {", ".join(_unknown)}. '
+                         f'Sections are: {", ".join(include_sections)}')
     # The gains are applied after the sustained auto-balance below, not here: that
     # balancer scales a section's volume to hit the median of hold*loudness, so a
     # reduction made now would simply be scaled back out.
     _art_cfg = dict(articulate_cfg or {})
-    _stacc_gain = float(_art_cfg.pop('staccato_gain', 0.65))
+    _accent_gain = float(_art_cfg.pop('accent_gain', 0.60))
     _sus_gain = float(_art_cfg.pop('sustain_gain', 0.90))
-    _stacc_envs = [int(e) for e in _art_cfg.get('staccato_envelopes', (11, 13, 15))]
+    _accent_envs = [int(e) for e in _art_cfg.get('accent_envelopes', (8,))]
     _art_slices: dict[str, tuple[int, int]] = {}   # the ARTICULATED rows only, per section
 
     def _voice_nums(names):
@@ -2228,21 +2235,21 @@ def expand_chorale(repeats, chorale_in_cents_slides, glides, stored_gliss, voice
     # the holds lowers an articulated section's sum, so it answers by scaling the
     # section's volume UP. Reducing before it would simply be undone.
     #
-    # The staccato-envelope notes take the larger cut. Nothing here is intrinsically
-    # louder -- every envelope table peaks at 1.0 -- but e11-e15 deliver that peak in
-    # a short, sharply-cut package on top of the balancer's boost, which is what makes
-    # them poke out. Only the articulated rows are touched, so the instruments in the
-    # same section that kept their usual writing are left exactly as they were.
+    # The accent-envelope notes get their own multiplier. Nothing here is
+    # intrinsically louder -- every envelope table peaks at 1.0 -- but e8 puts that
+    # peak right at the attack, on top of the balancer's boost, so it pokes out.
+    # Only the articulated rows are touched, so the instruments in the same section
+    # that kept their usual writing are left exactly as they were.
     for section, (astart, aend) in _art_slices.items():
         if aend <= astart:
             continue
         _seg = notes_features_15[astart:aend]
-        _is_stacc = np.isin(_seg[:, 8].astype(int), _stacc_envs)
-        _seg[_is_stacc, 14] *= _stacc_gain
-        _seg[~_is_stacc, 14] *= _sus_gain
+        _is_accent = np.isin(_seg[:, 8].astype(int), _accent_envs)
+        _seg[_is_accent, 14] *= _accent_gain
+        _seg[~_is_accent, 14] *= _sus_gain
         logging.info(f'{section}: articulated gain applied to {_seg.shape[0]} notes -- '
-                     f'{int(_is_stacc.sum())} staccato x{_stacc_gain:.2f}, '
-                     f'{int((~_is_stacc).sum())} sustained x{_sus_gain:.2f}')
+                     f'{int(_is_accent.sum())} accent x{_accent_gain:.2f}, '
+                     f'{int((~_is_accent).sum())} sustained x{_sus_gain:.2f}')
 
     for section in available_sustained:
         start, end = section_slices[section]
@@ -2948,30 +2955,29 @@ if __name__ == "__main__":
                                "the end of the note, which reads as sustain on a decaying bar "
                                "and as a crescendo on anything that sustains by itself. "
                                "Default: 1,5")
-      parser.add_argument("--articulate_staccato", dest="articulate_staccato", type=str, default="11,13,15@0.2",
-                          help="Short envelope shapes, and how often they are drawn, as "
-                               "'<envelopes>@<probability>'. e11-e15 are 'hit and sustain 3/4, "
-                               "2/3, 1/2, 1/4, 1/5 the normal length': their tables fall to zero "
-                               "partway through and stay there, so the note stops without its "
-                               "written length changing. 'none' turns them off. "
-                               "Default: 11,13,15@0.2")
+      parser.add_argument("--articulate_accent", dest="articulate_accent", type=str, default="8@0.2",
+                          help="Accent envelope shapes mixed in with the sustained ones, and how "
+                               "often they are drawn, as '<envelopes>@<probability>'. e8 is the "
+                               "bass's 'hit and drop most': a full-level attack that falls to half "
+                               "by mid-note and to zero at the end. 'none' turns accents off. "
+                               "Default: 8@0.2")
       parser.add_argument("--articulate_hold", dest="articulate_hold", type=str, default="on",
                           choices=["on", "off"],
                           help="Whether articulated notes ALSO get their sounding length trimmed "
                                "to a fraction of the gap to the next note. 'off' pins the hold to "
-                               "the full gap and lets the envelopes do all the shortening. Worth "
-                               "trying, because the two multiply: e15 sounds for ~17%% of a note, "
-                               "and a 0.12 hold on top leaves ~2%%, which is a click. Default: on")
-      parser.add_argument("--articulate_gain", dest="articulate_gain", type=str, default="0.65,0.90",
+                               "the full gap and lets the envelopes do all the shaping. The two "
+                               "multiply: e8 is down to half by mid-note, so a 0.12 hold leaves "
+                               "only its attack. Default: on")
+      parser.add_argument("--articulate_gain", dest="articulate_gain", type=str, default="0.60,0.90",
                           help="Volume multipliers for articulated notes, as "
-                               "'<staccato>,<sustained>'. Applied AFTER the sustained "
+                               "'<accent>,<sustained>'. Applied AFTER the sustained "
                                "auto-balance, which equalises sections on hold*loudness and so "
                                "scales an articulated section UP to make up for its trimmed "
                                "holds -- a cut made earlier would just be undone. Only the "
                                "articulated notes are touched; instruments in the same section "
                                "that kept their usual writing are untouched. Amplitude is linear "
-                               "here, so 0.65 is about -3.7 dB and 0.90 about -0.9 dB. "
-                               "Use '1,1' for no reduction. Default: 0.65,0.90")
+                               "here, so 0.60 is about -4.4 dB and 0.90 about -0.9 dB. "
+                               "Use '1,1' for no reduction. Default: 0.60,0.90")
       parser.add_argument("--ap", dest="ap", type=int, default=None, choices=sorted(PRIME_PATTERNS),
                           help="Pin the chord-repeat pattern (the _ap tag in the output filename) instead of "
                                "drawing one at random. Relative to ap4: "
@@ -3069,7 +3075,7 @@ if __name__ == "__main__":
                stability_factor=args.stability_factor, max_delta=args.max_delta,
                spread=args.spread, limit_max=args.limit_max, auto_density=args.auto_density, prime_count=args.prime_count, ap=args.ap,
                articulated_sections=parse_articulate(args.articulate),
-               articulate_cfg=build_articulate_cfg(args.articulate_env, args.articulate_staccato,
+               articulate_cfg=build_articulate_cfg(args.articulate_env, args.articulate_accent,
                                                    args.articulate_hold, args.articulate_gain),
                density_level=args.density_level, shuffle_density=args.shuffle_density,
                auto_density_weights=parsed_auto_density_weights,
