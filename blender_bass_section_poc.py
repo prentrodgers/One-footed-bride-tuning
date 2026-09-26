@@ -1115,14 +1115,30 @@ def build_baritone_guitar(x0, cz, amp_floor_z=None):
     # running along it to the amp's input.
     floor_z = (cz - bh / 2.0) if amp_floor_z is None else amp_floor_z
     # Half an amp's width left of where it first stood: clear of the marimba.
-    amp_objs, amp_jack = build_pignose(bx + bw * 1.02 - 0.025, 0.0, floor_z, chrome_mat, knob_mat)
+    amp_x0 = bx + bw * 1.02 - 0.025
+    amp_objs, amp_jack = build_pignose(amp_x0, 0.0, floor_z, chrome_mat, knob_mat)
+    amp_front = amp_jack[1] + 0.004            # the jack stands 4 mm proud of the front face
     jack = (bx + bw * 0.93, BODY_Y, cz - bh * 0.28)
     drop = jack[2] - floor_z
-    cord_pts = _smooth_open([jack, (jack[0] + 0.05, BODY_Y - 0.01, jack[2] - 0.06),
-                             (jack[0] + 0.09, -0.02, jack[2] - drop * 0.5),
-                             (jack[0] + 0.10, -0.03, floor_z + 0.02),
-                             (amp_jack[0] - 0.08, -0.06, floor_z + 0.005),
-                             (amp_jack[0] - 0.02, amp_jack[1] - 0.02, floor_z + 0.03), amp_jack], 8)
+    # Every waypoint is placed off the AMP, not the guitar jack. The route used
+    # to be fixed relative to the jack, and when the amp was moved left (above)
+    # it landed right under the cord's fall: four points ran through the inside
+    # of the box, so from the front the cord vanished into it. Now the cord falls
+    # to the left of and in front of the amp, lies along the floor in front of
+    # the grille, and curls up into the jack from below.
+    cord_pts = _smooth_open([
+        jack,
+        (jack[0] - 0.01,     jack[1] - 0.03,    jack[2] - 0.04),
+        (amp_x0 - 0.035,     amp_front - 0.05,  jack[2] - drop * 0.5),
+        (amp_x0 - 0.035,     amp_front - 0.07,  floor_z + 0.010),
+        (amp_jack[0] - 0.05, amp_front - 0.08,  floor_z + 0.010),
+        (amp_jack[0] - 0.01, amp_front - 0.05,  floor_z + 0.035),
+        (amp_jack[0],        amp_front - 0.035, amp_jack[2] - 0.05),
+        (amp_jack[0],        amp_front - 0.02,  amp_jack[2]),
+    ], 8)
+    # Smoothing overshoots where the cord turns from falling to lying flat, which
+    # put it through the floor; a cable lying on a floor can't go through it.
+    cord_pts = [(x, y, max(z, floor_z + 0.0045)) for x, y, z in cord_pts]
     cord_mat = make_solid_material("GuitarCord", (0.02, 0.02, 0.02), roughness=0.6)
     cu = bpy.data.curves.new("guitar_cord", type='CURVE')
     cu.dimensions = '3D'
@@ -1140,6 +1156,16 @@ def build_baritone_guitar(x0, cz, amp_floor_z=None):
     plug.rotation_euler = (0.0, math.radians(90.0), 0.0)
     plug.name = "guitar_jack"
     plug.data.materials.append(chrome_mat)
+    # A plug at the amp end as well: a chrome sleeve seated in the jack and a
+    # black strain-relief boot the cord runs out of. It also closes the 1.6 cm
+    # between the cord's last point and the jack.
+    for r, d, y_mid, mat, nm in ((0.0072, 0.006, amp_jack[1] - 0.005, chrome_mat, "amp_plug_sleeve"),
+                                 (0.0085, 0.014, amp_jack[1] - 0.015, cord_mat, "amp_plug_boot")):
+        bpy.ops.mesh.primitive_cylinder_add(radius=r, depth=d, location=(amp_jack[0], y_mid, amp_jack[2]))
+        p = bpy.context.object
+        p.rotation_euler = (math.radians(90.0), 0.0, 0.0)
+        p.name = nm
+        p.data.materials.append(mat)
 
     return dict(strings=strings, str_xs=str_xs, szs=szs, x_nut=x_nut, x_bridge=x_bridge,
                 pluck_x=pluck_x, front_y=front_y, pick=pick, stop_dot=stop_dot,

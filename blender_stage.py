@@ -717,6 +717,32 @@ def mesh_bounds(objs):
     return min(xs), max(xs), min(ys), max(ys), min(zs), max(zs)
 
 
+def lowest_z(objs):
+    """World-space lowest point over meshes AND curves, as evaluated.
+
+    mesh_bounds reads MESH vertices only, and a lot of tubing is built as bevelled
+    curves. Measured 9/27/26: the tuba's wrap (tuba_main) hung 0.60 world units
+    below the brass floor, its valve slides 0.23 and the trumpets' tubes 0.14,
+    and every marimba resonator 0.17 below the marimba's -- all curves, all
+    invisible to the floor calculation. Evaluating through the depsgraph turns a
+    curve into the geometry that actually renders, bevel included.
+    """
+    dg = bpy.context.evaluated_depsgraph_get()
+    lo = None
+    for o in objs:
+        if o.type not in {'MESH', 'CURVE'}:
+            continue
+        ev = o.evaluated_get(dg)
+        me = ev.to_mesh()
+        if me is not None:
+            mw = o.matrix_world
+            for v in me.vertices:
+                z = (mw @ v.co).z
+                lo = z if lo is None else min(lo, z)
+        ev.to_mesh_clear()
+    return lo
+
+
 def place_section(name, before_objs):
     """Group everything build() just created into one Empty, normalise it
     to SECTIONS[name]['target_h'], and drop it into its slot with its
@@ -730,6 +756,9 @@ def place_section(name, before_objs):
     bpy.context.view_layer.update()
 
     min_x, max_x, min_y, max_y, min_z, max_z = mesh_bounds(new)
+    # The floor comes from everything that renders, curves included; x/y still
+    # come from mesh_bounds so fixing the floor doesn't shift the layout sideways.
+    min_z = min(min_z, lowest_z(new))
     cfg = SECTIONS[name]
     scale = cfg["scale"]   # direct scale, no auto-fit
 
