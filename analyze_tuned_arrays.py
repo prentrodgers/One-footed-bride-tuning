@@ -353,7 +353,7 @@ def main():
             try:
                 cent_4n = np.load(fpath, allow_pickle=True)
                 _, _, chorale, root, mode, keys = atu.load_chorale_in_cents(
-                    version, d, twelve_tet=True, save_top_notes=False)
+                    version, d)
                 cent_eval, chorale_eval, include_idx = select_chord_subset_with_slice(
                     cent_4n, chorale, include_list, include_slice
                 )
@@ -445,7 +445,7 @@ def main():
                 try:
                     cent_4n = np.load(input_file, allow_pickle=True)
                     _, _, chorale, root, mode, keys = atu.load_chorale_in_cents(
-                        version, d, twelve_tet=True, save_top_notes=False)
+                        version, d)
                     cent_eval, chorale_eval, include_idx = select_chord_subset_with_slice(
                         cent_4n, chorale, include_list, include_slice
                     )
@@ -520,7 +520,7 @@ def main():
             try:
                 cent_4n = np.load(input_file, allow_pickle=True)
                 _, _, chorale, root, mode, keys = atu.load_chorale_in_cents(
-                    version, d, twelve_tet=True, save_top_notes=False)
+                    version, d)
                 cent_eval, chorale_eval, include_idx = select_chord_subset_with_slice(
                     cent_4n, chorale, include_list, include_slice
                 )

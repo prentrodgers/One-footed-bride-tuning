@@ -48,9 +48,7 @@ from select_best_and_render import collect_gaps, parse_dir_params
 MEASURE = 0                     # 0 means print all measures
 PRINT_INDIVIDUAL_CHORDS = True
 RATIOS = True
-PRINT_TOP_NOTES = True
 PRINT_HITS_MISSES = False
-USE_WERCK_TOP_NOTES = False
 
 # The primes the histogram reports on, and the ones counted as "high": a 13/11
 # is a different creature from a 3/2, and the point of the tuning is knowing
@@ -221,21 +219,15 @@ def print_prime_histogram(intervals, n_chords, chorale=''):
 
 
 def print_chords(version, input_file, numpy_dir, measure, tolerance,
-                 chord_scorer, tonal_diamond, keys, top_notes, root, mode,
-                 cents, offset=0, listing=True, color=False):
+                 chord_scorer, tonal_diamond, keys, root, mode,
+                 cents, listing=True, color=False):
     """Print the chords, and return (intervals, chord count) for the histogram.
 
     The ratios are worked out whether or not they are printed, so
     --histogram_only counts exactly what the listing would have shown."""
-    if PRINT_TOP_NOTES and listing:
-        top_notes = top_notes.copy()
-        top_notes[1] = top_notes[1] + offset
+    if listing:
+        # score_video.py puts this line on the video's opening card.
         print(f'Key: {keys[root]} {mode}')
-        print('\ntop notes:')
-        print(*[inx for inx in np.arange(12)], sep='\t')
-        print(*[note for note in top_notes[0]], sep='\t')
-        print(*[keys[note] for note in top_notes[0]], sep='\t')
-        print(*[cent_value for cent_value in top_notes[1]], sep='\t')
     if PRINT_INDIVIDUAL_CHORDS and listing:
         print('\n#          cents       note names   chord score')
     if measure > 0 and listing:
@@ -334,11 +326,8 @@ def main():
     chord_scorer.reset_cache()
 
     numpy_dir = os.path.dirname(os.path.abspath(path))
-    # save_top_notes=False: this only reports, and the default would write a
-    # top-notes file into a collection directory that has none.
-    _, top_notes, _chorale, root, mode, keys = atu.load_chorale_in_cents(
-        chorale, numpy_dir, save_top_notes=False,
-        werck_top_notes=USE_WERCK_TOP_NOTES)
+    _, _, _chorale, root, mode, keys = atu.load_chorale_in_cents(
+        chorale, numpy_dir)
 
     cents = np.rint(np.load(path, allow_pickle=True)).astype(int)
     match = atu.tuning_matches_score(cents, _chorale)
@@ -362,7 +351,7 @@ def main():
     color = args.color == 'always' or (args.color == 'auto' and sys.stdout.isatty())
     intervals, n_chords = print_chords(
         chorale, path, numpy_dir, args.measure, tolerance, chord_scorer,
-        tonal_diamond, keys, top_notes, root, mode, cents,
+        tonal_diamond, keys, root, mode, cents,
         listing=not args.histogram_only, color=color)
     print_prime_histogram(intervals, n_chords, chorale)
 

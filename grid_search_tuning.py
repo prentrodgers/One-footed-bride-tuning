@@ -144,7 +144,7 @@ def run_chorale(version, tolerance, rolls, spread,
     times  : np.ndarray  – ms elapsed per unique chord computation
     """
     _, _, chorale, _, _, _ = atu.load_chorale_in_cents(
-        version, NUMPY_DIR, werck_top_notes=False)
+        version, NUMPY_DIR)
 
     # Convert to 12-TET cents (same as the notebook)
     cent_value_chorale = np.array(

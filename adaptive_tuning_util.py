@@ -2089,49 +2089,25 @@ def assign_chorale(version, save_midi_file = False):        #, quantization = 4)
     keys = set_accidentals(flats)
     logging.info(f'{version = }, {chorale.shape = }, {root = }, {keys[root] = }, {mode = }, {time_sig = }')
     return chorale, root, mode, time_sig, s, keys
-# this function is designed to load a chorale, convert it to cents by loading a numpy array of top_notes values, returning the chorale_in_cents and top_notes array.
-# this cell also proves that we have previously saved valid top_notes numpy arrays for all these wedding chorales by Bach, that all the chorales have valid notes in midi format, and that they can be converted to cent values by assigning the available top noted in the loaded array. There are no midi notes in each chorale that don't have corresponding values in the top_notes array for that chorale
-def load_chorale_in_cents(version, numpy_dir, save_midi_file=False, save_top_notes=True,\
-            werck_top_notes=False, twelve_tet=False):
+# Load a chorale and return it in 12-TET cents. Until 26 Sep 2026 this read a
+# {version}top-notes.npy file (and wrote one when missing); nothing used the
+# cent values it held, so the file is gone and top_notes is computed here.
+def load_chorale_in_cents(version, numpy_dir, save_midi_file=False):
     """
-    Load a chorale and convert it to cent values using top_notes.
+    Load a chorale and convert it to 12-TET cent values.
 
-    Loads top_notes from numpy file, or initializes if not found. Converts
-    MIDI chorale to cent values using top_notes (or 12-TET if twelve_tet=True).
-    Expands top_notes to 12 entries if needed.
+    numpy_dir is unused, kept so existing positional calls still work.
+    Returns (chorale_in_cents, top_notes, chorale, root, mode, keys), where
+    top_notes is shape (2, 12): row 0 the pitch classes by descending
+    frequency in the chorale (absent ones last, by pc number), row 1 their
+    12-TET cent values.
     """
     chorale, root, mode, time_sig, s, keys = assign_chorale(version, save_midi_file = save_midi_file)
-    if len(version) > 8:
-        version = version[:6]
-    file_name = os.path.join(numpy_dir, f'{version}top-notes.npy')
-    if werck_top_notes: 
-        file_name = os.path.join(numpy_dir, f'{version}-w-top_notes.npy') # bwv260-w-top_notes
-    # Sort all 12 pitch classes by descending frequency in the chorale.
-    # Pitch classes absent from the chorale are placed at the end (freq=0), then by pc number.
     pc_counts = Counter(int(p) for p in (chorale % 12).flatten())
     sorted_pcs = sorted(range(12), key=lambda p: (-pc_counts.get(p, 0), p))
-
-    logging.info(f'In load_chorale_in_cents. About to load top_notes from {file_name = }')
-    try:
-        loaded = np.load(file_name, allow_pickle=True)
-        # Re-order existing cent values by current chorale frequency; fall back to 12-TET for any gap.
-        existing_cents = {int(loaded[0, i]): int(loaded[1, i]) for i in range(loaded.shape[1])}
-        ordered_cents = [existing_cents.get(p, p * 100) for p in sorted_pcs]
-        top_notes = np.array([sorted_pcs, ordered_cents])
-        logging.info(f'Loaded top_notes from {file_name}, re-ordered by chorale frequency')
-    except OSError:
-        logging.info(f'top_notes file not found — building from chorale frequencies with 12-TET cent values')
-        top_notes = np.array([sorted_pcs, [p * 100 for p in sorted_pcs]])
-        if save_top_notes:
-            os.makedirs(os.path.dirname(file_name), exist_ok=True)
-            np.save(file_name, top_notes)
-    logging.debug(f'In load_chorale_in_cents. {top_notes.shape = }')
-    logging.debug(f'{[(keys[top_note[0]], top_note[1]) for top_note in top_notes.T]}')
-    logging.debug(f'{chorale.T.shape = }')
-    # load chorale_in_cents to the top_notes cent values for each note. I wrote a function to do this. What was it called?
-    # chord_from_top_notes(cent_values, top_notes, pitch_class_from_cents=pitch_class_from_cents):
+    top_notes = np.array([sorted_pcs, [p * 100 for p in sorted_pcs]])
+    logging.debug(f'In load_chorale_in_cents. {[(keys[pc], cents) for pc, cents in top_notes.T]}')
     chorale_in_cents = (chorale % 12) * 100
-    if not twelve_tet: chorale_in_cents = np.array([[top_notes[1][np.where(top_notes[0] == (note % 12))[0][0]] for note in chord] for chord in chorale])
     logging.info(f'{chorale_in_cents.shape = }, {chorale.shape = }')
     return chorale_in_cents, top_notes, chorale, root, mode, keys
 

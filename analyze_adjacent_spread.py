@@ -46,7 +46,7 @@ def analyze_adjacent_spread(numpy_dir, version, suffix,
 
     try:
         _, _, chorale, root, mode, keys = atu.load_chorale_in_cents(
-            version, numpy_dir, twelve_tet=True, save_top_notes=False)
+            version, numpy_dir)
     except Exception as e:
         print(f'Could not load chorale {version}: {e}')
         return

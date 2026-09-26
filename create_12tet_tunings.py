@@ -25,10 +25,10 @@ def create_12tet_from_midi(version, numpy_dir, output_file):
     output_file : str
         Path to save the 12-TET tuning array
     """
-    # Load the chorale with twelve_tet=True to get 12-TET cent values directly
+    # load_chorale_in_cents returns 12-TET cent values
     # Returns: (chorale_in_cents, top_notes, chorale, root, mode, keys)
     chorale_cents, _, _, root, mode, keys = atu.load_chorale_in_cents(
-        version, numpy_dir, twelve_tet=True, save_top_notes=False
+        version, numpy_dir
     )
     
     print(f"Chorale: {version}")

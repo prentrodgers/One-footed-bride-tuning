@@ -165,7 +165,7 @@ def display_volumes(volume_function, include_sections, save_path: str | None = N
 #                   # print(f'{inx}: {chord = }, {new_scores[inx] = }')
 
 
-#       print(f'{chorale.shape = }, {chorale_in_cents.shape = }, {top_notes.shape = }')
+#       print(f'{chorale.shape = }, {chorale_in_cents.shape = }')
 #       print(f'{version = }, Average score: {round(np.average(new_scores),1)}, Max score: {np.max(new_scores)}, Max chord: {np.argmax(new_scores)}')
 #       return round(np.average(new_scores),1), np.max(new_scores)
 
@@ -2464,10 +2464,10 @@ def create_repeat_array_pattern(chorale_array, pattern=None, axis=1):
 def chorale_to_wave_v4(version, album, include_sections, ratio_factor, limit_max=47,\
       short_repeats=True, include_list=np.array([]), csound=True,\
       convolve=True, mod_letter='a', max_cents_slide=48, print_only=0,\
-      limit=0, use_opt_file=True, \
+      limit=0, \
       cent_file_partial='-cents.npy', show_volumes=False, woodwinds_volume=15,\
     melody_sustain=15, bass_sustain=15, bass_hold_scale=1.0, bass_hold_swing=0.75, bass_hold_cycles=4,
-    use_werck_top_notes=False, mp3=True, tolerance=1,\
+    mp3=True, tolerance=1,\
       stability_factor=0.0, max_delta=33, spread=7, fp_density_starts=None, fp_hold_scale=1.0, prime_count=8, ap=None, articulated_sections=None, articulate_cfg=None, density_level=5,
         fatigue_min_chain=2, fatigue_density_threshold=1, include_slice=None,
         deep_bass_backoff=1.0, back_off_clicks=0.0,
@@ -2520,18 +2520,7 @@ def chorale_to_wave_v4(version, album, include_sections, ratio_factor, limit_max
     cent_value_chorale = np.load(cent_file_name)
     # print(f'{chorale_in_cents.shape = }, {chorale_in_cents[:,10:12] = }')
     print(f'after np.load {cent_file_name = }, {cent_value_chorale.shape = }')
-    if use_werck_top_notes:
-        top_notes_file = os.path.join(numpy_dir, f'{version}-w-top_notes.npy')
-    elif use_opt_file:
-        top_notes_file = os.path.join(numpy_dir, f'{version[:6]}top-notes.npy')
-    else: 
-        top_notes_file = os.path.join(numpy_dir, f'{version}top-notes.npy')
-    try:
-        top_notes = np.load(top_notes_file)
-    except FileNotFoundError:
-        print(f"Warning: {top_notes_file} not found. Using default top notes.")
-        top_notes = None
-    _, top_notes, chorale, root, mode, keys = atu.load_chorale_in_cents(version, numpy_dir)
+    _, _, chorale, root, mode, keys = atu.load_chorale_in_cents(version, numpy_dir)
     match = atu.tuning_matches_score(cent_value_chorale, chorale)
     if match < 1.0:
         raise SystemExit(
@@ -2541,8 +2530,6 @@ def chorale_to_wave_v4(version, album, include_sections, ratio_factor, limit_max
             f'rows, rests ignored) and would play chords that are not in the piece: '
             f're-tune {version} first.')
     print(f'root key: {keys[root]}, {mode = }')
-    print(f'After loading top_notes for {version = } by reading numpy file: {version}top-notes.npy')
-    atu.log_top_notes(top_notes)
 
     n_chords_raw = cent_value_chorale.shape[1]
     effective_include = list(include_list) if include_list is not None else []
@@ -2574,7 +2561,7 @@ def chorale_to_wave_v4(version, album, include_sections, ratio_factor, limit_max
         # print(f'{inx}: {chord = }, {new_scores[inx] = }')
 
     # tell me about the chorale you are about to use as the basis for the piece of music.
-    logging.info(f'{version = }, {chorale.shape = }, {cent_value_chorale.shape = }, {top_notes.shape = }, {short_repeats = }')
+    logging.info(f'{version = }, {chorale.shape = }, {cent_value_chorale.shape = }, {short_repeats = }')
 
     # create a string of the key variables for use in the name of the MP3 file.    
     # Three digits since 19 Sep 2026: t433a is BWV 433. Two digits made bwv433
@@ -2692,7 +2679,7 @@ def chorale_to_wave_v4(version, album, include_sections, ratio_factor, limit_max
 def mainline(chorale_override=None, short_repeats=False, just_triangle=False, include_list=None, csound=True, convolve=True, \
              mp3=True, max_cents_slide=35, melody_sustain=3, bass_sustain=15,
              bass_hold_scale=1.0, bass_hold_swing=0.75, bass_hold_cycles=4, cent_file_partial='-trans-sa-opt.npy', \
-             show_volumes=True, mod_letter='a', album=3, use_werck_top_notes=False, tolerance=1, ratio_factor=0.75, \
+             show_volumes=True, mod_letter='a', album=3, tolerance=1, ratio_factor=0.75, \
              numpy_dir_arg=None, stability_factor=0.0, max_delta=33, spread=7, limit_max=23, auto_density=False, prime_count=8, ap=None, articulated_sections=None, articulate_cfg=None, density_level=None, shuffle_density=False, auto_density_weights=None,
              fatigue_min_chain=2, fatigue_density_threshold=1, include_slice=None,
              deep_bass_backoff=1.0, back_off_clicks=0.0,
@@ -2847,7 +2834,7 @@ def mainline(chorale_override=None, short_repeats=False, just_triangle=False, in
                   max_cents_slide=max_cents_slide, show_volumes=show_volumes, \
                   woodwinds_volume=woodwinds_volume, melody_sustain=melody_sustain, bass_sustain=bass_sustain, \
                 bass_hold_scale=_bhs, bass_hold_swing=_bhsw, bass_hold_cycles=bass_hold_cycles,
-                  cent_file_partial=cent_file_partial, use_werck_top_notes=use_werck_top_notes, mp3=mp3,\
+                  cent_file_partial=cent_file_partial, mp3=mp3,\
                   tolerance=tolerance, stability_factor=stability_factor, max_delta=max_delta,\
                   spread=spread, fp_density_starts=_fp_starts, fp_hold_scale=_fhs, prime_count=_np, ap=ap, articulated_sections=articulated_sections, articulate_cfg=articulate_cfg, density_level=_active_level,
                                     fatigue_min_chain=fatigue_min_chain, fatigue_density_threshold=fatigue_density_threshold,
@@ -2916,8 +2903,6 @@ if __name__ == "__main__":
                           help="Letter to append to output file name (default: 'a')")
       parser.add_argument("--album", dest="album", type=int, default=3,
                           help="Album number to distinguish sets (default: 3)")
-      parser.add_argument("--use_werck_top_notes", dest="use_werck_top_notes", action="store_true",
-                          help="Use Werckmeister top notes (default: False)")
       parser.add_argument("--tolerance", dest="tolerance", type=int, default=None,
                           help="Tolerance level for matching intervals (1, 2, 3, or 4). Read from filename if encoded there; defaults to 1 otherwise.")
       parser.add_argument("--ratio_factor", dest="ratio_factor", type=float, default=1.5,
@@ -3079,7 +3064,7 @@ if __name__ == "__main__":
                mp3=args.mp3, max_cents_slide=args.max_cents_slide, melody_sustain=args.melody_sustain, bass_sustain=args.bass_sustain,
                bass_hold_scale=args.bass_hold_scale, bass_hold_swing=args.bass_hold_swing, bass_hold_cycles=args.bass_hold_cycles,
                cent_file_partial=args.cent_file_partial, show_volumes=args.show_volumes,
-               mod_letter=args.mod_letter, album=args.album, use_werck_top_notes=args.use_werck_top_notes,
+               mod_letter=args.mod_letter, album=args.album,
                tolerance=args.tolerance, ratio_factor=args.ratio_factor, numpy_dir_arg=args.numpy_dir,
                stability_factor=args.stability_factor, max_delta=args.max_delta,
                spread=args.spread, limit_max=args.limit_max, auto_density=args.auto_density, prime_count=args.prime_count, ap=args.ap,

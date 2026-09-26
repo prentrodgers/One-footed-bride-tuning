@@ -459,7 +459,7 @@ def process_chorale(version, numpy_dir, output_dir=None, *, tolerance, limit_max
 
     try:
         cent_value_chorale, _, chorale, _, _, _ = atu.load_chorale_in_cents(
-            version, numpy_dir, werck_top_notes=False, twelve_tet=True)
+            version, numpy_dir)
     except Exception as e:
         logging.error(f"Failed to load {version}: {e}")
         return None

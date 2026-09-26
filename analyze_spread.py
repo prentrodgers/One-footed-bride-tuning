@@ -32,9 +32,8 @@ def analyze_spread(numpy_dir, version, suffix, wide_spread_threshold=50):
         return
 
     try:
-        # twelve_tet=True bypasses top_notes lookup; we only need chorale/root/mode/keys
         _, _, chorale, root, mode, keys = atu.load_chorale_in_cents(
-            version, numpy_dir, twelve_tet=True, save_top_notes=False)
+            version, numpy_dir)
     except Exception as e:
         print(f'Could not load chorale {version}: {e}')
         return

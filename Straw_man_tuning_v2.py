@@ -833,10 +833,7 @@ def main():
     workers = args.workers
     num_runs = args.runs
     for version in chorale_list:
-        cent_value_chorale, top_notes, chorale, root, mode, keys = atu.load_chorale_in_cents(version, numpy_dir, werck_top_notes=False)
-        logging.info(f'cent value based on top_notes')
-        for i in range(min(10, cent_value_chorale.shape[1])):
-            logging.info(f'Chord {i}: {cent_value_chorale[:,i]}')
+        cent_value_chorale, _, chorale, root, mode, keys = atu.load_chorale_in_cents(version, numpy_dir)
         if include_list is not None:
             cent_value_chorale = cent_value_chorale[:, include_list]
             chorale = chorale[:, include_list]
@@ -846,7 +843,6 @@ def main():
         for i in range(min(10, cent_value_chorale.shape[1])):
             logging.info(f'Chord {i}: {cent_value_chorale[:,i]}')
         logging.info(f'{cent_value_chorale.shape = }, {chorale.shape = }, {keys[root]} {mode}')
-        atu.log_top_notes(top_notes)
 
         output_file = os.path.join(numpy_dir, f'{version}-opt.npy')
         final_cent_value_chorale = None
