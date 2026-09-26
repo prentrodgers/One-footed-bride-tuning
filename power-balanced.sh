@@ -25,9 +25,12 @@ if [ $VERIFY_ONLY = 0 ]; then
     # A host running tuned-ppd (fs2, KDE) is switched through its desktop
   # power mode, which ppd.conf maps onto the tuned profile — a tuned-adm
   # call there would be undone at the next mode change.
+  # timeout 60: on 26 Sep 2026 tuned on fs7 threw an exception mid-switch and
+  # tuned-adm waited on it forever, stalling the whole loop. Now the node is
+  # reported FAILED and the verify below shows what state it was left in.
   $SSH "$n" "if systemctl is-active -q tuned-ppd; then
-            sudo busctl set-property org.freedesktop.UPower.PowerProfiles /org/freedesktop/UPower/PowerProfiles org.freedesktop.UPower.PowerProfiles ActiveProfile s balanced
-          else sudo tuned-adm profile balanced; fi" || { echo "   FAILED on $n"; failed+=("$n"); }
+            timeout 60 sudo busctl set-property org.freedesktop.UPower.PowerProfiles /org/freedesktop/UPower/PowerProfiles org.freedesktop.UPower.PowerProfiles ActiveProfile s balanced
+          else timeout 60 sudo tuned-adm profile balanced; fi" || { echo "   FAILED on $n"; failed+=("$n"); }
   done
   echo
 fi

@@ -60,13 +60,16 @@ failed=()
 if [ $VERIFY_ONLY = 0 ]; then
   for n in "${HOSTS[@]}"; do
     echo "== $n"
+    # timeout 60: on 26 Sep 2026 tuned on fs7 threw an exception mid-switch and
+    # tuned-adm waited on it forever, stalling the whole loop. Now the node is
+    # reported FAILED and the verify below shows what state it was left in.
     if ! $SSH "$n" "sudo mkdir -p /etc/tuned/profiles/powersave-gpu &&
           printf '%s' \"\$(cat)\" | sudo tee /etc/tuned/profiles/powersave-gpu/tuned.conf >/dev/null &&
           if systemctl is-active -q tuned-ppd; then
             grep -q '^power-saver=powersave-gpu' /etc/tuned/ppd.conf ||
               { sudo sed -i 's/^power-saver=.*/power-saver=powersave-gpu/' /etc/tuned/ppd.conf && sudo systemctl restart tuned-ppd && sleep 2; }
-            sudo busctl set-property org.freedesktop.UPower.PowerProfiles /org/freedesktop/UPower/PowerProfiles org.freedesktop.UPower.PowerProfiles ActiveProfile s power-saver
-          else sudo tuned-adm profile powersave-gpu; fi" <<<"$PROFILE"; then
+            timeout 60 sudo busctl set-property org.freedesktop.UPower.PowerProfiles /org/freedesktop/UPower/PowerProfiles org.freedesktop.UPower.PowerProfiles ActiveProfile s power-saver
+          else timeout 60 sudo tuned-adm profile powersave-gpu; fi" <<<"$PROFILE"; then
       echo "   FAILED to apply on $n"; failed+=("$n"); continue
     fi
   done
