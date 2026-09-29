@@ -709,7 +709,11 @@ def pose(key, state=None, pup=None):
     """Pose one player (and its bow/mallets/slide) for a musical state."""
     hands, pole = HANDS[key](state)
     pup = pup or get_puppet(key)
-    S = shoulders(key)
+    shift = Vector((state or {}).get("body_shift", (0.0, 0.0, 0.0)))   # e.g. a mallet player stepping sideways
+    body = bpy.data.objects.get(body_name(key))
+    if body:
+        body.location = shift
+    S = {side: s + shift for side, s in shoulders(key).items()}
     p, f, l, up = frame(key)
     default_pole = {"L": -UP + l * 0.8 - f * 0.3, "R": -UP - l * 0.8 - f * 0.3}
     for side in ("L", "R"):

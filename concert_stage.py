@@ -180,67 +180,115 @@ def fold(midi, lo, hi):
 
 
 class MalletPlayer:
-    """Four mallets (L outer, L inner, R inner, R outer); each note goes to the nearest free mallet."""
-    ORDER = [("L", 1), ("L", 0), ("R", 0), ("R", 1)]          # (side, 0=inner 1=outer), low to high pitch
+    """Four mallets that never cross: ORDER runs low -> high pitch, which on these instruments is +x -> -x
+    (low notes on the player's left). Each chord is dealt to mallets in that order, the idle mallets are
+    carried along so the order and each hand's reach hold, and the player steps sideways to follow."""
+    ORDER = [("L", 1), ("L", 0), ("R", 0), ("R", 1)]          # L outer, L inner, R inner, R outer
+    GAP = 0.05                                                # min spacing between neighbouring heads (x)
+    SPAN = 0.40                                               # max spread of the two mallets in one hand
+    HEAD_R = 0.021
+    LIFT = 0.07                                               # hover height above the bars
 
     def __init__(self, key, notes):
+        import itertools
         self.key = key
         self.pts = bar_points(key)
         lo, hi = min(self.pts), max(self.pts)
         rest = cp.mallet_heads_rest(key)
         self.rest = {(s, i): rest[s][i] for s in ("L", "R") for i in (0, 1)}
-        self.top = {m: p.z for m, p in self.pts.items()}
-        pos = dict(self.rest)
-        self.strikes = {k: [] for k in self.rest}               # mallet -> [(t, point)]
-        busy = {k: -1.0 for k in self.rest}
+        self.rest_cx = sum(p.x for p in self.rest.values()) / 4
+        self.bar_z = sum(p.z for p in self.pts.values()) / len(self.pts)
+        pos = {k: Vector(p) for k, p in self.rest.items()}
+        self.ev = {k: [] for k in self.ORDER}                   # mallet -> [(t, point, strike)]
         i = 0
-        while i < len(notes):                                  # chords: notes starting within 30 ms
+        while i < len(notes):                                  # a chord = notes starting within 30 ms
             chord = [notes[i]]
             while i + len(chord) < len(notes) and notes[i + len(chord)]["t0"] - notes[i]["t0"] < 0.03:
                 chord.append(notes[i + len(chord)])
             i += len(chord)
-            chord.sort(key=lambda n: n["midi"])
-            free = [k for k in self.ORDER]
-            for n in chord:
-                p = self.pts[fold(n["midi"], lo, hi)]
-                # pitch low -> high runs +x -> -x on these instruments (low notes on the player's left)
-                k = min(free, key=lambda k: (pos[k] - p).length + (0.5 if busy[k] > n["t0"] - 0.08 else 0.0))
-                free.remove(k)
-                self.strikes[k].append((n["t0"], p)); pos[k] = p; busy[k] = n["t0"]
-                if not free:
-                    break
+            t0 = chord[0]["t0"]
+            targets = sorted({fold(n["midi"], lo, hi) for n in chord})[:4]
+            tp = [self.pts[m] for m in targets]                 # low -> high pitch = high -> low x
+            def cost(c):
+                x = [pos[k].x for k in self.ORDER]
+                for j, p in zip(c, tp):
+                    x[j] = p.x
+                over = max(0.0, x[0] - x[1] - self.SPAN) + max(0.0, x[2] - x[3] - self.SPAN)
+                return sum(abs(pos[self.ORDER[j]].x - p.x) for j, p in zip(c, tp)) + 10.0 * over
+            best = min(itertools.combinations(range(4), len(tp)), key=cost)
+            fixed = {}
+            for j, p in zip(best, tp):
+                fixed[j] = p
+            x = [pos[k].x for k in self.ORDER]
+            for j, p in fixed.items():
+                x[j] = p.x
+            for _ in range(3):                                  # carry the idle mallets: keep order and reach
+                for j in range(4):
+                    if j in fixed:
+                        continue
+                    partner = {0: 1, 1: 0, 2: 3, 3: 2}[j]
+                    x[j] = max(min(x[j], x[partner] + self.SPAN), x[partner] - self.SPAN)
+                    if j > 0:                                   # order wins over reach
+                        x[j] = min(x[j], x[j - 1] - self.GAP)
+                    if j < 3:
+                        x[j] = max(x[j], x[j + 1] + self.GAP)
+            for j, k in enumerate(self.ORDER):
+                if j in fixed:
+                    self.ev[k].append((t0, fixed[j], True)); pos[k] = fixed[j]
+                elif abs(x[j] - pos[k].x) > 1e-4:
+                    carried = Vector((x[j], pos[k].y, pos[k].z))
+                    self.ev[k].append((t0, carried, False)); pos[k] = carried
 
     def head(self, k, t):
-        hs = self.strikes[k]
-        rest = self.rest[k]
-        hover = rest.z - (min(self.top.values()))              # hover height above the bars
-        prev = None; nxt = None
-        for s in hs:
-            if s[0] <= t:
-                prev = s
+        ev = self.ev[k]
+        prev = nxt = None
+        for e in ev:
+            if e[0] <= t:
+                prev = e
             else:
-                nxt = s; break
-        base = prev[1] if prev else rest
-        xy = Vector((base.x, base.y, 0))
+                nxt = e
+                break
+        base = prev[1] if prev else self.rest[k]
+        top = base.z if prev else self.bar_z
+        idle = top + self.HEAD_R + self.LIFT
+        xy = Vector((base.x, base.y, 0.0))
+        z = idle
         if nxt:
             gap = nxt[0] - (prev[0] if prev else nxt[0] - 1.0)
-            move = min(0.25, gap * 0.6)
+            move = min(0.30, max(0.06, gap * 0.7))
             u = (t - (nxt[0] - move)) / move
             if u > 0:
                 u = u * u * (3 - 2 * u)
-                xy = xy.lerp(Vector((nxt[1].x, nxt[1].y, 0)), u)
-        contact_z = (nxt[1].z if nxt else base.z) + 0.021
-        z = (base.z if prev else rest.z - hover) + hover
-        if nxt and 0 < nxt[0] - t < 0.15:                     # backswing then strike
-            u = 1 - (nxt[0] - t) / 0.15
-            z = contact_z + (z - contact_z) * (1 - u) + 0.07 * math.sin(math.pi * u)
-        elif prev and t - prev[0] < 0.12:                     # rebound
+                xy = xy.lerp(Vector((nxt[1].x, nxt[1].y, 0.0)), u)
+                z = idle + ((nxt[1].z + self.HEAD_R + self.LIFT) - idle) * u
+            if nxt[2] and nxt[0] - t < 0.14:                  # backswing, then down onto the bar
+                u = 1 - (nxt[0] - t) / 0.14
+                contact = nxt[1].z + self.HEAD_R
+                z = contact + (z - contact) * (1 - u * u) + 0.05 * math.sin(math.pi * u)
+        if prev and prev[2] and t - prev[0] < 0.12:           # rebound off the bar
             u = (t - prev[0]) / 0.12
-            z = (prev[1].z + 0.021) + ((prev[1].z + hover) - (prev[1].z + 0.021)) * u
+            contact = prev[1].z + self.HEAD_R
+            z = contact + (z - contact) * (u * (2 - u))
         return Vector((xy.x, xy.y, z))
 
+    def _striking(self, k, t):
+        return any(e[2] and -0.12 < e[0] - t < 0.16 for e in self.ev[k])
+
     def state(self, t):
-        return {"heads": {s: (self.head((s, 0), t), self.head((s, 1), t)) for s in ("L", "R")}}
+        hs = [self.head(k, t) for k in self.ORDER]
+        # mallets travel on their own clocks and could pass each other mid-flight: push neighbours apart,
+        # letting a mallet that is on (or about to hit) its bar hold its place
+        w = [10.0 if self._striking(k, t) else 1.0 for k in self.ORDER]
+        for _ in range(4):
+            for j in range(1, 4):
+                short = self.GAP - (hs[j - 1].x - hs[j].x)
+                if short > 0:
+                    hs[j - 1].x += short * w[j] / (w[j - 1] + w[j])
+                    hs[j].x -= short * w[j - 1] / (w[j - 1] + w[j])
+        heads = {"L": (hs[1], hs[0]), "R": (hs[2], hs[3])}     # (inner, outer)
+        cx = sum(h.x for h in hs) / 4
+        shift = max(-0.6, min(0.6, (cx - self.rest_cx) * 0.8))   # step along the instrument
+        return {"heads": heads, "body_shift": (shift, 0.0, 0.0)}
 
 
 # ─────────────────────────────── finger pianos ───────────────────────────────
@@ -467,27 +515,29 @@ def build_shots(per, duration, seed, fixed=None):
         return [(0.0, fixed)]
     rng = random.Random(seed)
     shots = [(0.0, WIDE_CAMS[0])]
-    t = min(4.0, duration / 3)
+    t = min(3.5, duration / 4)
     k = 1
-    while t < duration - 1.0:
-        hold = rng.uniform(4.0, 8.0)
-        if k % 3 == 0:
-            shots.append((t, rng.choice(WIDE_CAMS[:3])))
+    recent = []                                               # players featured lately, to spread the close-ups
+    while t < duration - 1.5:
+        hold = rng.uniform(3.0, 5.5)
+        if k % 4 == 0:
+            cam = rng.choice([c for c in WIDE_CAMS[:3] if c != shots[-1][1]])
         else:
             loud = []
             for player, ns in per.items():
-                if player not in PLAYER_CAMS:
+                if player not in PLAYER_CAMS or player in recent[-2:]:
                     continue
                 e = sum(n["lvl"] * max(0.0, min(n["t1"], t + hold) - max(n["t0"], t)) for n in ns)
-                if e > 0:
+                if e > 0.25 * hold:                           # sounding for a real share of the shot
                     loud.append((e, player))
             loud.sort(reverse=True)
-            if loud:
+            if not loud:
+                cam = rng.choice([c for c in WIDE_CAMS[:3] if c != shots[-1][1]])
+            else:
                 player = rng.choice([p for _, p in loud[:3]])
-                cam = rng.choice(PLAYER_CAMS[player])
-                if cam == shots[-1][1]:
-                    cam = WIDE_CAMS[0]
-                shots.append((t, cam))
+                recent.append(player)
+                cam = rng.choice([c for c in PLAYER_CAMS[player] if c != shots[-1][1]] or PLAYER_CAMS[player])
+        shots.append((t, cam))
         t += hold; k += 1
     return shots
 
@@ -556,6 +606,7 @@ def configure_engine(scene, args):
 
 
 def main():
+    sys.stdout.reconfigure(line_buffering=True)               # so the pod log shows progress as it happens
     args = parse_args()
     t_start = time.time()
     if args.list_voices:
@@ -572,6 +623,9 @@ def main():
     shots = build_shots(per, args.duration, args.seed, args.camera)
     print("[concert] camera shots: " + ", ".join(f"{int(t0 // 60)}:{t0 % 60:04.1f} {c}" for t0, c in shots))
     lights = {k: bpy.data.objects.get(v) for k, v in SPECIAL_LIGHT.items()}
+    # over-the-shoulder cameras ride along with a player who steps sideways
+    follow = {PLAYER_CAMS[k][0]: k for k in ("Marimba", "Vibraphone")}
+    follow_base = {c: bpy.data.objects[c].location.copy() for c in follow}
 
     configure_engine(scene, args)
     scene.render.resolution_x, scene.render.resolution_y = args.res_x, args.res_y
@@ -589,7 +643,11 @@ def main():
         scene.frame_set(fi)                                   # backdrop colour runs off the frame number
         for key in cp.PLAYERS:
             pl = players.get(key)
-            cp.pose(key, pl.state(t) if pl else None, puppets[key])
+            st = pl.state(t) if pl else None
+            cp.pose(key, st, puppets[key])
+            for cam, who in follow.items():
+                if who == key:
+                    bpy.data.objects[cam].location = follow_base[cam] + Vector((st or {}).get("body_shift", (0, 0, 0)))
             lt = lights.get(key)
             if lt:
                 lt["level"] = 0.45 + 1.1 * (envelope(per[key], t) if key in per else 0.0)
