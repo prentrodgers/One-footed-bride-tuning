@@ -508,27 +508,131 @@ def fp_tines(key):
     return notes
 
 
+FP_SLOPE = 0.10                  # tines rise 10 % from the bridge toward the tip
+
+
+def build_fp_tines(key):
+    """Replace a finger piano's single tine mesh with one object per tine, each pivoting at its
+    bridge, so a plucked tine can bend and ring on its own. Same geometry as the stage build."""
+    K, midi0, b, h, sr, pn = FP_SPEC[key]
+    rig = bpy.data.objects[key]
+    col = rig.users_collection[0]
+    for ob in [o for o in rig.children if o.name.startswith(f"{key} Tine")]:
+        bpy.data.objects.remove(ob, do_unlink=True)
+    mats = [bpy.data.materials["Spring Steel Tine"], bpy.data.materials["Solder Drop (tin alloy)"], bpy.data.materials["Tine Marker Red"]]
+    tilt = Matrix.Rotation(-math.atan(FP_SLOPE), 4, 'X')
+    for n in fp_tines(key):
+        y_b, z0, L = n["y_bridge"], n["z0"], n["L"]
+        y_tip, y_root = y_b - L, y_b + 0.018 * K
+        zl = lambda y: z0 + FP_SLOPE * (y_b - y)
+        o = Vector((n["x"], y_b, z0))                         # pivot: where the tine leaves the bridge
+        B = sk.Builder()
+        yc = (y_root + y_tip) / 2
+        B.box(Vector((n["x"], yc, zl(yc))) - o, (b, (y_root - y_tip) * math.sqrt(1 + FP_SLOPE ** 2), h), mi=0, rot=tilt)
+        ys = y_tip + 0.0022 * K
+        B.sphere(Vector((n["x"], ys, zl(ys) + h / 2 + sr * 0.35)) - o, sr, mi=1, scale=(1.0, 1.1, 0.6), seg=14, rings=8)
+        if n["name"].startswith("C") and not n["acc"]:
+            ym = y_tip + 0.012 * K
+            B.disc(Vector((n["x"], ym, zl(ym) + h / 2 + 0.0002)) - o, b * 0.28, mi=2, seg=12, thick=0.0003)
+        ob = B.build(f"{key} Tine {n['name']}", mats, loc=o, collection=col, parent=rig)
+        ob["midi"] = n["midi"]; ob["L"] = L
+    _tine_objs.pop(key, None)
+
+
+_tine_objs = {}
+
+
+TINE_GLOW = (1.0, 0.78, 0.45)    # warm glow of a ringing tine, scaled by how loud it still is
+
+
+def ensure_tine_glow():
+    """Tine steel emits its object's colour (Object Info), so each tine can glow on its own while it
+    rings; an object colour of black (the default) leaves plain steel."""
+    m = bpy.data.materials["Spring Steel Tine"]
+    nt = m.node_tree
+    if "Tine Glow" in nt.nodes:
+        return
+    b = nt.nodes["Principled BSDF"]
+    oi = nt.nodes.new("ShaderNodeObjectInfo"); oi.name = oi.label = "Tine Glow"
+    nt.links.new(oi.outputs["Color"], b.inputs["Emission Color"])
+    b.inputs["Emission Strength"].default_value = 2.0
+
+
+def set_tine_bends(key, bends, glow=None):
+    """bends: {midi: tip deflection in metres, + = pressed down}; glow: {midi: 0..1}.
+    Every other tine rests straight and dark."""
+    glow = glow or {}
+    objs = _tine_objs.get(key)
+    if objs is None:
+        objs = _tine_objs[key] = [(o, o["midi"], o["L"]) for o in bpy.data.objects[key].children if "midi" in o]
+    for ob, midi, L in objs:
+        a = bends.get(midi, 0.0) / L
+        if ob.rotation_euler.x != a:
+            ob.rotation_euler.x = a
+        g = glow.get(midi, 0.0)
+        col = (TINE_GLOW[0] * g, TINE_GLOW[1] * g, TINE_GLOW[2] * g, 1.0)
+        if tuple(ob.color) != col:
+            ob.color = col
+
+
+FP_DIGIT_X = [-0.027 + 0.018 * j for j in range(4)] + [-0.045]   # knuckle offsets index..pinky, thumb (along the hand)
+
+
+def fp_tip_line(key):
+    """(y, z) of the natural tines' tips in the rig frame - the line the fingers work along."""
+    nat = [n for n in fp_tines(key) if not n["acc"]]
+    return sum(n["tip"].y for n in nat) / len(nat), sum(n["tip"].z for n in nat) / len(nat)
+
+
 def hands_finger_piano(state=None, key="Finger Piano"):
-    """state: {"L": [midi index..pinky], "L_thumb": midi, "R": [...], "R_thumb": midi, "press": {midi: depth}}"""
+    """state: {"bend": {midi: metres}, "hover": metres,
+               "L"/"R": {"x": hand position along the rig X axis,
+                         "digits": {0-3 index..pinky, 4 thumb: {"m": midi, "dy", "dz", "ride"}}}}
+    Digits in "digits" are plucking (on or near their tine); every other digit rests in a relaxed
+    curve beside them, at hover height, so it is always within the finger's reach."""
     st = state or {}
     notes = fp_tines(key); by_midi = {n["midi"]: n for n in notes}
     nat = [n for n in notes if not n["acc"]]
     mw = bpy.data.objects[key].matrix_world
     R3 = mw.to_3x3()
-    Yk = (R3 @ Vector((0, 1, 0))).normalized(); Zk = (R3 @ Vector((0, 0, 1))).normalized()
-    press = st.get("press", {})
+    Xk = (R3 @ Vector((1, 0, 0))).normalized(); Yk = (R3 @ Vector((0, 1, 0))).normalized(); Zk = (R3 @ Vector((0, 0, 1))).normalized()
+    bends = st.get("bend", {})
+    set_tine_bends(key, bends, st.get("glow"))
+    hover = st.get("hover", 0.010)
+    y_line, z_line = fp_tip_line(key)
 
-    def tip(midi):
-        n = by_midi[midi]
-        return mw @ n["tip"] + Zk * (0.0085 - press.get(midi, 0.0) * 0.004 + (0.012 if press and midi not in press else 0.0))
-    defaults = {"L": [nat[j]["midi"] for j in (10, 9, 8, 7)], "L_thumb": nat[11]["midi"],
-                "R": [nat[j]["midi"] for j in (17, 18, 19, 20)], "R_thumb": nat[16]["midi"]}
+    def tip(d):
+        n = by_midi[d["m"]]
+        p = n["tip"]
+        if d.get("ride") and bends.get(d["m"]):             # finger on the tip: it moves with the bent tine
+            o = Vector((n["x"], n["y_bridge"], n["z0"]))
+            p = Matrix.Rotation(bends[d["m"]] / n["L"], 3, 'X') @ (p - o) + o
+        return mw @ p + Zk * (0.0085 + d.get("dz", 0.0)) + Yk * d.get("dy", 0.0)
+    rest_x = {"L": nat[9]["x"], "R": nat[18]["x"]}
     hands = {}
     for side in ("L", "R"):
-        ms = st.get(side, defaults[side]); th = st.get(side + "_thumb", defaults[side + "_thumb"])
-        tips = [tip(m) for m in ms]
-        c = sum(tips, Vector()) / 4
-        hands[side] = dict(kc=c + Zk * 0.05 - Yk * 0.035, tips=tips, thumb=tip(th))
+        hs = st.get(side, {})
+        sgn = 1.0 if side == "R" else -1.0                   # right hand: index -> pinky runs up in pitch (+X)
+        ac = Xk * sgn
+        digits = hs.get("digits", {})
+        targets = {j: tip(d) for j, d in digits.items()}
+        # knuckle centre straight behind the plucking digit(s); otherwise behind the hand's position
+        behind = lambda p, j: p + Zk * 0.05 - Yk * 0.035 - ac * FP_DIGIT_X[j]
+        if targets:
+            kc = sum((behind(p, j) for j, p in targets.items()), Vector()) / len(targets)
+        else:
+            hx = hs.get("x", rest_x[side])
+            kc = mw @ Vector((hx, y_line, z_line)) + Zk * (0.0085 + hover + 0.05) - Yk * 0.035
+        rest = lambda j: kc - Zk * (0.05 - hover * 0.5) + Yk * 0.035 + ac * FP_DIGIT_X[j] * 1.1
+        tips = [targets.get(j, rest(j)) for j in range(4)]
+        if 4 in targets:
+            thumb = targets[4]
+        else:                                                # resting thumb: curled from its own base (as pose_arm builds it)
+            W = _wrist_for(shoulders(key)[side], {"kc": kc})
+            pd = (kc - W).normalized()
+            base = W + pd * 0.028 - ac * 0.030
+            thumb = base + pd * 0.040 + ac * 0.008 - Zk * 0.012
+        hands[side] = dict(kc=kc, tips=tips, thumb=thumb)
     return hands, {}
 
 

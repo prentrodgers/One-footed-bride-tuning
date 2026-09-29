@@ -293,48 +293,156 @@ class MalletPlayer:
 
 # ─────────────────────────────── finger pianos ───────────────────────────────
 class FingerPianoPlayer:
-    """Piano-style: each hand keeps a five-tine position that follows its notes; the finger on a sounding tine presses it."""
+    """Piano-style: each hand keeps a five-tine position that follows its notes. A note is PLUCKED:
+    the finger comes down onto the tine tip, pushes it down, slides off the end toward the player at
+    the note's onset, and lifts back; the tine follows the finger down, then rings. A real tine rings
+    at hundreds of Hz - far beyond 30 fps - so the ring is drawn as a visible decaying wobble."""
+    DESCEND, PRESS, SLIP, RETURN = 0.06, 0.06, 0.05, 0.18      # seconds: approach, push, slide off, lift back
+    F_VIS = 9.0                                                  # Hz: readable wobble at 30 fps
+    RING_GAIN = 2.0          # the ring is drawn at twice the real few-mm swing, so it reads at camera distance
 
     def __init__(self, key, notes):
         self.key = key
         self.tines = cp.fp_tines(key)
+        self.byname = {n["midi"]: n for n in self.tines}
         self.midis = [n["midi"] for n in self.tines]
         self.nat = [n["midi"] for n in self.tines if not n["acc"]]
         lo, hi = self.midis[0], self.midis[-1]
         self.split = (lo + hi) // 2
         self.notes = [dict(n, m=fold(n["midi"], lo, hi)) for n in notes]
+        K = self.K = cp.FP_SPEC[key][0]
+        self.hover = 0.010 * min(K, 2.0)                     # finger height above an idle tine
+        self.slip = 0.007 * K                                # how far the finger slides past the tip
+        self.dmax = 0.004 * K
+        self.tau_scale = 1.0 if K < 2 else 1.6               # the long bass tines ring longer
+        self.window = self.DESCEND + self.PRESS
+        self._plan()
 
-    def _window(self, side, t):
-        near = [n["m"] for n in self.notes if abs(n["t0"] - t) < 0.6 and ((n["m"] < self.split) == (side == "L"))]
-        if side == "L":
-            anchor = min(near) if near else self.nat[7]
-            j = max(0, min(len(self.nat) - 5, max(i for i, m in enumerate(self.nat) if m <= anchor)))
-            return self.nat[j:j + 5]
-        anchor = max(near) if near else self.nat[20]
-        j = min(len(self.nat) - 1, min(i for i, m in enumerate(self.nat) if m >= anchor))
-        j = max(4, j)
-        return self.nat[j - 4:j + 1]
+    SPAN = 0.10                                              # widest chord one hand plucks at once (m)
+
+    def _plan(self):
+        """Fingering: per hand, a list of plucks (t0, hand_x, {digit: note}). Each single note goes to the
+        finger that moves the hand least; a chord goes to adjacent fingers in pitch order, as wide as a
+        hand spans (any further notes still ring, unfingered)."""
+        tx = {n["midi"]: n["x"] for n in self.tines}
+        dx = cp.FP_DIGIT_X
+        nat = [n for n in self.tines if not n["acc"]]
+        self.plan = {"L": [], "R": []}
+        hand = {"L": nat[9]["x"], "R": nat[18]["x"]}
+        i = 0
+        while i < len(self.notes):
+            chord = [self.notes[i]]
+            while i + len(chord) < len(self.notes) and self.notes[i + len(chord)]["t0"] - self.notes[i]["t0"] < 0.03:
+                chord.append(self.notes[i + len(chord)])
+            i += len(chord)
+            for side in ("L", "R"):
+                ns = sorted({n["m"]: n for n in chord if (n["m"] < self.split) == (side == "L")}.values(), key=lambda n: n["m"])
+                if not ns:
+                    continue
+                sgn = 1.0 if side == "R" else -1.0
+                while len(ns) > 1 and abs(tx[ns[-1]["m"]] - tx[ns[0]["m"]]) > self.SPAN:
+                    ns = ns[1:] if side == "L" else ns[:-1]       # keep the notes nearest the hand's centre
+                ns = ns[:4]
+                if self.K >= 2 and len(ns) > 1:                  # bass tines are 3x apart and the sharps sit 6.6 cm back:
+                    keep = ns[-1] if side == "L" else ns[0]      # a hand holds two neighbouring tines in one row at most
+                    row = self.byname[keep["m"]]["acc"]
+                    ns = [n for n in ns if self.byname[n["m"]]["acc"] == row
+                          and abs(tx[n["m"]] - tx[keep["m"]]) <= 0.05][:2]
+                if len(ns) == 1:
+                    x = tx[ns[0]["m"]]
+                    fingers_ok = range(3) if self.K >= 2 else range(4)   # no pinky for a deep bass pluck
+                    j = min(fingers_ok, key=lambda j: abs((x - sgn * dx[j]) - hand[side]) + (0.02 if j == 3 else 0.0))
+                    fingers = {j: ns[0]}
+                else:                                        # adjacent fingers, index at the low end (R) / high end (L)
+                    order = ns if side == "R" else list(reversed(ns))
+                    fingers = {j: n for j, n in enumerate(order)}
+                hx = sum(tx[n["m"]] - sgn * dx[j] for j, n in fingers.items()) / len(fingers)
+                hand[side] = hx
+                self.plan[side].append((chord[0]["t0"], hx, fingers))
+
+    def _hand(self, side, t):
+        """(hand_x, active digits) at time t: plucks under way, and the hand easing to the next one."""
+        pl = self.plan[side]
+        digits = {}
+        prev = nxt = None
+        live = [p for p in pl if p[0] - self.window <= t <= p[0] + self.RETURN]
+        if live:                                             # in a fast run the next pluck starts before the last lifts off:
+            lead = live[-1]                                  # the newest one sets the hand, a finger from an earlier
+            for p in live:                                   # pluck stays only if the hand has not moved from it
+                if abs(p[1] - lead[1]) > 0.012:
+                    continue
+                for j, n in p[2].items():
+                    dy, dz, ride = self.gesture(n, t)
+                    digits[j] = {"m": n["m"], "dy": dy, "dz": dz, "ride": ride}
+        for p in pl:
+            if p[0] - self.window <= t:
+                prev = p
+            elif nxt is None:
+                nxt = p
+        if prev is None:
+            return (nxt[1] if nxt else None), digits
+        hx = prev[1]
+        if nxt:                                              # glide toward the next pluck before it starts
+            t_leave = max(prev[0] + self.RETURN * 0.5, nxt[0] - self.window - 0.35)
+            t_arrive = nxt[0] - self.window
+            if t > t_leave and t_arrive > t_leave:
+                u = min(1.0, (t - t_leave) / (t_arrive - t_leave))
+                hx = hx + (nxt[1] - hx) * u * u * (3 - 2 * u)
+        return hx, digits
+
+    def depth(self, m):
+        """How far a pluck pushes this tine's tip down: longer tines bend further."""
+        return min(max(0.07 * self.byname[m]["L"], 0.0025), self.dmax)
+
+    def bend(self, n, t):
+        u = t - n["t0"]
+        D = self.depth(n["m"])
+        if -self.PRESS <= u < 0:                             # finger pushing the tip down
+            return D * (u + self.PRESS) / self.PRESS
+        if u >= 0:                                           # released: decaying ring
+            if u > 5 * self.tau(n):
+                return 0.0
+            return self.RING_GAIN * D * self.ring(n, t) * math.cos(2 * math.pi * self.F_VIS * u)
+        return 0.0
+
+    def tau(self, n):
+        return min(max(n["dur"], 0.3), 1.2) * self.tau_scale
+
+    def ring(self, n, t):
+        """0..1: how loudly the tine is still ringing (drives the vibration and the glow)."""
+        u = t - n["t0"]
+        return math.exp(-u / self.tau(n)) if u >= 0 else 0.0
+
+    def gesture(self, n, t):
+        """(dy, dz, ride) of the plucking fingertip relative to its tine tip."""
+        u = t - n["t0"]
+        sm = lambda x: max(0.0, min(1.0, x)) ** 2 * (3 - 2 * max(0.0, min(1.0, x)))
+        if u < -self.PRESS:                                  # coming down onto the tip
+            return 0.0, self.hover * (1 - sm((u + self.window) / self.DESCEND)), False
+        if u < 0:                                            # pressing: rides the bending tip
+            return 0.0, 0.0, True
+        if u < self.SLIP:                                    # slides off the end toward the player
+            s = sm(u / self.SLIP)
+            return -self.slip * s, -self.depth(n["m"]) * 0.6 * s, False
+        s = sm((u - self.SLIP) / (self.RETURN - self.SLIP))  # lifts back over the tine
+        return -self.slip * (1 - s), -self.depth(n["m"]) * 0.6 * (1 - s) + self.hover * s, False
 
     def state(self, t):
-        st = {"press": {}}
+        # every tine still moving: pressed by a finger or ringing after release
+        bends, glow = {}, {}
+        for n in self.notes:
+            if n["t0"] - self.PRESS > t:
+                break
+            b = self.bend(n, t)
+            if b and abs(b) > abs(bends.get(n["m"], 0.0)):
+                bends[n["m"]] = b
+            g = self.ring(n, t) * n["lvl"]
+            if g > 0.02 and g > glow.get(n["m"], 0.0):
+                glow[n["m"]] = g
+        st = {"bend": bends, "glow": glow, "hover": self.hover}
         for side in ("L", "R"):
-            win = self._window(side, t)                      # five naturals, low to high
-            if side == "L":                                   # pinky lowest, thumb highest
-                fingers, thumb = list(reversed(win[:4])), win[4]
-            else:                                             # thumb lowest, pinky highest
-                fingers, thumb = win[1:], win[0]
-            for n in sounding(self.notes, t):
-                if (n["m"] < self.split) != (side == "L"):
-                    continue
-                m = n["m"]
-                if m in fingers or m == thumb:
-                    pass
-                else:                                         # an accidental or out-of-window note: nearest finger takes it
-                    k = min(range(4), key=lambda i: abs(fingers[i] - m))
-                    fingers[k] = m
-                age = t - n["t0"]
-                st["press"][m] = max(st["press"].get(m, 0.0), 1.0 if age < 0.15 else 0.6)
-            st[side] = fingers; st[side + "_thumb"] = thumb
+            hx, digits = self._hand(side, t)
+            st[side] = {"digits": digits} if hx is None else {"x": hx, "digits": digits}
         return st
 
 
