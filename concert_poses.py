@@ -34,7 +34,7 @@ UA, FA = 0.29, 0.27
 PLAYERS = {
     "Baritone Flying V": (0, 0.05, 0.04), "Violin": (1, 0.0, 0.04), "Finger Piano": (2, 0.10, 0.08),
     "Bass Finger Piano": (3, 0.10, 0.08), "Flute": (4, 0.0, 0.04), "Clarinet": (5, 0.0, 0.04),
-    "Oboe": (6, 0.0, 0.04), "Marimba": (7, 0.07, 0.04), "Cello": (8, 0.03, 0.15), "Trumpet": (9, 0.0, 0.04),
+    "Oboe": (6, 0.0, 0.04), "Marimba": (7, 0.07, 0.04), "Cello": (8, 0.12, 0.15),   # cellist leans over the strings "Trumpet": (9, 0.0, 0.04),
     "Tuba": (10, 0.02, 0.10), "Bassoon": (11, 0.02, 0.20), "Viola": (12, 0.0, 0.04), "French Horn": (13, 0.03, 0.04),
     "Trombone": (14, 0.0, 0.04), "Vibraphone": (15, 0.05, 0.04),
 }
@@ -358,6 +358,17 @@ def pose_bow(bow_name, frog, along, normal):
     ob.matrix_world = Matrix.Translation(frog) @ Matrix((s, a, n)).transposed().to_4x4()
 
 
+def reachable_frog_dist(key, contact, along, fd, reach=0.60, least=0.10):
+    """Shorten a bow stroke so the frog stays within the bow arm's reach: the hand holds the frog,
+    so a frog out of reach would leave the bow floating. Reach = upper arm + forearm (0.56 m) plus
+    the wrist-to-grip distance, less a little so the elbow is never locked straight. `least` keeps
+    the frog clear of the string, so the hand never ends up on the instrument."""
+    S = shoulders(key)["R"]
+    while fd > least and (contact + along * fd - S).length > reach:
+        fd -= 0.01
+    return max(fd, least)
+
+
 def bow_grip(frog, along, normal, player_fwd):
     a = Vector(along).normalized(); n = Vector(normal); n = (n - n.dot(a) * a).normalized()
     s = a.cross(n).normalized()
@@ -367,6 +378,24 @@ def bow_grip(frog, along, normal, player_fwd):
     tips = [G - a * 0.040 + s * 0.010 - n * 0.004, G - a * 0.020 + s * 0.012 - n * 0.006,
             G - a * 0.002 + s * 0.010 - n * 0.005, G + a * 0.016 + n * 0.008]
     return dict(kc=G + n * 0.040 - s * 0.030 - a * 0.012, tips=tips, thumb=G - n * 0.010 + a * 0.004 - s * 0.004)
+
+
+def _stopping_hand(G, M, shift, knuckle, thumb, heel_x, wrist=None, top_z=None):
+    """Left-hand knuckles, thumb (and, over the body, wrist) for a stopping position `shift` metres
+    up the neck. knuckle/thumb = (distance below the nut, local y, depth BELOW THE STRING). Both
+    follow the strings, which rise toward the bridge, so a hand in a high position stays above
+    the fingerboard instead of sinking into it; the thumb stops at the neck heel (x = heel_x),
+    where a player's thumb leaves the neck and the hand comes over the upper bout.
+    wrist = (offset toward the scroll, local y, depth below the knuckles): used once the knuckles
+    pass the heel, with the wrist held at least top_z high so the palm clears the top plate."""
+    s_z = lambda x: G["z_sn"] + (G["z_bt"] - G["z_sn"]) * (G["x_n"] - x) / (G["x_n"] - G["x_b"])
+    kx = G["x_n"] - knuckle[0] - shift
+    kz = s_z(kx) - knuckle[2]
+    tx = max(G["x_n"] - thumb[0] - shift, heel_x)
+    spec = dict(kc=M((kx, knuckle[1], kz)), thumb=M((tx, thumb[1], s_z(tx) - thumb[2])))
+    if wrist and kx < heel_x + 0.04:
+        spec["wrist"] = M((kx + wrist[0], wrist[1], max(kz - wrist[2], top_z)))
+    return spec
 
 
 def hands_violin(state=None, key="Violin"):
@@ -379,14 +408,17 @@ def hands_violin(state=None, key="Violin"):
     stops = st.get("stops", [(0.034, 2, 0.0), (0.060, 3, 0.004), (0.084, 1, 0.0), (0.104, 2, 0.006)])   # (dist from nut, string, lift)
     shift = st.get("shift", 0.0)                                                                       # hand position along the neck
     tips = [mw @ bowed_string_point(G, G["x_n"] - d, s) + Zw * (0.0065 + lift) for d, s, lift in stops]
-    lh = dict(kc=M((G["x_n"] - 0.068 - shift, -0.044, 0.004)), tips=tips, thumb=M((G["x_n"] - 0.036 - shift, 0.017, 0.011)))
+    lh = _stopping_hand(G, M, shift, knuckle=(0.068, -0.044, 0.0225), thumb=(0.036, 0.017, 0.0155), heel_x=0.0,
+                        wrist=(0.065, -0.060, 0.030), top_z=0.046)
+    lh["tips"] = tips
     xc = G["x_b"] + (G["fb_end"] - G["x_b"]) * 0.4
     bow_string = st.get("bow_string", 1.5)
     contact = mw @ (bowed_string_point(G, xc, bow_string) + Vector((0, 0, 0.0005)))
     along = Yw if Yw.dot(right) > 0 else -Yw
     tilt = (bow_string - 1.5) * 0.12                         # lower strings -> bow arm rises
     along = (along + Zw * tilt).normalized()
-    frog = contact + along * st.get("frog_dist", 0.22)       # bow position: 0.05 (at the frog) .. 0.70 (at the tip)
+    fd = reachable_frog_dist(key, contact, along, st.get("frog_dist", 0.22))
+    frog = contact + along * fd                               # bow position: 0.05 (at the frog) .. 0.70 (at the tip)
     pose_bow(f"{key} Bow", frog, along, Zw)
     rh = bow_grip(frog, along, Zw, f)
     return {"L": lh, "R": rh}, {"L": -UP + right * 0.5 + f * 0.1, "R": -UP + right * 0.9}
@@ -408,13 +440,15 @@ def hands_cello(state=None):
     stops = st.get("stops", [(0.074, 2, 0.0), (0.110, 2, 0.0), (0.142, 2, 0.0), (0.174, 2, 0.0)])
     shift = st.get("shift", 0.0)
     tips = [mw @ bowed_string_point(G, G["x_n"] - d, s) + Zc * (0.0085 + lift) for d, s, lift in stops]
-    lh = dict(kc=M((G["x_n"] - 0.125 - shift, 0.062 * a_side, 0.058)), tips=tips, thumb=M((G["x_n"] - 0.11 - shift, 0.0, 0.031)))
+    lh = _stopping_hand(G, M, shift, knuckle=(0.125, 0.062 * a_side, 0.023), thumb=(0.11, 0.0, 0.050), heel_x=0.0,
+                        wrist=(0.10, 0.085 * a_side, 0.040), top_z=0.105)
+    lh["tips"] = tips
     xc = G["x_b"] + (G["fb_end"] - G["x_b"]) * 0.35
     bow_string = st.get("bow_string", 1.5)
     contact = mw @ (bowed_string_point(G, xc, bow_string) + Vector((0, 0, 0.0008)))
     along = Yc if Yc.dot(right) > 0 else -Yc
     along = (along - UP * 0.15 + Zc * (bow_string - 1.5) * 0.12).normalized()
-    frog = contact + along * st.get("frog_dist", 0.30)
+    frog = contact + along * reachable_frog_dist(key, contact, along, st.get("frog_dist", 0.30))
     pose_bow("Cello Bow", frog, along, Zc)
     rh = bow_grip(frog, along, Zc, f)
     return {"L": lh, "R": rh}, {"L": l * 1.0 - UP * 0.25, "R": -UP + right * 0.7}

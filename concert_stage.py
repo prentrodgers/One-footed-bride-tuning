@@ -389,12 +389,13 @@ class BowedPlayer:
                 finger = min(3, max(0, (semis - 1) // 2))
                 shift = max(0.0, d - [0.034, 0.060, 0.084, 0.104][finger] * (SCALE_LEN[self.key] / 0.328))
                 stops = []
+                # finger spacing shrinks with the vibrating length, as it does up the neck
+                gap = 0.025 * SCALE_LEN[self.key] / 0.328 * 2 ** (-semis / 12)
                 for i in range(4):
                     if i == finger:
                         stops.append((d, s, 0.0))
                     else:
-                        di = max(0.01, d + (i - finger) * 0.025 * SCALE_LEN[self.key] / 0.328)
-                        stops.append((di, s, 0.010))
+                        stops.append((max(0.01, d + (i - finger) * gap), s, 0.010))
                 st["stops"] = stops; st["shift"] = shift
         else:
             prev = last_onset([p[0] for p in self.plan], t)
