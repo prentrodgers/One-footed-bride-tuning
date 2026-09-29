@@ -34,6 +34,15 @@
 #   POWER=0         leave the tuned profiles alone
 #   STAGGER=45      seconds between pod launches
 #   IMAGE=...       another image tag
+#   SCRIPT=concert_stage.py BLEND=Concert_Stage.blend
+#                   render the Concert Stage (a saved .blend, animated by
+#                   concert_stage.py) instead of blender_stage.py's procedural
+#                   stage. Same flags, same frame_%06d.png output, same mux:
+#     SCRIPT=concert_stage.py BLEND=Concert_Stage.blend ./render_farm.sh --npy ... --tempo ... --duration ... --out ...
+#
+# The rate table below was measured on blender_stage.py; the Concert Stage
+# paces differently (26 shadowed spot lights, 1200 puppet pieces posed per
+# frame in ~70 ms), so treat slice sizes as a first guess until re-measured.
 #
 # The fleet rests on tuned's balanced profile; a launch switches it to
 # powersave-gpu (./power-save-all.sh) and a detached waiter switches it back
@@ -80,6 +89,8 @@ NS=default
 IMAGE=${IMAGE:-quay.io/prentrodgers/python-music:0.11}
 PULL_SECRET=regcred
 REPO=/home/prent/Repos/One-footed-bride-tuning
+SCRIPT=${SCRIPT:-blender_stage.py}   # the per-frame animation script
+BLEND=${BLEND:-}                     # a .blend to open first (empty: blender_stage.py builds its own stage)
 FPS=30
 RES_X=1280
 RES_Y=720
@@ -318,8 +329,8 @@ spec:
     - {name: SYCL_CACHE_DIR, value: /home/prent/.cache/sycl}
     command: ["bash","-c"]
     args:
-    - ${hide_cmd}cd $REPO && exec blender --background --gpu-backend vulkan
-      --python blender_stage.py -- --npy $NPY --tempo $TEMPO --duration $DURATION
+    - ${hide_cmd}cd $REPO && exec blender --background ${BLEND} --gpu-backend vulkan
+      --python $SCRIPT -- --npy $NPY --tempo $TEMPO --duration $DURATION
       --res-x $RES_X --res-y $RES_Y --out $OUT --frame-start $part_start --frame-end $part_end
       --gpu-name any ${EXTRA[*]:-}
     volumeMounts:
