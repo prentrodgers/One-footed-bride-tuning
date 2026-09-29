@@ -72,10 +72,12 @@ SPECIAL_LIGHT = {  # player -> spotlight object
 
 # ─────────────────────────────── notes ───────────────────────────────
 def load_notes(npy, tempo):
-    """-> {player: structured list of notes} using the nearest 12-TET pitch.  Column meanings: see blender_stage.load_activity."""
+    """-> {player: structured list of notes} using the nearest 12-TET pitch (C4 = 4800 cents = MIDI 60).
+    Octave (col 5) 0 is WreckingCrew's silence marker, so those rows are not notes - the same
+    filter the section modules use (blender_marimba_poc.load_notes)."""
     arr = np.load(npy)
     bps = tempo / 60.0
-    aud = (arr[:, 14] > 0) & (arr[:, 3] > 0) & (arr[:, 2] > 0)
+    aud = (arr[:, 5] > 0) & (arr[:, 14] > 0) & (arr[:, 3] > 0) & (arr[:, 2] > 0)
     arr = arr[aud]
     per, unmapped = {}, {}
     vmax = {}
