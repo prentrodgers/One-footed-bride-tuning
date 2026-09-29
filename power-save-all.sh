@@ -56,38 +56,18 @@ type=sysfs
 /sys/class/drm/card*/device/tile0/gt0/freq0/min_freq=400
 '
 
-failed=()
-if [ $VERIFY_ONLY = 0 ]; then
-  for n in "${HOSTS[@]}"; do
-    echo "== $n"
-    # timeout 60: on 26 Sep 2026 tuned on fs7 threw an exception mid-switch and
-    # tuned-adm waited on it forever, stalling the whole loop. Now the node is
-    # reported FAILED and the verify below shows what state it was left in.
-    if ! $SSH "$n" "sudo mkdir -p /etc/tuned/profiles/powersave-gpu &&
-          printf '%s' \"\$(cat)\" | sudo tee /etc/tuned/profiles/powersave-gpu/tuned.conf >/dev/null &&
-          if systemctl is-active -q tuned-ppd; then
-            grep -q '^power-saver=powersave-gpu' /etc/tuned/ppd.conf ||
-              { sudo sed -i 's/^power-saver=.*/power-saver=powersave-gpu/' /etc/tuned/ppd.conf && sudo systemctl restart tuned-ppd && sleep 2; }
-            timeout 60 sudo busctl set-property org.freedesktop.UPower.PowerProfiles /org/freedesktop/UPower/PowerProfiles org.freedesktop.UPower.PowerProfiles ActiveProfile s power-saver
-          else timeout 60 sudo tuned-adm profile powersave-gpu; fi" <<<"$PROFILE"; then
-      echo "   FAILED to apply on $n"; failed+=("$n"); continue
-    fi
-  done
-  echo
-fi
+SSHN="$SSH -n"      # for calls that must not swallow the caller's stdin
 
-echo "== verify"
 # Per host: active profile, CPU turbo state, then each GPU. The iGPU's
 # render GT (gt0) must be at 550; the media GT (gt1) is shown and noted
-# if it differs, but does not fail the check.
-for n in "${HOSTS[@]}"; do
-  $SSH "$n" '
+# if it differs, but does not fail the check. Exits 1 on a mismatch.
+read -r -d '' VERIFY <<'EOS'
     ok=1; note=""
     prof=$(tuned-adm active 2>/dev/null | sed "s/Current active profile: //")
     [ "$prof" = powersave-gpu ] || ok=0
     # turbo state, normalised to no_turbo terms (1 = off): intel_pstate
     # exposes no_turbo; the Ryzens on fs6/fs9 (amd-pstate, active mode)
-    # take tuned'"'"'s boost=0 in the PER-POLICY cpu*/cpufreq/boost files —
+    # take tuned's boost=0 in the PER-POLICY cpu*/cpufreq/boost files —
     # the global cpufreq/boost stays 1 there and means nothing.
     if [ -e /sys/devices/system/cpu/intel_pstate/no_turbo ]; then
       nt=$(cat /sys/devices/system/cpu/intel_pstate/no_turbo)
@@ -116,8 +96,57 @@ for n in "${HOSTS[@]}"; do
       fi
     done
     [ $ok = 1 ] && echo "   OK$note" || { echo "   MISMATCH$note"; exit 1; }
-  ' || failed+=("$n")
+EOS
+
+# Switch one host. tuned-ppd hosts go through the desktop power mode (see the
+# header); the rest through tuned-adm. $1 = seconds to wait for the switch.
+apply_host() {
+  $SSH "$n" "sudo mkdir -p /etc/tuned/profiles/powersave-gpu &&
+        printf '%s' \"\$(cat)\" | sudo tee /etc/tuned/profiles/powersave-gpu/tuned.conf >/dev/null &&
+        if systemctl is-active -q tuned-ppd; then
+          grep -q '^power-saver=powersave-gpu' /etc/tuned/ppd.conf ||
+            { sudo sed -i 's/^power-saver=.*/power-saver=powersave-gpu/' /etc/tuned/ppd.conf && sudo systemctl restart tuned-ppd && sleep 2; }
+          timeout $1 sudo busctl set-property org.freedesktop.UPower.PowerProfiles /org/freedesktop/UPower/PowerProfiles org.freedesktop.UPower.PowerProfiles ActiveProfile s power-saver
+        else timeout $1 sudo tuned-adm profile powersave-gpu; fi" <<<"$PROFILE"
+}
+
+# Did the profile actually take? Polls the verify checks for up to 10 s:
+# tuned applies the sysfs settings a moment after the switch returns.
+settled() {
+  for _ in 1 2 3 4 5 6 7 8 9 10; do
+    $SSHN "$n" "$VERIFY" >/dev/null 2>&1 && return 0
+    sleep 1
+  done
+  return 1
+}
+
+failed=()
+if [ $VERIFY_ONLY = 0 ]; then
+  for n in "${HOSTS[@]}"; do
+    echo "== $n"
+    # Two ways a switch goes wrong (Sep 2026). On 26 Sep tuned threw an
+    # exception mid-switch on fs7, fs6 and fs4 in turn (FileNotFoundError from
+    # its udev monitor, all on daemons that had run for weeks) and tuned-adm
+    # waited on it forever or failed. On 29 Sep fs9's switch returned and
+    # named the new profile, but tuned never applied its settings (CPU boost
+    # on, Arc floor still 1200). Either way restarting tuned clears it, so:
+    # a short timeout, a check that the settings really took, and one retry
+    # after a restart. A host that still fails is reported, and the verify
+    # below shows what state it was left in.
+    apply_host 20 && settled && continue
+    echo "   $n did not take powersave-gpu; restarting tuned and trying again"
+    $SSHN "$n" "timeout 60 sudo systemctl restart tuned && sleep 3 &&
+                { ! systemctl is-active -q tuned-ppd || { timeout 60 sudo systemctl restart tuned-ppd && sleep 2; }; }"
+    apply_host 60 && settled || { echo "   FAILED to apply on $n"; failed+=("$n"); }
+  done
+  echo
+fi
+
+echo "== verify"
+for n in "${HOSTS[@]}"; do
+  $SSHN "$n" "$VERIFY" || failed+=("$n")
 done
+readarray -t failed < <(printf '%s\n' "${failed[@]}" | awk 'NF && !seen[$0]++')
 
 if [ ${#failed[@]} -gt 0 ]; then
   echo; echo "problems on: ${failed[*]}"; exit 1
