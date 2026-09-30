@@ -51,14 +51,25 @@ def spruce_top(name, varnish_light, varnish_dark, line):
     nt, N, L = _clear(m)
     tc = N.new("ShaderNodeTexCoord"); tc.location = (-900, 0)
     # growth rings: straight lines along the body (bands vary across Y), gently wandering
+    # Growth rings: straight lines along the body (bands vary across Y) that wander a little. Spacing
+    # ~2 mm at the centre joint (Scale 60 in these wave units), widening toward the edges as real
+    # spruce tops do, with sharp dark "winter" lines. Too fine, and they average out to one colour.
+    sep = N.new("ShaderNodeSeparateXYZ"); sep.location = (-900, 300)
+    L.new(tc.outputs["Object"], sep.inputs[0])
+    ay = N.new("ShaderNodeMath"); ay.operation = 'ABSOLUTE'; ay.location = (-760, 300)
+    L.new(sep.outputs["Y"], ay.inputs[0])
+    widen = N.new("ShaderNodeMath"); widen.operation = 'POWER'; widen.location = (-620, 300)   # |y|^0.8: rings wider outward
+    L.new(ay.outputs[0], widen.inputs[0]); widen.inputs[1].default_value = 0.8
+    comb = N.new("ShaderNodeCombineXYZ"); comb.location = (-480, 300)
+    L.new(sep.outputs["X"], comb.inputs["X"]); L.new(widen.outputs[0], comb.inputs["Y"]); L.new(sep.outputs["Z"], comb.inputs["Z"])
     wave = N.new("ShaderNodeTexWave"); wave.location = (-600, 150)
-    wave.wave_type = 'BANDS'; wave.bands_direction = 'Y'; wave.wave_profile = 'SIN'
-    wave.inputs["Scale"].default_value = 175.0          # ~1.8 mm between rings
-    wave.inputs["Distortion"].default_value = 1.6
-    wave.inputs["Detail"].default_value = 3.0
-    wave.inputs["Detail Scale"].default_value = 0.6
-    L.new(tc.outputs["Object"], wave.inputs["Vector"])
-    rings = _ramp(N, [(0.0, (1, 1, 1)), (0.72, (1, 1, 1)), (0.88, (0.35, 0.35, 0.35)), (1.0, (0.55, 0.55, 0.55))], -350, 150)
+    wave.wave_type = 'BANDS'; wave.bands_direction = 'Y'; wave.wave_profile = 'SAW'
+    wave.inputs["Scale"].default_value = 60.0
+    wave.inputs["Distortion"].default_value = 2.5
+    wave.inputs["Detail"].default_value = 2.0
+    wave.inputs["Detail Scale"].default_value = 0.4
+    L.new(comb.outputs[0], wave.inputs["Vector"])
+    rings = _ramp(N, [(0.0, (1, 1, 1)), (0.62, (0.92, 0.92, 0.92)), (0.86, (0.28, 0.28, 0.28)), (1.0, (0.20, 0.20, 0.20))], -350, 150)
     L.new(wave.outputs["Fac"], rings.inputs["Fac"])
     # varnish: uneven amber, lighter and darker patches across the plate
     noise = N.new("ShaderNodeTexNoise"); noise.location = (-600, -150)
