@@ -216,9 +216,10 @@ class MalletPlayer:
                 over = max(0.0, x[0] - x[1] - self.SPAN) + max(0.0, x[2] - x[3] - self.SPAN)
                 return sum(abs(pos[self.ORDER[j]].x - p.x) for j, p in zip(c, tp)) + 10.0 * over
             best = min(itertools.combinations(range(4), len(tp)), key=cost)
-            fixed = {}
-            for j, p in zip(best, tp):
-                fixed[j] = p
+            fixed, fmid = {}, {}
+            lvl = {fold(n["midi"], lo, hi): n["lvl"] for n in chord}
+            for j, p, m in zip(best, tp, targets):
+                fixed[j] = p; fmid[j] = m
             x = [pos[k].x for k in self.ORDER]
             for j, p in fixed.items():
                 x[j] = p.x
@@ -234,49 +235,87 @@ class MalletPlayer:
                         x[j] = max(x[j], x[j + 1] + self.GAP)
             for j, k in enumerate(self.ORDER):
                 if j in fixed:
-                    self.ev[k].append((t0, fixed[j], True)); pos[k] = fixed[j]
+                    self.ev[k].append((t0, fixed[j], True, fmid[j], lvl.get(fmid[j], 1.0))); pos[k] = fixed[j]
                 elif abs(x[j] - pos[k].x) > 1e-4:
                     carried = Vector((x[j], pos[k].y, pos[k].z))
-                    self.ev[k].append((t0, carried, False)); pos[k] = carried
+                    self.ev[k].append((t0, carried, False, None, 0.0)); pos[k] = carried
+        self.strikes = sorted((e[0], e[3], e[4]) for k in self.ORDER for e in self.ev[k] if e[2])
 
-    def head(self, k, t):
-        ev = self.ev[k]
+    # ---- the stroke: the mallet pivots at the grip (wrist and fingers); the hand stays at playing height ----
+    TH_HOVER = math.radians(8)      # head ~3.5 cm over the bars between notes
+    TH_TOP = math.radians(40)       # full stroke: the head starts from about hand level
+    TH_REBOUND = math.radians(20)
+    T_DOWN, T_REB = 0.07, 0.06      # the downstroke takes two frames: it lands hard
+
+    def _neighbours(self, k, t):
         prev = nxt = None
-        for e in ev:
+        for e in self.ev[k]:
             if e[0] <= t:
                 prev = e
             else:
                 nxt = e
                 break
+        return prev, nxt
+
+    def head(self, k, t):
+        """Where the head WOULD touch the bar (x, y and contact height): the stroke itself is theta()."""
+        prev, nxt = self._neighbours(k, t)
         base = prev[1] if prev else self.rest[k]
-        top = base.z if prev else self.bar_z
-        idle = top + self.HEAD_R + self.LIFT
         xy = Vector((base.x, base.y, 0.0))
-        z = idle
-        if nxt:
+        if nxt:                                               # travel to the next bar during the lift
             gap = nxt[0] - (prev[0] if prev else nxt[0] - 1.0)
-            move = min(0.30, max(0.06, gap * 0.7))
-            u = (t - (nxt[0] - move)) / move
+            move = min(0.30, max(0.05, gap * 0.7))
+            end = nxt[0] - (self.T_DOWN if nxt[2] else 0.0)
+            u = (t - (end - move)) / move
             if u > 0:
-                u = u * u * (3 - 2 * u)
+                u = min(1.0, u); u = u * u * (3 - 2 * u)
                 xy = xy.lerp(Vector((nxt[1].x, nxt[1].y, 0.0)), u)
-                z = idle + ((nxt[1].z + self.HEAD_R + self.LIFT) - idle) * u
-            if nxt[2] and nxt[0] - t < 0.14:                  # backswing, then down onto the bar
-                u = 1 - (nxt[0] - t) / 0.14
-                contact = nxt[1].z + self.HEAD_R
-                z = contact + (z - contact) * (1 - u * u) + 0.05 * math.sin(math.pi * u)
-        if prev and prev[2] and t - prev[0] < 0.12:           # rebound off the bar
-            u = (t - prev[0]) / 0.12
-            contact = prev[1].z + self.HEAD_R
-            z = contact + (z - contact) * (u * (2 - u))
-        # Resting: in a gap of more than REST_GAP the mallets go back to the starting position (and the
-        # body with them - lean and stance follow the heads), leaving after the last stroke and returning
-        # in time for the next.
-        w = self._rest_weight(k, t)
+        h = Vector((xy.x, xy.y, self.bar_z + self.HEAD_R))
+        w = self._rest_weight(k, t)                           # resting: back to the starting position
         if w > 0:
-            r = self.rest[k]
-            return Vector((xy.x, xy.y, z)).lerp(r, w)
-        return Vector((xy.x, xy.y, z))
+            h = h.lerp(Vector((self.rest[k].x, self.rest[k].y, self.bar_z + self.HEAD_R)), w)
+        return h
+
+    def theta(self, k, t):
+        """Stroke angle about the grip: 0 = head on the bar."""
+        prev, nxt = self._neighbours(k, t)
+        sm = lambda v: (lambda c: c * c * (3 - 2 * c))(max(0.0, min(1.0, v)))
+        th = self.TH_HOVER
+        if prev and prev[2]:                                  # rebound off the bar, settling to a hover
+            a = t - prev[0]
+            if a < self.T_REB:
+                th = self.TH_REBOUND * math.sin(0.5 * math.pi * a / self.T_REB)
+            else:
+                th = self.TH_HOVER + (self.TH_REBOUND - self.TH_HOVER) * math.exp(-(a - self.T_REB) / 0.07)
+        if nxt and nxt[2]:
+            gap = nxt[0] - (prev[0] if prev else nxt[0] - 2.0)
+            top = max(math.radians(16), min(self.TH_TOP, math.radians(12) + gap * math.radians(90)))
+            t_down = nxt[0] - self.T_DOWN
+            t_lift = max(nxt[0] - 0.40, (prev[0] + self.T_REB * 0.8) if prev else -9.0)
+            if t >= t_down:                                   # accelerating down onto the bar
+                u = (t - t_down) / self.T_DOWN
+                th = top * (1 - u * u)
+            elif t >= t_lift and t_down > t_lift:             # lift from wherever the last rebound left it
+                th = th + (top - th) * sm((t - t_lift) / (t_down - t_lift))
+        w = self._rest_weight(k, t)
+        return th + (self.TH_HOVER - th) * w
+
+    def bars(self, t):
+        """{midi: signed displacement} for bars still ringing from a stroke."""
+        out = {}
+        amp0 = 0.0016 if self.key == "Marimba" else 0.0010
+        for t0, m, lvl in self.strikes:
+            if t0 > t:
+                break
+            age = t - t0
+            tau = 0.8 if self.key == "Vibraphone" else 0.25 + 0.35 * (1 - (m - min(self.pts)) / max(1, max(self.pts) - min(self.pts)))
+            if age > 5 * tau:
+                continue
+            f = 9.0 + 0.07 * (m % 24)
+            d = amp0 * (0.5 + 0.5 * lvl) * math.exp(-age / tau) * math.cos(2 * math.pi * f * age)
+            if abs(d) > 2e-5 and abs(d) >= abs(out.get(m, 0.0)):
+                out[m] = d
+        return out
 
     REST_GAP, REST_OUT, REST_IN = 2.0, 0.7, 0.55
 
@@ -363,7 +402,9 @@ class MalletPlayer:
         cx = sum(h.x for h in hs) / 4 - self.rest_cx
         lean = max(-self.LEAN_MAX, min(self.LEAN_MAX, (cx - px) * 0.5))
         # body_shift is for the over-the-shoulder camera, which rides along with her stance
-        return {"heads": heads, "stance": feet, "lean": lean, "body_shift": (px, 0.0, 0.0)}
+        th = [self.theta(k, t) for k in self.ORDER]
+        return {"heads": heads, "theta": {"L": (th[1], th[0]), "R": (th[2], th[3])}, "bars": self.bars(t),
+                "stance": feet, "lean": lean, "body_shift": (px, 0.0, 0.0)}
 
 
 # ─────────────────────────────── finger pianos ───────────────────────────────
@@ -575,6 +616,33 @@ class BowedPlayer:
             end = max(0.08, min(0.65, end))
             self.plan.append((n, start, end)); pos, direction = end, -direction
 
+    def _fingering(self, notes):
+        """Up to two sounding notes -> [(string, stop distance, finger or None for open)], one finger each.
+        Each note on the highest string at or below it (the lowest position); a second note that would
+        land on the same string moves to the next lower one. Fingers are dealt in order along the neck."""
+        L = SCALE_LEN[self.key]
+        out, used = [], set()
+        for n in sorted(notes, key=lambda n: -n["midi"])[:2]:
+            s = string_for(self.opens, n["midi"])
+            while s in used and s > 0 and n["midi"] >= self.opens[s - 1]:
+                s -= 1
+            if s in used:
+                continue
+            used.add(s)
+            out.append([s, stop_distance(L, n["midi"] - self.opens[s]), None])
+        stopped = sorted((o for o in out if o[1] > 0), key=lambda o: o[1])
+        if stopped:
+            d0 = stopped[0][1]
+            semis0 = round(-12 * math.log2(1 - d0 / L))
+            f0 = min(3, max(0, (semis0 - 1) // 2)) if len(stopped) == 1 else min(2, max(0, (semis0 - 1) // 2))
+            gap = max(0.017 * L / 0.328, 0.025 * L / 0.328 * math.sqrt(1 - d0 / L))
+            stopped[0][2] = f0
+            for o in stopped[1:]:
+                if o[1] - d0 > 3.3 * gap:                        # beyond one hand's span: that note is not fingered
+                    out.remove(o); continue
+                o[2] = max(f0 + 1, min(3, f0 + round((o[1] - d0) / gap)))
+        return out
+
     def state(self, t):
         cur = [p for p in self.plan if p[0]["t0"] <= t < p[0]["t1"] + 0.05]
         st = {}
@@ -582,53 +650,86 @@ class BowedPlayer:
             n, a, b = cur[-1]
             u = min(1.0, (t - n["t0"]) / max(n["dur"], 1e-3))
             st["frog_dist"] = a + (b - a) * u
-            s = string_for(self.opens, n["midi"])
-            st["bow_string"] = s
-            semis = n["midi"] - self.opens[s]
-            if semis > 0:
-                d = SCALE_LEN[self.key] * (1 - 2 ** (-semis / 12))
-                finger = min(3, max(0, (semis - 1) // 2))
-                shift = max(0.0, d - [0.034, 0.060, 0.084, 0.104][finger] * (SCALE_LEN[self.key] / 0.328))
-                stops = []
-                # finger spacing shrinks with the vibrating length, as it does up the neck
-                gap = 0.025 * SCALE_LEN[self.key] / 0.328 * 2 ** (-semis / 12)
-                for i in range(4):
-                    if i == finger:
-                        stops.append((d, s, 0.0))
-                    else:
-                        stops.append((max(0.01, d + (i - finger) * gap), s, 0.010))
-                st["stops"] = stops; st["shift"] = shift
+            fing = self._fingering([p[0] for p in cur])
+            st["bow_string"] = sum(o[0] for o in fing) / len(fing)
+            stopped = [o for o in fing if o[1] > 0]
+            if stopped:
+                L = SCALE_LEN[self.key]
+                s0, d0, f0 = min(stopped, key=lambda o: o[1])
+                # a finger's spacing: it narrows up the neck, but fingers never get closer than their width
+                gap = max(0.017 * L / 0.328, 0.025 * L / 0.328 * math.sqrt(1 - d0 / L))
+                # the hand's position: where its first finger would sit
+                base_first = [0.034, 0.060, 0.084, 0.104][f0] * (L / 0.328)
+                st["shift"] = max(0.0, d0 - base_first)
+                stops = [None] * 4
+                for s, d, fi in stopped:
+                    stops[fi] = (d, s, 0.0)                        # a finger ON the string for each note
+                fb = 0.270 * L / 0.328 if self.key != "Cello" else 0.58
+                for i in range(4):                                 # the others curve just above, off the strings
+                    if stops[i] is None:
+                        stops[i] = (max(0.01, min(fb, d0 + (i - f0) * gap)), s0, 0.012)
+                st["stops"] = stops
         else:
             prev = last_onset([p[0] for p in self.plan], t)
             if prev is not None:
                 pl = [p for p in self.plan if p[0] is prev][0]
                 st["frog_dist"] = pl[2]
         # the string that is sounding (or ringing on after its note): stopped where the finger is, vibrating
-        n = cur[-1][0] if cur else last_onset([p[0] for p in self.plan], t)
-        if n is not None:
-            s = string_for(self.opens, n["midi"])
-            u = t - n["t0"]
-            A = STRING_AMP[self.key] * (0.4 + 0.6 * n["lvl"])
-            if n["art"] == "pizz":
-                amp = 1.3 * A * math.exp(-u / 0.35)
-            elif n["art"] == "martele":
-                amp = A * (0.7 + 0.6 * math.exp(-u / 0.12)) * min(1.0, u / 0.03)
-            else:
-                amp = A * min(1.0, u / 0.06)
-            if t > n["t1"] and n["art"] != "pizz":               # bow lifted: the string rings down quickly
-                amp *= math.exp(-(t - n["t1"]) / 0.10)
-            d = stop_distance(SCALE_LEN[self.key], n["midi"] - self.opens[s]) if cur else 0.0
-            if amp > 1e-5 or d > 0:
-                st["strings"] = {s: {"d": d, "disp": string_disp(self.key, s, amp, t) if amp > 1e-5 else 0.0}}
+        notes = [p[0] for p in cur] if cur else [n for n in [last_onset([p[0] for p in self.plan], t)] if n]
+        if notes:
+            fing = self._fingering(notes)
+            strings = {}
+            for n in sorted(notes, key=lambda n: -n["midi"])[:2]:
+                match = [o for o in fing if abs(stop_distance(SCALE_LEN[self.key], n["midi"] - self.opens[o[0]]) - o[1]) < 1e-9]
+                if not match:
+                    continue
+                s, d, _f = match[0]
+                u = t - n["t0"]
+                A = STRING_AMP[self.key] * (0.4 + 0.6 * n["lvl"])
+                if n["art"] == "pizz":
+                    amp = 1.3 * A * math.exp(-u / 0.35)
+                elif n["art"] == "martele":
+                    amp = A * (0.7 + 0.6 * math.exp(-u / 0.12)) * min(1.0, u / 0.03)
+                else:
+                    amp = A * min(1.0, u / 0.06)
+                if t > n["t1"] and n["art"] != "pizz":           # bow lifted: the string rings down quickly
+                    amp *= math.exp(-(t - n["t1"]) / 0.10)
+                d = d if cur else 0.0
+                if amp > 1e-5 or d > 0:
+                    strings[s] = {"d": d, "disp": string_disp(self.key, s, amp, t) if amp > 1e-5 else 0.0}
+            if strings:
+                st["strings"] = strings
         return st
 
 
 class GuitarPlayer:
+    tempo = None                      # set by Performance: beats per minute of the piece
+
     def __init__(self, notes):
         self.notes = notes
+        self.onsets = [n["t0"] for n in notes]
+
+    def groove(self, t):
+        """Carol Kaye in the pocket: a sway from the hips across each two beats and a nod on every beat,
+        while he is playing; still when he is not."""
+        if not self.tempo:
+            return (0.0, 0.0)
+        import bisect
+        i = bisect.bisect_right(self.onsets, t + 0.3)
+        recent = [n for n in self.notes[max(0, i - 40):i] if n["t0"] <= t + 0.3]
+        last_end = max((n["t1"] for n in recent), default=-9.0)
+        nxt = self.onsets[i] if i < len(self.onsets) else 1e9
+        e_out = max(0.0, min(1.0, 1.0 - (t - last_end - 0.4) / 1.2)) if t > last_end else 1.0
+        e_in = max(0.0, min(1.0, 1.0 - (nxt - t - 0.3) / 0.6)) if not recent else 1.0
+        e = min(1.0, max(e_out if recent else 0.0, e_in))
+        e = e * e * (3 - 2 * e)
+        beat = t * self.tempo / 60.0
+        roll = math.radians(3.0) * math.sin(math.pi * beat)
+        nod = math.radians(2.5) * max(0.0, math.cos(2 * math.pi * beat)) ** 3
+        return (roll * e, nod * e)
 
     def state(self, t):
-        st = {}
+        st = {"sway": self.groove(t)}
         cur = sounding(self.notes, t)
         if cur:
             n = max(cur, key=lambda n: n["midi"])
@@ -968,6 +1069,9 @@ class Performance:
         cp.load_layout()
         self.per = load_notes(npy, tempo)
         self.players = {key: make_player(key, ns) for key, ns in self.per.items() if key in cp.PLAYERS}
+        for pl in self.players.values():
+            if isinstance(pl, GuitarPlayer):
+                pl.tempo = tempo
         self.puppets = {key: cp.get_puppet(key) for key in cp.PLAYERS}
         self.shots = parse_cues(cues) if cues else build_shots(self.per, duration, seed, camera)
         self.lights = {k: bpy.data.objects.get(v) for k, v in SPECIAL_LIGHT.items()}

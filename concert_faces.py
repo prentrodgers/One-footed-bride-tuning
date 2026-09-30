@@ -21,7 +21,8 @@ import concert_stagekit as sk
 
 UP = Vector((0, 0, 1))
 # material indices in the body mesh: see concert_poses.build_body
-MI = dict(skin=0, hair=4, pupil=5, sclera=7, iris=8, lips=9)
+MI = dict(skin=0, hair=4, pupil=5, sclera=7, iris=8, lips=9, lens=10, frame=11)
+GLASSES = {"Baritone Flying V"}      # dark glasses
 
 # head profile: (z above the head centre, half-width, front depth, back depth, forward offset of the ring)
 PROFILE = [(-0.120, 0.012, 0.008, 0.008, 0.070), (-0.110, 0.034, 0.018, 0.030, 0.062), (-0.095, 0.052, 0.028, 0.058, 0.048),
@@ -141,7 +142,9 @@ def face_materials(i, skin_color):
     sclera = sk.mat("Eye Sclera", (0.82, 0.80, 0.76), rough=0.12)
     iris = sk.mat(f"Iris {i}", IRIS[i % len(IRIS)], rough=0.10, coat=1.0)
     lips = sk.mat(f"Lips {i}", tuple(c * k for c, k in zip(skin_color, (0.80, 0.52, 0.52))), rough=0.35)
-    return [sclera, iris, lips]
+    lens = sk.mat("Sunglass Lens", (0.012, 0.012, 0.016), metal=0.3, rough=0.04, coat=1.0)
+    frame = sk.mat("Sunglass Frame", (0.01, 0.01, 0.01), rough=0.25)
+    return [sclera, iris, lips, lens, frame]
 
 
 # ─────────────────────────────── the head ───────────────────────────────
@@ -195,6 +198,17 @@ def build_head(B, hc, right, f, key, i, seg=32):
     _tube(B, lo_pts, taper(0.0052), MI["lips"], seg=10, flat=0.8, flat_axis=f)
     mouth = [P(x, yl + 0.0005 - 45 * x * x, -0.0530 + 1.0 * x * x) for x in xs[1:-1]]
     _tube(B, mouth, [0.0009] * len(mouth), MI["pupil"], seg=6)
+    if key in GLASSES:                  # 60s wayfarer-ish shades: dark lenses, black frame, temples to the ears
+        for s in (-1, 1):
+            lc = P(s * 0.032, front_y(s * 0.032, 0.022) + 0.011, 0.021)
+            B.sphere(lc, 1.0, mi=MI["lens"], scale=(0.022, 0.004, 0.017), rot=Rb, seg=20, rings=8)
+            ring = [lc + right * (0.023 * math.cos(2 * math.pi * k / 20)) + UP * (0.018 * math.sin(2 * math.pi * k / 20)) for k in range(21)]
+            _tube(B, ring, [0.0022] * len(ring), MI["frame"], seg=6)
+            hinge = lc + right * (s * 0.024) + UP * 0.006
+            ear = P(s * 0.080, -0.012, 0.018)
+            _tube(B, [hinge, hinge.lerp(ear, 0.5) + right * (s * 0.004), ear], [0.0020] * 3, MI["frame"], seg=6)
+        _tube(B, [P(-0.010, front_y(0, 0.030) + 0.010, 0.028), P(0, front_y(0, 0.030) + 0.012, 0.030),
+                  P(0.010, front_y(0, 0.030) + 0.010, 0.028)], [0.0022] * 3, MI["frame"], seg=6)
     # hair and beard
     _hair(B, hc, right, f, style)
     if style == "bun":

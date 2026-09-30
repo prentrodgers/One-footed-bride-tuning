@@ -132,6 +132,7 @@ def build_body(key, leg_style="normal"):
         B.sphere(S - UP * 0.008, 1.0, mi=1, scale=(0.062, 0.066, 0.064), rot=Rb, seg=16, rings=10)
     skirt = key in SKIRTS
     knees = []
+    legs_b = sk.Builder()
     for side in (1, -1):
         hip = pel + l * side * 0.095
         B.sphere(hip - UP * 0.01, 0.084, mi=2, seg=16, rings=10)          # hip joint: thigh flows out of the seat
@@ -148,11 +149,12 @@ def build_body(key, leg_style="normal"):
             ankle = Vector((knee.x, knee.y, p.z + 0.09)) + l * side * 0.02
         knees.append(knee)
         d = (knee - hip).normalized()
-        B.cyl(hip - d * 0.03, knee, 0.080, mi=2, seg=16, r2=0.060); B.sphere(knee, 0.060, mi=2, seg=14, rings=8)
-        B.cyl(knee, ankle, 0.056, mi=2, seg=16, r2=0.050)
+        LB = legs_b if key in SWAYERS else B         # a swaying player's legs stay put
+        LB.cyl(hip - d * 0.03, knee, 0.080, mi=2, seg=16, r2=0.060); LB.sphere(knee, 0.060, mi=2, seg=14, rings=8)
+        LB.cyl(knee, ankle, 0.056, mi=2, seg=16, r2=0.050)
         if not skirt:                        # trouser cuff breaking over the shoe
-            B.cyl(ankle - UP * 0.035, ankle + UP * 0.02, 0.054, mi=2, seg=16)
-        B.box(ankle + f * 0.06 - UP * 0.05, (0.10, 0.27, 0.08), mi=3, rot=Rb)
+            LB.cyl(ankle - UP * 0.035, ankle + UP * 0.02, 0.054, mi=2, seg=16)
+        LB.box(ankle + f * 0.06 - UP * 0.05, (0.10, 0.27, 0.08), mi=3, rot=Rb)
     if skirt:
         _skirt(B, key, p, f, right, pel, axis, fwd, Lt, seated, knees)
     bm.verts.index_update()
@@ -162,6 +164,13 @@ def build_body(key, leg_style="normal"):
     mats += [sk.mat("Belt Buckle Brass", (0.8, 0.6, 0.3), metal=1.0, rough=0.3)] + cf.face_materials(idx, sk.SKINS[idx % 12])
     ob = B.build(body_name(key), mats, collection=sk.coll("Musicians"), smooth=True)
     ob["player"] = key
+    if key in SWAYERS:
+        old = bpy.data.objects.get(body_name(key) + " Legs")
+        if old:
+            bpy.data.objects.remove(old, do_unlink=True)
+        legs_b.build(body_name(key) + " Legs", mats, collection=sk.coll("Musicians"), smooth=True)
+    else:
+        legs_b.bm.free()
     if key in BREATHERS:                     # a shape key the animation drives: inhale before a phrase, exhale through it
         ob.shape_key_add(name="Basis", from_mix=False)
         kb = ob.shape_key_add(name="Breath", from_mix=False)
@@ -186,6 +195,7 @@ SKIRTS = {"Cello", "Tuba", "Bassoon", "Marimba"}     # the players referred to a
 # waist, seat, mid-thigh, knees, below the knee, hem. The bassoon's boot comes down almost to the seat.
 SKIRT_SAG = {"Cello": [0.0, 0.0, 0.12, 0.26, 0.30, 0.22],
              "Bassoon": [0.0, 0.03, 0.40, 0.42, 0.36, 0.24]}
+SWAYERS = {"Baritone Flying V"}                      # sways with the beat from the hips (legs a separate object)
 LEG_SHIFT = {("Baritone Flying V", -1): 0.10}        # (player, side -1 = right): knee moves toward the left (m)
 
 
@@ -786,10 +796,18 @@ def bow_grip(frog, along, normal, player_fwd):
     s = a.cross(n).normalized()
     if s.dot(player_fwd) < 0:
         s = -s
-    G = Vector(frog) + n * 0.017 - a * 0.030
-    tips = [G - a * 0.040 + s * 0.010 - n * 0.004, G - a * 0.020 + s * 0.012 - n * 0.006,
-            G - a * 0.002 + s * 0.010 - n * 0.005, G + a * 0.016 + n * 0.008]
-    return dict(kc=G + n * 0.040 - s * 0.030 - a * 0.012, tips=tips, thumb=G - n * 0.010 + a * 0.004 - s * 0.004)
+    G = Vector(frog) + n * 0.017 - a * 0.030                 # on the stick, just in front of the frog
+    # "above": the stick side, tipped toward the sky, so the back of the hand faces up
+    h = n + UP; h = (h - h.dot(a) * a).normalized()
+    s = (s - s.dot(h) * h).normalized()
+    # Back of the hand on top, knuckles over the stick, wrist a little higher toward the arm; index,
+    # middle and ring fingers drape over the stick from above (index furthest toward the tip), the pinky
+    # curved with its tip on top of the stick, the bent thumb under the stick against the frog.
+    kc = G + h * 0.036 - s * 0.010 + a * 0.004
+    tips = [G - a * 0.030 + s * 0.008 - h * 0.004, G - a * 0.012 + s * 0.010 - h * 0.006,
+            G + a * 0.006 + s * 0.009 - h * 0.005, G + a * 0.022 + h * 0.008]
+    return dict(kc=kc, wrist=kc + a * 0.072 + h * 0.020 - s * 0.012, tips=tips,
+                thumb=G - h * 0.008 + a * 0.002 - s * 0.004, palm=-h)
 
 
 def _stopping_hand(G, M, shift, knuckle, thumb, heel_x, wrist=None, top_z=None):
@@ -811,7 +829,7 @@ def _stopping_hand(G, M, shift, knuckle, thumb, heel_x, wrist=None, top_z=None):
 
 
 def stopping_hand(G, mw, tips, shift, ks, knuckle_out, knuckle_dz, wrist_out, wrist_below, thumb_x, thumb_dz,
-                  high_wrist=None):
+                  high_wrist=None, lifted=None):
     """A left hand stopping strings, in the instrument's own frame (x along the neck toward the scroll,
     y across the strings, z out of the top). ks = the side the knuckles are on (+1/-1 in y): the palm
     faces the neck from that side and the fingers arch over the fingerboard onto the strings.
@@ -821,16 +839,24 @@ def stopping_hand(G, mw, tips, shift, ks, knuckle_out, knuckle_dz, wrist_out, wr
     s_z = lambda x: G["z_sn"] + (G["z_bt"] - G["z_sn"]) * (G["x_n"] - x) / (G["x_n"] - G["x_b"])
     inv = mw.inverted()
     tl = [inv @ Vector(t) for t in tips]
-    kx = sum(t.x for t in tl) / 4
+    down = [t for t, up_ in zip(tl, lifted or [False] * 4) if not up_] or tl
+    kx = sum(t.x for t in down) / len(down) + (0.0 if len(down) == 4 else
+         sum(-0.027 + 0.018 * i for i, up_ in enumerate(lifted) if not up_) / len(down))   # hand centred on the stopping fingers
     kc = Vector((kx, ks * knuckle_out, s_z(kx) + knuckle_dz))
     W = Vector((kx + 0.012, ks * wrist_out, s_z(kx) - wrist_below))
     if high_wrist is not None:                          # past the heel: over the body
         u = max(0.0, min(1.0, (0.02 - kx) / 0.06))
-        Wh = Vector((kx + 0.035, ks * high_wrist[0], high_wrist[1]))
+        Wh = Vector((kx + 0.004, ks * high_wrist[0], high_wrist[1]))     # beside the bout: fingers come ACROSS the neck
         W = W.lerp(Wh, u); kc.z += 0.024 * u; kc.y += ks * 0.006 * u
-    tx = max(kx + thumb_x, 0.0)
+    tx = max(kx + thumb_x, min(0.0, kx + 0.045))       # at the heel, or under the fingerboard's edge within reach
     th = Vector((tx, -ks * 0.004, s_z(tx) - thumb_dz))
     R3 = mw.to_3x3()
+    if lifted:                                          # a finger not stopping a note curls above the strings, by its knuckle
+        tips = list(tips)
+        for i, up_ in enumerate(lifted):
+            if up_:
+                kxi = kc.x - (-0.027 + 0.018 * i)
+                tips[i] = mw @ Vector((kxi, kc.y - ks * 0.030, max(s_z(kxi) + 0.008, kc.z - 0.010)))
     return dict(kc=mw @ kc, wrist=mw @ W, tips=tips, thumb=mw @ th, palm=(R3 @ Vector((0, -ks, 0.35))).normalized())
 
 
@@ -848,8 +874,9 @@ def hands_violin(state=None, key="Violin"):
             for d, s, lift in stops]
     set_live_strings(key, st.get("strings", {}))
     # knuckles on the E-string side (-y), wrist under the neck, thumb under the G side
-    lh = stopping_hand(G, mw, tips, shift, ks=-1, knuckle_out=0.030, knuckle_dz=-0.004, wrist_out=0.034,
-                       wrist_below=0.072, thumb_x=0.018, thumb_dz=0.020, high_wrist=(0.082, 0.068))
+    lh = stopping_hand(G, mw, tips, shift, ks=-1, knuckle_out=0.036, knuckle_dz=0.016, wrist_out=0.034,
+                       wrist_below=0.072, thumb_x=0.018, thumb_dz=0.020, high_wrist=(0.082, 0.068),
+                       lifted=[lift > 0 for _d, _s, lift in stops] if "stops" in st else None)
     xc = G["x_b"] + (G["fb_end"] - G["x_b"]) * 0.4
     bow_string = st.get("bow_string", 1.5)
     contact = mw @ (bowed_string_point(G, xc, bow_string) + Vector((0, 0, 0.0005)))
@@ -883,8 +910,9 @@ def hands_cello(state=None):
     set_live_strings(key, st.get("strings", {}))
     # knuckles at the player's-left edge of the neck, fingers curved over onto the strings, thumb behind the
     # neck, wrist behind and to the left (the cello's back faces the player)
-    lh = stopping_hand(G, mw, tips, shift, ks=a_side, knuckle_out=0.044, knuckle_dz=-0.006, wrist_out=0.070,
-                       wrist_below=0.070, thumb_x=0.025, thumb_dz=0.048, high_wrist=(0.19, 0.075))
+    lh = stopping_hand(G, mw, tips, shift, ks=a_side, knuckle_out=0.050, knuckle_dz=0.024, wrist_out=0.070,
+                       wrist_below=0.070, thumb_x=0.025, thumb_dz=0.048, high_wrist=(0.19, 0.075),
+                       lifted=[lift > 0 for _d, _s, lift in stops] if "stops" in st else None)
     xc = G["x_b"] + (G["fb_end"] - G["x_b"]) * 0.35
     bow_string = st.get("bow_string", 1.5)
     contact = mw @ (bowed_string_point(G, xc, bow_string) + Vector((0, 0, 0.0008)))
@@ -1111,21 +1139,32 @@ def hands_mallets(state=None, key="Marimba"):
     rig, top, hy, heady, xl, xr, spread, hz = MALLET_SETS[key]
     o = bpy.data.objects[rig].matrix_world.translation
     tz = o.z + top
-    heads = st.get("heads") or mallet_heads_rest(key)
+    heads = st.get("heads")
+    thetas = st.get("theta")
+    if heads is None:                                        # rest: heads over the bars, hovering
+        rest = mallet_heads_rest(key)
+        heads = {s: tuple(Vector((h.x, h.y, tz + 0.031)) for h in rest[s]) for s in rest}
+    if thetas is None:
+        thetas = {"L": (MALLET_HOVER, MALLET_HOVER), "R": (MALLET_HOVER, MALLET_HOVER)}
+    set_bar_vibration(key, st.get("bars", {}))
     p, f, l, up = frame(key)
     hands = {}
     for side in ("L", "R"):
-        inner, outer = heads[side]
+        inner, outer = heads[side]                           # where each head meets its bar
         inward = Vector((-1 if side == "L" else 1, 0, 0))
         mid = (inner + outer) / 2
-        # The hand is placed FROM the mallet heads: the grip sits a fixed distance back along the shafts
-        # (toward the player and up), so each 40 cm mallet always runs from its head through the hand.
+        # The hand is placed from the contact points: the grip sits a fixed distance back along the shafts
+        # (toward the player and up). The stroke is the mallet pivoting at the grip - wrist and fingers -
+        # so the head swings up to about hand level and comes down hard onto the bar while the hand stays.
         d = (-f * 0.80 + UP * 0.60).normalized()
         Gc = mid + d * 0.29
         H = Gc - Vector((0, -0.026, -0.020))
         gi = H + Vector((0, -0.030, -0.018)) + inward * 0.018
         go = H + Vector((0, -0.020, -0.022)) - inward * 0.040
-        for g, h, tag in ((gi, inner, "inner"), (go, outer, "outer")):
+        for g, base, ang, tag in ((gi, inner, thetas[side][0], "inner"), (go, outer, thetas[side][1], "outer")):
+            v = base - g
+            axis = v.cross(UP)
+            h = g + (Matrix.Rotation(ang, 3, axis.normalized()) @ v if axis.length > 1e-6 else v)
             ob = bpy.data.objects.get(f"{key} Mallet {side} {tag}")
             if ob:
                 ob.matrix_world = Matrix.Translation(h) @ sk.look_rot(g - h)
@@ -1134,6 +1173,103 @@ def hands_mallets(state=None, key="Marimba"):
                                  go + Vector((0, -0.006, -0.011)), go + Vector((0, 0.012, -0.012))],
                            thumb=gi + Vector((0, -0.004, 0.011)) + inward * 0.004)
     return hands, {"L": -UP + l * 0.8 - f * 0.3, "R": -UP - l * 0.8 - f * 0.3}
+
+
+MALLET_HOVER = math.radians(8)
+
+# ---- live bars: each bar its own object, bending in its first free-free mode after a stroke ----
+# (rig, lowest MIDI, count, L0, w_low, w_high, gap, centre gap, top natural, top accidental, thickness, material, old mesh)
+BAR_GEO = {"Marimba": ("Marimba", 45, 52, 0.52, 0.068, 0.044, 0.010, 0.020, 0.90, 0.92, 0.022, "Honduran Rosewood", "Marimba Bars"),
+           "Vibraphone": ("Vibraphone", 53, 37, 0.37, 0.057, 0.043, 0.009, 0.020, 0.86, 0.86, 0.013, "Vibe Bar Aluminium", "Vibraphone Bars")}
+BAR_ST = 17                         # stations along a bar
+_bar_cache = {}
+
+
+def _mode1(xi):
+    """First bending mode of a free-free bar, ends = +1; nodes at 0.224 and 0.776 of the length."""
+    b, s = 4.7300, 0.9825
+    v = math.cosh(b * xi) + math.cos(b * xi) - s * (math.sinh(b * xi) + math.sin(b * xi))
+    return v / 2.0
+
+
+def _bar_layout(key):
+    rig, m0, K, L0, wl, wh, gap, cen, tn, ta, T, _m, _o = BAR_GEO[key]
+    notes = []
+    for k in range(K):
+        midi = m0 + k
+        notes.append(dict(midi=midi, acc=(midi % 12) in _ACC, L=L0 * 2 ** (-k / 24), w=wl - (wl - wh) * k / (K - 1)))
+    nat = [n for n in notes if not n["acc"]]
+    x = (sum(n["w"] for n in nat) + gap * (len(nat) - 1)) / 2
+    for n in nat:
+        n["x"] = x - n["w"] / 2; x -= n["w"] + gap
+    for i, n in enumerate(notes):
+        if n["acc"]:
+            n["x"] = (notes[i - 1]["x"] + notes[i + 1]["x"]) / 2
+        s = -1 if n["acc"] else 1
+        n["y0"], n["y1"] = s * cen, s * (cen + n["L"])
+        n["top"] = ta if n["acc"] else tn
+    return notes, T
+
+
+def build_live_bars(key):
+    rig_name, *_rest = BAR_GEO[key]
+    mat_name, old_name = BAR_GEO[key][11], BAR_GEO[key][12]
+    rig = bpy.data.objects[rig_name]
+    col = rig.users_collection[0]
+    old = bpy.data.objects.get(old_name)
+    if old:
+        bpy.data.objects.remove(old, do_unlink=True)
+    notes, T = _bar_layout(key)
+    for n in notes:
+        name = f"{key} Bar {n['midi']}"
+        o = bpy.data.objects.get(name)
+        if o:
+            bpy.data.objects.remove(o, do_unlink=True)
+        verts, faces = [], []
+        for k in range(BAR_ST):
+            y = n["y0"] + (n["y1"] - n["y0"]) * k / (BAR_ST - 1)
+            for dx, z in ((-1, n["top"] - T), (1, n["top"] - T), (1, n["top"]), (-1, n["top"])):
+                verts.append((n["x"] + dx * n["w"] / 2, y, z))
+        for k in range(BAR_ST - 1):
+            for j in range(4):
+                a, b = k * 4 + j, k * 4 + (j + 1) % 4
+                faces.append((a, b, b + 4, a + 4))
+        faces.append((3, 2, 1, 0)); last = (BAR_ST - 1) * 4
+        faces.append((last, last + 1, last + 2, last + 3))
+        me = bpy.data.meshes.new(name); me.from_pydata(verts, [], faces)
+        me.materials.append(bpy.data.materials.get(mat_name))
+        ob = bpy.data.objects.new(name, me); col.objects.link(ob)
+        ob.parent = rig; ob.matrix_parent_inverse = Matrix.Identity(4)
+        ob["midi"] = n["midi"]
+    _bar_cache.pop(key, None)
+
+
+def set_bar_vibration(key, bars):
+    """bars: {midi: signed displacement at the bar ends (m)}; the centre moves the other way, nodes stay."""
+    if key not in _bar_cache:
+        rig = bpy.data.objects.get(BAR_GEO[key][0])
+        objs = {o["midi"]: o for o in (rig.children if rig else []) if "midi" in o and o.name.startswith(f"{key} Bar ")}
+        if not objs:
+            _bar_cache[key] = None
+        else:
+            base = {m: [v.co.copy() for v in o.data.vertices] for m, o in objs.items()}
+            _bar_cache[key] = (objs, base, {}, [_mode1(k / (BAR_ST - 1)) for k in range(BAR_ST)])
+    c = _bar_cache[key]
+    if c is None:
+        return
+    objs, base, last, shape = c
+    for m in set(last) | set(bars):
+        d = bars.get(m, 0.0)
+        if abs(d - last.get(m, 0.0)) < 1e-6 or m not in objs:
+            continue
+        co = []
+        for i, v in enumerate(base[m]):
+            co.extend((v.x, v.y, v.z + d * shape[i // 4]))
+        me = objs[m].data; me.vertices.foreach_set("co", co); me.update()
+        if d == 0.0:
+            last.pop(m, None)
+        else:
+            last[m] = d
 
 
 def hands_marimba(state=None):
@@ -1359,9 +1495,13 @@ def pose(key, state=None, pup=None):
     else:
         shift = Vector((state or {}).get("body_shift", (0.0, 0.0, 0.0)))
         body = bpy.data.objects.get(body_name(key))
+        roll, nod = (state or {}).get("sway", (0.0, 0.0))
+        p_, f_, l_, _u = frame(key)
+        pel = p_ + UP * (0.53 if sk.LAYOUT[key]["seated"] else 0.96)
+        Mb = Matrix.Translation(shift + pel) @ Matrix.Rotation(roll, 4, f_) @ Matrix.Rotation(nod, 4, l_) @ Matrix.Translation(-pel)
         if body:
-            body.location = shift
-        S = {side: s + shift for side, s in shoulders(key).items()}
+            body.matrix_world = Mb
+        S = {side: Mb @ s for side, s in shoulders(key).items()}
     p, f, l, up = frame(key)
     default_pole = {"L": -UP + l * 0.8 - f * 0.3, "R": -UP - l * 0.8 - f * 0.3}
     for side in ("L", "R"):
