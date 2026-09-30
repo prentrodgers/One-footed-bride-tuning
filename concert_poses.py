@@ -182,7 +182,10 @@ BREATH_DEPTH = 0.30          # a full breath pushes the front of the abdomen out
 BREATH_REST = 0.30
 BREATHERS = {"Flute", "Clarinet", "Oboe", "Bassoon", "Trumpet", "Trombone", "Tuba", "French Horn"}
 SKIRTS = {"Cello", "Tuba", "Bassoon", "Marimba"}     # the players referred to as "she"
-SKIRT_SAG = {"Cello", "Bassoon"}                     # instrument between the knees: the skirt falls away between them
+# Instrument between the knees: how far each skirt ring's middle falls away between the legs (m), for the rings
+# waist, seat, mid-thigh, knees, below the knee, hem. The bassoon's boot comes down almost to the seat.
+SKIRT_SAG = {"Cello": [0.0, 0.0, 0.12, 0.26, 0.30, 0.22],
+             "Bassoon": [0.0, 0.03, 0.40, 0.42, 0.36, 0.24]}
 LEG_SHIFT = {("Baritone Flying V", -1): 0.10}        # (player, side -1 = right): knee moves toward the left (m)
 
 
@@ -217,17 +220,19 @@ def _skirt(B, key, p, f, right, pel, axis, fwd, Lt, seated, knees):
     seg = 28
     # With an instrument between the knees the cloth over the gap drops away between the legs, below
     # the instrument, instead of stretching across it: sag = how far each ring's middle falls.
-    sag = [0.0, 0.0, 0.12, 0.26, 0.30, 0.22] if (seated and key in SKIRT_SAG) else [0.0] * len(rings)
+    sag = SKIRT_SAG[key] if (seated and key in SKIRT_SAG) else [0.0] * len(rings)
     gap = max(0.05, (knees[0] - knees[1]).length / 2 - 0.02) if seated else 1.0
 
     def vert(i, k, c, ea, eb, a, b):
         th = 2 * math.pi * k / seg
         v = c + ea * (a * math.cos(th)) + eb * (b * math.sin(th))
         x = a * math.cos(th)
-        if sag[i] and abs(x) < gap and math.sin(th) > 0:
-            w = (1 - (x / gap) ** 2) * math.sin(th) ** 0.5
+        if sag[i] and abs(x) < gap:        # the whole cross-section drops (top AND underside), a trough of cloth
+            w = 1 - (x / gap) ** 2
             v = v - UP * (sag[i] * w)
-            v.z = max(v.z, p.z + 0.05)
+            if i >= 3 and (v - c).dot(f) > 0:   # below the knees the front falls back between the legs too
+                v = v - f * (min((v - c).dot(f), 0.22) * w * 0.9)
+            v.z = max(v.z, p.z + 0.03 + (0.012 if math.sin(th) > 0 else 0.0))
         return v
     vr = [[B.bm.verts.new(vert(i, k, *ring)) for k in range(seg)] for i, ring in enumerate(rings)]
     for r0, r1 in zip(vr[:-1], vr[1:]):
@@ -422,18 +427,27 @@ def pose_arm(pup, side, S, spec, pole):
     ny = pd.cross(ac).normalized()
     Rp = Matrix((ac, ny, pd)).transposed().to_4x4()
     g("palm").matrix_world = Matrix.Translation((W + kc) / 2) @ Rp @ Matrix.Diagonal((0.041, 0.016, plen / 2 + 0.010, 1.0))
-    # palm side: the way the fingers curl is toward where the fingertips are
-    c = sum(tips, Vector()) / 4 - kc
-    n = c - c.dot(pd) * pd
-    n = n.normalized() if n.length > 0.004 else -ny
+    # palm side: the way the fingers curl. Given explicitly where it matters (a hand on a fingerboard),
+    # otherwise toward where the fingertips are
+    if "palm" in spec:
+        n = Vector(spec["palm"]); n = n - n.dot(pd) * pd
+        n = n.normalized() if n.length > 1e-6 else -ny
+    else:
+        c = sum(tips, Vector()) / 4 - kc
+        n = c - c.dot(pd) * pd
+        n = n.normalized() if n.length > 0.004 else -ny
+    # Bend toward the palm AND back from the pointing direction: identical to bending toward n wherever the
+    # fingertip lies ahead of the knuckle, and still well defined when it lies straight toward the palm
+    # (fingers reaching over a fingerboard), where bending toward n alone picked a random plane.
+    bend = n - pd
     for i in range(4):
         k = kc + ac * (-0.027 + 0.018 * i)
-        pts = finger_chain(k, tips[i], n, [_FINGER_L[i] * s for s in PHALANX], pd)
+        pts = finger_chain(k, tips[i], bend, [_FINGER_L[i] * s for s in PHALANX], pd)
         _ball(g(f"f{i}k"), k)
         for j in range(3):
             _seg(g(f"f{i}s{j}"), pts[j], pts[j + 1]); _ball(g(f"f{i}j{j}"), pts[j + 1])
     base = W + pd * 0.028 - ac * 0.030
-    pts = finger_chain(base, th, n, THUMB_L, pd, coupling=(1.0,))
+    pts = finger_chain(base, th, bend, THUMB_L, pd, coupling=(1.0,))
     _seg(g("t0"), pts[0], pts[1]); _ball(g("tj0"), pts[1]); _seg(g("t1"), pts[1], pts[2]); _ball(g("tj1"), pts[2])
 
 
@@ -640,6 +654,30 @@ def _stopping_hand(G, M, shift, knuckle, thumb, heel_x, wrist=None, top_z=None):
     return spec
 
 
+def stopping_hand(G, mw, tips, shift, ks, knuckle_out, knuckle_dz, wrist_out, wrist_below, thumb_x, thumb_dz,
+                  high_wrist=None):
+    """A left hand stopping strings, in the instrument's own frame (x along the neck toward the scroll,
+    y across the strings, z out of the top). ks = the side the knuckles are on (+1/-1 in y): the palm
+    faces the neck from that side and the fingers arch over the fingerboard onto the strings.
+    Knuckles sit at string height just outside the fingerboard edge, the wrist below the neck; the
+    thumb opposite under the neck, stopping at the heel (x = 0) in high positions, where the hand
+    comes over the upper bout with the wrist raised beside the body (high_wrist = (out, z))."""
+    s_z = lambda x: G["z_sn"] + (G["z_bt"] - G["z_sn"]) * (G["x_n"] - x) / (G["x_n"] - G["x_b"])
+    inv = mw.inverted()
+    tl = [inv @ Vector(t) for t in tips]
+    kx = sum(t.x for t in tl) / 4
+    kc = Vector((kx, ks * knuckle_out, s_z(kx) + knuckle_dz))
+    W = Vector((kx + 0.012, ks * wrist_out, s_z(kx) - wrist_below))
+    if high_wrist is not None:                          # past the heel: over the body
+        u = max(0.0, min(1.0, (0.02 - kx) / 0.06))
+        Wh = Vector((kx + 0.035, ks * high_wrist[0], high_wrist[1]))
+        W = W.lerp(Wh, u); kc.z += 0.024 * u; kc.y += ks * 0.006 * u
+    tx = max(kx + thumb_x, 0.0)
+    th = Vector((tx, -ks * 0.004, s_z(tx) - thumb_dz))
+    R3 = mw.to_3x3()
+    return dict(kc=mw @ kc, wrist=mw @ W, tips=tips, thumb=mw @ th, palm=(R3 @ Vector((0, -ks, 0.35))).normalized())
+
+
 def hands_violin(state=None, key="Violin"):
     st = state or {}
     G = _violin_geo()
@@ -650,9 +688,9 @@ def hands_violin(state=None, key="Violin"):
     stops = st.get("stops", [(0.034, 2, 0.0), (0.060, 3, 0.004), (0.084, 1, 0.0), (0.104, 2, 0.006)])   # (dist from nut, string, lift)
     shift = st.get("shift", 0.0)                                                                       # hand position along the neck
     tips = [mw @ bowed_string_point(G, G["x_n"] - d, s) + Zw * (0.0065 + lift) for d, s, lift in stops]
-    lh = _stopping_hand(G, M, shift, knuckle=(0.068, -0.044, 0.0225), thumb=(0.036, 0.017, 0.0155), heel_x=0.0,
-                        wrist=(0.065, -0.060, 0.030), top_z=0.046)
-    lh["tips"] = tips
+    # knuckles on the E-string side (-y), wrist under the neck, thumb under the G side
+    lh = stopping_hand(G, mw, tips, shift, ks=-1, knuckle_out=0.030, knuckle_dz=-0.004, wrist_out=0.034,
+                       wrist_below=0.072, thumb_x=0.018, thumb_dz=0.020, high_wrist=(0.082, 0.068))
     xc = G["x_b"] + (G["fb_end"] - G["x_b"]) * 0.4
     bow_string = st.get("bow_string", 1.5)
     contact = mw @ (bowed_string_point(G, xc, bow_string) + Vector((0, 0, 0.0005)))
@@ -682,9 +720,10 @@ def hands_cello(state=None):
     stops = st.get("stops", [(0.074, 2, 0.0), (0.110, 2, 0.0), (0.142, 2, 0.0), (0.174, 2, 0.0)])
     shift = st.get("shift", 0.0)
     tips = [mw @ bowed_string_point(G, G["x_n"] - d, s) + Zc * (0.0085 + lift) for d, s, lift in stops]
-    lh = _stopping_hand(G, M, shift, knuckle=(0.125, 0.062 * a_side, 0.023), thumb=(0.11, 0.0, 0.050), heel_x=0.0,
-                        wrist=(0.10, 0.085 * a_side, 0.040), top_z=0.105)
-    lh["tips"] = tips
+    # knuckles at the player's-left edge of the neck, fingers curved over onto the strings, thumb behind the
+    # neck, wrist behind and to the left (the cello's back faces the player)
+    lh = stopping_hand(G, mw, tips, shift, ks=a_side, knuckle_out=0.044, knuckle_dz=-0.006, wrist_out=0.070,
+                       wrist_below=0.070, thumb_x=0.025, thumb_dz=0.048, high_wrist=(0.19, 0.075))
     xc = G["x_b"] + (G["fb_end"] - G["x_b"]) * 0.35
     bow_string = st.get("bow_string", 1.5)
     contact = mw @ (bowed_string_point(G, xc, bow_string) + Vector((0, 0, 0.0008)))

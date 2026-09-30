@@ -891,6 +891,50 @@ def configure_engine(scene, args):
     print(f"[concert] Cycles on {chosen}, {args.samples} samples")
 
 
+class Performance:
+    """Everything needed to put the stage into the state of one moment of a piece. Used by the farm render
+    (main, below) and by concert_preview.py, so the Blender viewport shows exactly what gets rendered."""
+
+    def __init__(self, npy, tempo, duration, cues=None, seed=7, camera=None):
+        cp.load_layout()
+        self.per = load_notes(npy, tempo)
+        self.players = {key: make_player(key, ns) for key, ns in self.per.items() if key in cp.PLAYERS}
+        self.puppets = {key: cp.get_puppet(key) for key in cp.PLAYERS}
+        self.shots = parse_cues(cues) if cues else build_shots(self.per, duration, seed, camera)
+        self.lights = {k: bpy.data.objects.get(v) for k, v in SPECIAL_LIGHT.items()}
+        # over-the-shoulder cameras ride along with a player who steps sideways
+        self.follow = {PLAYER_CAMS[k][0]: k for k in ("Marimba", "Vibraphone")}
+        self.follow_base = {c: bpy.data.objects[c].location.copy() for c in self.follow}
+
+    def apply(self, scene, t, set_camera=True):
+        for key in cp.PLAYERS:
+            pl = self.players.get(key)
+            st = pl.state(t) if pl else None
+            if isinstance(pl, Breathing):
+                st = dict(st or {}); st["breath"] = pl.breath(t)
+            cp.pose(key, st, self.puppets[key])
+            for cam, who in self.follow.items():
+                if who == key:
+                    bpy.data.objects[cam].location = self.follow_base[cam] + Vector((st or {}).get("body_shift", (0, 0, 0)))
+            lt = self.lights.get(key)
+            if lt:
+                lt["level"] = 0.45 + 1.1 * (envelope(self.per[key], t) if key in self.per else 0.0)
+        if set_camera:
+            scene.camera = bpy.data.objects[shot_at(self.shots, t)]
+
+    def restore(self):
+        """Back to the rest pose, lights at level 1, cameras home (for saving the .blend)."""
+        for key in cp.PLAYERS:
+            cp.pose(key, None, self.puppets[key])
+        for k in ("Finger Piano", "Bass Finger Piano"):
+            cp.set_tine_bends(k, {})
+        for cam, loc in self.follow_base.items():
+            bpy.data.objects[cam].location = loc
+        for lt in self.lights.values():
+            if lt:
+                lt["level"] = 1.0
+
+
 def main():
     sys.stdout.reconfigure(line_buffering=True)               # so the pod log shows progress as it happens
     args = parse_args()
@@ -902,16 +946,9 @@ def main():
     scene = bpy.data.scenes["Concert Stage"]
     if bpy.context.window_manager.windows:                    # interactive session; --background has none
         bpy.context.window_manager.windows[0].scene = scene
-    cp.load_layout()
-    per = load_notes(args.npy, args.tempo)
-    players = {key: make_player(key, ns) for key, ns in per.items() if key in cp.PLAYERS}
-    puppets = {key: cp.get_puppet(key) for key in cp.PLAYERS}
-    shots = parse_cues(args.cues) if args.cues else build_shots(per, args.duration, args.seed, args.camera)
-    print("[concert] camera shots: " + ", ".join(f"{int(t0 // 60)}:{t0 % 60:04.1f} {c}" for t0, c in shots))
-    lights = {k: bpy.data.objects.get(v) for k, v in SPECIAL_LIGHT.items()}
-    # over-the-shoulder cameras ride along with a player who steps sideways
-    follow = {PLAYER_CAMS[k][0]: k for k in ("Marimba", "Vibraphone")}
-    follow_base = {c: bpy.data.objects[c].location.copy() for c in follow}
+    scene.render.use_sequencer = False                        # a preview's sound strip must never replace the 3D render
+    perf = Performance(args.npy, args.tempo, args.duration, args.cues, args.seed, args.camera)
+    print("[concert] camera shots: " + ", ".join(f"{int(t0 // 60)}:{t0 % 60:04.1f} {c}" for t0, c in perf.shots))
 
     configure_engine(scene, args)
     scene.render.resolution_x, scene.render.resolution_y = args.res_x, args.res_y
@@ -927,19 +964,7 @@ def main():
     for fi in range(f0, f1 + 1):
         t = fi / FPS
         scene.frame_set(fi)                                   # backdrop colour runs off the frame number
-        for key in cp.PLAYERS:
-            pl = players.get(key)
-            st = pl.state(t) if pl else None
-            if isinstance(pl, Breathing):
-                st = dict(st or {}); st["breath"] = pl.breath(t)
-            cp.pose(key, st, puppets[key])
-            for cam, who in follow.items():
-                if who == key:
-                    bpy.data.objects[cam].location = follow_base[cam] + Vector((st or {}).get("body_shift", (0, 0, 0)))
-            lt = lights.get(key)
-            if lt:
-                lt["level"] = 0.45 + 1.1 * (envelope(per[key], t) if key in per else 0.0)
-        scene.camera = bpy.data.objects[shot_at(shots, t)]
+        perf.apply(scene, t)
         scene.render.filepath = str(out / f"frame_{fi:06d}.png")
         bpy.ops.render.render(write_still=True, scene=scene.name)
         if fi % 30 == 0:
