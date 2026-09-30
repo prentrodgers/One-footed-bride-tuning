@@ -26,6 +26,7 @@ import bpy
 from mathutils import Matrix, Vector
 
 import concert_stagekit as sk
+import concert_faces as cf
 
 UP = Vector((0, 0, 1))
 UA, FA = 0.30, 0.28          # upper arm, forearm (adult proportions)
@@ -119,12 +120,8 @@ def build_body(key, leg_style="normal"):
     # seat of the trousers, rounding the bottom of the torso into the hips
     B.sphere(pel - UP * 0.015, 1.0, mi=2, scale=(0.168, 0.118, 0.105), rot=Rb, seg=20, rings=10)
     head = neckb + UP * 0.155 + f * (0.01 + lean * 0.5)
-    B.cyl(neckb - UP * 0.02, head - UP * 0.06, 0.048, mi=0, seg=12)
-    B.sphere(head, 0.105, mi=0, scale=(0.9, 1.0, 1.12), rot=Rb, seg=24, rings=14)
-    B.sphere(head - f * 0.02 + UP * 0.03, 0.104, mi=4, scale=(0.95, 0.98, 1.08), rot=Rb, seg=24, rings=14)
-    B.sphere(head + f * 0.1 - UP * 0.01, 0.018, mi=0, scale=(0.8, 1.2, 1.3), rot=Rb, seg=10, rings=6)
-    for s in (-1, 1):
-        B.sphere(head + f * 0.088 + l * s * 0.035 + UP * 0.02, 0.011, mi=5, seg=10, rings=6)
+    B.cyl(neckb - UP * 0.02, head - UP * 0.075 - f * 0.012, 0.050, mi=0, seg=16, r2=0.046)
+    cf.build_head(B, head, right, f, key, idx)
     # Shoulder girdle. The torso ellipsoid narrows toward its top, so a lone ball at each shoulder
     # floated outside it with a gap underneath. Instead: a broad upper chest, a trapezius slope from
     # the neck out to each shoulder, and a deltoid cap over the joint. The cap is bigger than the upper
@@ -160,8 +157,10 @@ def build_body(key, leg_style="normal"):
         _skirt(B, key, p, f, right, pel, axis, fwd, Lt, seated, knees)
     bm.verts.index_update()
     breath = [(v.index, pos) for v, pos in breath]
-    ob = B.build(body_name(key), _mats(idx) + [sk.mat("Belt Buckle Brass", (0.8, 0.6, 0.3), metal=1.0, rough=0.3)],
-                 collection=sk.coll("Musicians"), smooth=True)
+    mats = _mats(idx)
+    cf.skin_upgrade(mats[0]); cf.hair_upgrade(mats[4])
+    mats += [sk.mat("Belt Buckle Brass", (0.8, 0.6, 0.3), metal=1.0, rough=0.3)] + cf.face_materials(idx, sk.SKINS[idx % 12])
+    ob = B.build(body_name(key), mats, collection=sk.coll("Musicians"), smooth=True)
     ob["player"] = key
     if key in BREATHERS:                     # a shape key the animation drives: inhale before a phrase, exhale through it
         ob.shape_key_add(name="Basis", from_mix=False)
