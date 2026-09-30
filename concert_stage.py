@@ -594,7 +594,9 @@ class BrassPlayer:
             return {}
         s = semis_below_partial(self.key, n["midi"])
         if self.key == "Trombone":
-            return {"slide": 0.085 * s}                        # 1st..7th position
+            # 1st..7th position. A real slide moves ~8.5 cm per position; the puppet's arm cannot follow
+            # that past 3rd, so the positions are drawn 3 cm apart and the hand stays on the brace.
+            return {"slide": 0.03 * s}
         if self.key == "Tuba":
             return {"valves": list(_VALVES4[s]) if cur else [0, 0, 0, 0]}
         v = list(_VALVES3[s]) if cur else [0, 0, 0]
@@ -632,6 +634,19 @@ CUE_SHEETS = {
         ("0:13.5", "Cam 29 Finger Piano Hands (front)"),
         ("0:15.5", "Cam 6 Finger Pianos"),                       # last plucks ringing out
         ("0:17.5", "Cam 1 Audience Wide"),
+    ],
+    # a tour of the players, for checking poses (b421g length; works for any piece of 20 s or more)
+    "details": [
+        ("0:00",  "Cam 32 Bass Section (guitar & bass finger piano)"),
+        ("0:02.5", "Cam 29 Finger Piano Hands (front)"),
+        ("0:05",  "Cam 28 Flute (second row)"),
+        ("0:07",  "Cam 15 Bassoon & Clarinet (riser)"),
+        ("0:09",  "Cam 7 Oboe Keys"),
+        ("0:11",  "Cam 26 French Horn"),
+        ("0:13",  "Cam 31 Trombone Hands"),
+        ("0:15",  "Cam 18 Flying V & Amp"),
+        ("0:17",  "Cam 21 Viola & Violin"),
+        ("0:19",  "Cam 1 Audience Wide"),
     ],
 }
 

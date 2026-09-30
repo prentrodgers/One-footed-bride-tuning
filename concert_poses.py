@@ -28,7 +28,8 @@ from mathutils import Matrix, Vector
 import concert_stagekit as sk
 
 UP = Vector((0, 0, 1))
-UA, FA = 0.29, 0.27
+UA, FA = 0.30, 0.28          # upper arm, forearm (adult proportions)
+PROTRACT = 0.05              # how far a shoulder may come forward to reach
 
 # player key -> (musician index, lean, knee_spread)
 PLAYERS = {
@@ -90,8 +91,14 @@ def build_body(key, leg_style="normal"):
     B.sphere(head + f * 0.1 - UP * 0.01, 0.018, mi=0, scale=(0.8, 1.2, 1.3), rot=Rb, seg=10, rings=6)
     for s in (-1, 1):
         B.sphere(head + f * 0.088 + l * s * 0.035 + UP * 0.02, 0.011, mi=5, seg=10, rings=6)
+    # Shoulder girdle. The torso ellipsoid narrows toward its top, so a lone ball at each shoulder
+    # floated outside it with a gap underneath. Instead: a broad upper chest, a trapezius slope from
+    # the neck out to each shoulder, and a deltoid cap over the joint. The cap is bigger than the upper
+    # arm (0.047) so the arm's top is always buried in it, whichever way the arm points.
+    B.sphere(neckb - UP * 0.12 + f * 0.005, 1.0, mi=1, scale=(0.205, 0.118, 0.13), rot=Rt, seg=24, rings=12)
     for S in shoulders(key).values():
-        B.sphere(S, 0.052, mi=1, seg=14, rings=8)
+        B.cyl(neckb - UP * 0.015, S + UP * 0.012, 0.050, mi=1, seg=14, r2=0.056)
+        B.sphere(S - UP * 0.008, 1.0, mi=1, scale=(0.062, 0.066, 0.064), rot=Rb, seg=16, rings=10)
     for side in (1, -1):
         hip = pel + l * side * 0.095
         if seated:
@@ -210,6 +217,9 @@ def _wrist_for(S, spec):
 
 def pose_arm(pup, side, S, spec, pole):
     W = _wrist_for(S, spec)
+    over = (W - S).length - (UA + FA - 0.005)
+    if over > 0:                             # reaching: the shoulder comes forward a little first
+        S = S + (W - S).normalized() * min(over, PROTRACT)
     if "elbow" in spec:
         E = Vector(spec["elbow"])
     else:
@@ -307,16 +317,24 @@ def hands_guitar(state=None):
     ref = max(1, stops[1][0])
     lh = dict(kc=M((_vfx(ref), -0.052, -0.004)), tips=tips, thumb=M((_vfx(ref) + 0.01, 0.012, -0.026)))
     dz = st.get("pick_dy", 0.0)                                         # strumming: pick travels across the strings (local y)
-    xs = _V_XS
-    rh = dict(elbow=M((-0.40, 0.205, 0.045)), wrist=M((-0.225, 0.080 + dz * 0.6, 0.080)),
-              kc=M((xs + 0.150, 0.035 + dz, 0.070)),
-              tips=[M((xs + 0.116, 0.010 + dz, 0.027)), M((xs + 0.135, -0.010 + dz, 0.030)), M((xs + 0.150, -0.024 + dz, 0.027)),
-                    M((xs + 0.166, -0.042 + dz * 0.3, 0.012))],
-              thumb=M((xs + 0.112, 0.016 + dz, 0.019)))
+    # Right hand as one connected chain lined up on the pick: the forearm comes in over the upper
+    # wing (where the arm rests and keeps the V from tipping forward), the wrist floats 6 cm over
+    # the strings, knuckles straight behind the pick, index and thumb pinching it, the other three
+    # fingers loosely curled toward the bridge, clear of the strings.
+    P = Vector((_V_XS + 0.115, 0.012 + dz, 0.0225))                     # the pick (rig-local)
+    E0 = Vector((-0.40, 0.205, 0.045))                                  # forearm rest on the upper wing
+    d = Vector((P.x - E0.x, P.y - E0.y, 0.0)).normalized()              # forearm direction, over the top
+    s = Vector((d.y, -d.x, 0.0))                                        # across the hand, toward the pinky
+    z = Vector((0, 0, 1))
+    rh = dict(wrist=M(P - d * 0.125 + z * 0.060), kc=M(P - d * 0.035 + z * 0.052),
+              tips=[M(P + z * 0.004), M(P + s * 0.020 - d * 0.010 + z * 0.020),
+                    M(P + s * 0.036 - d * 0.018 + z * 0.024), M(P + s * 0.050 - d * 0.025 + z * 0.026)],
+              thumb=M(P + z * 0.010 - d * 0.006))
     pick = bpy.data.objects.get("Baritone Flying V Pick")
     if pick:
         pick.location = Vector((0, dz, 0))
-    return {"L": lh, "R": rh}, {"L": -UP + l * 0.9 + f * 0.2}
+    pole_r = (M(E0) - M(P - d * 0.125 + z * 0.060)).normalized() + Zg * 0.3
+    return {"L": lh, "R": rh}, {"L": -UP + l * 0.9 + f * 0.2, "R": pole_r}
 
 
 # ---- violin / viola (viola = violin geometry scaled 1.15 by its rig) ----
@@ -616,14 +634,18 @@ def hands_finger_piano(state=None, key="Finger Piano"):
         ac = Xk * sgn
         digits = hs.get("digits", {})
         targets = {j: tip(d) for j, d in digits.items()}
-        # knuckle centre straight behind the plucking digit(s); otherwise behind the hand's position
-        behind = lambda p, j: p + Zk * 0.05 - Yk * 0.035 - ac * FP_DIGIT_X[j]
-        if targets:
-            kc = sum((behind(p, j) for j, p in targets.items()), Vector()) / len(targets)
-        else:
-            hx = hs.get("x", rest_x[side])
-            kc = mw @ Vector((hx, y_line, z_line)) + Zk * (0.0085 + hover + 0.05) - Yk * 0.035
-        rest = lambda j: kc - Zk * (0.05 - hover * 0.5) + Yk * 0.035 + ac * FP_DIGIT_X[j] * 1.1
+        # The hand only positions: its knuckles follow the planned hand position (which glides between
+        # notes) at a fixed height over the tines, and each pluck is made by the finger alone - the
+        # arm never pumps up and down with the notes. (It's a FINGER piano.)
+        hx = hs.get("x")
+        if hx is None and targets:                           # no plan yet: sit behind the digit being used
+            j0 = min(targets)
+            hx = (mw.inverted() @ targets[j0]).x - (1.0 if side == "R" else -1.0) * FP_DIGIT_X[j0]
+        if hx is None:
+            hx = rest_x[side]
+        kc = mw @ Vector((hx, y_line, z_line)) + Zk * (0.0085 + hover + 0.05) - Yk * 0.035
+        # resting fingers hover over the tines in a relaxed curve, ready to drop
+        rest = lambda j: kc - Zk * (0.05 - hover * 0.8) + Yk * 0.035 + ac * FP_DIGIT_X[j] * 1.1
         tips = [targets.get(j, rest(j)) for j in range(4)]
         # Palm down, like a pianist's: the wrist sits behind the knuckles and level with them, in the
         # plane of the instrument, so the fingers reach forward and curl down onto the tines. (Left to
@@ -702,10 +724,23 @@ def hands_flute(state=None):
     top = lambda x, ang=0.0: (x, math.sin(math.radians(ang)) * (R0 + 0.0050), math.cos(math.radians(ang)) * (R0 + 0.0050))
     R3 = mw.to_3x3(); ax = (R3 @ Vector((1, 0, 0))).normalized(); fr = (R3 @ Vector((0, 0, 1))).normalized()
     lifts = st.get("lifts", {})
-    lh = _side_hand(key, "L", _radial(mw, [top(kx(11)), top(kx(9)), top(kx(7)), top(kx(8), 35)], lifts=lifts.get("L")), M((0.385, -0.004, -0.013)), fr, ax)
-    rh = _side_hand(key, "R", _radial(mw, [top(kx(5)), top(kx(4)), top(kx(2)), top(kx(3), -25)], lifts=lifts.get("R")), M((0.530, 0.004, -0.013)), fr, ax)
     p, f, l, up = frame(key)
-    return {"L": lh, "R": rh}, {"L": -UP + l * 0.6 - f * 0.2, "R": -UP - l * 0.9 - f * 0.4}
+    # Both hands play from the FRONT of the flute: the backs of the hands face the audience, the fingers
+    # arch over the top onto the keys, the thumbs sit underneath. The left arm crosses in front of the
+    # chest to get there, elbow forward - it used to reach from behind and pass through the body.
+    away = (f - f.dot(ax) * ax).normalized()
+    def front_hand(tips, thumb, out, drop):
+        c = sum(tips, Vector()) / 4
+        kc = c + away * out + fr * 0.018
+        return dict(kc=kc, tips=tips, thumb=thumb, wrist=kc + away * 0.030 - fr * drop)
+    # natural 3 cm spacing on the key touches, left hand just past the head joint (the keywork, not the
+    # acoustic hole positions, decides where fingers go)
+    lh = front_hand(_radial(mw, [top(0.300), top(0.330), top(0.360), top(0.378, 35)], lifts=lifts.get("L")), M((0.330, 0.004, -0.013)), 0.030, 0.105)
+    rh = front_hand(_radial(mw, [top(0.465), top(0.495), top(0.525), top(0.575, -30)], lifts=lifts.get("R")), M((0.490, 0.004, -0.013)), 0.034, 0.090)
+    # Elbows below the shoulders and forward of the chest, so the left arm passes in FRONT of the body
+    # on its way across (checked against the torso: clear by 24 % of its radius at the upper arm).
+    # The flute itself is angled ~33 degrees forward of the shoulder line, as flutists hold it.
+    return {"L": lh, "R": rh}, {"L": -UP * 0.6 + f * 1.0 + l * 0.3, "R": -UP - l * 0.9 + f * 0.1}
 
 
 def hands_clarinet(state=None):
@@ -719,8 +754,10 @@ def hands_clarinet(state=None):
     latL = 1 if (mw.to_3x3().inverted() @ l).y > 0 else -1
     R3 = mw.to_3x3(); ax = (R3 @ Vector((1, 0, 0))).normalized(); fr = (R3 @ Vector((0, 0, 1))).normalized()
     lifts = st.get("lifts", {})
-    lh = _side_hand(key, "L", _radial(mw, [fr_(hx(12)), fr_(hx(10)), fr_(hx(8)), fr_(0.372, 70 * latL)], lifts=lifts.get("L")), M(fr_(hx(13), 180)), fr, ax)
-    rh = _side_hand(key, "R", _radial(mw, [fr_(hx(7)), fr_(hx(5)), fr_(hx(3)), fr_(0.550, -75 * latL)], lifts=lifts.get("R")), M((0.432, 0, -0.024)), fr, ax)
+    # Natural hand spacing, not tone-hole spacing: the keywork brings the holes to the fingers.
+    # Left hand (upper joint) 4.2 cm between fingertips, right hand (lower joint) 3.4 cm.
+    lh = _side_hand(key, "L", _radial(mw, [fr_(0.300), fr_(0.342), fr_(0.384), fr_(0.402, 70 * latL)], lifts=lifts.get("L")), M(fr_(hx(13), 180)), fr, ax)
+    rh = _side_hand(key, "R", _radial(mw, [fr_(0.430), fr_(0.464), fr_(0.498), fr_(0.522, -75 * latL)], lifts=lifts.get("R")), M((0.440, 0, -0.024)), fr, ax)
     return {"L": lh, "R": rh}, {"L": -UP + l * 0.7, "R": -UP - l * 0.7}
 
 
@@ -745,9 +782,15 @@ def hands_oboe(state=None):
     latL = 1 if (mw.to_3x3().inverted() @ l).y > 0 else -1
     R3 = mw.to_3x3(); ax = (R3 @ Vector((1, 0, 0))).normalized(); fr = (R3 @ Vector((0, 0, 1))).normalized()
     lifts = st.get("lifts", {})
-    lh = _side_hand(key, "L", _radial(mw, [of(ox(13)), of(ox(11)), of(ox(9)), of(0.300, 75 * latL, 0.004)], lifts=lifts.get("L")), M(of(0.205, 180, 0.012)), fr, ax)
-    rh = _side_hand(key, "R", _radial(mw, [of(ox(8)), of(ox(6)), of(ox(4)), of(0.49, -90 * latL, 0.005)], lifts=lifts.get("R")), M(of(0.40, 180, 0.020)), fr, ax)
+    # Natural spacing, 3 cm between fingertips and the hands ~10 cm apart: the covered keys and
+    # their linkages bring the holes to the fingers, so the hands need not stretch along the bore.
+    lh = _side_hand(key, "L", _radial(mw, [of(0.300), of(0.330), of(0.360), of(0.376, 75 * latL, 0.004)], lifts=lifts.get("L")), M(of(0.312, 180, 0.012)), fr, ax)
+    rh = _side_hand(key, "R", _radial(mw, [of(0.405), of(0.435), of(0.465), of(0.482, -90 * latL, 0.005)], lifts=lifts.get("R")), M(of(0.40, 180, 0.020)), fr, ax)
     return {"L": lh, "R": rh}, {"L": -UP + l * 0.7, "R": -UP - l * 0.7}
+
+
+BSN_LH = (0.500, 0.465, 0.430)   # wing-joint finger holes (z along the bassoon), index..ring
+BSN_RH = (0.235, 0.205, 0.175)   # boot-joint finger holes
 
 
 def hands_bassoon(state=None):
@@ -766,8 +809,10 @@ def hands_bassoon(state=None):
         c = sum(tips, Vector()) / 4
         lat = shoulders(key)[side] - c; lat -= lat.dot(Zw) * Zw; lat -= lat.dot(Yw) * Yw; lat.normalize()
         return dict(kc=c + lat * 0.048 - Yw * 0.020, tips=tips, thumb=mw @ Vector(thumb_local))
-    lh = hand("L", [(XW, 0.0182, 0.61), (XW, 0.0182, 0.565), (XW, 0.0182, 0.52), (XL + 0.028, 0.004, 0.47)], (XW, -0.030, 0.64))
-    rh = hand("R", [(XW, 0.0306, 0.20), (XW, 0.0306, 0.16), (XW, 0.0306, 0.12), (XL + 0.02, 0.025, 0.07)], (0.02, -0.040, 0.17))
+    # compact hands, 3.5 / 3 cm between fingertips: left hand low on the wing joint, right hand
+    # high on the boot, pinkies on the neighbouring key touches, thumbs on the back keys
+    lh = hand("L", [(XW, 0.0182, BSN_LH[0]), (XW, 0.0182, BSN_LH[1]), (XW, 0.0182, BSN_LH[2]), (XL + 0.026, 0.006, BSN_LH[2] - 0.02)], (XW, -0.030, BSN_LH[0] + 0.02))
+    rh = hand("R", [(XW, 0.0306, BSN_RH[0]), (XW, 0.0306, BSN_RH[1]), (XW, 0.0306, BSN_RH[2]), (XL + 0.02, 0.026, BSN_RH[2] - 0.022)], (0.02, -0.040, BSN_RH[1]))
     return {"L": lh, "R": rh}, {"L": -UP + l * 0.8, "R": -UP - l * 0.8}
 
 
@@ -810,8 +855,15 @@ def hands_horn(state=None):
     mw, M = _M(key)
     p, f, l, up = frame(key)
     v = st.get("valves", [1, 1, 1, 0])          # 3 finger levers + thumb (Bb side)
-    tipsL = [mw @ (_HORN_PADDLES[i] + Vector((0, -0.012 - (0.0 if v[i] else 0.010), 0.004))) for i in (0, 1, 2)] + [M((-0.125, -0.030, 0.155))]
-    lh = dict(kc=M((-0.115, -0.105, 0.150)), tips=tipsL, thumb=mw @ (_HORN_PADDLES[3] + Vector((0, -0.012 - (0.0 if v[3] else 0.010), 0))))
+    # Left hand: wrist below and behind the lever cluster, knuckles just above the levers, so every
+    # finger arches over and curls DOWN onto its lever touch (pinky resting in the hook beside them);
+    # before, the knuckles sat under the levers and the fingers pointed up into the air.
+    tipsL = [mw @ (_HORN_PADDLES[i] + Vector((0, -0.010 - (0.0 if v[i] else 0.008), 0.010))) for i in (0, 1, 2)]
+    tipsL.append(mw @ (_HORN_PADDLES[2] + Vector((0.020, -0.012, -0.008))))
+    pc = sum(_HORN_PADDLES[:3], Vector()) / 3
+    kc_l = pc + Vector((-0.006, -0.034, 0.026))          # 4-5 cm from the touches: the fingers must curl to reach
+    lh = dict(kc=mw @ kc_l, wrist=mw @ (kc_l + Vector((-0.025, -0.040, -0.070))), tips=tipsL,
+              thumb=mw @ (_HORN_PADDLES[3] + Vector((0, -0.012 - (0.0 if v[3] else 0.010), 0))))
     rim = Vector((0.36, 0.024, -0.146)); bx = rim.x
     rh = dict(wrist=M((bx + 0.03, rim.y, rim.z - 0.06)), kc=M((bx - 0.03, rim.y, rim.z - 0.065)),
               tips=[M((bx - 0.10, rim.y + dy, rim.z - 0.055)) for dy in (-0.030, -0.010, 0.010, 0.030)],
@@ -824,13 +876,16 @@ def hands_trombone(state=None):
     key = "Trombone"
     mw, M = _M(key)
     p, f, l, up = frame(key)
-    ext = st.get("slide", 0.16)
+    ext = st.get("slide", 0.06)
     outer = bpy.data.objects.get("Trombone Outer Slide Tubes")
     if outer:
         outer.location.x = ext
     YB = 0.13
-    lh = dict(kc=M((0.195, 0.065, -0.035)), tips=[M((0.135, 0.004, 0.012)), M((0.165, -0.014, -0.030)), M((0.170, -0.014, -0.055)), M((0.175, -0.012, -0.078))],
-              thumb=M((0.230, YB - 0.010, 0.016)))
+    # Left hand grips the slide: all four fingers wrapped round the inner-slide brace (index at the
+    # top, round the slide tube itself), thumb over the top of the slide tube. Nothing sticks up.
+    lh = dict(kc=M((0.185, 0.048, -0.042)), wrist=M((0.215, 0.085, -0.070)),
+              tips=[M((0.166, -0.013, -0.004)), M((0.168, -0.013, -0.028)), M((0.168, -0.012, -0.052)), M((0.166, -0.011, -0.074))],
+              thumb=M((0.150, 0.004, 0.011)))
     xb = 0.40 + ext
     rh = dict(kc=M((xb, -0.060, -0.045)), tips=[M((xb + 0.008, -0.009, -0.030)), M((xb + 0.004, -0.009, -0.048)), M((xb - 0.002, -0.011, -0.066)), M((xb - 0.010, -0.018, -0.082))],
               thumb=M((xb + 0.004, -0.004, -0.010)))
