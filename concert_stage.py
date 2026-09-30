@@ -599,7 +599,46 @@ _WIND_DOWN = [6, 6, 5, 5, 4, 3, 3, 2, 2, 1, 1, 0]
 _WIND_BASE = {"Flute": 62, "Clarinet": 55, "Oboe": 62, "Bassoon": 46}
 
 
-class WindPlayer:
+class Breathing:
+    """Wind and brass breathing: notes closer than PHRASE_GAP form a phrase; the player inhales just
+    before it (up to half a second, less if the rest is short) and exhales steadily through it, then
+    relaxes back to a resting breath. 0 = empty, 1 = full (the body's "Breath" shape key)."""
+    PHRASE_GAP, REST, FULL, EMPTY = 0.35, cp.BREATH_REST, 1.0, 0.10
+
+    def _phrases(self, notes):
+        ph = []
+        for n in sorted(notes, key=lambda n: n["t0"]):
+            if ph and n["t0"] - ph[-1][1] < self.PHRASE_GAP:
+                ph[-1][1] = max(ph[-1][1], n["t1"])
+            else:
+                ph.append([n["t0"], n["t1"]])
+        return ph
+
+    def _relaxed(self, t, prev_end):
+        if prev_end is None:
+            return self.REST
+        return self.EMPTY + (self.REST - self.EMPTY) * min(1.0, max(0.0, t - prev_end) / 1.0)
+
+    def breath(self, t):
+        if not hasattr(self, "ph"):
+            self.ph = self._phrases(self.notes)
+        prev_end = None
+        for s, e in self.ph:
+            gap = s - (prev_end if prev_end is not None else -9.0)
+            w = min(0.5, max(0.15, 0.8 * gap))
+            if t < s - w:
+                return self._relaxed(t, prev_end)
+            if t < s:                                   # inhale
+                base = self._relaxed(s - w, prev_end)
+                u = (t - (s - w)) / w
+                return base + (self.FULL - base) * u * u * (3 - 2 * u)
+            if t < e:                                   # exhale through the phrase
+                return self.FULL + (self.EMPTY - self.FULL) * (t - s) / max(e - s, 1e-3)
+            prev_end = e
+        return self._relaxed(t, prev_end)
+
+
+class WindPlayer(Breathing):
     def __init__(self, key, notes):
         self.key = key; self.notes = notes
 
@@ -632,7 +671,7 @@ def semis_below_partial(key, midi):
     return 0
 
 
-class BrassPlayer:
+class BrassPlayer(Breathing):
     def __init__(self, key, notes):
         self.key = key; self.notes = notes
 
@@ -864,6 +903,8 @@ def main():
         for key in cp.PLAYERS:
             pl = players.get(key)
             st = pl.state(t) if pl else None
+            if isinstance(pl, Breathing):
+                st = dict(st or {}); st["breath"] = pl.breath(t)
             cp.pose(key, st, puppets[key])
             for cam, who in follow.items():
                 if who == key:

@@ -35,7 +35,8 @@ PROTRACT = 0.05              # how far a shoulder may come forward to reach
 PLAYERS = {
     "Baritone Flying V": (0, 0.05, 0.04), "Violin": (1, 0.0, 0.04), "Finger Piano": (2, 0.10, 0.08),
     "Bass Finger Piano": (3, 0.10, 0.08), "Flute": (4, 0.0, 0.04), "Clarinet": (5, 0.0, 0.04),
-    "Oboe": (6, 0.0, 0.04), "Marimba": (7, 0.07, 0.04), "Cello": (8, 0.12, 0.15),   # cellist leans over the strings "Trumpet": (9, 0.0, 0.04),
+    "Oboe": (6, 0.0, 0.04), "Marimba": (7, 0.07, 0.04), "Cello": (8, 0.12, 0.15),   # cellist leans over the strings
+    "Trumpet": (9, 0.0, 0.04),
     "Tuba": (10, 0.02, 0.10), "Bassoon": (11, 0.02, 0.20), "Viola": (12, 0.0, 0.04), "French Horn": (13, 0.03, 0.04),
     "Trombone": (14, 0.0, 0.04), "Vibraphone": (15, 0.05, 0.04),
 }
@@ -82,8 +83,41 @@ def build_body(key, leg_style="normal"):
     neckb = pel + UP * ((0.50 if seated else 0.47) + 0.04) + f * lean
     axis = (neckb - pel).normalized()
     Rt = Matrix((right, axis.cross(right).normalized(), axis)).transposed().to_4x4()
-    B.sphere(pel + UP * 0.02, 1.0, mi=2, scale=(0.17, 0.12, 0.12), rot=Rb, seg=20, rings=10)
-    B.sphere(pel.lerp(neckb, 0.52), 1.0, mi=1, scale=(0.19, 0.12, 0.27), rot=Rt, seg=24, rings=12)
+    # Torso: a lofted shape, fullest at the chest and narrowest at the waist - the old single ellipsoid
+    # was deepest at the stomach and gave everyone a belly. Trousers from the belt down, shirt above.
+    fwd = axis.cross(right).normalized()
+    Lt = (neckb - pel).length
+    bm = B.bm
+    bm.verts.index_update()
+    breath = []                                     # (vertex, position with a full breath)
+    rings = []
+    for s, a, b, o in TORSO_PROFILE:
+        c = pel + axis * (s * Lt) + fwd * o
+        w = math.exp(-((s - 0.40) / 0.14) ** 2)     # the diaphragm and abdomen swell, the chest barely
+        ring = []
+        for k in range(TORSO_SEG):
+            th = 2 * math.pi * k / TORSO_SEG
+            cs, sn = math.cos(th), math.sin(th)
+            v = bm.verts.new(c + right * (a * cs) + fwd * (b * sn))
+            ring.append(v)
+            breath.append((v, c + right * (a * (1 + 0.05 * w) * cs) + fwd * (b * sn * (1 + BREATH_DEPTH * w * max(0.0, sn) ** 0.7 + 0.04 * w))))
+        rings.append((s, ring))
+    for (s0, r0), (s1, r1) in zip(rings[:-1], rings[1:]):
+        for k in range(TORSO_SEG):
+            fc = bm.faces.new((r0[k], r0[(k + 1) % TORSO_SEG], r1[(k + 1) % TORSO_SEG], r1[k]))
+            fc.material_index = 2 if s0 < BELT_S else 1
+    bm.faces.new(list(reversed(rings[0][1]))).material_index = 2
+    bm.faces.new(rings[-1][1]).material_index = 1
+    # belt
+    a_b, b_b = _profile_at(BELT_S)
+    cb = pel + axis * (BELT_S * Lt)
+    band = [[bm.verts.new(cb + axis * dz + right * ((a_b + 0.005) * math.cos(2 * math.pi * k / 48)) + fwd * ((b_b + 0.005) * math.sin(2 * math.pi * k / 48)))
+             for k in range(48)] for dz in (-0.017, 0.017)]
+    for k in range(48):                      # a smooth 3.4 cm leather band
+        bm.faces.new((band[0][k], band[0][(k + 1) % 48], band[1][(k + 1) % 48], band[1][k])).material_index = 3
+    B.box(cb + fwd * (b_b + 0.010), (0.045, 0.006, 0.030), mi=6, rot=Rt)          # buckle
+    # seat of the trousers, rounding the bottom of the torso into the hips
+    B.sphere(pel - UP * 0.015, 1.0, mi=2, scale=(0.168, 0.118, 0.105), rot=Rb, seg=20, rings=10)
     head = neckb + UP * 0.155 + f * (0.01 + lean * 0.5)
     B.cyl(neckb - UP * 0.02, head - UP * 0.06, 0.048, mi=0, seg=12)
     B.sphere(head, 0.105, mi=0, scale=(0.9, 1.0, 1.12), rot=Rb, seg=24, rings=14)
@@ -99,10 +133,13 @@ def build_body(key, leg_style="normal"):
     for S in shoulders(key).values():
         B.cyl(neckb - UP * 0.015, S + UP * 0.012, 0.050, mi=1, seg=14, r2=0.056)
         B.sphere(S - UP * 0.008, 1.0, mi=1, scale=(0.062, 0.066, 0.064), rot=Rb, seg=16, rings=10)
+    skirt = key in SKIRTS
+    knees = []
     for side in (1, -1):
-        if key in STEPPERS:                  # legs are separate puppet pieces (see build_legs): they step
-            break
         hip = pel + l * side * 0.095
+        B.sphere(hip - UP * 0.01, 0.084, mi=2, seg=16, rings=10)          # hip joint: thigh flows out of the seat
+        if key in STEPPERS:                  # legs are separate puppet pieces (see build_legs): they step
+            continue
         if seated:
             knee = hip + f * 0.44 + UP * 0.03 + l * side * knee_spread
             lift = 0.15 if (leg_style == "footstool" and side == 1) else 0.0
@@ -112,12 +149,76 @@ def build_body(key, leg_style="normal"):
         else:
             knee = hip - UP * 0.44 + f * 0.02 + l * side * 0.02
             ankle = Vector((knee.x, knee.y, p.z + 0.09)) + l * side * 0.02
-        B.cyl(hip, knee, 0.075, mi=2, seg=14, r2=0.056); B.sphere(knee, 0.056, mi=2, seg=12, rings=8)
-        B.cyl(knee, ankle, 0.052, mi=2, seg=14, r2=0.042)
+        knees.append(knee)
+        d = (knee - hip).normalized()
+        B.cyl(hip - d * 0.03, knee, 0.080, mi=2, seg=16, r2=0.060); B.sphere(knee, 0.060, mi=2, seg=14, rings=8)
+        B.cyl(knee, ankle, 0.056, mi=2, seg=16, r2=0.050)
+        if not skirt:                        # trouser cuff breaking over the shoe
+            B.cyl(ankle - UP * 0.035, ankle + UP * 0.02, 0.054, mi=2, seg=16)
         B.box(ankle + f * 0.06 - UP * 0.05, (0.10, 0.27, 0.08), mi=3, rot=Rb)
-    ob = B.build(body_name(key), _mats(idx), collection=sk.coll("Musicians"), smooth=True)
+    if skirt:
+        _skirt(B, key, p, f, right, pel, axis, fwd, Lt, seated, knees)
+    bm.verts.index_update()
+    breath = [(v.index, pos) for v, pos in breath]
+    ob = B.build(body_name(key), _mats(idx) + [sk.mat("Belt Buckle Brass", (0.8, 0.6, 0.3), metal=1.0, rough=0.3)],
+                 collection=sk.coll("Musicians"), smooth=True)
     ob["player"] = key
+    if key in BREATHERS:                     # a shape key the animation drives: inhale before a phrase, exhale through it
+        ob.shape_key_add(name="Basis", from_mix=False)
+        kb = ob.shape_key_add(name="Breath", from_mix=False)
+        for i, pos in breath:
+            kb.data[i].co = pos
+        kb.value = BREATH_REST
     return ob
+
+
+# torso shape: (fraction of pelvis->neck, half-width, half-depth, forward offset)
+TORSO_PROFILE = [(0.00, 0.158, 0.104, 0.000), (0.12, 0.150, 0.099, 0.000), (0.26, 0.140, 0.093, 0.003),
+                 (0.40, 0.146, 0.096, 0.006), (0.55, 0.162, 0.106, 0.008), (0.70, 0.176, 0.112, 0.008),
+                 (0.84, 0.180, 0.108, 0.004), (0.93, 0.160, 0.094, 0.000), (0.98, 0.110, 0.070, -0.004),
+                 (1.00, 0.055, 0.045, -0.004)]
+TORSO_SEG = 24
+BELT_S = 0.14
+BREATH_DEPTH = 0.30          # a full breath pushes the front of the abdomen out ~3 cm
+BREATH_REST = 0.30
+BREATHERS = {"Flute", "Clarinet", "Oboe", "Bassoon", "Trumpet", "Trombone", "Tuba", "French Horn"}
+SKIRTS = {"Cello", "Tuba", "Bassoon", "Marimba"}     # the players referred to as "she"
+
+
+def _profile_at(s):
+    for (s0, a0, b0, _), (s1, a1, b1, _) in zip(TORSO_PROFILE[:-1], TORSO_PROFILE[1:]):
+        if s0 <= s <= s1:
+            u = (s - s0) / (s1 - s0)
+            return a0 + (a1 - a0) * u, b0 + (b1 - b0) * u
+    return TORSO_PROFILE[-1][1], TORSO_PROFILE[-1][2]
+
+
+def _skirt(B, key, p, f, right, pel, axis, fwd, Lt, seated, knees):
+    """A long concert skirt lofted from the belt through the hips to a hem at mid-calf. Seated, it drapes
+    over the thighs and knees and falls from the knees; standing, it hangs straight with a slight flare."""
+    a0, b0 = _profile_at(BELT_S)
+    waist = (pel + axis * (BELT_S * Lt), right, fwd, a0 + 0.006, b0 + 0.006)
+    if seated:
+        kc = (knees[0] + knees[1]) / 2
+        half = (knees[0] - knees[1]).length / 2
+        fd = (f - UP).normalized(); tilt = (UP + f).normalized()
+        rings = [waist,
+                 (pel - UP * 0.01 + f * 0.01, right, f, 0.190, 0.140),
+                 (pel.lerp(kc, 0.5) + UP * 0.05, right, UP, half + 0.110, 0.090),
+                 (kc + f * 0.01 + UP * 0.012, right, UP, half + 0.095, 0.080),
+                 (kc + f * 0.065 - UP * 0.10, right, tilt, half + 0.105, 0.095),
+                 (Vector((kc.x, kc.y, p.z + 0.24)) + f * 0.06, right, f, half + 0.125, 0.150)]
+    else:
+        rings = [waist,
+                 (pel - UP * 0.02, right, f, 0.186, 0.132),
+                 (pel - UP * 0.30 + f * 0.01, right, f, 0.205, 0.150),
+                 (Vector((pel.x, pel.y, p.z + 0.30)) + f * 0.02, right, f, 0.225, 0.172)]
+    seg = 28
+    vr = [[B.bm.verts.new(c + ea * (a * math.cos(2 * math.pi * k / seg)) + eb * (b * math.sin(2 * math.pi * k / seg))) for k in range(seg)]
+          for c, ea, eb, a, b in rings]
+    for r0, r1 in zip(vr[:-1], vr[1:]):
+        for k in range(seg):
+            B.bm.faces.new((r0[k], r0[(k + 1) % seg], r1[(k + 1) % seg], r1[k])).material_index = 2
 
 
 # ─────────────────────────────── puppet arms ───────────────────────────────
@@ -186,8 +287,8 @@ def build_puppet(key):
 STEPPERS = {"Marimba", "Vibraphone"}
 THIGH, SHIN = 0.44, 0.44
 TORSO_H = 0.50                        # pelvis to shoulders: the lever the upper body leans on
-_LEG_PARTS = [("thigh", "cyl", 2, 0.075, 0.056 / 0.075), ("knee", "sph", 2, 0.056, 1),
-              ("shin", "cyl", 2, 0.052, 0.042 / 0.052), ("shoe", "box", 3, 1.0, 1)]
+_LEG_PARTS = [("thigh", "cyl", 2, 0.080, 0.060 / 0.080), ("knee", "sph", 2, 0.060, 1),
+              ("shin", "cyl", 2, 0.056, 0.050 / 0.056), ("cuff", "cyl", 2, 0.054, 1.0), ("shoe", "box", 3, 1.0, 1)]
 
 
 def build_legs(key):
@@ -235,6 +336,11 @@ def pose_stepper(key, st):
         foot = p + l * (sg * 0.135 + stance[side][0]) + f * 0.02 + UP * (0.09 + stance[side][1])
         K, A = _ik2(hip, foot, f, THIGH, SHIN)
         _seg(g(side, "thigh"), hip, K); _ball(g(side, "knee"), K); _seg(g(side, "shin"), K, A)
+        cuff = g(side, "cuff")
+        if key in SKIRTS:
+            cuff.hide_render = cuff.hide_viewport = True
+        else:
+            _seg(cuff, A - UP * 0.035, A + UP * 0.02)
         g(side, "shoe").matrix_world = Matrix.Translation(A + f * 0.06 - UP * 0.05) @ Rb @ Matrix.Diagonal((0.10, 0.27, 0.08, 1.0))
     return {side: Mb @ s for side, s in shoulders(key).items()}
 
@@ -1022,6 +1128,10 @@ def pose(key, state=None, pup=None):
     """Pose one player (and its bow/mallets/slide) for a musical state."""
     hands, pole = HANDS[key](state)
     pup = pup or get_puppet(key)
+    if key in BREATHERS:
+        body = bpy.data.objects.get(body_name(key))
+        if body and body.data.shape_keys:
+            body.data.shape_keys.key_blocks["Breath"].value = (state or {}).get("breath", BREATH_REST)
     if key in STEPPERS:
         S = pose_stepper(key, state or {})
     else:
