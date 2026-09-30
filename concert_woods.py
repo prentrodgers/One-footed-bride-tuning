@@ -148,11 +148,57 @@ def flamed_maple(name, light, dark, varnish_tint):
     return m
 
 
+def natural_wood(name, light, dark, line, axis='X', ring=12.0, rings_per=12.0, contrast=0.35, rough=0.45, coat=0.15):
+    """Irregular grain: rings are the fractional part of a stretched noise field, so their spacing,
+    curvature and direction wander the way real growth rings do - no symmetry, no repeat. Broad colour
+    variation from a second noise; `contrast` sets how strongly the ring lines show."""
+    m = bpy.data.materials.get(name) or bpy.data.materials.new(name)
+    nt, N, L = _clear(m)
+    tc = N.new("ShaderNodeTexCoord"); tc.location = (-1200, 0)
+    mp = N.new("ShaderNodeMapping"); mp.location = (-1000, 0)
+    mp.inputs["Scale"].default_value = {'X': (0.02, 1, 1), 'Y': (1, 0.02, 1), 'Z': (1, 1, 0.02)}[axis]
+    mp.inputs["Location"].default_value = (0.37, 0.19, 0.53)          # off-centre: no mirror line down the middle
+    L.new(tc.outputs["Object"], mp.inputs["Vector"])
+    nz = N.new("ShaderNodeTexNoise"); nz.location = (-800, 150)
+    nz.inputs["Scale"].default_value = ring; nz.inputs["Detail"].default_value = 1.0
+    nz.inputs["Roughness"].default_value = 0.45; nz.inputs["Distortion"].default_value = 0.10
+    L.new(mp.outputs["Vector"], nz.inputs["Vector"])
+    mul = N.new("ShaderNodeMath"); mul.operation = 'MULTIPLY'; mul.location = (-600, 150); mul.inputs[1].default_value = rings_per
+    L.new(nz.outputs["Fac"], mul.inputs[0])
+    fr = N.new("ShaderNodeMath"); fr.operation = 'FRACT'; fr.location = (-450, 150)
+    L.new(mul.outputs[0], fr.inputs[0])
+    rl = _ramp(N, [(0.0, (1, 1, 1)), (0.70, (1, 1, 1)), (0.88, (0, 0, 0)), (1.0, (0.6, 0.6, 0.6))], -300, 150)
+    L.new(fr.outputs[0], rl.inputs["Fac"])
+    inv = N.new("ShaderNodeInvert"); inv.location = (-60, 200)
+    L.new(rl.outputs["Color"], inv.inputs["Color"])
+    k = N.new("ShaderNodeMath"); k.operation = 'MULTIPLY'; k.location = (80, 200); k.inputs[1].default_value = contrast
+    L.new(inv.outputs["Color"], k.inputs[0])
+    broad = N.new("ShaderNodeTexNoise"); broad.location = (-800, -200)
+    broad.inputs["Scale"].default_value = 2.5; broad.inputs["Detail"].default_value = 4.0
+    L.new(mp.outputs["Vector"], broad.inputs["Vector"])
+    base = _ramp(N, [(0.3, dark), (0.7, light)], -450, -200)
+    L.new(broad.outputs["Fac"], base.inputs["Fac"])
+    mix = N.new("ShaderNodeMix"); mix.data_type = 'RGBA'; mix.location = (300, 50)
+    mix.inputs[7].default_value = tuple(line) + (1,)
+    L.new(k.outputs[0], mix.inputs["Factor"]); L.new(base.outputs["Color"], mix.inputs[6])
+    b = _bsdf(N, L, mix.outputs[2], fr.outputs[0], rough=rough, coat=coat)
+    bump = next(n for n in N if n.type == 'BUMP'); bump.inputs["Strength"].default_value = 0.05
+    m.diffuse_color = tuple(light) + (1,)
+    return m
+
+
 def apply_all():
     # violin (and cello, which shares these): classic golden-orange-brown varnish
     # (linear colour values: sRGB (0.45, 0.20, 0.07), a typical golden-brown varnish, is (0.17, 0.033, 0.006))
-    spruce_top("Violin Varnish Spruce", (0.32, 0.12, 0.03), (0.20, 0.065, 0.015), (0.025, 0.006, 0.0015))
-    flamed_maple("Flamed Maple Varnish", (0.38, 0.14, 0.035), (0.05, 0.013, 0.003), (1.0, 0.85, 0.66))
-    # viola: darker, redder brown so the two are told apart at a glance
-    spruce_top("Viola Varnish Spruce", (0.22, 0.065, 0.018), (0.13, 0.035, 0.009), (0.018, 0.004, 0.001))
-    flamed_maple("Viola Flamed Maple", (0.28, 0.08, 0.022), (0.035, 0.009, 0.002), (0.95, 0.72, 0.58))
+    # tops (violin and cello share one; viola darker): irregular, soft growth lines under the varnish
+    natural_wood("Violin Varnish Spruce", (0.30, 0.11, 0.028), (0.22, 0.075, 0.018), (0.10, 0.032, 0.008),
+                 axis='X', ring=14.0, rings_per=10.0, contrast=0.68, rough=0.45, coat=0.15)
+    natural_wood("Viola Varnish Spruce", (0.20, 0.060, 0.016), (0.14, 0.040, 0.010), (0.06, 0.016, 0.004),
+                 axis='X', ring=14.0, rings_per=10.0, contrast=0.68, rough=0.45, coat=0.15)
+    flamed_maple("Flamed Maple Varnish", (0.38, 0.14, 0.035), (0.12, 0.035, 0.008), (1.0, 0.85, 0.66))
+    flamed_maple("Viola Flamed Maple", (0.28, 0.08, 0.022), (0.09, 0.024, 0.006), (0.95, 0.72, 0.58))
+    # finger piano boards
+    natural_wood("Acacia Koa", (0.50, 0.26, 0.11), (0.38, 0.18, 0.07), (0.22, 0.09, 0.03),
+                 axis='X', ring=10.0, rings_per=10.0, contrast=0.72, rough=0.35, coat=0.5)
+    natural_wood("Mukwa (African Teak)", (0.30, 0.13, 0.05), (0.22, 0.09, 0.035), (0.12, 0.045, 0.015),
+                 axis='Y', ring=6.0, rings_per=10.0, contrast=0.72, rough=0.45, coat=0.2)

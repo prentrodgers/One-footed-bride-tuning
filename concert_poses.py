@@ -344,7 +344,26 @@ def pose_stepper(key, st):
     pel0 = p + UP * 0.96
     pel = pel0 + l * dx
     a = math.asin(max(-0.6, min(0.6, st.get("lean", 0.0) / TORSO_H)))
-    Mb = Matrix.Translation(pel) @ Matrix.Rotation(a, 4, UP.cross(l)) @ Matrix.Translation(-pel0)
+    side_lean = Matrix.Rotation(a, 4, UP.cross(l))
+    # bend forward from the hips just as far as the hands need to reach the far bars (never back)
+    fwd = Matrix.Identity(4)
+    wrists = st.get("_wrists")
+    if wrists:
+        reach = UA + FA - 0.01
+        # the smallest bend (<= ~17 deg) that does the most good: a reach off to the side is not helped
+        # by bending forward, so then she stays upright and the arms and a step do the reaching
+        def excess(b):
+            Mt = Matrix.Translation(pel) @ side_lean @ Matrix.Rotation(b, 4, l) @ Matrix.Translation(-pel0)
+            return max(max(0.0, (Vector(wrists[s]) - Mt @ sh).length - reach) for s, sh in shoulders(key).items())
+        best_b, best_e = 0.0, excess(0.0)
+        for k in range(1, 16):
+            e = excess(0.02 * k)
+            if e < best_e - 0.004:
+                best_b, best_e = 0.02 * k, e
+            if e == 0.0:
+                break
+        fwd = Matrix.Rotation(best_b, 4, l)
+    Mb = Matrix.Translation(pel) @ side_lean @ fwd @ Matrix.Translation(-pel0)
     body = bpy.data.objects.get(body_name(key))
     if body:
         body.matrix_world = Mb
@@ -406,13 +425,14 @@ def pose_arm(pup, side, S, spec, pole):
     over = (W - S).length - (UA + FA - 0.005)
     if over > 0:                             # reaching: the shoulder comes forward a little first
         S = S + (W - S).normalized() * min(over, PROTRACT)
+    dlt = Vector()
     if "elbow" in spec:
         E = Vector(spec["elbow"])
     else:
         E, W2 = _elbow(S, W, pole)
         if (W2 - W).length > 1e-4:          # out of reach: slide the hand toward the shoulder
             dlt = W2 - W
-            spec = dict(kc=Vector(spec["kc"]) + dlt, tips=[Vector(t) + dlt for t in spec["tips"]], thumb=Vector(spec["thumb"]) + dlt)
+            spec = dict(spec, kc=Vector(spec["kc"]) + dlt, tips=[Vector(t) + dlt for t in spec["tips"]], thumb=Vector(spec["thumb"]) + dlt)
             W = W2
     g = lambda part: pup[(side, part)]
     _seg(g("upper"), S, E); _ball(g("elbow"), E); _seg(g("forearm"), E, W)
@@ -449,6 +469,7 @@ def pose_arm(pup, side, S, spec, pole):
     base = W + pd * 0.028 - ac * 0.030
     pts = finger_chain(base, th, bend, THUMB_L, pd, coupling=(1.0,))
     _seg(g("t0"), pts[0], pts[1]); _ball(g("tj0"), pts[1]); _seg(g("t1"), pts[1], pts[2]); _ball(g("tj1"), pts[2])
+    return dlt
 
 
 PHALANX = (0.48, 0.29, 0.23)      # proximal, middle, distal share of a finger's length
@@ -957,7 +978,11 @@ def hands_mallets(state=None, key="Marimba"):
         inner, outer = heads[side]
         inward = Vector((-1 if side == "L" else 1, 0, 0))
         mid = (inner + outer) / 2
-        H = Vector((mid.x, o.y + hy, tz + 0.10 + max(0.0, max(inner.z, outer.z) - (tz + hz)) * 0.6))
+        # The hand is placed FROM the mallet heads: the grip sits a fixed distance back along the shafts
+        # (toward the player and up), so each 40 cm mallet always runs from its head through the hand.
+        d = (-f * 0.80 + UP * 0.60).normalized()
+        Gc = mid + d * 0.29
+        H = Gc - Vector((0, -0.026, -0.020))
         gi = H + Vector((0, -0.030, -0.018)) + inward * 0.018
         go = H + Vector((0, -0.020, -0.022)) - inward * 0.040
         for g, h, tag in ((gi, inner, "inner"), (go, outer, "outer")):
@@ -1188,7 +1213,9 @@ def pose(key, state=None, pup=None):
         if body and body.data.shape_keys:
             body.data.shape_keys.key_blocks["Breath"].value = (state or {}).get("breath", BREATH_REST)
     if key in STEPPERS:
-        S = pose_stepper(key, state or {})
+        st = dict(state or {})
+        st["_wrists"] = {s: _wrist_for(sh, hands[s]) for s, sh in shoulders(key).items()}
+        S = pose_stepper(key, st)
     else:
         shift = Vector((state or {}).get("body_shift", (0.0, 0.0, 0.0)))
         body = bpy.data.objects.get(body_name(key))
@@ -1198,7 +1225,12 @@ def pose(key, state=None, pup=None):
     p, f, l, up = frame(key)
     default_pole = {"L": -UP + l * 0.8 - f * 0.3, "R": -UP - l * 0.8 - f * 0.3}
     for side in ("L", "R"):
-        pose_arm(pup, side, S[side], hands[side], pole.get(side, default_pole[side]))
+        dlt = pose_arm(pup, side, S[side], hands[side], pole.get(side, default_pole[side]))
+        if key in MALLET_SETS and dlt.length > 1e-5:        # the mallets go where the hand goes: never left behind
+            for tag in ("inner", "outer"):
+                ob = bpy.data.objects.get(f"{key} Mallet {side} {tag}")
+                if ob:
+                    ob.matrix_world = Matrix.Translation(dlt) @ ob.matrix_world
 
 
 # ─────────────────────────────── auxiliary movable objects ───────────────────────────────

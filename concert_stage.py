@@ -269,7 +269,33 @@ class MalletPlayer:
             u = (t - prev[0]) / 0.12
             contact = prev[1].z + self.HEAD_R
             z = contact + (z - contact) * (u * (2 - u))
+        # Resting: in a gap of more than REST_GAP the mallets go back to the starting position (and the
+        # body with them - lean and stance follow the heads), leaving after the last stroke and returning
+        # in time for the next.
+        w = self._rest_weight(k, t)
+        if w > 0:
+            r = self.rest[k]
+            return Vector((xy.x, xy.y, z)).lerp(r, w)
         return Vector((xy.x, xy.y, z))
+
+    REST_GAP, REST_OUT, REST_IN = 2.0, 0.7, 0.55
+
+    def _rest_weight(self, k, t):
+        if not hasattr(self, "_strokes"):
+            self._strokes = sorted({e[0] for kk in self.ORDER for e in self.ev[kk] if e[2]})
+        ts = self._strokes
+        if not ts:
+            return 1.0
+        sm = lambda v: (lambda c: c * c * (3 - 2 * c))(max(0.0, min(1.0, v)))
+        import bisect
+        i = bisect.bisect_right(ts, t)
+        prev = ts[i - 1] if i > 0 else None
+        nxt = ts[i] if i < len(ts) else None
+        if prev is not None and nxt is not None and nxt - prev <= self.REST_GAP:
+            return 0.0
+        w_out = 1.0 if prev is None else sm((t - prev - 0.35) / self.REST_OUT)
+        w_in = 1.0 if nxt is None else sm((nxt - self.REST_IN - 0.15 - t) / self.REST_IN)
+        return min(w_out, w_in)
 
     def _striking(self, k, t):
         return any(e[2] and -0.12 < e[0] - t < 0.16 for e in self.ev[k])
@@ -288,8 +314,8 @@ class MalletPlayer:
         return hs
 
     # ---- feet: planted; the body leans; a real step only when a note is out of lean-and-reach ----
-    LEAN_MAX = 0.22          # shoulders can shift this far sideways by leaning from the hips (~26 deg)
-    STEP_AT = 0.38           # how far the mallets may stay from the stance before she steps
+    LEAN_MAX = 0.12          # shoulders can shift this far sideways by leaning from the hips (~14 deg)
+    STEP_AT = 0.30           # how far the mallets may stay from the stance before she steps
     STEP_T = 0.45            # seconds for a step: the leading foot, then the trailing foot follows
     STEP_LIFT = 0.045
 
@@ -306,7 +332,7 @@ class MalletPlayer:
             ahead = [self._cx(t + dt) - stance for dt in (0.0, 0.2, 0.4, 0.6, 0.8)]
             need = sum(ahead) / len(ahead)
             if abs(need) > self.STEP_AT and min(abs(a) for a in ahead) > 0.6 * self.STEP_AT and t >= free_at:
-                to = max(-0.8, min(0.8, stance + need - math.copysign(0.18, need)))   # just far enough
+                to = max(-1.0, min(1.0, stance + need - math.copysign(0.05, need)))   # to just short of under the hands
                 t0 = max(t - 0.6 * self.STEP_T, free_at)           # start early so she arrives in time
                 self.steps.append((t0, t0 + self.STEP_T, stance, to))
                 stance, free_at = to, t0 + self.STEP_T + 0.25
@@ -335,7 +361,7 @@ class MalletPlayer:
         heads = {"L": (hs[1], hs[0]), "R": (hs[2], hs[3])}     # (inner, outer)
         feet, px = self._stance(t)
         cx = sum(h.x for h in hs) / 4 - self.rest_cx
-        lean = max(-self.LEAN_MAX, min(self.LEAN_MAX, (cx - px) * 0.8))
+        lean = max(-self.LEAN_MAX, min(self.LEAN_MAX, (cx - px) * 0.5))
         # body_shift is for the over-the-shoulder camera, which rides along with her stance
         return {"heads": heads, "stance": feet, "lean": lean, "body_shift": (px, 0.0, 0.0)}
 
