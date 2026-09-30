@@ -21,8 +21,10 @@ import concert_stagekit as sk
 
 UP = Vector((0, 0, 1))
 # material indices in the body mesh: see concert_poses.build_body
-MI = dict(skin=0, hair=4, pupil=5, sclera=7, iris=8, lips=9, lens=10, frame=11)
-GLASSES = {"Baritone Flying V"}      # dark glasses
+MI = dict(skin=0, hair=4, pupil=5, sclera=7, iris=8, lips=9, lens=10, frame=11, glass=12, wire=13, cap=14, logo=15)
+GLASSES = {"Baritone Flying V"}      # dark glasses, white frames
+PINCE_NEZ = {"Oboe"}                 # clip-on spectacles with a cord
+CAPS = {"Trumpet"}                   # navy ball cap, interlocking NY
 
 # head profile: (z above the head centre, half-width, front depth, back depth, forward offset of the ring)
 PROFILE = [(-0.120, 0.012, 0.008, 0.008, 0.070), (-0.110, 0.034, 0.018, 0.030, 0.062), (-0.095, 0.052, 0.028, 0.058, 0.048),
@@ -143,8 +145,12 @@ def face_materials(i, skin_color):
     iris = sk.mat(f"Iris {i}", IRIS[i % len(IRIS)], rough=0.10, coat=1.0)
     lips = sk.mat(f"Lips {i}", tuple(c * k for c, k in zip(skin_color, (0.80, 0.52, 0.52))), rough=0.35)
     lens = sk.mat("Sunglass Lens", (0.012, 0.012, 0.016), metal=0.3, rough=0.04, coat=1.0)
-    frame = sk.mat("Sunglass Frame", (0.01, 0.01, 0.01), rough=0.25)
-    return [sclera, iris, lips, lens, frame]
+    frame = sk.mat("Sunglass Frame White", (0.85, 0.85, 0.83), rough=0.2, coat=0.6)
+    glass = sk.mat("Spectacle Glass", (0.85, 0.9, 0.9), rough=0.02, alpha=0.18, coat=1.0)
+    wire = sk.mat("Spectacle Gold Wire", (0.83, 0.65, 0.32), metal=1.0, rough=0.25)
+    cap = sk.mat("Ball Cap Navy", (0.012, 0.018, 0.045), rough=0.8)
+    logo = sk.mat("Ball Cap Logo White", (0.9, 0.9, 0.88), rough=0.7)
+    return [sclera, iris, lips, lens, frame, glass, wire, cap, logo]
 
 
 # ─────────────────────────────── the head ───────────────────────────────
@@ -198,7 +204,9 @@ def build_head(B, hc, right, f, key, i, seg=32):
     _tube(B, lo_pts, taper(0.0052), MI["lips"], seg=10, flat=0.8, flat_axis=f)
     mouth = [P(x, yl + 0.0005 - 45 * x * x, -0.0530 + 1.0 * x * x) for x in xs[1:-1]]
     _tube(B, mouth, [0.0009] * len(mouth), MI["pupil"], seg=6)
-    if key in GLASSES:                  # 60s wayfarer-ish shades: dark lenses, black frame, temples to the ears
+    if key in PINCE_NEZ:
+        _pince_nez(B, P, Rb, right, f)
+    if key in GLASSES:                  # 60s surf-band shades: dark lenses, white frame, temples to the ears
         for s in (-1, 1):
             lc = P(s * 0.032, front_y(s * 0.032, 0.022) + 0.011, 0.021)
             B.sphere(lc, 1.0, mi=MI["lens"], scale=(0.022, 0.004, 0.017), rot=Rb, seg=20, rings=8)
@@ -220,6 +228,103 @@ def build_head(B, hc, right, f, key, i, seg=32):
         B.cyl(tie - f * 0.006, tie + f * 0.006, 0.019, mi=MI["pupil"], seg=14)
     if beard:
         _beard(B, hc, right, f)
+    if key in CAPS:
+        _cap(B, hc, right, f)
+
+
+def _pince_nez(B, P, Rb, right, f):
+    """Two small oval lenses pinched onto the nose by an arched spring, no temples; a fine cord from
+    the outer rim falls past the cheek to the collar."""
+    for s in (-1, 1):
+        lc = P(s * 0.029, front_y(s * 0.029, 0.018) + 0.013, 0.018)
+        B.sphere(lc, 1.0, mi=MI["glass"], scale=(0.0165, 0.0015, 0.0130), rot=Rb, seg=18, rings=6)
+        ring = [lc + right * (0.0170 * math.cos(2 * math.pi * k / 20)) + UP * (0.0135 * math.sin(2 * math.pi * k / 20)) for k in range(21)]
+        _tube(B, ring, [0.0010] * len(ring), MI["wire"], seg=5)
+        pad = P(s * 0.0085, front_y(s * 0.0085, 0.020) + 0.002, 0.020)       # nose pad gripping the bridge
+        B.sphere(pad, 0.0024, mi=MI["wire"], seg=8, rings=5)
+    yb = front_y(0, 0.028)
+    _tube(B, [P(-0.0125, yb + 0.010, 0.024), P(-0.006, yb + 0.006, 0.031), P(0.0, yb + 0.005, 0.033),
+              P(0.006, yb + 0.006, 0.031), P(0.0125, yb + 0.010, 0.024)], [0.0011] * 5, MI["wire"], seg=5)
+    # cord: from the player's left lens rim, sagging past the cheek and jaw to the collar
+    y0 = front_y(-0.046, 0.018)
+    cord = [P(-0.046, y0 + 0.012, 0.016), P(-0.058, y0 + 0.004, -0.010), P(-0.066, 0.040, -0.055),
+            P(-0.066, 0.040, -0.100), P(-0.060, 0.050, -0.140), P(-0.050, 0.062, -0.175)]
+    _tube(B, cord, [0.0008] * len(cord), MI["pupil"], seg=4)
+
+
+def _cap(B, hc, right, f):
+    """A baseball cap over the (short) hair: a six-panel crown with a button, a curved bill tilted a
+    little down, and an interlocking NY on the front panel."""
+    off, seg, rows = 0.021, 48, 10
+    band = lambda s: 0.041 + 0.010 * s                                    # sits a little higher at the front
+    def point(c, r):
+        th = 2 * math.pi * c / seg
+        z0 = band(math.sin(th))
+        return head_point(hc, right, f, th, z0 + (Z_TOP - z0) * (r / (rows - 1)) ** 0.9, off)
+    grid = _grid(B, seg, rows, point, True, MI["cap"])
+    top = [grid[c][rows - 1] for c in range(seg)]
+    cen = B.bm.verts.new(sum((v.co for v in top), Vector()) / seg + UP * 0.003)
+    for c in range(seg):
+        B.bm.faces.new((top[c], top[(c + 1) % seg], cen)).material_index = MI["cap"]
+    B.sphere(cen.co + UP * 0.002, 1.0, mi=MI["cap"], scale=(0.007, 0.007, 0.004), seg=10, rings=5)
+    _tube(B, [grid[c][0].co for c in range(seg)] + [grid[0][0].co], [0.0022] * (seg + 1), MI["cap"], seg=6)
+    for k in range(6):                                                    # panel seams, stitched ridges
+        c = (seg // 12 + k * seg // 6) % seg
+        _tube(B, [grid[c][r].co for r in range(rows)] + [cen.co], [0.0010] * (rows + 1), MI["cap"], seg=5)
+    # bill: from the band across the front 120 degrees, out ~7 cm, down 12 degrees, sides curled down
+    cols, brows, span = 25, 6, math.radians(62)
+    def bill(c, r, dz):
+        ph = -span + 2 * span * c / (cols - 1)
+        th = math.pi / 2 + ph
+        inner = head_point(hc, right, f, th, band(math.sin(th)), off)
+        out = (right * math.cos(th) * 0.55 + f * math.sin(th)).normalized()
+        L = 0.074 * max(0.0, math.cos(ph / span * math.pi / 2)) ** 0.55 * r / (brows - 1)
+        return inner + out * L - UP * (L * 0.21 + 0.016 * (ph / span) ** 2 * r / (brows - 1) + dz)
+    _grid(B, cols, brows, lambda c, r: bill(c, r, 0.0), False, MI["cap"])
+    _grid(B, cols, brows, lambda c, r: bill(c, r, 0.0035), False, MI["cap"])      # underside
+    _tube(B, [bill(c, brows - 1, 0.0018) for c in range(cols)], [0.0019] * cols, MI["cap"], seg=6)
+    _logo(B, hc, right, f, off + 0.0020, band(1.0) + 0.034)                    # over the front seam
+
+
+def _logo(B, hc, right, f, off, zc, h=0.036):
+    """Interlocking N and Y (a serif face, the Y overlapping the N's right half and set lower),
+    wrapped onto the front of the cap crown."""
+    import bmesh
+    font = None
+    for path in (r"C:\Windows\Fonts\georgiab.ttf", r"C:\Windows\Fonts\timesbd.ttf"):
+        try:
+            font = bpy.data.fonts.load(path, check_existing=True); break
+        except Exception:
+            pass
+    tmp = []
+    bm2 = bmesh.new()
+    for ch, dx, dy in (("N", -0.20, 0.10), ("Y", 0.02, -0.24)):
+        cu = bpy.data.curves.new(f"_logo_{ch}", 'FONT'); cu.body = ch; cu.size = 1.0
+        cu.align_x = 'CENTER'; cu.align_y = 'CENTER'
+        if font: cu.font = font
+        ob = bpy.data.objects.new(f"_logo_{ch}", cu); bpy.context.scene.collection.objects.link(ob)
+        tmp.append((ob, cu))
+        me = ob.evaluated_get(bpy.context.evaluated_depsgraph_get()).to_mesh()
+        m2 = me.copy(); ob.to_mesh_clear()
+        m2.transform(Matrix.Translation((dx, dy, 0)))
+        bm2.from_mesh(m2); bpy.data.meshes.remove(m2)
+    for ob, cu in tmp:
+        bpy.data.objects.remove(ob); bpy.data.curves.remove(cu)
+    bmesh.ops.triangulate(bm2, faces=bm2.faces[:])
+    xs = [v.co.x for v in bm2.verts]; ys = [v.co.y for v in bm2.verts]
+    sc = h / (max(ys) - min(ys)); cx = (max(xs) + min(xs)) / 2; cy = (max(ys) + min(ys)) / 2
+    R = 0.085                                                            # wrap radius across the crown front
+    vmap = {}
+    for v in bm2.verts:
+        u, w = (v.co.x - cx) * sc, (v.co.y - cy) * sc
+        th = math.pi / 2 + u / R                                         # viewer's right = the player's left
+        vmap[v] = B.bm.verts.new(head_point(hc, right, f, th, zc + w, off))
+    for fc in bm2.faces:
+        try:
+            B.bm.faces.new([vmap[v] for v in fc.verts]).material_index = MI["logo"]
+        except ValueError:
+            pass
+    bm2.free()
 
 
 def _tube(B, pts, radii, mi, seg=10, flat=1.0, flat_axis=None):
