@@ -528,11 +528,29 @@ SCALE_LEN = {"Violin": 0.328, "Viola": 0.328, "Cello": 0.690}        # in each r
 
 
 def string_for(opens, midi):
+    """The highest string whose open pitch is at or below the note: the lowest position on the fingerboard."""
     s = 0
     for i, o in enumerate(opens):
         if midi >= o:
             s = i
     return s
+
+
+def stop_distance(scale, semis):
+    """Distance from the nut of a stop `semis` equal-tempered semitones above the open string."""
+    return scale * (1 - 2 ** (-semis / 12)) if semis > 0 else 0.0
+
+
+# Visible string vibration. A real string swings hundreds of times a second - far beyond 30 fps - so it
+# is drawn as a quick shimmer (a different rate per string so neighbours do not move in step), with an
+# amplitude a little larger than life so it reads on camera: bowed strings sustain while the bow moves,
+# plucked ones (pizzicato, guitar) ring down.
+STRING_AMP = {"Violin": 0.0011, "Viola": 0.0011, "Cello": 0.0020, "Baritone Flying V": 0.0016}
+STRING_HZ = (11.3, 13.1, 14.7, 12.2, 15.9, 10.4)
+
+
+def string_disp(key, s, amp, t):
+    return amp * math.cos(2 * math.pi * STRING_HZ[s % 6] * t + 1.3 * s)
 
 
 class BowedPlayer:
@@ -585,6 +603,23 @@ class BowedPlayer:
             if prev is not None:
                 pl = [p for p in self.plan if p[0] is prev][0]
                 st["frog_dist"] = pl[2]
+        # the string that is sounding (or ringing on after its note): stopped where the finger is, vibrating
+        n = cur[-1][0] if cur else last_onset([p[0] for p in self.plan], t)
+        if n is not None:
+            s = string_for(self.opens, n["midi"])
+            u = t - n["t0"]
+            A = STRING_AMP[self.key] * (0.4 + 0.6 * n["lvl"])
+            if n["art"] == "pizz":
+                amp = 1.3 * A * math.exp(-u / 0.35)
+            elif n["art"] == "martele":
+                amp = A * (0.7 + 0.6 * math.exp(-u / 0.12)) * min(1.0, u / 0.03)
+            else:
+                amp = A * min(1.0, u / 0.06)
+            if t > n["t1"] and n["art"] != "pizz":               # bow lifted: the string rings down quickly
+                amp *= math.exp(-(t - n["t1"]) / 0.10)
+            d = stop_distance(SCALE_LEN[self.key], n["midi"] - self.opens[s]) if cur else 0.0
+            if amp > 1e-5 or d > 0:
+                st["strings"] = {s: {"d": d, "disp": string_disp(self.key, s, amp, t) if amp > 1e-5 else 0.0}}
         return st
 
 
@@ -598,11 +633,8 @@ class GuitarPlayer:
         if cur:
             n = max(cur, key=lambda n: n["midi"])
             opens = OPEN["Baritone Flying V"]
-            s = string_for(opens, n["midi"])
-            fret = n["midi"] - opens[s]
-            while fret > 20 and s < 5:
-                s += 1; fret = n["midi"] - opens[s]
-            fret = max(0, min(22, fret))
+            s = string_for(opens, n["midi"])                 # highest string, lowest fret
+            fret = max(0, min(22, n["midi"] - opens[s]))
             if fret == 0:                                     # open string: fingers hover
                 st["lifts"] = [0.012] * 4
                 st["stops"] = [(5, s), (6, s), (7, s), (8, s)]
@@ -615,6 +647,17 @@ class GuitarPlayer:
             u = min(1.0, (t - prev["t0"]) / 0.09)
             a, b = (0.012, -0.012) if k % 2 == 0 else (-0.012, 0.012)
             st["pick_dy"] = a + (b - a) * u
+            # the picked string rings from its fret to the saddle, dying away (quickly once released)
+            opens = OPEN["Baritone Flying V"]
+            s = string_for(opens, prev["midi"]); fret = max(0, min(22, prev["midi"] - opens[s]))
+            age = t - prev["t0"]
+            amp = STRING_AMP["Baritone Flying V"] * (0.4 + 0.6 * prev["lvl"]) * math.exp(-age / 0.9)
+            if t > prev["t1"]:
+                amp *= math.exp(-(t - prev["t1"]) / 0.12)
+            held = t < prev["t1"]
+            d = stop_distance(0.686, fret) if held else 0.0
+            if amp > 1e-5 or d > 0:
+                st["strings"] = {s: {"d": d, "disp": string_disp("Baritone Flying V", s, amp, t) if amp > 1e-5 else 0.0}}
         return st
 
 

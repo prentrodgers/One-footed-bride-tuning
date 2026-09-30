@@ -572,7 +572,9 @@ def hands_guitar(state=None):
     for (n, s), lift in zip(stops, lifts):
         n = max(n, 1)
         x = _vfx(n) + 0.25 * (_vfx(n - 1) - _vfx(n))
-        tips.append(mw @ guitar_string_point(x, s) + Zg * (0.0078 + lift))
+        pressed = press_depth(key, _vfx(n), s) if lift == 0 else 0.0     # string held down onto the fret
+        tips.append(mw @ guitar_string_point(x, s) + Zg * (0.0078 + lift - pressed))
+    set_live_strings(key, st.get("strings", {}))
     ref = max(1, stops[1][0])
     lh = dict(kc=M((_vfx(ref), -0.052, -0.004)), tips=tips, thumb=M((_vfx(ref) + 0.01, 0.012, -0.026)))
     dz = st.get("pick_dy", 0.0)                                         # strumming: pick travels across the strings (local y)
@@ -625,6 +627,139 @@ def bowed_string_point(G, x, i):
     t = (G["x_n"] - x) / (G["x_n"] - G["x_b"])
     yn = G["sp_n"] * (1.5 - i); yb = G["sp_b"] * (1.5 - i)
     return Vector((x, yn + (yb - yn) * t, G["z_sn"] + (G["z_bt"] - G["z_sn"]) * t))
+
+
+# ─────────────────────────────── live strings ───────────────────────────────
+# Each string's playing length (nut to bridge/saddle) is its own object, re-shaped every frame: the
+# stopped string is pressed down to the fingerboard (onto the fret on the guitar) where the finger
+# stops it, and the part between the stop and the bridge vibrates. Everything is in the instrument
+# rig's own frame (x along the neck toward the scroll, y across the strings, z up off the top).
+LIVE_RINGS, LIVE_SEG = 48, 6
+_live_cache = {}
+
+
+def _live_spec(key):
+    """-> (strings [(nut point, bridge point, radius, material)], press(x, i) depth at a stop x)."""
+    if key in ("Violin", "Viola", "Cello"):
+        G = _cello_geo() if key == "Cello" else _violin_geo()
+        radii = [0.00072, 0.00056, 0.00046, 0.00037] if key == "Cello" else [0.00040, 0.00037, 0.00032, 0.00013]
+        clear = 0.008 if key == "Cello" else 0.0045
+        mats = ["Silver-Wound String"] * 3 + ["Silver-Wound String" if key != "Violin" else "Plain Steel String"]
+        strings = []
+        for i, r in enumerate(radii):
+            N = bowed_string_point(G, G["x_n"], i) + Vector((0, 0, r))
+            B = bowed_string_point(G, G["x_b"], i) + Vector((0, 0, r))
+            strings.append((N, B, r, mats[i]))
+        # the string is 1 mm above the fingerboard at the nut and `clear` above it at the fingerboard's end
+        press = lambda x, i: 0.0008 + (clear - 0.0008) * max(0.0, min(1.0, (G["x_n"] - x) / (G["x_n"] - G["fb_end"])))
+        return strings, press, G["x_n"], G["x_b"]
+    radii = [0.000838, 0.000635, 0.000483, 0.000356, 0.000229, 0.000178]
+    mats = ["Nickel Wound String"] * 4 + ["Plain Steel String"] * 2
+    strings = [(guitar_string_point(_V_XN, i) + Vector((0, 0, r)), guitar_string_point(_V_XS, i) + Vector((0, 0, r)), r, mats[i])
+               for i, r in enumerate(radii)]
+    press = lambda x, i: guitar_string_point(x, i).z + radii[i] - (0.0112 + radii[i])      # down onto the fret crown
+    return strings, press, _V_XN, _V_XS
+
+
+def build_live_strings(key, strings_obj):
+    """Split the playing lengths out of the static string mesh into live objects (run once, over MCP)."""
+    import bmesh as _bm
+    rig = bpy.data.objects[key]
+    strings, press, x_n, x_b = _live_spec(key)
+    ob = bpy.data.objects[strings_obj]
+    bm = _bm.new(); bm.from_mesh(ob.data)
+    bm.verts.ensure_lookup_table()
+    seen, kill = set(), []
+    for v in bm.verts:                                   # mesh islands = the individual string segments
+        if v.index in seen:
+            continue
+        isl, stack = [], [v]
+        while stack:
+            w = stack.pop()
+            if w.index in seen:
+                continue
+            seen.add(w.index); isl.append(w)
+            stack.extend(e.other_vert(w) for e in w.link_edges)
+        xs = [q.co.x for q in isl]
+        if min(xs) < min(x_n, x_b) + 0.02 and max(xs) > max(x_n, x_b) - 0.02:
+            kill.extend(isl)                             # the one spanning nut to bridge: replaced by a live string
+    _bm.ops.delete(bm, geom=kill, context='VERTS')
+    bm.to_mesh(ob.data); bm.free()
+    col = rig.users_collection[0]
+    for i, (N, B, r, mname) in enumerate(strings):
+        name = f"{key} Live String {i}"
+        old = bpy.data.objects.get(name)
+        if old:
+            bpy.data.objects.remove(old, do_unlink=True)
+        me = bpy.data.meshes.new(name)
+        verts, faces = [], []
+        for k in range(LIVE_RINGS):
+            c = N.lerp(B, k / (LIVE_RINGS - 1))
+            for j in range(LIVE_SEG):
+                a = 2 * math.pi * j / LIVE_SEG
+                verts.append(c + Vector((0, r * math.cos(a), r * math.sin(a))))
+        for k in range(LIVE_RINGS - 1):
+            for j in range(LIVE_SEG):
+                a, b = k * LIVE_SEG + j, k * LIVE_SEG + (j + 1) % LIVE_SEG
+                faces.append((a, b, b + LIVE_SEG, a + LIVE_SEG))
+        me.from_pydata(verts, [], faces)
+        for p in me.polygons:
+            p.use_smooth = True
+        me.materials.append(bpy.data.materials.get(mname))
+        so = bpy.data.objects.new(name, me); col.objects.link(so)
+        so.parent = rig; so.matrix_parent_inverse = Matrix.Identity(4)
+    _live_cache.pop(key, None)
+
+
+def set_live_strings(key, specs):
+    """specs: {string index: {"d": stop distance from the nut (0 = open), "disp": signed vibration (m)}}.
+    Strings not listed lie straight and still."""
+    if key not in _live_cache:
+        strings, press, x_n, x_b = _live_spec(key)
+        objs = [bpy.data.objects.get(f"{key} Live String {i}") for i in range(len(strings))]
+        if not all(objs):
+            _live_cache[key] = None
+        else:
+            _live_cache[key] = (strings, press, x_n, x_b, objs, {})
+    cache = _live_cache[key]
+    if cache is None:
+        return
+    strings, press, x_n, x_b, objs, last = cache
+    L = x_n - x_b
+    for i, (N, B, r, _m) in enumerate(strings):
+        sp = specs.get(i)
+        sig = None if sp is None else (round(sp.get("d", 0.0), 5), round(sp.get("disp", 0.0), 6))
+        if last.get(i) == sig:
+            continue
+        last[i] = sig
+        d = sp.get("d", 0.0) if sp else 0.0
+        disp = sp.get("disp", 0.0) if sp else 0.0
+        us = max(0.0, min(0.95, d / L)) if d > 0 else 0.0       # stop point, as a fraction from the nut
+        depth = press(x_n - d, i) if d > 0 else 0.0
+        co = []
+        if d > 0:                                               # rings spread so one sits exactly at the stop
+            k1 = max(2, min(LIVE_RINGS - 3, round(us * (LIVE_RINGS - 1)) + 1))
+            us_list = [us * k / (k1 - 1) for k in range(k1)] + \
+                      [us + (1 - us) * k / (LIVE_RINGS - k1) for k in range(1, LIVE_RINGS - k1 + 1)]
+        else:
+            us_list = [k / (LIVE_RINGS - 1) for k in range(LIVE_RINGS)]
+        for u in us_list:
+            c = N.lerp(B, u)
+            if d > 0:                                           # pressed down at the stop, straight to nut and bridge
+                c.z -= depth * (u / us if u <= us else (1 - u) / (1 - us))
+            if disp and u > us:                                 # the vibrating length, stop to bridge
+                w = math.sin(math.pi * (u - us) / (1 - us))
+                c.y += disp * w; c.z += 0.35 * disp * w
+            for j in range(LIVE_SEG):
+                a = 2 * math.pi * j / LIVE_SEG
+                co.extend((c.x, c.y + r * math.cos(a), c.z + r * math.sin(a)))
+        me = objs[i].data
+        me.vertices.foreach_set("co", co)
+        me.update()
+
+
+def press_depth(key, x, i):
+    return _live_spec(key)[1](x, i)
 
 
 def pose_bow(bow_name, frog, along, normal):
@@ -708,7 +843,10 @@ def hands_violin(state=None, key="Violin"):
     p, f, l, up = frame(key); right = -l
     stops = st.get("stops", [(0.034, 2, 0.0), (0.060, 3, 0.004), (0.084, 1, 0.0), (0.104, 2, 0.006)])   # (dist from nut, string, lift)
     shift = st.get("shift", 0.0)                                                                       # hand position along the neck
-    tips = [mw @ bowed_string_point(G, G["x_n"] - d, s) + Zw * (0.0065 + lift) for d, s, lift in stops]
+    # the stopping finger presses its string down to the fingerboard
+    tips = [mw @ bowed_string_point(G, G["x_n"] - d, s) + Zw * (0.0065 + lift - (press_depth(key, G["x_n"] - d, s) if lift == 0 else 0.0))
+            for d, s, lift in stops]
+    set_live_strings(key, st.get("strings", {}))
     # knuckles on the E-string side (-y), wrist under the neck, thumb under the G side
     lh = stopping_hand(G, mw, tips, shift, ks=-1, knuckle_out=0.030, knuckle_dz=-0.004, wrist_out=0.034,
                        wrist_below=0.072, thumb_x=0.018, thumb_dz=0.020, high_wrist=(0.082, 0.068))
@@ -740,7 +878,9 @@ def hands_cello(state=None):
     a_side = -1 if Yc.dot(l) < 0 else 1
     stops = st.get("stops", [(0.074, 2, 0.0), (0.110, 2, 0.0), (0.142, 2, 0.0), (0.174, 2, 0.0)])
     shift = st.get("shift", 0.0)
-    tips = [mw @ bowed_string_point(G, G["x_n"] - d, s) + Zc * (0.0085 + lift) for d, s, lift in stops]
+    tips = [mw @ bowed_string_point(G, G["x_n"] - d, s) + Zc * (0.0085 + lift - (press_depth(key, G["x_n"] - d, s) if lift == 0 else 0.0))
+            for d, s, lift in stops]
+    set_live_strings(key, st.get("strings", {}))
     # knuckles at the player's-left edge of the neck, fingers curved over onto the strings, thumb behind the
     # neck, wrist behind and to the left (the cello's back faces the player)
     lh = stopping_hand(G, mw, tips, shift, ks=a_side, knuckle_out=0.044, knuckle_dz=-0.006, wrist_out=0.070,
