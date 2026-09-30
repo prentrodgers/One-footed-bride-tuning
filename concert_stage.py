@@ -618,6 +618,43 @@ def make_player(key, notes):
 
 
 # ─────────────────────────────── camera ───────────────────────────────
+# Hand-authored cue sheets: --cues NAME, or inline --cues "0:00=Cam 1 Audience Wide;0:04.5=Cam 29 ..."
+# Times are "m:ss" (or seconds); every camera must exist in the .blend (checked before rendering).
+CUE_SHEETS = {
+    # b421g (tempo 92, 21.4 s): both finger pianos play 0-15.5 s, then the piece rings out
+    "finger_pianos": [
+        ("0:00",   "Cam 6 Finger Pianos"),                       # both instruments, establishing
+        ("0:02.5", "Cam 30 Bass Finger Piano Hands (front)"),    # bass busy at 1-3 s
+        ("0:05",   "Cam 29 Finger Piano Hands (front)"),
+        ("0:07.5", "Cam 19 Bass Finger Piano Overhead"),         # bass busy at 6-8 s
+        ("0:09",   "Cam 10 Finger Piano (player view)"),         # treble's busiest second (11 notes)
+        ("0:11.5", "Cam 16 Bass Finger Piano (player view)"),
+        ("0:13.5", "Cam 29 Finger Piano Hands (front)"),
+        ("0:15.5", "Cam 6 Finger Pianos"),                       # last plucks ringing out
+        ("0:17.5", "Cam 1 Audience Wide"),
+    ],
+}
+
+
+def cue_seconds(s):
+    s = str(s).strip()
+    if ":" in s:
+        m, sec = s.split(":", 1)
+        return int(m) * 60 + float(sec)
+    return float(s)
+
+
+def parse_cues(spec):
+    """A named sheet or an inline 'time=camera;time=camera' list -> [(seconds, camera)], checked."""
+    if spec in CUE_SHEETS:
+        cues = CUE_SHEETS[spec]
+    else:
+        cues = [tuple(x.split("=", 1)) for x in spec.split(";") if x.strip()]
+    shots = sorted((cue_seconds(t), cam.strip()) for t, cam in cues)
+    missing = [c for _, c in shots if c not in bpy.data.objects or bpy.data.objects[c].type != 'CAMERA']
+    if missing:
+        raise SystemExit(f"[concert] cue sheet names cameras not in the .blend: {missing}")
+    return shots
 def build_shots(per, duration, seed, fixed=None):
     """[(t_start, camera name)]: the loudest players get the close shots, a wide every third shot."""
     if fixed:
@@ -676,6 +713,7 @@ def parse_args():
     p.add_argument("--frame-start", type=int, default=0)
     p.add_argument("--frame-end", type=int, default=None)
     p.add_argument("--camera", default=None, help="hold one camera for the whole render")
+    p.add_argument("--cues", default=None, help=f"cue sheet: one of {sorted(CUE_SHEETS)} or 'm:ss=Camera;m:ss=Camera'")
     p.add_argument("--seed", type=int, default=7, help="camera generator seed")
     p.add_argument("--autogen", action="append", default=None, help="accepted for render_farm.sh compatibility; start:end:seed")
     p.add_argument("--list-voices", action="store_true", help="print the voice map and exit")
@@ -729,7 +767,7 @@ def main():
     per = load_notes(args.npy, args.tempo)
     players = {key: make_player(key, ns) for key, ns in per.items() if key in cp.PLAYERS}
     puppets = {key: cp.get_puppet(key) for key in cp.PLAYERS}
-    shots = build_shots(per, args.duration, args.seed, args.camera)
+    shots = parse_cues(args.cues) if args.cues else build_shots(per, args.duration, args.seed, args.camera)
     print("[concert] camera shots: " + ", ".join(f"{int(t0 // 60)}:{t0 % 60:04.1f} {c}" for t0, c in shots))
     lights = {k: bpy.data.objects.get(v) for k, v in SPECIAL_LIGHT.items()}
     # over-the-shoulder cameras ride along with a player who steps sideways

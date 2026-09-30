@@ -625,14 +625,17 @@ def hands_finger_piano(state=None, key="Finger Piano"):
             kc = mw @ Vector((hx, y_line, z_line)) + Zk * (0.0085 + hover + 0.05) - Yk * 0.035
         rest = lambda j: kc - Zk * (0.05 - hover * 0.5) + Yk * 0.035 + ac * FP_DIGIT_X[j] * 1.1
         tips = [targets.get(j, rest(j)) for j in range(4)]
+        # Palm down, like a pianist's: the wrist sits behind the knuckles and level with them, in the
+        # plane of the instrument, so the fingers reach forward and curl down onto the tines. (Left to
+        # the arm, the wrist of a low instrument ends up above the knuckles and the hand hangs palm-back.)
+        W = kc - Yk * 0.085 - Zk * 0.012
         if 4 in targets:
             thumb = targets[4]
         else:                                                # resting thumb: curled from its own base (as pose_arm builds it)
-            W = _wrist_for(shoulders(key)[side], {"kc": kc})
             pd = (kc - W).normalized()
             base = W + pd * 0.028 - ac * 0.030
             thumb = base + pd * 0.040 + ac * 0.008 - Zk * 0.012
-        hands[side] = dict(kc=kc, tips=tips, thumb=thumb)
+        hands[side] = dict(kc=kc, tips=tips, thumb=thumb, wrist=W)
     return hands, {}
 
 
