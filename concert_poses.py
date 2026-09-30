@@ -100,6 +100,8 @@ def build_body(key, leg_style="normal"):
         B.cyl(neckb - UP * 0.015, S + UP * 0.012, 0.050, mi=1, seg=14, r2=0.056)
         B.sphere(S - UP * 0.008, 1.0, mi=1, scale=(0.062, 0.066, 0.064), rot=Rb, seg=16, rings=10)
     for side in (1, -1):
+        if key in STEPPERS:                  # legs are separate puppet pieces (see build_legs): they step
+            break
         hip = pel + l * side * 0.095
         if seated:
             knee = hip + f * 0.44 + UP * 0.03 + l * side * knee_spread
@@ -139,7 +141,7 @@ def _parts():
 
 
 def _unit_mesh(kind, taper):
-    name = f"PUP {kind} {taper:.3f}" if kind == "cyl" else "PUP sph"
+    name = f"PUP {kind} {taper:.3f}" if kind == "cyl" else ("PUP box" if kind == "box" else "PUP sph")
     me = bpy.data.meshes.get(name)
     if me:
         return me
@@ -147,6 +149,8 @@ def _unit_mesh(kind, taper):
     if kind == "cyl":       # unit length along +Z from 0 to 1, radius 1 at the base
         bmesh.ops.create_cone(bm, cap_ends=True, segments=12, radius1=1.0, radius2=taper, depth=1.0,
                               matrix=Matrix.Translation((0, 0, 0.5)))
+    elif kind == "box":
+        bmesh.ops.create_cube(bm, size=1.0)
     else:
         bmesh.ops.create_uvsphere(bm, u_segments=12, v_segments=8, radius=1.0)
     me = bpy.data.meshes.new(name)
@@ -176,6 +180,63 @@ def build_puppet(key):
             ob["r"] = r
             pup[(side, part)] = ob
     return pup
+
+
+# ─────────────────────────────── stepping legs (standing mallet players) ───────────────────────────────
+STEPPERS = {"Marimba", "Vibraphone"}
+THIGH, SHIN = 0.44, 0.44
+TORSO_H = 0.50                        # pelvis to shoulders: the lever the upper body leans on
+_LEG_PARTS = [("thigh", "cyl", 2, 0.075, 0.056 / 0.075), ("knee", "sph", 2, 0.056, 1),
+              ("shin", "cyl", 2, 0.052, 0.042 / 0.052), ("shoe", "box", 3, 1.0, 1)]
+
+
+def build_legs(key):
+    mats = _mats(PLAYERS[key][0]); col = sk.coll("Musicians")
+    for side in ("L", "R"):
+        for part, kind, mi, r, taper in _LEG_PARTS:
+            name = f"{body_name(key)} {side} {part}"
+            old = bpy.data.objects.get(name)
+            if old:
+                bpy.data.objects.remove(old, do_unlink=True)
+            ob = bpy.data.objects.new(name, _unit_mesh(kind, taper)); col.objects.link(ob)
+            ob.material_slots[0].link = 'OBJECT'; ob.material_slots[0].material = mats[mi]
+            ob["r"] = r
+
+
+def _ik2(S, H, pole, a, b):
+    d = (H - S).length
+    if d > a + b - 0.002:
+        H = S + (H - S).normalized() * (a + b - 0.002); d = (H - S).length
+    dv = (H - S).normalized()
+    x = (a * a - b * b + d * d) / (2 * d); h = math.sqrt(max(a * a - x * x, 0.0))
+    pp = pole - pole.dot(dv) * dv
+    pp = pp.normalized() if pp.length > 1e-6 else Vector((0, 1, 0))
+    return S + dv * x + pp * h, H
+
+
+def pose_stepper(key, st):
+    """Planted feet, a lean from the hips, a step when a note is out of reach.
+    st["stance"] = {"L"/"R": (offset along the player's left, lift)}; st["lean"] = shoulder shift (m).
+    Returns the shoulder positions for the arms."""
+    p, f, l, up = frame(key)
+    stance = st.get("stance") or {"L": (0.0, 0.0), "R": (0.0, 0.0)}
+    dx = (stance["L"][0] + stance["R"][0]) / 2
+    pel0 = p + UP * 0.96
+    pel = pel0 + l * dx
+    a = math.asin(max(-0.6, min(0.6, st.get("lean", 0.0) / TORSO_H)))
+    Mb = Matrix.Translation(pel) @ Matrix.Rotation(a, 4, UP.cross(l)) @ Matrix.Translation(-pel0)
+    body = bpy.data.objects.get(body_name(key))
+    if body:
+        body.matrix_world = Mb
+    Rb = Matrix((-l, f, UP)).transposed().to_4x4()
+    g = lambda side, part: bpy.data.objects[f"{body_name(key)} {side} {part}"]
+    for side, sg in (("L", 1), ("R", -1)):
+        hip = pel + l * sg * 0.095
+        foot = p + l * (sg * 0.135 + stance[side][0]) + f * 0.02 + UP * (0.09 + stance[side][1])
+        K, A = _ik2(hip, foot, f, THIGH, SHIN)
+        _seg(g(side, "thigh"), hip, K); _ball(g(side, "knee"), K); _seg(g(side, "shin"), K, A)
+        g(side, "shoe").matrix_world = Matrix.Translation(A + f * 0.06 - UP * 0.05) @ Rb @ Matrix.Diagonal((0.10, 0.27, 0.08, 1.0))
+    return {side: Mb @ s for side, s in shoulders(key).items()}
 
 
 def get_puppet(key):
@@ -961,11 +1022,14 @@ def pose(key, state=None, pup=None):
     """Pose one player (and its bow/mallets/slide) for a musical state."""
     hands, pole = HANDS[key](state)
     pup = pup or get_puppet(key)
-    shift = Vector((state or {}).get("body_shift", (0.0, 0.0, 0.0)))   # e.g. a mallet player stepping sideways
-    body = bpy.data.objects.get(body_name(key))
-    if body:
-        body.location = shift
-    S = {side: s + shift for side, s in shoulders(key).items()}
+    if key in STEPPERS:
+        S = pose_stepper(key, state or {})
+    else:
+        shift = Vector((state or {}).get("body_shift", (0.0, 0.0, 0.0)))
+        body = bpy.data.objects.get(body_name(key))
+        if body:
+            body.location = shift
+        S = {side: s + shift for side, s in shoulders(key).items()}
     p, f, l, up = frame(key)
     default_pole = {"L": -UP + l * 0.8 - f * 0.3, "R": -UP - l * 0.8 - f * 0.3}
     for side in ("L", "R"):

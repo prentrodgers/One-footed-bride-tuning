@@ -274,7 +274,7 @@ class MalletPlayer:
     def _striking(self, k, t):
         return any(e[2] and -0.12 < e[0] - t < 0.16 for e in self.ev[k])
 
-    def state(self, t):
+    def _heads(self, t):
         hs = [self.head(k, t) for k in self.ORDER]
         # mallets travel on their own clocks and could pass each other mid-flight: push neighbours apart,
         # letting a mallet that is on (or about to hit) its bar hold its place
@@ -285,10 +285,59 @@ class MalletPlayer:
                 if short > 0:
                     hs[j - 1].x += short * w[j] / (w[j - 1] + w[j])
                     hs[j].x -= short * w[j - 1] / (w[j - 1] + w[j])
+        return hs
+
+    # ---- feet: planted; the body leans; a real step only when a note is out of lean-and-reach ----
+    LEAN_MAX = 0.22          # shoulders can shift this far sideways by leaning from the hips (~26 deg)
+    STEP_AT = 0.38           # how far the mallets may stay from the stance before she steps
+    STEP_T = 0.45            # seconds for a step: the leading foot, then the trailing foot follows
+    STEP_LIFT = 0.045
+
+    def _cx(self, t):
+        return sum(h.x for h in self._heads(t)) / 4 - self.rest_cx     # +x is the player's left
+
+    def _plan_steps(self):
+        t_end = max((e[0] for k in self.ORDER for e in self.ev[k]), default=0.0) + 1.0
+        self.steps = []                                         # (t0, t1, from, to)
+        stance, free_at, t = 0.0, -9.0, 0.0
+        while t < t_end:
+            # where the mallets are about to spend the next 0.8 s, not where they flick for one note:
+            # a quick reach is done by leaning, only a sustained move out of range earns a step
+            ahead = [self._cx(t + dt) - stance for dt in (0.0, 0.2, 0.4, 0.6, 0.8)]
+            need = sum(ahead) / len(ahead)
+            if abs(need) > self.STEP_AT and min(abs(a) for a in ahead) > 0.6 * self.STEP_AT and t >= free_at:
+                to = max(-0.8, min(0.8, stance + need - math.copysign(0.18, need)))   # just far enough
+                t0 = max(t - 0.6 * self.STEP_T, free_at)           # start early so she arrives in time
+                self.steps.append((t0, t0 + self.STEP_T, stance, to))
+                stance, free_at = to, t0 + self.STEP_T + 0.25
+            t += 0.05
+
+    def _stance(self, t):
+        sm = lambda v: (lambda c: c * c * (3 - 2 * c))(max(0.0, min(1.0, v)))
+        x = 0.0
+        for t0, t1, a, b in self.steps:
+            if t >= t1:
+                x = b; continue
+            if t < t0:
+                break
+            u = (t - t0) / (t1 - t0)
+            lead, trail = ("L", "R") if b > a else ("R", "L")
+            ul, ut = sm(u / 0.6), sm((u - 0.4) / 0.6)
+            feet = {lead: (a + (b - a) * ul, self.STEP_LIFT * math.sin(math.pi * ul)),
+                    trail: (a + (b - a) * ut, self.STEP_LIFT * math.sin(math.pi * ut))}
+            return feet, (feet["L"][0] + feet["R"][0]) / 2
+        return {"L": (x, 0.0), "R": (x, 0.0)}, x
+
+    def state(self, t):
+        if not hasattr(self, "steps"):
+            self._plan_steps()
+        hs = self._heads(t)
         heads = {"L": (hs[1], hs[0]), "R": (hs[2], hs[3])}     # (inner, outer)
-        cx = sum(h.x for h in hs) / 4
-        shift = max(-0.6, min(0.6, (cx - self.rest_cx) * 0.8))   # step along the instrument
-        return {"heads": heads, "body_shift": (shift, 0.0, 0.0)}
+        feet, px = self._stance(t)
+        cx = sum(h.x for h in hs) / 4 - self.rest_cx
+        lean = max(-self.LEAN_MAX, min(self.LEAN_MAX, (cx - px) * 0.8))
+        # body_shift is for the over-the-shoulder camera, which rides along with her stance
+        return {"heads": heads, "stance": feet, "lean": lean, "body_shift": (px, 0.0, 0.0)}
 
 
 # ─────────────────────────────── finger pianos ───────────────────────────────
@@ -634,6 +683,15 @@ CUE_SHEETS = {
         ("0:13.5", "Cam 29 Finger Piano Hands (front)"),
         ("0:15.5", "Cam 6 Finger Pianos"),                       # last plucks ringing out
         ("0:17.5", "Cam 1 Audience Wide"),
+    ],
+    # b421g: the marimba player's two steps (0.8 s, 1.5 s), leaning through the middle, step back at 11.7 s
+    "marimba": [
+        ("0:00",  "Cam 33 Marimba Player (side, full figure)"),
+        ("0:04",  "Cam 4 Marimba Player POV"),
+        ("0:08",  "Cam 1 Audience Wide"),
+        ("0:10.5", "Cam 33 Marimba Player (side, full figure)"),
+        ("0:15",  "Cam 4 Marimba Player POV"),
+        ("0:18",  "Cam 1 Audience Wide"),
     ],
     # a tour of the players, for checking poses (b421g length; works for any piece of 20 s or more)
     "details": [
