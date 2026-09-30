@@ -37,8 +37,8 @@ def _bsdf(N, L, color_socket, grain_socket, rough=0.48, coat=0.12):
     b.inputs["Coat Weight"].default_value = coat
     b.inputs["Coat Roughness"].default_value = 0.28
     bump = N.new("ShaderNodeBump"); bump.location = (700, -300)
-    bump.inputs["Strength"].default_value = 0.06
-    bump.inputs["Distance"].default_value = 0.0004
+    bump.inputs["Strength"].default_value = 0.25
+    bump.inputs["Distance"].default_value = 0.0006
     L.new(grain_socket, bump.inputs["Height"])
     L.new(bump.outputs["Normal"], b.inputs["Normal"])
     out = N.new("ShaderNodeOutputMaterial"); out.location = (1150, 0)
@@ -64,12 +64,14 @@ def spruce_top(name, varnish_light, varnish_dark, line):
     L.new(sep.outputs["X"], comb.inputs["X"]); L.new(widen.outputs[0], comb.inputs["Y"]); L.new(sep.outputs["Z"], comb.inputs["Z"])
     wave = N.new("ShaderNodeTexWave"); wave.location = (-600, 150)
     wave.wave_type = 'BANDS'; wave.bands_direction = 'Y'; wave.wave_profile = 'SAW'
-    wave.inputs["Scale"].default_value = 60.0
-    wave.inputs["Distortion"].default_value = 2.5
+    # Coarser than life (~5 mm) and high contrast: at stage-camera distance a pixel is 1-2 mm, and real
+    # 2 mm rings average out into one flat colour - which is what read as "painted plastic".
+    wave.inputs["Scale"].default_value = 26.0
+    wave.inputs["Distortion"].default_value = 3.0
     wave.inputs["Detail"].default_value = 2.0
-    wave.inputs["Detail Scale"].default_value = 0.4
+    wave.inputs["Detail Scale"].default_value = 0.5
     L.new(comb.outputs[0], wave.inputs["Vector"])
-    rings = _ramp(N, [(0.0, (1, 1, 1)), (0.62, (0.92, 0.92, 0.92)), (0.86, (0.28, 0.28, 0.28)), (1.0, (0.20, 0.20, 0.20))], -350, 150)
+    rings = _ramp(N, [(0.0, (1, 1, 1)), (0.40, (0.85, 0.85, 0.85)), (0.72, (0.10, 0.10, 0.10)), (1.0, (0.30, 0.30, 0.30))], -350, 150)
     L.new(wave.outputs["Fac"], rings.inputs["Fac"])
     # varnish: uneven amber, lighter and darker patches across the plate
     noise = N.new("ShaderNodeTexNoise"); noise.location = (-600, -150)
@@ -125,7 +127,7 @@ def flamed_maple(name, light, dark, varnish_tint):
     L.new(tc.outputs["Object"], patch.inputs["Vector"])
     pr = N.new("ShaderNodeMapRange"); pr.location = (-100, 380)
     pr.inputs["From Min"].default_value = 0.35; pr.inputs["From Max"].default_value = 0.65
-    pr.inputs["To Min"].default_value = 0.25; pr.inputs["To Max"].default_value = 1.0
+    pr.inputs["To Min"].default_value = 0.65; pr.inputs["To Max"].default_value = 1.0
     L.new(patch.outputs["Fac"], pr.inputs["Value"])
     fig = N.new("ShaderNodeMix"); fig.data_type = 'RGBA'; fig.location = (60, 250)
     fig.inputs[6].default_value = tuple((a + b) / 2 for a, b in zip(light, dark)) + (1,)
@@ -149,8 +151,8 @@ def flamed_maple(name, light, dark, varnish_tint):
 def apply_all():
     # violin (and cello, which shares these): classic golden-orange-brown varnish
     # (linear colour values: sRGB (0.45, 0.20, 0.07), a typical golden-brown varnish, is (0.17, 0.033, 0.006))
-    spruce_top("Violin Varnish Spruce", (0.17, 0.048, 0.011), (0.095, 0.024, 0.005), (0.05, 0.012, 0.003))
-    flamed_maple("Flamed Maple Varnish", (0.27, 0.085, 0.020), (0.07, 0.018, 0.004), (1.0, 0.85, 0.66))
+    spruce_top("Violin Varnish Spruce", (0.32, 0.12, 0.03), (0.20, 0.065, 0.015), (0.025, 0.006, 0.0015))
+    flamed_maple("Flamed Maple Varnish", (0.38, 0.14, 0.035), (0.05, 0.013, 0.003), (1.0, 0.85, 0.66))
     # viola: darker, redder brown so the two are told apart at a glance
-    spruce_top("Viola Varnish Spruce", (0.105, 0.026, 0.007), (0.055, 0.013, 0.003), (0.03, 0.007, 0.002))
-    flamed_maple("Viola Flamed Maple", (0.18, 0.047, 0.013), (0.045, 0.011, 0.003), (0.95, 0.72, 0.58))
+    spruce_top("Viola Varnish Spruce", (0.22, 0.065, 0.018), (0.13, 0.035, 0.009), (0.018, 0.004, 0.001))
+    flamed_maple("Viola Flamed Maple", (0.28, 0.08, 0.022), (0.035, 0.009, 0.002), (0.95, 0.72, 0.58))

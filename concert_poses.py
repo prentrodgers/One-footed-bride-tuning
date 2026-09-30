@@ -138,7 +138,7 @@ def build_body(key, leg_style="normal"):
         if key in STEPPERS:                  # legs are separate puppet pieces (see build_legs): they step
             continue
         if seated:
-            knee = hip + f * 0.44 + UP * 0.03 + l * side * knee_spread
+            knee = hip + f * 0.44 + UP * 0.03 + l * side * knee_spread + l * LEG_SHIFT.get((key, side), 0.0)
             lift = 0.15 if (leg_style == "footstool" and side == 1) else 0.0
             if lift:
                 knee = knee + UP * 0.12
@@ -158,7 +158,7 @@ def build_body(key, leg_style="normal"):
     bm.verts.index_update()
     breath = [(v.index, pos) for v, pos in breath]
     mats = _mats(idx)
-    cf.skin_upgrade(mats[0]); cf.hair_upgrade(mats[4])
+    cf.skin_upgrade(mats[0]); cf.hair_texture(mats[4])
     mats += [sk.mat("Belt Buckle Brass", (0.8, 0.6, 0.3), metal=1.0, rough=0.3)] + cf.face_materials(idx, sk.SKINS[idx % 12])
     ob = B.build(body_name(key), mats, collection=sk.coll("Musicians"), smooth=True)
     ob["player"] = key
@@ -182,6 +182,8 @@ BREATH_DEPTH = 0.30          # a full breath pushes the front of the abdomen out
 BREATH_REST = 0.30
 BREATHERS = {"Flute", "Clarinet", "Oboe", "Bassoon", "Trumpet", "Trombone", "Tuba", "French Horn"}
 SKIRTS = {"Cello", "Tuba", "Bassoon", "Marimba"}     # the players referred to as "she"
+SKIRT_SAG = {"Cello", "Bassoon"}                     # instrument between the knees: the skirt falls away between them
+LEG_SHIFT = {("Baritone Flying V", -1): 0.10}        # (player, side -1 = right): knee moves toward the left (m)
 
 
 def _profile_at(s):
@@ -213,8 +215,21 @@ def _skirt(B, key, p, f, right, pel, axis, fwd, Lt, seated, knees):
                  (pel - UP * 0.30 + f * 0.01, right, f, 0.205, 0.150),
                  (Vector((pel.x, pel.y, p.z + 0.30)) + f * 0.02, right, f, 0.225, 0.172)]
     seg = 28
-    vr = [[B.bm.verts.new(c + ea * (a * math.cos(2 * math.pi * k / seg)) + eb * (b * math.sin(2 * math.pi * k / seg))) for k in range(seg)]
-          for c, ea, eb, a, b in rings]
+    # With an instrument between the knees the cloth over the gap drops away between the legs, below
+    # the instrument, instead of stretching across it: sag = how far each ring's middle falls.
+    sag = [0.0, 0.0, 0.12, 0.26, 0.30, 0.22] if (seated and key in SKIRT_SAG) else [0.0] * len(rings)
+    gap = max(0.05, (knees[0] - knees[1]).length / 2 - 0.02) if seated else 1.0
+
+    def vert(i, k, c, ea, eb, a, b):
+        th = 2 * math.pi * k / seg
+        v = c + ea * (a * math.cos(th)) + eb * (b * math.sin(th))
+        x = a * math.cos(th)
+        if sag[i] and abs(x) < gap and math.sin(th) > 0:
+            w = (1 - (x / gap) ** 2) * math.sin(th) ** 0.5
+            v = v - UP * (sag[i] * w)
+            v.z = max(v.z, p.z + 0.05)
+        return v
+    vr = [[B.bm.verts.new(vert(i, k, *ring)) for k in range(seg)] for i, ring in enumerate(rings)]
     for r0, r1 in zip(vr[:-1], vr[1:]):
         for k in range(seg):
             B.bm.faces.new((r0[k], r0[(k + 1) % seg], r1[(k + 1) % seg], r1[k])).material_index = 2
@@ -865,7 +880,9 @@ def hands_finger_piano(state=None, key="Finger Piano"):
         else:                                                # resting thumb: curled from its own base (as pose_arm builds it)
             pd = (kc - W).normalized()
             base = W + pd * 0.028 - ac * 0.030
-            thumb = base + pd * 0.040 + ac * 0.008 - Zk * 0.012
+            # a relaxed thumb: forward and a little down, near its full length. (A target only 4 cm away
+            # made the fixed-length thumb curl up into a knot beside the index finger.)
+            thumb = base + pd * 0.048 - ac * 0.010 - Zk * 0.024
         hands[side] = dict(kc=kc, tips=tips, thumb=thumb, wrist=W)
     return hands, {}
 

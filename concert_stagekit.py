@@ -487,6 +487,11 @@ def instrument_cable(name, jack, jack_dir, amp_jack, via, collection):
     B.build(name + " Plugs", [blk, chrome], collection=collection, smooth=True)
     pts = [p_end, p_end + jd * 0.05] + [Vector(v) for v in via] + [a_top + Vector((0, 0, 0.06)), a_top]
     path = catmull(pts, 10)
+    # the spline overshoots between its control points and dipped the cable into the stage floor:
+    # keep it resting on top of the floor (the deck under the lowest via point)
+    floor_z = min(Vector(v).z for v in via) - 0.004
+    for q in path:
+        q.z = max(q.z, floor_z + 0.0034)
     return tube_mesh(name, path, [0.0034] * len(path), blk, seg=8, cap=True, collection=collection)
 
 def pignose_amp(name, loc, facing, collection):

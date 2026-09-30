@@ -33,7 +33,7 @@ Z_TOP = PROFILE[-1][0]
 
 # player -> (hair style, beard)
 STYLES = {
-    "Baritone Flying V": ("long", "full"), "Violin": ("short", None), "Finger Piano": ("bun", None),
+    "Baritone Flying V": ("long", None), "Violin": ("short", None), "Finger Piano": ("bun", None),
     "Bass Finger Piano": ("short", "full"), "Flute": ("short", None), "Clarinet": ("bob", None),
     "Oboe": ("bald", None), "Marimba": ("ponytail", None), "Cello": ("long", None), "Trumpet": ("short", None),
     "Tuba": ("bun", None), "Bassoon": ("bob", None), "Viola": ("ponytail", None), "French Horn": ("short", "full"),
@@ -106,6 +106,35 @@ def hair_upgrade(m):
     b.inputs["Coat Weight"].default_value = 0.0
     b.inputs["Specular IOR Level"].default_value = 0.3
     m["hair_v2"] = 1
+
+
+def hair_texture(m):
+    """Stronger strands: highlights that show even on near-black hair, and a bump from the same streaks
+    so the surface catches light like hair rather than a painted shell."""
+    if m.get("hair_v3"):
+        return
+    hair_upgrade(m)
+    nt = m.node_tree; N, L = nt.nodes, nt.links
+    b = N["Principled BSDF"]
+    rp = next(n for n in N if n.type == 'VALTORGB')
+    nz = next(n for n in N if n.type == 'TEX_NOISE')
+    mp = next(n for n in N if n.type == 'MAPPING')
+    mp.inputs["Scale"].default_value = (160.0, 160.0, 6.0)
+    base = m.get("hair_base") or tuple(rp.color_ramp.elements[1].color)[:3]
+    base = tuple(base)
+    m["hair_base"] = base
+    rp.color_ramp.elements[0].position = 0.25
+    rp.color_ramp.elements[0].color = tuple(c * 0.35 for c in base) + (1,)
+    rp.color_ramp.elements[1].position = 0.80
+    rp.color_ramp.elements[1].color = tuple(min(1.0, c * 1.7 + 0.03) for c in base) + (1,)
+    bump = N.new("ShaderNodeBump")
+    bump.inputs["Strength"].default_value = 0.6
+    bump.inputs["Distance"].default_value = 0.002
+    L.new(nz.outputs["Fac"], bump.inputs["Height"])
+    L.new(bump.outputs["Normal"], b.inputs["Normal"])
+    b.inputs["Roughness"].default_value = 0.50
+    b.inputs["Specular IOR Level"].default_value = 0.45
+    m["hair_v3"] = 1
 
 
 def face_materials(i, skin_color):
@@ -209,6 +238,7 @@ def _grid(B, cols, rows, point, closed, mi):
         c1 = (c + 1) % cols
         for r in range(rows - 1):
             bm.faces.new((grid[c][r], grid[c1][r], grid[c1][r + 1], grid[c][r + 1])).material_index = mi
+    return grid
 
 
 def _hair(B, hc, right, f, style):
@@ -249,7 +279,13 @@ def _hair(B, hc, right, f, style):
         drop = -0.005 - z
         out = (right * math.cos(th) + f * (0.6 * s)).normalized() if abs(s) < 0.99 else f * s
         return base + out * (0.12 * drop) - f * (0.25 * drop) + UP * (z + 0.005)
-    _grid(B, cols, rows, point, th1 - th0 >= 2 * math.pi - 1e-6, MI["hair"])
+    closed = th1 - th0 >= 2 * math.pi - 1e-6
+    grid = _grid(B, cols, rows, point, closed, MI["hair"])
+    if closed:                                         # close the crown (it was a ring - a hole in the top)
+        top_ring = [grid[c][rows - 1] for c in range(cols)]
+        cen = B.bm.verts.new(sum((v.co for v in top_ring), Vector()) / cols + UP * 0.004)
+        for c in range(cols):
+            B.bm.faces.new((top_ring[c], top_ring[(c + 1) % cols], cen)).material_index = MI["hair"]
 
 
 def _beard(B, hc, right, f):
