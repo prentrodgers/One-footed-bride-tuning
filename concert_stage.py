@@ -732,6 +732,33 @@ CUE_SHEETS = {
         ("0:15",  "Cam 4 Marimba Player POV"),
         ("0:18",  "Cam 1 Audience Wide"),
     ],
+    # b421g_df4 (tempo 106, 56.2 s). Authored from each player's sounding time x level per 2 s:
+    # strings open, horn and bassoon 10-22 s, tuba 24-30 s, marimba and finger pianos build from 24 s,
+    # vibraphone and trumpet 34-50 s, flute and clarinet in the last bars.
+    "b421g_56": [
+        ("0:00",   "Cam 1 Audience Wide"),
+        ("0:02",   "Cam 18 Flying V & Amp"),                     # guitar 0-4 s
+        ("0:05",   "Cam 21 Viola & Violin"),
+        ("0:08",   "Cam 32 Bass Section (guitar & bass finger piano)"),
+        ("0:10.5", "Cam 26 French Horn"),                        # horn 10-16 s
+        ("0:13.5", "Cam 13 Cello Close"),
+        ("0:16",   "Cam 23 Bassoon Close"),                      # bassoon 12-22 s
+        ("0:19",   "Cam 12 Violin Close"),
+        ("0:22",   "Cam 19 Bass Finger Piano Overhead"),
+        ("0:25",   "Cam 14 Tuba Close"),                         # tuba 24-30 s
+        ("0:27.5", "Cam 33 Marimba Player (side, full figure)"), # marimba enters and builds
+        ("0:30.5", "Cam 28 Flute (second row)"),                 # flute 30-34 s
+        ("0:33",   "Cam 29 Finger Piano Hands (front)"),
+        ("0:35.5", "Cam 25 Vibraphone Player View"),             # vibes 34-48 s
+        ("0:38",   "Cam 1 Audience Wide"),
+        ("0:40.5", "Cam 4 Marimba Player POV"),                  # marimba's loudest stretch
+        ("0:43",   "Cam 12 Violin Close"),                       # violin's loudest stretch
+        ("0:45",   "Cam 22 Trumpet Hands"),                      # trumpet 44-50 s
+        ("0:47.5", "Cam 10 Finger Piano (player view)"),
+        ("0:50",   "Cam 21 Viola & Violin"),
+        ("0:52",   "Cam 15 Bassoon & Clarinet (riser)"),         # clarinet 52-54 s
+        ("0:54",   "Cam 1 Audience Wide"),
+    ],
     # a tour of the players, for checking poses (b421g length; works for any piece of 20 s or more)
     "details": [
         ("0:00",  "Cam 32 Bass Section (guitar & bass finger piano)"),
