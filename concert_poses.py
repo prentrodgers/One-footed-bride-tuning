@@ -1168,7 +1168,10 @@ def hands_mallets(state=None, key="Marimba"):
         # (toward the player and up). The stroke is the mallet pivoting at the grip - wrist and fingers -
         # so the head swings up to about hand level and comes down hard onto the bar while the hand stays.
         d = (-f * 0.80 + UP * 0.60).normalized()
-        Gc = mid + d * 0.29
+        # Grip near the butt (~6 cm of the 40 cm shaft behind the hand), less far back when the two heads
+        # are spread wide, so the farther head's shaft still reaches into the palm.
+        w = (inner - outer).length / 2
+        Gc = mid + d * min(0.31, max(0.25, math.sqrt(max(0.0, 0.315 ** 2 - w * w))))
         H = Gc - Vector((0, -0.026, -0.020))
         gi = H + Vector((0, -0.030, -0.018)) + inward * 0.018
         go = H + Vector((0, -0.020, -0.022)) - inward * 0.040
@@ -1546,11 +1549,34 @@ def pose(key, state=None, pup=None):
     default_pole = {"L": -UP + l * 0.8 - f * 0.3, "R": -UP - l * 0.8 - f * 0.3}
     for side in ("L", "R"):
         dlt = pose_arm(pup, side, S[side], hands[side], pole.get(side, default_pole[side]))
-        if key in MALLET_SETS and dlt.length > 1e-5:        # the mallets go where the hand goes: never left behind
-            for tag in ("inner", "outer"):
-                ob = bpy.data.objects.get(f"{key} Mallet {side} {tag}")
-                if ob:
-                    ob.matrix_world = Matrix.Translation(dlt) @ ob.matrix_world
+        if key in MALLET_SETS:
+            if dlt.length > 1e-5:                           # the mallets go where the hand goes: never left behind
+                for tag in ("inner", "outer"):
+                    ob = bpy.data.objects.get(f"{key} Mallet {side} {tag}")
+                    if ob:
+                        ob.matrix_world = Matrix.Translation(dlt) @ ob.matrix_world
+            regrip_mallets(key, side)
+
+
+# Four-mallet grip, from the posed hand: (mallet, hand joints whose average the shaft passes through).
+# Inner mallet in the crook between the thumb tip and the index finger's first joint; outer mallet
+# between the middle and ring fingers, held by the curled ring and little fingers.
+MALLET_GRIP = (("inner", ("tj1", "f0j0", "f0k")), ("outer", ("f1j0", "f2j0", "f2j1", "f3j1")))
+
+
+def regrip_mallets(key, side):
+    """Re-aim each mallet from its head (where the stroke put it) through the actual posed hand, so the
+    shaft runs through the fingers instead of passing a fingertip; the butt end lies in the palm."""
+    bn = body_name(key)
+    for tag, joints in MALLET_GRIP:
+        ob = bpy.data.objects.get(f"{key} Mallet {side} {tag}")
+        js = [bpy.data.objects.get(f"{bn} {side} {j}") for j in joints]
+        if ob is None or not all(js):
+            continue
+        grip = sum((j.matrix_world.translation for j in js), Vector()) / len(js)
+        h = ob.matrix_world.translation.copy()
+        if (grip - h).length > 1e-4:
+            ob.matrix_world = Matrix.Translation(h) @ sk.look_rot(grip - h)
 
 
 # ─────────────────────────────── auxiliary movable objects ───────────────────────────────
