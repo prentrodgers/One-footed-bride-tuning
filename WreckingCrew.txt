@@ -6239,7 +6239,7 @@ Time for a walk. Think about that some more.
                   current_chord_12 = array([7, 4, 0, 0]), current_chord = array([411,  25,  25, 727])
       I think I need to sort current_chord and current_chord_12 before doing the modification based on top_notes. Fixed that. 
       I think I have resloved most of the issues. It's now completing in under a minute per chorale. On a single CPU. It used to take 10 minutes on 24 CPU's. I bet I could speed it up if I changed the logging to debug. 
-   �        for i in bwv253 bwv654 bwv255 bwv256 bwv257 bwv258 Bwv2%9 bwv260 bwv261 bwv262 bwv263 bwv26 ; do python  new-tune-midi.py $i --use_12TET_top_notes --tolerance 1 --max_gap 45 --save_chorale_in_cents ; done
+            for i in bwv253 bwv254 bwv255 bwv256 bwv257 bwv258 bwv259 bwv260 bwv261 bwv262 bwv263 bwv264 ; do python  new-tune-midi.py $i --use_12TET_top_notes --tolerance 1 --max_gap 45 --save_chorale_in_cents ; done
       Still getting some failures, but after less than a minute each chorale. 
             for i in bwv253 bwv254 bwv255 bwv256 bwv257 bwv258 bwv259 bwv260 bwv261 bwv262 bwv263 bwv264 ; do python  new-tune-midi.py $i --use_12TET_top_notes --tolerance 1 --max_gap 45 --save_chorale_in_cents ; done
 
@@ -6258,7 +6258,7 @@ Time for a walk. Think about that some more.
       --r_value How deep to go in choosing intervals. Default is 0.3. Higher goes farther. 1.0 is max. Try 0.5
       --initial_temperature starting temperature of simulated annealing. Default is 2.5. Try 4.0
 
-            for i in bwv253 bwv254 bwv255 bwv256 bwv257 bwr258 bwv259 bwv260 bwv260 bwv262 bwv263 bwv244 ; do python  new-tune-midi.py $i /-use_12TET_top_notes --tolerance 1 --max_gap 35 --save_chorale_in_cents --spread 10 --elbow_percent 0.75 --r_value 0.5 --initial_temperature 4.0 ; done  
+            for i in bwv253 bwv254 bwv255 bwv256 bwv257 bwv258 bwv259 bwv260 bwv261 bwv262 bwv263 bwv264 ; do python  new-tune-midi.py $i --use_12TET_top_notes --tolerance 1 --max_gap 35 --save_chorale_in_cents --spread 10 --elbow_percent 0.75 --r_value 0.5 --initial_temperature 4.0 ; done  
       No winners in that batch. Try different max_gap for each collection of loosers 
                   bwv261 bwv262           40
                   bwv253 bwv260           45
@@ -6279,7 +6279,7 @@ Time for a walk. Think about that some more.
 -------------------------------------------------
 9/29/25 Systematically go through all the tolerances with slow and fast versions of each chorale
       Yesterday I ran fast versions at tolerance 1. 
-      Hang on, something is very wrong. I just listened to bwv261 and it's terrible. I think it has to do with the old problem of crossing the octave barrier between B and C, 1150 to 50. I ignored that in my replacement function transpose_top_notes_v4. It doesn't handle the calculations correctly. Back |o work gn the new-tune-midi.py. 
+      Hang on, something is very wrong. I just listened to bwv261 and it's terrible. I think it has to do with the old problem of crossing the octave barrier between B and C, 1150 to 50. I ignored that in my replacement function transpose_top_notes_v4. It doesn't handle the calculations correctly. Back to work on the new-tune-midi.py. 
       I think this might be the right time to move tune_chord_sim_anneal to adaptive_tuning_util.py. I couldn't do that before because I got tangled up with multiprocessing.
       What I need is an isolated few cells to really study the process. 
       Start with compress and decompress. 
@@ -6325,8 +6325,8 @@ Time for a walk. Think about that some more.
       I fixed that also. Now it's time to tackle the problem in a chorale with lots of C naturals.
                   Weird chord: 8:	 498  498    0  884	 5  5  0  9 	40.0
                   Weird chord: 9:	 498  498    0  884	 5  5  0  9 	40.0
-                  Weird chord: 10:	 498  498    0  884 5  5  0  9!	40.0
-                  Weird chord: 11:	 498  498    0  884	 5  5  0  9 	40.0
+                  Weird chord: 10:	 498  498    0  884	 5  5  0  9 	40.0
+                  Weird chord: 11:	 498  498    0  884	 5  5  0  9 	40.0
                   Weird chord: 16:	 702  386    0    0	 7  4  0  0 	39.0
       This is the chorale I need to get right with the values near 0 or 1200. I need to ensure the gap calculation processess correctly. Start here: def transpose_top_notes_v4. I need to fix these two calculations:
       This one when it's transposing based on top_notes
@@ -6355,7 +6355,7 @@ Time for a walk. Think about that some more.
                   Failed to transpose without changing the midi values. returning original cent values.  516  516  
 
 ---------------
-10-1-25 To do today> Fix the gap cahculations startang with bwv254.
+10-1-25 To do today. Fix the gap calculations starting with bwv254.
       Where was the code the Copilot made to properly handle gaps around 0 and 1200?
       I tried a quick fix, if current_chord has a note > 1150, take 1200 - note. See if that works. I have to do it on current chord and previous chord. Ran it against some chords that should show success or failure in the log 
             python new-tune-midi.py bwv254 --use_12TET_top_notes --tolerance 3 --limit_max 31 --max_gap 40 --include_list 15 16 17 18
@@ -6390,8 +6390,8 @@ Time for a walk. Think about that some more.
                   3:	      9  5  0  9|	 0  5  9  0|	False	   0  498  884    0	39.0
       This is because the tuned chords are not in the same order after tuning as they were when compressed. So it duplicates the wrong note in the cents. It no longer matches the original_12 value. I'm thinking I need to decompress as it comes out of tune_chord_sim_anneal. This might be the last place where we can decompress before the order gets messed up. The order is deliberately destroyed by the roll_and_tune process. So it has to be befpre that happens.
 
-      I xaven't solved the most recent trouble yet: 
-  (               File "/home/prent/Dropbox/Tutorials/TonicNet/new-tune-midi.py", line 267, in roll_and_tune
+      I haven't solved the most recent trouble yet: 
+                  File "/home/prent/Dropbox/Tutorials/TonicNet/new-tune-midi.py", line 267, in roll_and_tune
                   temp_cent[roll_num], temp_score[roll_num] = tune_chord_sim_anneal(chord, prev_chord, tonal_diamond,\
                   ~~~~~~~~~^^^^^^^^^^
                   ValueError: could not broadcast input array from shape (3,) into shape (4,)
@@ -6456,7 +6456,7 @@ Time for a walk. Think about that some more.
                   saving transposed_cents.shape = (128, 4) with score: 51.3 in tolerance-4/bwv255-cents.npy
                   saving transposed_cents.shape = (160, 4) with score: 52.0 in tolerance-4/bwv256-cents.npy
                   saving transposed_cents.shape = (160, 4) with score: 55.5 in tolerance-4/bwv257-cents.npy
-                  saving transposed_cents.shape = (160, 4) with wcore: 56.8 in tolerance-4/bwv258-cents.lpy
+                  saving transposed_cents.shape = (160, 4) with score: 56.8 in tolerance-4/bwv258-cents.npy
                   saving transposed_cents.shape = (192, 4) with score: 51.8 in tolerance-4/bwv259-cents.npy
                   version = 'bwv260', halting processing now.
                   version = 'bwv261', halting processing now.
@@ -6472,7 +6472,7 @@ Time for a walk. Think about that some more.
       
       In the mean time we have made some cent numpy files. All but bwv261 with tolerance 1 - try max_gap 54
             for i in 1 2 3 4 ; do python new-tune-midi.py bwv261 --use_12TET_top_notes --tolerance 1 --max_gap 50 --save_chorale_in_cents ; done
-                  New average score: 57.4, Previous average score: 999, no_big_gaps = True, largest_�elta = 49
+                  New average score: 57.4, Previous average score: 999, no_big_gaps = True, largest_delta = 49
                   saving transposed_cents.shape = (280, 4) with score: 57.4 in /home/prent/Dropbox/Tutorials/TonicNet/Archive/tolerance-1/bwv261-cents.npy
       Tolerance-2: All but 59, 60, asking for gaps: 50 - now done
             ls -lnh  Archive/tolerance-2/bwv2??-cents.npy
@@ -6493,7 +6493,7 @@ Time for a walk. Think about that some more.
             _prev is for the previous chord 
             size_prev is the size of the previous chord 
             size_current is the size of the current chord
-            unique_pitch_class_current is the coeprewsed version of the pitch_class of the current chord.
+            unique_pitch_class_current is the compressed version of the pitch_class of the current chord.
       2. What do you do if you have a several valid gaps from top_notes? In the past I just picked the most common pitch class as the priority to determine the gap to apply. That was the first match between a pitch class in the chord and a pitch class in top_notes. But now I have in front of me all the gaps that have been determined to be valid. How do I choose among them? Should I pick the highest priority pitch class or the gap that is the smallest? I'm wondering if I should try the latter, and see how it sounds. Now that I think about it, I think I will try the first gap, which is the highest priority. If it would result in too big a gap, try the next. 
       
 --------------------
@@ -23065,17 +23065,19 @@ f1 0 64 -2 0 601 630 652 667 683 705 726 742 766 787 807 830 850 872 890 909 930
             ffprobe -v error -show_entries format=duration -of csv=p=0 Uploads/b423f_df5_t1_d06_27_t104_ap1_lm17_r1.62.mp3
                   382.615500
       
-      Move the mp3 files to the pod and check that the npy files are already there.
+      Move the mp3 and npy activity (not tuning) files to the pod.
             scp Uploads/b423f_df5_t1_d06_27_t104_ap1_lm17_r1.62.mp3 one-footed-bride-pod:~/Repos/One-footed-bride-tuning/Uploads
             scp Uploads/b423f_df5_t1_d06_27_t104_ap1_lm17_r1.62.npy one-footed-bride-pod:~/Repos/One-footed-bride-tuning/Uploads
       Render it:
             ./render_farm.sh --stop
-            PER_CARD=2 ./render_farm.sh --npy Archive/straw-man/best-tunings/bwv423_t1_r1.625_lm17-opt.npy --tempo 104 --duration 382.6 --out frames_bwv423 --engine cycles --look studio --autogen 10:377:7
+            #                                 +-- actvity file
+            PER_CARD=2 ./render_farm.sh --npy Uploads/b423f_df5_t1_d06_27_t104_ap1_lm17_r1.62.npy --tempo 104 --duration 382.6 --out frames_bwv423 --engine cycles --look studio --autogen 10:377:7
             
             watch -n 20 "./render_farm.sh --progress ; ./render_farm.sh --status"
             
             ffmpeg -y -framerate 30 -i frames_bwv423/frame_%06d.png -i Uploads/b423f_df5_t1_d06_27_t104_ap1_lm17_r1.62.mp3        -c:v libx264 -preset slow -crf 18 -pix_fmt yuv420p -c:a aac -b:a 192k -movflags +faststart -shortest stage_full_bwv423.mp4
       
+            scp one-footed-bride-pod:~/Repos/One-footed-bride-tuning/stage_full_bwv423.mp4 .
 
       BWV421
       Uploads/b421f_df4_t1_d04_07_t084_ap3_lm19_r1.38.mp3 # <-- this one is less dense, short, and ap3
@@ -23086,9 +23088,19 @@ f1 0 64 -2 0 601 630 652 667 683 705 726 742 766 787 807 830 850 872 890 909 930
                   SUMMARY bwv421   high   4.7%  11:9 13:3 17:3 19:3  chords 5/60  intervals 360
             ffprobe -v error -show_entries format=duration -of csv=p=0 Uploads/b421f_df4_t1_d04_07_t084_ap3_lm19_r1.38.mp3
                   243.435100
-            scp Uploads/b421f_df4_t1_d04_07_t084_ap3_lm19_r1.38.mp3 one-footed-bride-pod:~/Repos/One-footed-bride-tuning/Uploads
-            scp Uploads/b421f_df4_t1_d04_07_t084_ap3_lm19_r1.38.npy one-footed-bride-pod:~/Repos/One-footed-bride-tuning/Uploads
-            start here
+            scp Uploads/b421f_df4_t1_d04_07_t084_ap3_lm19_r1.38.mp3 one-footed-bride-pod:~/Repos/One-footed-bride-tuning/Uploads # <-- music
+            scp Uploads/b421f_df4_t1_d04_07_t084_ap3_lm19_r1.38.npy one-footed-bride-pod:~/Repos/One-footed-bride-tuning/Uploads # <-- activity
+            
+      Render it:
+            ./render_farm.sh --stop
+            #                                 +-- actvity file
+            PER_CARD=2 ./render_farm.sh --npy Uploads/b421f_df4_t1_d04_07_t084_ap3_lm19_r1.38.npy --tempo 84 --duration 243.4 --out frames_bwv421 --engine cycles --look studio --autogen 10:238:7
+            
+            watch -n 20 "./render_farm.sh --progress ; ./render_farm.sh --status"
+            
+            ffmpeg -y -framerate 30 -i frames_bwv421/frame_%06d.png -i Uploads/b421f_df4_t1_d04_07_t084_ap3_lm19_r1.38.mp3        -c:v libx264 -preset slow -crf 18 -pix_fmt yuv420p -c:a aac -b:a 192k -movflags +faststart -shortest stage_full_bwv421.mp4
+      
+            scp one-footed-bride-pod:~/Repos/One-footed-bride-tuning/stage_full_bwv421.mp4 .
             
       BWV422
       Uploads/b422f_df0_t3_d04_57_t084_ap4_lm17_r1.38.mp3 # <-- this one wins the race. Bouncy and full of surprises.
@@ -23099,9 +23111,20 @@ f1 0 64 -2 0 601 630 652 667 683 705 726 742 766 787 807 830 850 872 890 909 930
                   SUMMARY bwv422   high   5.0%  11:21 13:0 17:3 19:0  chords 8/80  intervals 480
             ffprobe -v error -show_entries format=duration -of csv=p=0 Uploads/b422f_df0_t3_d04_57_t084_ap4_lm17_r1.38.mp3
                   292.179575
-            scp Uploads/b422f_df0_t3_d04_57_t084_ap4_lm17_r1.38.mp3 one-footed-bride-pod:~/Repos/One-footed-bride-tuning/Uploads
-            scp Uploads/b422f_df0_t3_d04_57_t084_ap4_lm17_r1.38.npy one-footed-bride-pod:~/Repos/One-footed-bride-tuning/Uploads
+            scp Uploads/b422f_df0_t3_d04_57_t084_ap4_lm17_r1.38.mp3 one-footed-bride-pod:~/Repos/One-footed-bride-tuning/Uploads # <-- music
+            scp Uploads/b422f_df0_t3_d04_57_t084_ap4_lm17_r1.38.npy one-footed-bride-pod:~/Repos/One-footed-bride-tuning/Uploads # <-- activity
             start here
+                   
+      Render bwv422:
+            ./render_farm.sh --stop
+            #                                 +-- actvity file
+            PER_CARD=2 ./render_farm.sh --npy Uploads/b422f_df0_t3_d04_57_t084_ap4_lm17_r1.38.npy --tempo 84 --duration 292.2 --out frames_bwv422 --engine cycles --look studio --autogen 10:287:7
+            
+            watch -n 20 "./render_farm.sh --progress ; ./render_farm.sh --status"
+            
+            ffmpeg -y -framerate 30 -i frames_bwv422/frame_%06d.png -i Uploads/b422f_df0_t3_d04_57_t084_ap4_lm17_r1.38.mp3        -c:v libx264 -preset slow -crf 18 -pix_fmt yuv420p -c:a aac -b:a 192k -movflags +faststart -shortest stage_full_bwv422.mp4
+      
+            scp one-footed-bride-pod:~/Repos/One-footed-bride-tuning/stage_full_bwv422.mp4 .
 
       BWV419
       # Uploads/b419f_df2_t2_d05_01_t084_ap3_lm19_r1.25.mp3 # <-- if you need one less dense and longer
@@ -23115,3 +23138,178 @@ f1 0 64 -2 0 601 630 652 667 683 705 726 742 766 787 807 830 850 872 890 909 930
             scp Uploads/b419f_df2_t2_d05_01_t084_ap3_lm19_r1.25.mp3 one-footed-bride-pod:~/Repos/One-footed-bride-tuning/Uploads
             scp Uploads/b419f_df2_t2_d05_01_t084_ap3_lm19_r1.25.npy one-footed-bride-pod:~/Repos/One-footed-bride-tuning/Uploads
             start here
+
+_________________________
+9/27/26 Post the six new videos on YouTube:
+
+      stage_full_bwv423.mp4 b423f_df5_t1_d06_27_t104_ap1_lm17_r1.62
+            Title: Chorale Prelude based on Bach's BWV423 "Was betrübst du dich, mein Herze"
+            Description: These chorale preludes are fantasies based on the notes in Bach's chorale, as if performed by an orchestra of invisible musicians. 
+            This one is created based on the modes of BWV423 "Why are you troubling yourself, my heart", tuned using my One Footed Bride Tuning. The audio is created using a density_factor 5, the densest available, 6:27 in length, at a tempo of 104 beats per minute. Tuning is done to the 17 limit, with ratio_factor 1.635, and tolerance of 1, meaning the cent values of intervals are allowed to differ from the cent value of the actual ratio by up to plus or minus 1 cent. The video was created using Claude Code Opus 5 who wrote the python code to be run by Blender. Each action is created to imitate the appearance and movements of real instruments. Fake but almost accurate. I call it Animicrotonal Music Videos. 
+
+            The audio, video, tuning, and program code is described in detail here: https://github.com/prentrodgers/One-footed-bride-tuning
+            Link: https://youtu.be/uNYMCYLLoPU
+
+      score_bwv423.mp4 
+            Title: Original Bach Chorale BWV423 "Was betrübst du dich, mein Herze"
+            Description: The notes are just as Bach wrote them but tuned by me using the One Footed Bride Tuning algorithm. Performed by woodwinds and brass, realized using Csound. Tuning is assisted by Claude Code Opus 5, who wrote or edited some of the python code. More here:  https://github.com/prentrodgers/One-footed-bride-tuning
+            link: https://youtu.be/3RfX0q_kBrA
+
+      stage_full_bwv421.mp4  b421f_df4_t1_d04_07_t084_ap3_lm19_r1.38
+            Title: Chorale Prelude based on Bach's BWV421 "Warum betrübst du dich, mein Herz"
+            Description: These chorale preludes are fantasies based on the notes in Bach's chorale, as if performed by an orchestra of invisible musicians. 
+            This one is created based on the modes of BWV421 "Why are you sad, my heart", tuned using my One Footed Bride Tuning. The audio is created using a density_factor 4, dense but less than 5, 4:07 in length, at a tempo of 84 beats per minute. Tuning is done to the 19 limit, with ratio_factor 1.375, and tolerance of 1, meaning the cent values of intervals are allowed to differ from the cent value of the actual ratio by up to plus or minus 1 cent. The video was created using Claude Code Opus 5 who wrote the python code to be run by Blender. Each action is created to imitate the appearance and movements of real instruments. Fake but almost accurate. I call it Animicrotonal Music Videos. 
+
+            The audio, video, tuning, and program code is described in detail here: https://github.com/prentrodgers/One-footed-bride-tuning
+            Link: https://youtu.be/yy7QYbAPd9Y
+      
+      score_bwv421.mp4 
+            Title: Original Bach Chorale  BWV421 "Warum betrübst du dich, mein Herz"
+            Description: The notes are just as Bach wrote them but tuned by me using the One Footed Bride Tuning algorithm. Performed by woodwinds and brass, realized using Csound. Tuning is assisted by Claude Code Opus 5, who wrote or edited some of the python code. More here:  https://github.com/prentrodgers/One-footed-bride-tuning
+            link: https://youtu.be/PF1PylTqc4A
+
+      stage_full_bwv422.mp4  b422f_df0_t3_d04_57_t084_ap4_lm17_r1.38
+            Title: Chorale Prelude based on Bach's BWV422 "Warum sollt ich mich denn grämen"
+            Description: These chorale preludes are fantasies based on the notes in Bach's chorale, as if performed by an orchestra of invisible musicians. 
+            This one is created based on the modes of BWV421 "Why should I worry then", tuned using my One Footed Bride Tuning. The audio is created using a density_factor 0, maximum sparseness, 4:57 in length, at a tempo of 84 beats per minute. Tuning is done to the 17 limit, with ratio_factor 1.375, and tolerance of 3, meaning the cent values of intervals are allowed to differ from the cent value of the actual ratio by up to plus or minus 3 cents. The video was created using Claude Code Opus 5 who wrote the python code to be run by Blender. Each action is created to imitate the appearance and movements of real instruments. Fake but almost accurate. I call it Animicrotonal Music Videos. 
+
+            The audio, video, tuning, and program code is described in detail here: https://github.com/prentrodgers/One-footed-bride-tuning
+            Link: https://youtu.be/a9-Uqt5L-mo
+      
+      score_bwv422.mp4 
+            Title: Original Bach Chorale BWV422 "Warum sollt ich mich denn grämen"
+            Description: The notes are just as Bach wrote them but tuned by me using the One Footed Bride Tuning algorithm. Performed by woodwinds and brass, realized using Csound. Tuning is assisted by Claude Code Opus 5, who wrote or edited some of the python code. More here:  https://github.com/prentrodgers/One-footed-bride-tuning
+            link: https://youtu.be/PF1PylTqc4A
+
+      Posted on of them to Facebook with a short explanation and a screen grab from the score_bwv243 including the chord # 170.
+            Here's another pair of videos on a tuned chorale and its prelude. BWV423 "Was betrübst du dich, mein Herze" performed by my Csound orchestra of invisible musicians. It is tuned using One footed bride tuning note for note as Bach wrote it. 
+            This one was tuned using the ratios of the tonality diamond to the 17-limit, with a ratio-factor of 1.625 and a tolerance of plus or minus one cent. 
+            This resulted in some very challenging chords. Two that stick out are both diminished 7th chords, one at chord 170 that the algorithm chose several high prime ratios using the several interval ratios using the integer 17 and another at chord 236 with some 11s and 13s. He's driven to these choices by the need to keep adjacent chords with the same pitch classes on the same cent value. 
+            This is done using Viterbi Optimization, an algorithm that picks a path through many alternative tuning choices to minimize the cent moves of notes in chords with the same pitch class in adjacent chords. 
+            First the prelude: 
+            https://youtu.be/uNYMCYLLoPU and then the base chorale: https://youtu.be/3RfX0q_kBrA
+    
+___________________
+9/28/26 Enhance select_best_and_render.py to include the percent of high primes.
+      Instead of just the percent of high primes, create a score that includes 7,11,13,17,19, but put more weight on the higher ones and lowest weight on the lower primes. Use that prime_score as one of the characteristics that Viterbi Automation tries to optimize for low values, like the chord score, but a different factor. Actually, it's included in the chord score, already weighted. Think about this some more. It might be a good idea, or it might just be a dead end. Remember we used to try multiplying high primes by a factor to ease them out of the mix about a year ago. You got rid of it.
+
+      Think about how UMAP might help find a pattern in random data like cents. 
+
+      ___________________________
+      I Tested Claude's Official Blender Connector (And It's Better Than You Think) https://youtu.be/b5F-yNG4lds?si=oU5AdK_o1IbWKVk7
+      Not the webapp here: https://claude.ai
+      Install Claude Desktop on Windows.
+      Click Customize, Connectors. I already have Microsoft 365 connected. Interesting. 
+      Search for Blender, click add, and it installs blender on this machine (M70q). But it actually did not install it. Got 5.2.2 from Microsoft Store. 
+      Select a folder: C:\Users\Windows\OneDrive\Documents\Blender
+      Keep blender open throughout the session. 
+      Blender MCP server doc for how to set it up. https://www.blender.org/lab/mcp-server/
+      Drag the add-on blue box into blender. Do it twice as it specifies on the mcp-server page.
+      This is where you can specify where the back end for cycles rendering. Since I'm running on a machine without GPU, select None. Other choices are CUDA, OptiX, HIP, oneAPI.
+      Then select the backend either OpenGL or Vulkan
+      Then go into blender, and Edit --> Preferences, you should see Add-ons --> MCP server. It's not there for me. 
+      Since I have Claude Desktop open, I asked it: How can I install an MCP server on this Windows machine with the Blender add-on installed.
+      Claude says to open Get Extensions, not Add-ons. Then allow internet access. Then at the top where it says Add-ones select Repositories. Click the plus to Add repository: https://lab.blender.org/, create. It now should show the lab.blender.org in the list that also includes extensions.blender.org and others. Then in Get Extensions, search for MCP, and click Install. Then click on Add-ons, and start the server. In my case there is a note at the bottom of the preferences windows that says Server is running. 
+      
+      Claude added these notes:
+      Verify it works: with the server running, ask Claude "summarize my Blender scene". On the M70q it listed Camera, Cube and Light (the default scene).
+      If Claude says "Cannot connect to Blender at localhost:9876", Blender is closed or the add-on server is not started. Check Edit --> Preferences --> Add-ons --> MCP for "Server is running" before reinstalling anything.
+      The Claude side is a Claude Desktop extension, installed in %APPDATA%\Claude\Claude Extensions\ant.dir.gh.blender.blender-mcp. It shows as connected even when Blender is not reachable.
+      For the new Windows server: Windows Server editions often do not include the Microsoft Store. If not, download Blender from https://www.blender.org/download/ instead. The rest of the steps are the same.
+      No GPU / Remote Desktop: Blender needs working OpenGL or Vulkan just to open its window. On a server with no graphics card, or over Remote Desktop, it may fail to start. If so, look for a graphics driver or software-rendering workaround first.
+
+      Back to my notes while watching the video. He has a huge prompt for a game scene. I asked claude on my machine to do this:
+      I'd like to create a concert stage with a few musicians playing Marimbas, Guitars, Finger Pianos, and Woodwind instruments. No more than 8 musicians and their instruments. Have a backdrop that gradually changes color over time. Include the ability to change camera angles and light intensity from many sources. Consider what would look interesting to other musicians, including details like strings, keys on the keyed instruments on the woodwind and brass instruments. The marimba needs to have resonators and bars that start on the left with the low notes and proceeds to the right where the higher notes. Make the size of the bars represent the ratios of 12 tones per octave in equal temperament. The finger piano tines should have a drop of solder on the ends so that the tines can be shorter due to the weight on the end. This also makes it easier on the fingers to play.
+
+      He's thinking. For about 20 minutes and created some magnificent results. 
+
+      I'm going to transfer this to the WreckingCrew.txt file in the One-footed-bride-tuning repo.
+
+______________________
+9/29/26 Continue working on using the newly designed stage in Claude Desktop with the Blender add-on.
+      He thought for 15 minutes about how to use render-farm.sh 
+      Decisions I need from you
+      Missing instruments: should horn, trombone, vibraphone, harp and the others get players on stage? The alternative is hearing them without seeing anyone play them. I answered that with this: Let's add some of those instruments: French Horn, vibraphone, and trombone. Move the flute to a a second row behind the front row behind the finger piano, and move the trumpet where the flute was and the trombone where the trumpet was. Vibraphone directly in front of the marimba, and the french horn behind the violin and viola. The other instruments are not used at this time: no xylophone, harp, bosendorfer, voices 21-23, or 28.
+      First test piece: the .npy files aren't on this node. Uploads/ here only has the mp3s, so the arrays are presumably on fs2 or the shared volume. Which piece should I use, and where should I copy it from? # create a test npy file that does very little in ten seconds.
+      Code location: OK to add concert_stage.py, stagekit.py, stage_cues.py and Concert_Stage.blend to this repo? render_farm.sh would get BLEND/SCRIPT defaults that leave existing renders unchanged. Add to M70q for now. Then we can commit there, and the test can run in the kubenetes where the GPU are ready.
+      Microtones on fixed-pitch instruments (marimba, finger pianos, guitar frets, valves): show the nearest key, tinted by how many cents it's off (blue for flat, red for sharp)? Or just the nearest key? Just use the nearest key.
+
+      Build the 100 second sample from the first two measures of a chorale.
+            python WreckingCrew.py --include_slice 0 32 --chorale_list bwv421 --deep_bass_backoff 0.25 --back_off_clicks 0.25 --album 9 --mod g --density_level 4 --ap 4 --articulate wood_winds:4,brass_section:4 --articulate_gain 0.6,0.9 --articulate_accent 8@0.2
+
+      This is a typical fix that he's making now, just a trivial hand going through the fingerboard: The low positions come out exactly as before; only the high positions change. Now I'll pose the violinist at the piece's highest violin notes and render close-ups:
+
+      Read 3 files, used a tool
+
+      There's still an issue: in high positions, the palm sinks into the top plate since the wrist hangs straight down past the neck heel. I'll adjust by holding the wrist just above the upper bout when the hand is over the body.
+      ...
+      My check camera ended up inside the player's forearm. I'll move it to the audience side, above and in front of the instrument, looking down at the fingertips and tines:
+
+      Read 4 files, used a tool
+
+      I see two issues from this reversed viewpoint: the idle fingers hover too far above/behind the tines, and the right thumb falls short of reaching its target tine. I'll measure the distance between each rendered fingertip and its target to check if reach constraints are pulling the arm back.
+
+      Used Blender: Execute Python Code
+
+      The arms reach fine, but the short 7–9cm fingers can't stretch to notes outside a fixed five-tine hand position, causing misses up to 136mm on bass. I'll fix this by centering the hand on whichever finger is actively plucking, letting idle fingers relax naturally instead of overreaching.
+
+      Edited 2 files, used a tool
+
+      That fix made things worse, suggesting the issue may be that the bass finger piano's outer tines are beyond the arms' reach. I'll check the worst frames to see why they're missed.
+
+_________________________
+9/30/26 This is going to take a while to get all the details right.
+      Now that we have all these camera angles available, I'd like to work on more of the details. Here are several suggestions:
+      1. The finger piano players should have all the up and down movement confined to the hand and mostly the fingers. Hence the name: Finger Piano. Try to confine the arm and elbow movements to assisting in positioning the hand over the correct tines, rather than as actuators for the playing of the notes. 
+      2. Keep the sections together: Bass finger piano, baritone guitar should be near each other. 
+      3. The flute players left arm goes through his body, and the left hand should play the keys from the front of the instrument.
+      4. The clarinet player's right hand fingers should be a little closer together, the left hand fingers a little farther apart. The keys are there to make it so the player doesn't have to reach too far, so that they can have a more natural appearance than what they have now. 
+      5. The oboe player's hands are too wide apart. They should assume a more natural appearance. Like the clarinet, we don't need them spread out across the instrument, since the keys extend the reach of the fingers by design.
+      6. The french horn player's left hand fingers should always be curved towards the valve keys and they are sticking up in the air for no reason right now.
+      7. The bassoon player's hands are splayed out too far. They should assume a more natural position. The keys on the instrument are designed to allow the player a more compressed finger position.
+      8. Camera 22 is labelled Trumpet Hands, but it's acutally the trombone hands. All four fingers and thumb should be on the slide. The index finger is sticking up too far.
+      9. The baritone guitar players right hand needs some smoothing out. The wrist, hand, and fingers need to be more natural and connected.
+      10. For all the players, we need to focus on the shoulders. It would be nice if the arm connection to the body did not have a visible gap. Is there a way to provide a more natural looking shoulder structure to increase the realism?
+      10. The violin and viola need to have a better wooden like texture, less uniform and more like a real violin with visible wood grain.
+
+      Claude says: 
+      Most of that overlap is the shoulder joint itself, which sits inside the deltoid cap by design. I'll re-check only the part of the arm that should be clear of the body: The arm now clears the body everywhere. The forward-elbow pole gives the most room, so I'll use it:
+
+      Now the horn. I'll measure whether the left fingertips actually land on the lever paddles:  I'll move the knuckles closer to the paddles so the fingers curl onto the levers instead of sticking up straight.
+
+      The horn fingers now curl down onto their levers. Next, close checks of the clarinet, oboe, bassoon, trombone and guitar hands:
+      Clarinet, oboe and bassoon hands look compact and natural now. Checking the guitar and trombone: Guitar and trombone hand positions look right — now checking that the finger-piano hands stay level while plucking.
+
+      Hands now stay perfectly level, with all vertical movement isolated to the fingertips (22 mm treble, 47 mm bass). Next I'll add a cue sheet covering every fix, then save, commit, and render on the farm.
+
+      Everything is committed as 5494315 and synced to fs2 and the pods' copy. Launching the v6 render with the details cue sheet:
+
+      I've worked through all eleven items and rendered v6, which tours each fix using a new details cue sheet; the video and close-ups are above. It's committed as 5494315. fs2 and the pods' copy already have it, so push from M70q when ready.
+
+      Finger pianos: fingers only. The hand now just glides sideways to position itself over the right tines; the palm and wrist never move up or down. The fingertips do all the plucking, travelling 22 mm on the finger piano and 47 mm on the bass.
+      Sections together. The baritone guitar and tuba traded places, so the guitar sits at the right of the riser beside the bass finger piano, with its stool, amp, cable, spotlight and cameras. There's a new Cam 32 Bass Section framing the two together.
+      Flute.
+      Instrument angle: the flute is now angled about 33° forward, the way flutists hold it.
+      Hands: both play from the front of the instrument, fingers arching over the keys and thumbs underneath.
+      Left arm: it now crosses in front of the chest with the elbow low and forward. I checked the arm against the body shape and it no longer passes through.
+      Clarinet. The fingers are now evenly spaced, about 3.4 cm apart on the right hand and 4.2 cm on the left, instead of following the tone holes.
+      Oboe. Both hands are compact, fingers about 3 cm apart and the hands about 10 cm apart.
+      French horn. The left hand's knuckles are now 4–5 cm from the levers, close enough that the fingers curl down onto them instead of pointing up.
+      Bassoon. Compact hands, left hand low on the wing joint and right hand high on the boot. I moved the finger holes on the model to match.
+      Trombone.
+      Left hand: all four fingers now wrap around the slide brace with the thumb over the slide tube, and nothing sticks up.
+      Slide range: a real slide moves about 8.5 cm per position, more than the arm can follow, so the slide positions are drawn 3 cm apart.
+      Cameras: Cam 22 is re-aimed at the trumpet, and Cam 31 Trombone Hands is new.
+      Guitar right hand. It's now one connected shape: the forearm rests on the upper wing and leads straight into the hand, with the knuckles lined up behind the pick and the fingers loosely curled.
+      Shoulders. Every player now has a fuller upper chest, a sloped muscle running from the neck to each shoulder, and a rounded cap over the joint that the arm disappears into. The visible gap is gone. I also lengthened the arms slightly to adult proportions and let a shoulder come forward a little when reaching.
+      Violin and viola wood.
+      Tops: spruce with fine growth-ring lines under an uneven amber varnish.
+      Backs: book-matched flamed maple, with the flame pattern mirrored either side of the centre joint and fading in and out across the back.
+      Viola: a darker, redder brown so the two instruments are easy to tell apart.
+      Where it lives: the materials are defined in a new file, concert_woods.py.
+      Still simplified: the flute's left arm still crosses fairly high. That's partly unavoidable, because the left hand sits about 20 cm right of the mouth on a flute. Treat it as improved rather than finished. Tell me what still looks wrong in v6 and I'll keep going down the list.
+
+      New: Preview a Piece. There's now a Preview a Piece box at the top of the Stage tab. Enter the piece, tempo and cue sheet (already filled in for the 56 s piece) and click Load. Then:
+      Scrubbing the timeline, or pressing Spacebar, poses every player, cuts cameras per the cue sheet and moves the lights, using exactly the same code the farm runs.
+      The piece's mp3 is on the timeline, so you hear it in sync.
+      The viewport switches to Material Preview.
