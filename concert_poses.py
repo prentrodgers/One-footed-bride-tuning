@@ -73,6 +73,16 @@ def _mats(i):
 
 
 # ─────────────────────────────── body ───────────────────────────────
+def head_frame(key):
+    """(head centre, right, forward) exactly as build_body places the head, in the body mesh's space."""
+    idx, lean, _ = PLAYERS[key]
+    p, f, l, up = frame(key)
+    seated = sk.LAYOUT[key]["seated"]
+    pel = p + UP * (0.53 if seated else 0.96) + (f * 0.02 if seated else Vector())
+    neckb = pel + UP * ((0.50 if seated else 0.47) + 0.04) + f * lean
+    return neckb + UP * 0.155 + f * (0.01 + lean * 0.5), -l, f
+
+
 def build_body(key, leg_style="normal"):
     """Torso, head, legs and shoulder caps - everything that does not move while playing."""
     idx, lean, knee_spread = PLAYERS[key]
@@ -160,10 +170,11 @@ def build_body(key, leg_style="normal"):
     bm.verts.index_update()
     breath = [(v.index, pos) for v, pos in breath]
     mats = _mats(idx)
-    cf.skin_upgrade(mats[0]); cf.hair_texture(mats[4])
+    cf.skin_texture(mats[0], (head, right, f)); cf.hair_texture(mats[4])
     mats += [sk.mat("Belt Buckle Brass", (0.8, 0.6, 0.3), metal=1.0, rough=0.3)] + cf.face_materials(idx, sk.SKINS[idx % 12])
     ob = B.build(body_name(key), mats, collection=sk.coll("Musicians"), smooth=True)
     ob["player"] = key
+    cf.mark_skin_body(ob)
     if key in SWAYERS:
         old = bpy.data.objects.get(body_name(key) + " Legs")
         if old:
@@ -1471,6 +1482,33 @@ def hands_trombone(state=None):
     return {"L": lh, "R": rh}, {"L": -UP + l * 0.9 - f * 0.2, "R": -UP - l * 0.9}
 
 
+# Resting winds take the instrument off the lips: (drop m, away from the face m, tilt in degrees about the
+# player's left axis through the mouthpiece; + dips a forward-pointing bell). The hands follow, since every
+# hands_* function reads the rig's live matrix.
+LOWER = {"Flute": (0.055, 0.030, 0.0), "Clarinet": (0.060, 0.035, 0.0), "Oboe": (0.060, 0.035, 0.0),
+         "Bassoon": (0.030, 0.045, 0.0), "Trumpet": (0.055, 0.025, 8.0), "Trombone": (0.055, 0.025, 6.0),
+         "French Horn": (0.035, 0.040, 0.0), "Tuba": (0.012, 0.040, 0.0)}
+
+
+def lower_instrument(key, u):
+    """u = 0: at the lips (the rig's saved rest matrix); u = 1: fully lowered."""
+    ob = bpy.data.objects.get(key)
+    if ob is None:
+        return
+    if "rest_matrix" not in ob:
+        ob["rest_matrix"] = [v for row in ob.matrix_world for v in row]
+    r = list(ob["rest_matrix"])
+    R = Matrix([r[0:4], r[4:8], r[8:12], r[12:16]])
+    if u <= 0.0:
+        ob.matrix_world = R
+        return
+    drop, away, tilt = LOWER[key]
+    p, f, l, up = frame(key)
+    m = Vector(sk.head_mouth(key))
+    ob.matrix_world = (Matrix.Translation(f * (away * u) - UP * (drop * u)) @ Matrix.Translation(m)
+                       @ Matrix.Rotation(math.radians(tilt * u), 4, l) @ Matrix.Translation(-m) @ R)
+
+
 HANDS = {
     "Baritone Flying V": hands_guitar, "Violin": hands_violin, "Viola": hands_viola, "Cello": hands_cello,
     "Finger Piano": hands_finger_piano, "Bass Finger Piano": hands_bass_finger_piano,
@@ -1482,6 +1520,8 @@ HANDS = {
 
 def pose(key, state=None, pup=None):
     """Pose one player (and its bow/mallets/slide) for a musical state."""
+    if key in LOWER:
+        lower_instrument(key, (state or {}).get("lower", 0.0))
     hands, pole = HANDS[key](state)
     pup = pup or get_puppet(key)
     if key in BREATHERS:

@@ -89,6 +89,134 @@ def skin_upgrade(m):
     m["skin_v2"] = 1
 
 
+def _mix_rgb(N, L, fac_socket, a, b, fac_scale=1.0):
+    """A colour mix node: a -> b by fac_socket * fac_scale. a and b are sockets or RGBA tuples."""
+    mx = N.new("ShaderNodeMix"); mx.data_type = 'RGBA'
+    ins = [s for s in mx.inputs if s.type == 'RGBA']
+    fac = next(s for s in mx.inputs if s.name == "Factor" and s.type == 'VALUE')
+    if fac_scale != 1.0:
+        mul = N.new("ShaderNodeMath"); mul.operation = 'MULTIPLY'; mul.inputs[1].default_value = fac_scale
+        L.new(fac_socket, mul.inputs[0]); L.new(mul.outputs[0], fac)
+    else:
+        L.new(fac_socket, fac)
+    for sock, v in zip(ins, (a, b)):
+        if isinstance(v, tuple):
+            sock.default_value = v
+        else:
+            L.new(v, sock)
+    return next(s for s in mx.outputs if s.type == 'RGBA')
+
+
+# Face map, in the head's frame (x to the player's right, y forward, z up, metres from the head centre):
+# (centre, radius, weight). "blush": flushed or thin skin; "shade": hollows.
+def _face_spots():
+    P = lambda x, y, z: Vector((x, y, z))
+    blush = [(P(s * 0.043, front_y(s * 0.043, -0.020) - 0.003, -0.020), 0.017, 0.70) for s in (-1, 1)] + \
+            [(P(0, 0.096, -0.015), 0.012, 0.75), (P(0, front_y(0, -0.100), -0.100), 0.016, 0.30),
+             (P(0, front_y(0, 0.060), 0.060), 0.020, 0.15)] + \
+            [(P(s * 0.078, -0.006, 0.008), 0.022, 0.60) for s in (-1, 1)]
+    shade = [(P(s * 0.031, front_y(s * 0.031, 0.006) - 0.002, 0.006), 0.008, 0.70) for s in (-1, 1)] + \
+            [(P(s * 0.017, front_y(s * 0.017, 0.028) - 0.004, 0.028), 0.007, 0.45) for s in (-1, 1)] + \
+            [(P(s * 0.024, front_y(s * 0.024, -0.040), -0.040), 0.008, 0.35) for s in (-1, 1)]
+    return blush, shade
+
+
+def _face_map(N, L, pos, mask, hc, right, f, spots):
+    """max over spots of weight * gaussian(distance from the spot), times the body mask, as a socket."""
+    d = N.new("ShaderNodeVectorMath"); d.operation = 'SUBTRACT'
+    L.new(pos, d.inputs[0]); d.inputs[1].default_value = tuple(hc)
+    comb = N.new("ShaderNodeCombineXYZ")
+    for i, axis in enumerate((right, f, UP)):
+        dp = N.new("ShaderNodeVectorMath"); dp.operation = 'DOT_PRODUCT'
+        L.new(d.outputs["Vector"], dp.inputs[0]); dp.inputs[1].default_value = tuple(axis)
+        L.new(dp.outputs["Value"], comb.inputs[i])
+    acc = None
+    for c, s, w in spots:
+        dist = N.new("ShaderNodeVectorMath"); dist.operation = 'DISTANCE'
+        L.new(comb.outputs["Vector"], dist.inputs[0]); dist.inputs[1].default_value = tuple(c)
+        sq = N.new("ShaderNodeMath"); sq.operation = 'MULTIPLY'
+        L.new(dist.outputs["Value"], sq.inputs[0]); L.new(dist.outputs["Value"], sq.inputs[1])
+        k = N.new("ShaderNodeMath"); k.operation = 'MULTIPLY'; k.inputs[1].default_value = -1.0 / (2 * s * s)
+        L.new(sq.outputs[0], k.inputs[0])
+        ex = N.new("ShaderNodeMath"); ex.operation = 'EXPONENT'; L.new(k.outputs[0], ex.inputs[0])
+        wt = N.new("ShaderNodeMath"); wt.operation = 'MULTIPLY'; wt.inputs[1].default_value = w
+        L.new(ex.outputs[0], wt.inputs[0])
+        if acc is None:
+            acc = wt.outputs[0]
+        else:
+            mx = N.new("ShaderNodeMath"); mx.operation = 'MAXIMUM'
+            L.new(acc, mx.inputs[0]); L.new(wt.outputs[0], mx.inputs[1]); acc = mx.outputs[0]
+    out = N.new("ShaderNodeMath"); out.operation = 'MULTIPLY'
+    L.new(acc, out.inputs[0]); L.new(mask, out.inputs[1])
+    return out.outputs[0]
+
+
+def skin_texture(m, head=None):
+    """Skin that reads as skin up close: blotchy mottling, a face map (flushed cheeks, nose tip, ears and
+    chin; shadow under the eyes, at the inner corners and beside the nostrils), pores as a fine bump, and
+    shine that varies instead of one even sheen. head = (centre, right, forward) of this player's head in
+    the body mesh's space; each player has their own Skin material, so the map is computed per pixel in
+    the shader (the head mesh is too coarse to carry it). Only meshes with the "skin_body" attribute
+    (the body, not the arm and hand pieces) get the map."""
+    if m.get("skin_v3"):
+        return
+    skin_upgrade(m)
+    nt = m.node_tree; N, L = nt.nodes, nt.links
+    b = N["Principled BSDF"]
+    base = tuple(m.get("skin_base") or tuple(b.inputs["Base Color"].default_value)[:3])
+    m["skin_base"] = base
+    if head is not None:
+        m["skin_head"] = [tuple(v) for v in head]
+    tc = N.new("ShaderNodeTexCoord")
+    # mottling: a broad, soft noise nudging the tone a few percent lighter/redder or darker
+    nz = N.new("ShaderNodeTexNoise"); nz.inputs["Scale"].default_value = 35.0; nz.inputs["Detail"].default_value = 6.0
+    nz.inputs["Roughness"].default_value = 0.6
+    L.new(tc.outputs["Object"], nz.inputs["Vector"])
+    rp = N.new("ShaderNodeValToRGB")
+    rp.color_ramp.elements[0].position = 0.35; rp.color_ramp.elements[0].color = tuple(c * 0.88 for c in base) + (1,)
+    rp.color_ramp.elements[1].position = 0.65
+    rp.color_ramp.elements[1].color = (min(1, base[0] * 1.06), base[1] * 0.96, base[2] * 0.92, 1)
+    L.new(nz.outputs["Fac"], rp.inputs["Fac"])
+    col = rp.outputs["Color"]
+    if m.get("skin_head"):
+        hc, right, f = (Vector(v) for v in m["skin_head"])
+        mask = N.new("ShaderNodeAttribute"); mask.attribute_type = 'GEOMETRY'; mask.attribute_name = "skin_body"
+        blush_spots, shade_spots = _face_spots()
+        blush = _face_map(N, L, tc.outputs["Object"], mask.outputs["Fac"], hc, right, f, blush_spots)
+        shade = _face_map(N, L, tc.outputs["Object"], mask.outputs["Fac"], hc, right, f, shade_spots)
+        # strong colours: subsurface scattering and warm stage light wash out anything subtle
+        col = _mix_rgb(N, L, blush, col, (min(1, base[0] * 1.02), base[1] * 0.52, base[2] * 0.50, 1), 1.0)
+        col = _mix_rgb(N, L, shade, col, (base[0] * 0.58, base[1] * 0.46, base[2] * 0.50, 1), 0.9)
+    L.new(col, b.inputs["Base Color"])
+    # pores: a fine cellular dimpling plus a finer grain, as a bump
+    vo = N.new("ShaderNodeTexVoronoi"); vo.feature = 'F1'; vo.inputs["Scale"].default_value = 900.0
+    L.new(tc.outputs["Object"], vo.inputs["Vector"])
+    gr = N.new("ShaderNodeTexNoise"); gr.inputs["Scale"].default_value = 300.0; gr.inputs["Detail"].default_value = 2.0
+    L.new(tc.outputs["Object"], gr.inputs["Vector"])
+    add = N.new("ShaderNodeMath"); add.operation = 'ADD'
+    L.new(vo.outputs["Distance"], add.inputs[0]); L.new(gr.outputs["Fac"], add.inputs[1])
+    bump = N.new("ShaderNodeBump"); bump.inputs["Strength"].default_value = 0.18; bump.inputs["Distance"].default_value = 0.0004
+    L.new(add.outputs[0], bump.inputs["Height"]); L.new(bump.outputs["Normal"], b.inputs["Normal"])
+    # shine: 0.38 (oily) .. 0.60 (matte), from a medium noise
+    rn = N.new("ShaderNodeTexNoise"); rn.inputs["Scale"].default_value = 60.0
+    L.new(tc.outputs["Object"], rn.inputs["Vector"])
+    mr = N.new("ShaderNodeMapRange")
+    mr.inputs["To Min"].default_value = 0.38; mr.inputs["To Max"].default_value = 0.60
+    L.new(rn.outputs["Fac"], mr.inputs["Value"]); L.new(mr.outputs["Result"], b.inputs["Roughness"])
+    m["skin_v3"] = 1
+
+
+def mark_skin_body(ob):
+    """Flag a body mesh (value 1 on every vertex) so its Skin material draws the face map; the arm and
+    hand pieces share the material but have no flag, so they never pick up a stray blush."""
+    me = ob.data
+    for name in ("skin_body", "blush", "shade"):
+        if name in me.attributes:
+            me.attributes.remove(me.attributes[name])
+    a = me.attributes.new("skin_body", 'FLOAT', 'POINT')
+    a.data.foreach_set("value", [1.0] * len(me.vertices))
+
+
 def hair_upgrade(m):
     """Strand streaks: a noise stretched along the hair's fall, darkening and lightening the colour."""
     nt = m.node_tree

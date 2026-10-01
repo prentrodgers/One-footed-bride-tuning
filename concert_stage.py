@@ -55,7 +55,7 @@ PLAYER_CAMS = {
     "Baritone Flying V": ["Cam 18 Flying V & Amp", "Cam 20 Baritone Full String Length", "Cam 11 Fretboard Close"],
     "Finger Piano": ["Cam 10 Finger Piano (player view)", "Cam 6 Finger Pianos"],
     "Bass Finger Piano": ["Cam 19 Bass Finger Piano Overhead", "Cam 16 Bass Finger Piano (player view)"],
-    "Flute": ["Cam 28 Flute (second row)"], "Clarinet": ["Cam 15 Bassoon & Clarinet (riser)"], "Oboe": ["Cam 7 Oboe Keys"],
+    "Flute": ["Cam 28 Flute (second row)"], "Clarinet": ["Cam 15 Bassoon & Clarinet (riser)"], "Oboe": ["Cam 34 Oboe Player", "Cam 7 Oboe Keys"],
     "Bassoon": ["Cam 23 Bassoon Close", "Cam 15 Bassoon & Clarinet (riser)"],
     "Trumpet": ["Cam 22 Trumpet Hands", "Cam 9 Trumpet & Trombone (riser)"], "Trombone": ["Cam 27 Trombone", "Cam 9 Trumpet & Trombone (riser)"],
     "Tuba": ["Cam 14 Tuba Close", "Cam 24 Tuba Side"], "French Horn": ["Cam 26 French Horn"],
@@ -807,6 +807,27 @@ class Breathing:
             prev_end = e
         return self._relaxed(t, prev_end)
 
+    # Off the lips in a rest of at least LOWER_GAP s: down LOWER_AFTER s after the phrase ends (taking
+    # LOWER_MOVE s), back up so it arrives LOWER_BEFORE s before the next phrase, ahead of the inhale.
+    LOWER_GAP, LOWER_AFTER, LOWER_MOVE, LOWER_BEFORE = 1.6, 0.25, 0.6, 0.45
+
+    def lowered(self, t):
+        if not hasattr(self, "ph"):
+            self.ph = self._phrases(self.notes)
+        ss = lambda x: 0.0 if x <= 0 else 1.0 if x >= 1 else x * x * (3 - 2 * x)
+        prev_end = None
+        for s, e in self.ph + [[None, None]]:
+            if s is None or t < s:
+                if s is not None and prev_end is not None and s - prev_end < self.LOWER_GAP:
+                    return 0.0
+                down = 1.0 if prev_end is None else ss((t - prev_end - self.LOWER_AFTER) / self.LOWER_MOVE)
+                up = 1.0 if s is None else ss((s - self.LOWER_BEFORE - t) / self.LOWER_MOVE)
+                return min(down, up)
+            if t < e:
+                return 0.0
+            prev_end = e
+        return 0.0
+
 
 class WindPlayer(Breathing):
     def __init__(self, key, notes):
@@ -925,8 +946,8 @@ CUE_SHEETS = {
         ("0:43",   "Cam 12 Violin Close"),                       # violin's loudest stretch
         ("0:45",   "Cam 22 Trumpet Hands"),                      # trumpet 44-50 s
         ("0:47.5", "Cam 10 Finger Piano (player view)"),
-        ("0:50",   "Cam 21 Viola & Violin"),
-        ("0:52",   "Cam 15 Bassoon & Clarinet (riser)"),         # clarinet 52-54 s
+        ("0:49.5", "Cam 34 Oboe Player"),                        # oboe's last phrase, then off the lips at 51.5 s
+        ("0:52.5", "Cam 15 Bassoon & Clarinet (riser)"),         # clarinet 52-54 s
         ("0:54",   "Cam 1 Audience Wide"),
     ],
     # a tour of the players, for checking poses (b421g length; works for any piece of 20 s or more)
@@ -1084,7 +1105,7 @@ class Performance:
             pl = self.players.get(key)
             st = pl.state(t) if pl else None
             if isinstance(pl, Breathing):
-                st = dict(st or {}); st["breath"] = pl.breath(t)
+                st = dict(st or {}); st["breath"] = pl.breath(t); st["lower"] = pl.lowered(t)
             cp.pose(key, st, self.puppets[key])
             for cam, who in self.follow.items():
                 if who == key:
