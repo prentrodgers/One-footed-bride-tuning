@@ -41,6 +41,7 @@ STYLES = {
     "Oboe": ("bald", None), "Marimba": ("ponytail", None), "Cello": ("long", None), "Trumpet": ("short", None),
     "Tuba": ("bun", None), "Bassoon": ("bob", None), "Viola": ("ponytail", None), "French Horn": ("short", "full"),
     "Trombone": ("short", None), "Vibraphone": ("long", None),
+    "Marimba 2": ("short", None), "Finger Piano 2": ("bob", None),
 }
 IRIS = [(0.16, 0.08, 0.03), (0.10, 0.22, 0.42), (0.12, 0.24, 0.10), (0.22, 0.14, 0.05), (0.06, 0.035, 0.02),
         (0.18, 0.20, 0.24)]
@@ -204,6 +205,22 @@ def skin_texture(m, head=None):
     mr.inputs["To Min"].default_value = 0.38; mr.inputs["To Max"].default_value = 0.60
     L.new(rn.outputs["Fac"], mr.inputs["Value"]); L.new(mr.outputs["Result"], b.inputs["Roughness"])
     m["skin_v3"] = 1
+
+
+def reset_skin(m):
+    """Back to the plain skin (base colour, no texture nodes), so skin_texture can rebuild it - after
+    the player has moved, the face map must be centred on the head's new position."""
+    if not m.get("skin_v3"):
+        return
+    N = m.node_tree.nodes
+    for n in [n for n in N if n.name not in ("Principled BSDF", "Material Output")]:
+        N.remove(n)
+    b = N["Principled BSDF"]
+    b.inputs["Base Color"].default_value = tuple(m["skin_base"]) + (1,)
+    b.inputs["Roughness"].default_value = 0.52
+    for k in ("skin_v3", "skin_head"):
+        if k in m:
+            del m[k]
 
 
 def mark_skin_body(ob):

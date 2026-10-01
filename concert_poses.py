@@ -40,6 +40,8 @@ PLAYERS = {
     "Trumpet": (9, 0.0, 0.04),
     "Tuba": (10, 0.02, 0.10), "Bassoon": (11, 0.02, 0.20), "Viola": (12, 0.0, 0.04), "French Horn": (13, 0.03, 0.04),
     "Trombone": (14, 0.0, 0.04), "Vibraphone": (15, 0.05, 0.04),
+    # second players, splitting a voice by stereo position (concert_stage.SPLIT): stage right
+    "Marimba 2": (16, 0.07, 0.04), "Finger Piano 2": (17, 0.10, 0.08),
 }
 
 
@@ -324,7 +326,7 @@ def build_puppet(key):
 
 
 # ─────────────────────────────── stepping legs (standing mallet players) ───────────────────────────────
-STEPPERS = {"Marimba", "Vibraphone"}
+STEPPERS = {"Marimba", "Marimba 2", "Vibraphone"}
 THIGH, SHIN = 0.44, 0.44
 TORSO_H = 0.50                        # pelvis to shoulders: the lever the upper body leans on
 _LEG_PARTS = [("thigh", "cyl", 2, 0.080, 0.060 / 0.080), ("knee", "sph", 2, 0.060, 1),
@@ -941,6 +943,7 @@ _ACC = {1, 3, 6, 8, 10}
 FP_SPEC = {   # K (size), lowest MIDI, tine width, thickness, solder radius, natural pitch
     "Finger Piano": (1.0, 48, 0.0055, 0.0012, 0.0022, 0.0145),
     "Bass Finger Piano": (3.0, 24, 0.013, 0.0030, 0.0066, 0.0435),
+    "Finger Piano 2": (1.0, 48, 0.0055, 0.0012, 0.0022, 0.0145),
 }
 
 
@@ -1132,6 +1135,7 @@ def hands_bass_finger_piano(state=None):
 
 # ---- marimba / vibraphone (4 mallets, Stevens grip) ----
 MALLET_SETS = {"Marimba": ("Marimba", 0.90, 0.55, 0.18, 0.34, -0.30, 0.075, 0.035),
+               "Marimba 2": ("Marimba 2", 0.90, 0.55, 0.18, 0.34, -0.30, 0.075, 0.035),
                "Vibraphone": ("Vibraphone", 0.86, 0.44, 0.19, 0.28, -0.26, 0.070, 0.030)}
 # key: (rig, bar top z, hand y offset, head y offset, L hand x, R hand x, mallet spread, head height)
 
@@ -1194,6 +1198,7 @@ MALLET_HOVER = math.radians(8)
 # ---- live bars: each bar its own object, bending in its first free-free mode after a stroke ----
 # (rig, lowest MIDI, count, L0, w_low, w_high, gap, centre gap, top natural, top accidental, thickness, material, old mesh)
 BAR_GEO = {"Marimba": ("Marimba", 45, 52, 0.52, 0.068, 0.044, 0.010, 0.020, 0.90, 0.92, 0.022, "Honduran Rosewood", "Marimba Bars"),
+           "Marimba 2": ("Marimba 2", 45, 52, 0.52, 0.068, 0.044, 0.010, 0.020, 0.90, 0.92, 0.022, "Honduran Rosewood", "Marimba 2 Bars"),
            "Vibraphone": ("Vibraphone", 53, 37, 0.37, 0.057, 0.043, 0.009, 0.020, 0.86, 0.86, 0.013, "Vibe Bar Aluminium", "Vibraphone Bars")}
 BAR_ST = 17                         # stations along a bar
 _bar_cache = {}
@@ -1515,7 +1520,9 @@ def lower_instrument(key, u):
 HANDS = {
     "Baritone Flying V": hands_guitar, "Violin": hands_violin, "Viola": hands_viola, "Cello": hands_cello,
     "Finger Piano": hands_finger_piano, "Bass Finger Piano": hands_bass_finger_piano,
+    "Finger Piano 2": lambda state=None: hands_finger_piano(state, key="Finger Piano 2"),
     "Marimba": hands_marimba, "Vibraphone": hands_vibraphone,
+    "Marimba 2": lambda state=None: hands_mallets(state, "Marimba 2"),
     "Flute": hands_flute, "Clarinet": hands_clarinet, "Oboe": hands_oboe, "Bassoon": hands_bassoon,
     "Trumpet": hands_trumpet, "Tuba": hands_tuba, "French Horn": hands_horn, "Trombone": hands_trombone,
 }
@@ -1581,7 +1588,7 @@ def regrip_mallets(key, side):
 
 # ─────────────────────────────── auxiliary movable objects ───────────────────────────────
 def build_mallets(key, shaft_mat, head_mats, length=0.40, head_r=0.021, shaft_r=0.0045):
-    col = sk.coll(key if key in ("Marimba", "Vibraphone") else "Musicians")
+    col = sk.coll(key if key in ("Marimba", "Marimba 2", "Vibraphone") else "Musicians")
     for side, hm in (("L", head_mats[0]), ("R", head_mats[1])):
         for tag in ("inner", "outer"):
             name = f"{key} Mallet {side} {tag}"

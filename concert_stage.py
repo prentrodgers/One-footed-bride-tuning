@@ -44,16 +44,24 @@ VOICES = {
     25: ("Trumpet", "valves"), 39: ("Trumpet", "valves"), 27: ("Tuba", "valves"),
     16: ("French Horn", "valves"), 26: ("Trombone", "slide"),
 }
+# Voices with 8 instruments playing at once in the activity array, too many for one player: each note goes
+# to one of two players by its stereo position (col 7, 1..16): below 8 (the audience's left) the stage-right
+# player, 8 and up the stage-left one. voice -> (stage right player, stage left player)
+SPLIT = {5: ("Marimba 2", "Marimba"), 1: ("Finger Piano 2", "Finger Piano")}
+PAN_COL, PAN_SPLIT = 7, 8
 VOICE_NAMES = {6: "xylophone", 8: "harp", 21: "Super Slinky", 22: "long string", 23: "original string",
                28: "triangle wave", 29: "Bosendorfer"}
 
 # camera shots that feature each player (the first is preferred), and the wide shots
 PLAYER_CAMS = {
-    "Marimba": ["Cam 4 Marimba Player POV"], "Vibraphone": ["Cam 25 Vibraphone Player View"],
+    "Marimba": ["Cam 4 Marimba Player POV", "Cam 33 Marimba Player (side, full figure)"],
+    "Marimba 2": ["Cam 35 Marimba 2 Player POV", "Cam 36 Marimba 2 Player (side, full figure)"],
+    "Vibraphone": ["Cam 25 Vibraphone Player View"],
     "Violin": ["Cam 12 Violin Close", "Cam 21 Viola & Violin"], "Viola": ["Cam 21 Viola & Violin"],
     "Cello": ["Cam 13 Cello Close", "Cam 5 Cello & Violin"],
     "Baritone Flying V": ["Cam 18 Flying V & Amp", "Cam 20 Baritone Full String Length", "Cam 11 Fretboard Close"],
-    "Finger Piano": ["Cam 10 Finger Piano (player view)", "Cam 6 Finger Pianos"],
+    "Finger Piano": ["Cam 10 Finger Piano (player view)", "Cam 29 Finger Piano Hands (front)", "Cam 6 Finger Pianos"],
+    "Finger Piano 2": ["Cam 37 Finger Piano 2 (player view)", "Cam 38 Finger Piano 2 Hands (front)"],
     "Bass Finger Piano": ["Cam 19 Bass Finger Piano Overhead", "Cam 16 Bass Finger Piano (player view)"],
     "Flute": ["Cam 28 Flute (second row)"], "Clarinet": ["Cam 15 Bassoon & Clarinet (riser)"], "Oboe": ["Cam 34 Oboe Player", "Cam 7 Oboe Keys"],
     "Bassoon": ["Cam 23 Bassoon Close", "Cam 15 Bassoon & Clarinet (riser)"],
@@ -67,6 +75,7 @@ SPECIAL_LIGHT = {  # player -> spotlight object
     "Oboe": "Special 7 Oboe", "Marimba": "Special 8 Marimba", "Cello": "Special 9 Cello", "Trumpet": "Special 10 Trumpet",
     "Tuba": "Special 11 Tuba", "Bassoon": "Special 12 Bassoon", "Viola": "Special 13 Viola", "French Horn": "Special 14 French Horn",
     "Trombone": "Special 15 Trombone", "Vibraphone": "Special 16 Vibraphone",
+    "Marimba 2": "Special 17 Marimba 2", "Finger Piano 2": "Special 18 Finger Piano 2",
 }
 
 
@@ -87,6 +96,8 @@ def load_notes(npy, tempo):
             unmapped[v] = unmapped.get(v, 0) + 1
             continue
         player, art = VOICES[v]
+        if v in SPLIT:
+            player = SPLIT[v][0] if row[PAN_COL] < PAN_SPLIT else SPLIT[v][1]
         cents = row[5] * 1200 + row[4]
         n = dict(t0=row[1] / bps, dur=row[2] / bps, midi=int(round(cents / 100.0)) + 12, cents=float(cents),
                  vol=float(row[14]), art=art, voice=v)
@@ -141,6 +152,7 @@ def envelope(ns, t, decay=0.6):
 # ─────────────────────────────── mallets (marimba / vibraphone) ───────────────────────────────
 BAR_SPECS = {  # rig, lowest MIDI, count, L0, w_low, w_high, gap, centre gap, top natural, top accidental
     "Marimba": ("Marimba", 45, 52, 0.52, 0.068, 0.044, 0.010, 0.020, 0.90, 0.92),
+    "Marimba 2": ("Marimba 2", 45, 52, 0.52, 0.068, 0.044, 0.010, 0.020, 0.90, 0.92),
     "Vibraphone": ("Vibraphone", 53, 37, 0.37, 0.057, 0.043, 0.009, 0.020, 0.86, 0.86),
 }
 _ACC = {1, 3, 6, 8, 10}
@@ -303,7 +315,7 @@ class MalletPlayer:
     def bars(self, t):
         """{midi: signed displacement} for bars still ringing from a stroke."""
         out = {}
-        amp0 = 0.0016 if self.key == "Marimba" else 0.0010
+        amp0 = 0.0016 if self.key.startswith("Marimba") else 0.0010
         for t0, m, lvl in self.strikes:
             if t0 > t:
                 break
@@ -885,9 +897,9 @@ class BrassPlayer(Breathing):
 
 
 def make_player(key, notes):
-    if key in ("Marimba", "Vibraphone"):
+    if key in ("Marimba", "Marimba 2", "Vibraphone"):
         return MalletPlayer(key, notes)
-    if key in ("Finger Piano", "Bass Finger Piano"):
+    if key in ("Finger Piano", "Finger Piano 2", "Bass Finger Piano"):
         return FingerPianoPlayer(key, notes)
     if key in ("Violin", "Viola", "Cello"):
         return BowedPlayer(key, notes)
@@ -1097,7 +1109,7 @@ class Performance:
         self.shots = parse_cues(cues) if cues else build_shots(self.per, duration, seed, camera)
         self.lights = {k: bpy.data.objects.get(v) for k, v in SPECIAL_LIGHT.items()}
         # over-the-shoulder cameras ride along with a player who steps sideways
-        self.follow = {PLAYER_CAMS[k][0]: k for k in ("Marimba", "Vibraphone")}
+        self.follow = {PLAYER_CAMS[k][0]: k for k in ("Marimba", "Marimba 2", "Vibraphone") if k in cp.PLAYERS}
         self.follow_base = {c: bpy.data.objects[c].location.copy() for c in self.follow}
 
     def apply(self, scene, t, set_camera=True):
@@ -1120,7 +1132,7 @@ class Performance:
         """Back to the rest pose, lights at level 1, cameras home (for saving the .blend)."""
         for key in cp.PLAYERS:
             cp.pose(key, None, self.puppets[key])
-        for k in ("Finger Piano", "Bass Finger Piano"):
+        for k in ("Finger Piano", "Finger Piano 2", "Bass Finger Piano"):
             cp.set_tine_bends(k, {})
         for cam, loc in self.follow_base.items():
             bpy.data.objects[cam].location = loc

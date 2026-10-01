@@ -654,7 +654,7 @@ def musician2(i, key, hands, lean=0.0, knee_spread=0.04, leg_style="normal", pol
         _elbow = base_elbow
 
 
-FACE_FORWARD = {"Marimba", "Vibraphone"}          # players who face straight down-stage (behind a mallet instrument)
+FACE_FORWARD = {"Marimba", "Marimba 2", "Vibraphone"}          # players who face straight down-stage (behind a mallet instrument)
 def frame_for(key):
     p = Vector(LAYOUT[key]["pos"])
     f = (Vector((0, -12, 0)) - p); f.z = 0; f.normalize()
