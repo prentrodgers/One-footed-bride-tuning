@@ -1166,8 +1166,17 @@ def main():
     f1 = n_frames - 1 if args.frame_end is None else min(args.frame_end, n_frames - 1)
     out = Path(args.out); out.mkdir(parents=True, exist_ok=True)
     print(f"[concert] animating frames {f0}..{f1} of {n_frames} ({args.duration:.1f}s @ {FPS}fps) -> {out}/")
+    # Resume: frames already in --out are kept (a relaunched slice after a crash only renders what is
+    # missing). The newest one in the range is redone, in case the crash cut its write short.
+    have = {fi for fi in range(f0, f1 + 1) if (out / f"frame_{fi:06d}.png").is_file()
+            and (out / f"frame_{fi:06d}.png").stat().st_size > 0}
+    have.discard(max(have, default=-1))
+    if have:
+        print(f"[concert] {len(have)} frames already rendered in {f0}..{f1}: skipping them")
     r0 = time.time()
     for fi in range(f0, f1 + 1):
+        if fi in have:
+            continue
         t = fi / FPS
         scene.frame_set(fi)                                   # backdrop colour runs off the frame number
         perf.apply(scene, t)
