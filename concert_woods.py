@@ -202,3 +202,7 @@ def apply_all():
                  axis='X', ring=10.0, rings_per=10.0, contrast=0.72, rough=0.35, coat=0.5)
     natural_wood("Mukwa (African Teak)", (0.30, 0.13, 0.05), (0.22, 0.09, 0.035), (0.12, 0.045, 0.015),
                  axis='Y', ring=6.0, rings_per=10.0, contrast=0.72, rough=0.45, coat=0.2)
+    # marimba bars: straight-grained rosewood, but each bar's lines wander and its colour shifts (the bars
+    # are separate objects in the rig's space, so every bar cuts a different part of the grain field)
+    natural_wood("Honduran Rosewood", (0.36, 0.13, 0.06), (0.21, 0.065, 0.032), (0.09, 0.025, 0.012),
+                 axis='Y', ring=16.0, rings_per=9.0, contrast=0.55, rough=0.35, coat=0.4)
