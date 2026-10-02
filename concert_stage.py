@@ -268,6 +268,7 @@ class MalletPlayer:
     TH_TOP = math.radians(40)       # full stroke: the head starts from about hand level
     TH_REBOUND = math.radians(20)
     T_DOWN, T_REB = 0.07, 0.06      # the downstroke takes two frames: it lands hard
+    T_CONTACT = 0.035               # the head rests on the bar this long (> one frame at 30 fps) before rebounding
 
     def _neighbours(self, k, t):
         prev = nxt = None
@@ -283,16 +284,22 @@ class MalletPlayer:
         """Where the head WOULD touch the bar (x, y and contact height): the stroke itself is theta()."""
         prev, nxt = self._neighbours(k, t)
         base = prev[1] if prev else self.rest[k]
-        xy = Vector((base.x, base.y, 0.0))
+        # each bar's own top: on the marimbas the accidentals sit 2 cm above the naturals, and the average
+        # left the heads 1 cm short of every natural (and 1 cm into every accidental)
+        z = base.z if prev and prev[2] else self.bar_z
+        xy = Vector((base.x, base.y, z))
         if nxt:                                               # travel to the next bar during the lift
             gap = nxt[0] - (prev[0] if prev else nxt[0] - 1.0)
             move = min(0.30, max(0.05, gap * 0.7))
             end = nxt[0] - (self.T_DOWN if nxt[2] else 0.0)
-            u = (t - (end - move)) / move
-            if u > 0:
-                u = min(1.0, u); u = u * u * (3 - 2 * u)
-                xy = xy.lerp(Vector((nxt[1].x, nxt[1].y, 0.0)), u)
-        h = Vector((xy.x, xy.y, self.bar_z + self.HEAD_R))
+            start = end - move
+            if prev and prev[2]:                              # not while the head is still on the bar it struck
+                start = max(start, prev[0] + self.T_CONTACT)
+            if t > start:
+                u = 1.0 if end <= start else min(1.0, (t - start) / (end - start))
+                u = u * u * (3 - 2 * u)
+                xy = xy.lerp(Vector((nxt[1].x, nxt[1].y, nxt[1].z if nxt[2] else self.bar_z)), u)
+        h = Vector((xy.x, xy.y, xy.z + self.HEAD_R))
         w = self._rest_weight(k, t)                           # resting: back to the starting position
         if w > 0:
             h = h.lerp(Vector((self.rest[k].x, self.rest[k].y, self.bar_z + self.HEAD_R)), w)
@@ -303,9 +310,11 @@ class MalletPlayer:
         prev, nxt = self._neighbours(k, t)
         sm = lambda v: (lambda c: c * c * (3 - 2 * c))(max(0.0, min(1.0, v)))
         th = self.TH_HOVER
-        if prev and prev[2]:                                  # rebound off the bar, settling to a hover
-            a = t - prev[0]
-            if a < self.T_REB:
+        if prev and prev[2]:                                  # on the bar, then the rebound, settling to a hover
+            a = t - prev[0] - self.T_CONTACT
+            if a < 0:
+                th = 0.0
+            elif a < self.T_REB:
                 th = self.TH_REBOUND * math.sin(0.5 * math.pi * a / self.T_REB)
             else:
                 th = self.TH_HOVER + (self.TH_REBOUND - self.TH_HOVER) * math.exp(-(a - self.T_REB) / 0.07)
@@ -325,7 +334,7 @@ class MalletPlayer:
     def bars(self, t):
         """{midi: signed displacement} for bars still ringing from a stroke."""
         out = {}
-        amp0 = 0.0016 if self.key.startswith("Marimba") else 0.0010
+        amp0 = 0.0045 if self.key.startswith("Marimba") else 0.0035   # at the bar's middle: subtle but visible
         for t0, m, lvl in self.strikes:
             if t0 > t:
                 break
