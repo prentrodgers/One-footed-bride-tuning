@@ -842,7 +842,7 @@ def _stopping_hand(G, M, shift, knuckle, thumb, heel_x, wrist=None, top_z=None):
 
 
 def stopping_hand(G, mw, tips, shift, ks, knuckle_out, knuckle_dz, wrist_out, wrist_below, thumb_x, thumb_dz,
-                  high_wrist=None, lifted=None):
+                  high_wrist=None, lifted=None, wrist_x=0.012):
     """A left hand stopping strings, in the instrument's own frame (x along the neck toward the scroll,
     y across the strings, z out of the top). ks = the side the knuckles are on (+1/-1 in y): the palm
     faces the neck from that side and the fingers arch over the fingerboard onto the strings.
@@ -856,7 +856,7 @@ def stopping_hand(G, mw, tips, shift, ks, knuckle_out, knuckle_dz, wrist_out, wr
     kx = sum(t.x for t in down) / len(down) + (0.0 if len(down) == 4 else
          sum(-0.027 + 0.018 * i for i, up_ in enumerate(lifted) if not up_) / len(down))   # hand centred on the stopping fingers
     kc = Vector((kx, ks * knuckle_out, s_z(kx) + knuckle_dz))
-    W = Vector((kx + 0.012, ks * wrist_out, s_z(kx) - wrist_below))
+    W = Vector((kx + wrist_x, ks * wrist_out, s_z(kx) - wrist_below))
     if high_wrist is not None:                          # past the heel: over the body
         u = max(0.0, min(1.0, (0.02 - kx) / 0.06))
         Wh = Vector((kx + 0.004, ks * high_wrist[0], high_wrist[1]))     # beside the bout: fingers come ACROSS the neck
@@ -873,6 +873,26 @@ def stopping_hand(G, mw, tips, shift, ks, knuckle_out, knuckle_dz, wrist_out, wr
     return dict(kc=mw @ kc, wrist=mw @ W, tips=tips, thumb=mw @ th, palm=(R3 @ Vector((0, -ks, 0.35))).normalized())
 
 
+# The violinist's left hand (stopping_hand's arguments, in the instrument's own frame). The viola is the same
+# model scaled 1.15, so its neck sits ~8 cm farther from the player's shoulder: with the violin's hand (also
+# scaled up) the straighter arm left the hand bent back, fingers up, at ~66 deg to the forearm (violin ~47).
+# The viola's hand is the violinist's size again (divided by the scale) with the wrist drawn back toward
+# the player, so it continues the forearm the way the violinist's does.
+LEFT_HAND = {
+    "Violin": dict(knuckle_out=0.036, knuckle_dz=0.016, wrist_out=0.034, wrist_below=0.072, thumb_x=0.018,
+                   thumb_dz=0.020, high_wrist=(0.082, 0.068), wrist_x=0.012),
+}
+VIOLA_WRIST = (-0.035, 0.050)       # the viola's wrist: toward the player along the neck, below the strings (m)
+
+
+def _left_hand_args(key, scale):
+    if key != "Viola":
+        return LEFT_HAND["Violin"]
+    a = {k: (tuple(x / scale for x in v) if isinstance(v, tuple) else v / scale) for k, v in LEFT_HAND["Violin"].items()}
+    a["wrist_x"], a["wrist_below"] = VIOLA_WRIST[0] / scale, VIOLA_WRIST[1] / scale
+    return a
+
+
 def hands_violin(state=None, key="Violin"):
     st = state or {}
     G = _violin_geo()
@@ -887,8 +907,7 @@ def hands_violin(state=None, key="Violin"):
             for d, s, lift in stops]
     set_live_strings(key, st.get("strings", {}))
     # knuckles on the E-string side (-y), wrist under the neck, thumb under the G side
-    lh = stopping_hand(G, mw, tips, shift, ks=-1, knuckle_out=0.036, knuckle_dz=0.016, wrist_out=0.034,
-                       wrist_below=0.072, thumb_x=0.018, thumb_dz=0.020, high_wrist=(0.082, 0.068),
+    lh = stopping_hand(G, mw, tips, shift, ks=-1, **_left_hand_args(key, mw.to_scale().x),
                        lifted=[lift > 0 for _d, _s, lift in stops] if "stops" in st else None)
     xc = G["x_b"] + (G["fb_end"] - G["x_b"]) * 0.4
     bow_string = st.get("bow_string", 1.5)
