@@ -1189,9 +1189,15 @@ def hands_mallets(state=None, key="Marimba"):
             ob = bpy.data.objects.get(f"{key} Mallet {side} outer")
             if ob and not ob.hide_render:
                 ob.hide_render = ob.hide_viewport = True
+            # how far out the head is from her body's centre (her stance and lean): far out, the shaft
+            # straightens so the hand comes in behind its head instead of out beyond it
+            stance = st.get("stance") or {"L": (0.0, 0.0), "R": (0.0, 0.0)}
+            centre = p + l * ((stance["L"][0] + stance["R"][0]) / 2 + st.get("lean", 0.0))
+            far = (inner - centre).dot(-inward)
+            toe = FIST_TOE_IN * max(0.0, min(1.0, (FIST_TOE_OFF[1] - far) / (FIST_TOE_OFF[1] - FIST_TOE_OFF[0])))
+            hands[side] = mallet_fist(key, side, inner, thetas[side][0], f, inward, toe)
+            continue
         for g, base, ang, tag in ((gi, inner, thetas[side][0], "inner"), (go, outer, thetas[side][1], "outer")):
-            if one and tag == "outer":
-                continue
             v = base - g
             axis = v.cross(UP)
             h = g + (Matrix.Rotation(ang, 3, axis.normalized()) @ v if axis.length > 1e-6 else v)
@@ -1202,10 +1208,70 @@ def hands_mallets(state=None, key="Marimba"):
                            tips=[gi + Vector((0, -0.012, -0.010)), (gi + go) / 2 + Vector((0, -0.010, -0.018)),
                                  go + Vector((0, -0.006, -0.011)), go + Vector((0, 0.012, -0.012))],
                            thumb=gi + Vector((0, -0.004, 0.011)) + inward * 0.004)
-    return hands, {"L": -UP + l * 0.8 - f * 0.3, "R": -UP - l * 0.8 - f * 0.3}
+    out = FIST_ELBOW_OUT if MALLETS_PER_HAND.get(key, 2) == 1 else 0.8     # how far the elbows go out
+    return hands, {"L": -UP + l * out - f * 0.3, "R": -UP - l * out - f * 0.3}
 
 
 MALLET_HOVER = math.radians(8)
+
+# One mallet per hand, held like a drumstick: palm down, the shaft across the palm from the crook of the
+# thumb and index finger to the heel of the hand, every finger wrapped round it, the wrist straight behind
+# the knuckles. The stroke turns hand and mallet together about a point behind the wrist: mostly wrist,
+# a little forearm, and the grip never changes.
+MALLET_LEN = 0.40                   # build_mallets' length
+FIST_GRIP = 0.29                    # head to the fulcrum (the butt lies under the heel of the hand)
+FIST_RISE = 0.42                    # the shaft climbs toward the hand about 23 deg: hand and forearm nearly level
+FIST_TOE_IN = math.radians(20)      # the shaft angles inward from straight ahead, the hand outward of its head
+FIST_TOE_OFF = (0.25, 0.55)         # ... less as the head goes out from her centre: all of it within 0.25 m,
+                                    # none at 0.55 m (arm's length), so a far reach isn't made longer
+FIST_ACROSS = math.radians(55)      # the shaft crosses the palm this far from the hand's own direction
+FIST_PIVOT = 0.12                   # the stroke pivots this far behind the wrist
+FIST_STROKE = 0.6                   # share of the stroke angle the hand turns (its head swings ~ as far as before)
+FIST_PALM = 0.022                   # the shaft runs this far under the knuckles, against the palm
+# Fingertip targets this far behind (toward the wrist) and below the shaft, and lower again per finger
+# from the index: every finger's middle joint passes under the shaft, so the fingers wrap it (the ring
+# and little fingers meet the shaft farther back under the palm and need the deeper curl).
+FIST_TIP = (0.025, 0.018)
+FIST_TIP_STEP = 0.006
+FIST_ELBOW_OUT = 0.0                # the elbows hang straight down (the arm's pole): forearm and hand in line
+
+
+def mallet_fist(key, side, contact, ang, f, inward, toe=FIST_TOE_IN):
+    """Hand targets (and the mallet) for one mallet gripped in the fist; `contact` is where the head meets
+    the bar, `ang` the stroke angle (0 = on the bar), `toe` how far the shaft angles inward."""
+    d = (-f * math.cos(toe) - inward * math.sin(toe) + UP * FIST_RISE).normalized()
+    G = contact + d * FIST_GRIP                              # the fulcrum, between thumb and index finger
+    s = -d                                                   # along the shaft, toward the head
+    u = (UP - UP.dot(s) * s).normalized()                    # back of the hand
+    x = s.cross(u).normalized()
+    if x.dot(inward) > 0:                                    # toward the little finger: outward
+        x = -x
+    ca, sa = math.cos(FIST_ACROSS), math.sin(FIST_ACROSS)
+    pd = s * ca + x * sa                                     # wrist -> knuckles
+    ac = x * ca - s * sa                                     # index -> little finger
+    kc = G + ac * 0.027 + u * FIST_PALM                      # the index knuckle sits right over the fulcrum
+    W = kc - pd * 0.085 + u * 0.004                          # wrist in line behind the knuckles
+    # the stroke: hand and mallet turn together about a point behind the wrist
+    P = W - pd * FIST_PIVOT
+    k = s.cross(UP)
+    R = Matrix.Rotation(ang * FIST_STROKE, 3, k.normalized()) if k.length > 1e-6 else Matrix.Identity(3)
+    rot = lambda p: P + R @ (p - P)
+    G, kc, W = rot(G), rot(kc), rot(W)
+    s, u, pd, ac = R @ s, R @ u, R @ pd, R @ ac
+    head = G + s * FIST_GRIP
+    ob = bpy.data.objects.get(f"{key} Mallet {side} inner")
+    if ob:
+        ob.matrix_world = Matrix.Translation(head) @ sk.look_rot(G - head)
+    # Each finger closes round the shaft where it crosses that finger's plane: down in front of it and
+    # back under it, the tip ending behind and below, so the finger wraps it instead of pointing at the bars.
+    tips = []
+    for i in range(4):
+        ki = kc + ac * (-0.027 + 0.018 * i)
+        t = max(-(MALLET_LEN - FIST_GRIP) + 0.01, ac.dot(ki - G) / ac.dot(s))     # not past the butt
+        tips.append(G + s * t - u * (FIST_TIP[1] + FIST_TIP_STEP * i) - pd * FIST_TIP[0])
+    thumb = G + s * 0.022 - ac * 0.012 + u * 0.006           # along the inner side of the shaft
+    return dict(kc=kc, tips=tips, thumb=thumb, wrist=W, palm=-u)
+
 
 # ---- live bars: each bar its own object, bending in its first free-free mode after a stroke ----
 # (rig, lowest MIDI, count, L0, w_low, w_high, gap, centre gap, top natural, top accidental, thickness, material, old mesh)
@@ -1586,6 +1652,8 @@ MALLET_GRIP = (("inner", ("tj1", "f0j0", "f0k")), ("outer", ("f1j0", "f2j0", "f2
 def regrip_mallets(key, side):
     """Re-aim each mallet from its head (where the stroke put it) through the actual posed hand, so the
     shaft runs through the fingers instead of passing a fingertip; the butt end lies in the palm."""
+    if MALLETS_PER_HAND.get(key, 2) == 1:       # a single mallet is placed with its fist (mallet_fist)
+        return
     bn = body_name(key)
     for tag, joints in MALLET_GRIP:
         ob = bpy.data.objects.get(f"{key} Mallet {side} {tag}")
