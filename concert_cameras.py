@@ -10,7 +10,9 @@ concert_stage.py uses the rest at render time (and so does the viewport preview)
   * place_dollies() moves each dolly camera along its row: it crosses from one end to the other in
     DOLLY_SECONDS, starting when its shot starts, and alternates direction each time it is used.
   * TitleCard reads Uploads/<piece>.title.txt (written by concert_title.py) and shows it on the
-    backdrop for the first and last TITLE_SECONDS, with a fade, while the title camera holds.
+    backdrop, with a fade, while the title camera holds: for TITLE_SECONDS before the music starts
+    (the players rest and the audio is delayed by that much: the video is TITLE_SECONDS longer than
+    the music) and over the last TITLE_SECONDS of the music.
 
 Directions: the audience looks along +y, so +x is the audience's right ("stage left").
 """
@@ -23,7 +25,7 @@ from mathutils import Vector
 import concert_poses as cp
 
 TITLE_CAM = "Cam 39 Title (backdrop)"
-TITLE_SECONDS = 8.0
+TITLE_SECONDS = 8.0      # also in render_farm.sh (LEAD) and concert_mux.sh, which add it to the video's length
 TITLE_FADE = 1.0
 DOLLY_SECONDS = 30.0
 
@@ -283,7 +285,8 @@ def build():
 
 
 class TitleCard:
-    """The title text for one piece, shown on the backdrop at the start and the end."""
+    """The title text for one piece, shown on the backdrop at the start and the end. Times are video
+    times: the music starts at `lead` and lasts `duration`."""
 
     def __init__(self, lines, duration):
         self.parts = {name: [] for name in TITLE_PARTS}
@@ -300,8 +303,9 @@ class TitleCard:
         cut = body.index("") if "" in body else len(body)
         self.parts["Title Details"] = body[:cut]
         self.parts["Title Info"] = [ln for ln in body[cut:] if ln.strip()]
-        self.seconds = min(TITLE_SECONDS, duration / 3)
-        self.duration = duration
+        self.lead = TITLE_SECONDS                       # the opening card, before the music
+        self.seconds = min(TITLE_SECONDS, duration / 3)  # the closing card, over the end of the music
+        self.end = self.lead + duration                 # the end of the video
         self.obs = [bpy.data.objects.get(n) for n in TITLE_PARTS]
         self.fade = bpy.data.materials["Title Text"].node_tree.nodes["Title Fade"]
         self._layout()
@@ -334,15 +338,15 @@ class TitleCard:
                 z -= TITLE_GAP * (0.6 if ob.name == "Title Details" else 1.0)
 
     def alpha(self, t):
-        s, d, f = self.seconds, self.duration, TITLE_FADE
-        if t < s:
-            return max(0.0, min(1.0, (s - t) / f))
-        if t >= d - s:
-            return max(0.0, min(1.0, (t - (d - s)) / f))
+        close = self.end - self.seconds
+        if t < self.lead:
+            return max(0.0, min(1.0, (self.lead - t) / TITLE_FADE))
+        if t >= close:
+            return max(0.0, min(1.0, (t - close) / TITLE_FADE))
         return 0.0
 
     def showing(self, t):
-        return t < self.seconds or t >= self.duration - self.seconds
+        return t < self.lead or t >= self.end - self.seconds
 
     def apply(self, t):
         a = self.alpha(t)

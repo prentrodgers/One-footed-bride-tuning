@@ -61,13 +61,14 @@ def load(stem, tempo, cues=None, duration=None, follow_cues=True, shading='MATER
     if duration is None:                                   # length of the piece: last note + 1.5 s of ring
         per = cs.load_notes(npy, tempo)
         duration = max(n["t1"] for ns in per.values() for n in ns) + 1.5
-    STATE["perf"] = cs.Performance(npy, tempo, duration, cues)
+    perf = STATE["perf"] = cs.Performance(npy, tempo, duration, cues)
     STATE["cut"] = follow_cues
     scene.render.fps = cs.FPS
-    scene.frame_start, scene.frame_end = 0, int(math.ceil(duration * cs.FPS)) - 1
+    # with a title card the music (and its sound strip) starts perf.lead seconds in, as in the muxed video
+    scene.frame_start, scene.frame_end = 0, int(math.ceil((duration + perf.lead) * cs.FPS)) - 1
     if os.path.exists(mp3):                                 # audio in sync with the timeline
         strips = _strips(scene)
-        s = strips.new_sound(SOUND_STRIP, mp3, channel=1, frame_start=0)
+        s = strips.new_sound(SOUND_STRIP, mp3, channel=1, frame_start=int(round(perf.lead * cs.FPS)))
         scene.sync_mode = 'AUDIO_SYNC'
     scene.render.use_sequencer = False                     # the strip is for listening only, never for rendering
     for h in list(bpy.app.handlers.frame_change_post):
