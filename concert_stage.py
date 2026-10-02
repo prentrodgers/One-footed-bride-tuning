@@ -30,6 +30,7 @@ REPO_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(REPO_DIR))
 import concert_poses as cp          # noqa: E402  (imports concert_stagekit)
 import concert_cameras as cc        # noqa: E402
+import concert_lighting as cl       # noqa: E402
 
 FPS = 30
 
@@ -1259,6 +1260,7 @@ class Performance:
         else:
             self.shots = build_shots(self.per, duration, seed, camera, self.lead)
         self.dolly_dirs = cc.dolly_directions(self.shots)
+        self.lighting = cl.LightingPlan(duration, self.lead, self.tail)
         self.lights = {k: bpy.data.objects.get(v) for k, v in SPECIAL_LIGHT.items()}
         # over-the-shoulder cameras ride along with a player who steps sideways
         self.follow = {PLAYER_CAMS[k][0]: k for k in ("Marimba", "Marimba 2", "Vibraphone") if k in cp.PLAYERS}
@@ -1281,6 +1283,7 @@ class Performance:
             if lt:
                 lt["level"] = 0.45 + 1.1 * (envelope(self.per[key], tm) if key in self.per else 0.0)
         cc.place_dollies(self.shots, self.dolly_dirs, t)
+        self.lighting.apply(t)
         if self.title:
             self.title.apply(t)
         if set_camera:
@@ -1292,6 +1295,7 @@ class Performance:
     def restore(self):
         """Back to the rest pose, lights at level 1, cameras home, title hidden (for saving the .blend)."""
         cc.home_dollies()
+        self.lighting.restore()
         if self.title:
             self.title.hide()
         for key in cp.PLAYERS:
@@ -1318,6 +1322,7 @@ def main():
         bpy.context.window_manager.windows[0].scene = scene
     scene.render.use_sequencer = False                        # a preview's sound strip must never replace the 3D render
     perf = Performance(args.npy, args.tempo, args.duration, args.cues, args.seed, args.camera, args.title)
+    print("[concert] lighting: " + perf.lighting.describe())
     print("[concert] title card: " + (f"{perf.lead:g} s before the music (audio delayed {perf.lead:g} s when muxed) "
                                       f"and {perf.tail:g} s after it" if perf.title else "none"))
     print("[concert] camera shots: " + ", ".join(f"{int(t0 // 60)}:{t0 % 60:04.1f} {c}" for t0, c in perf.shots))
