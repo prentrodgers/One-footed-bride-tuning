@@ -29,6 +29,7 @@ from mathutils import Vector
 REPO_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(REPO_DIR))
 import concert_poses as cp          # noqa: E402  (imports concert_stagekit)
+import concert_cameras as cc        # noqa: E402
 
 FPS = 30
 
@@ -1012,36 +1013,66 @@ def parse_cues(spec):
     if missing:
         raise SystemExit(f"[concert] cue sheet names cameras not in the .blend: {missing}")
     return shots
-def build_shots(per, duration, seed, fixed=None):
-    """[(t_start, camera name)]: the loudest players get the close shots, a wide every third shot."""
+CLOSE_SHARE = 0.18       # share of the generated shots that feature one player (the rest: groups and wides)
+WIDE_SHARE = 0.17
+DOLLY_FIRST = 40.0       # first dolly shot after this many seconds, then one every DOLLY_EVERY after the last
+DOLLY_EVERY = 75.0
+
+
+def _energy(ns, t, hold):
+    return sum(n["lvl"] * max(0.0, min(n["t1"], t + hold) - max(n["t0"], t)) for n in ns)
+
+
+def build_shots(per, duration, seed, fixed=None, title=0.0):
+    """[(t_start, camera name)]. Mostly group shots of the busiest 3-5 players, some wides, a few close-ups
+    of one player, and now and then a 30 s dolly along one row (front, second, riser in turn). With a
+    title card, the title camera holds for the first and last `title` seconds."""
     if fixed:
         return [(0.0, fixed)]
     rng = random.Random(seed)
-    shots = [(0.0, WIDE_CAMS[0])]
-    t = min(3.5, duration / 4)
-    k = 1
-    recent = []                                               # players featured lately, to spread the close-ups
-    while t < duration - 1.5:
-        hold = rng.uniform(3.0, 5.5)
-        if k % 4 == 0:
-            cam = rng.choice([c for c in WIDE_CAMS[:3] if c != shots[-1][1]])
-        else:
-            loud = []
-            for player, ns in per.items():
-                if player not in PLAYER_CAMS or player in recent[-2:]:
-                    continue
-                e = sum(n["lvl"] * max(0.0, min(n["t1"], t + hold) - max(n["t0"], t)) for n in ns)
-                if e > 0.25 * hold:                           # sounding for a real share of the shot
-                    loud.append((e, player))
-            loud.sort(reverse=True)
-            if not loud:
-                cam = rng.choice([c for c in WIDE_CAMS[:3] if c != shots[-1][1]])
-            else:
-                player = rng.choice([p for _, p in loud[:3]])
+    if title:
+        shots, t = [(0.0, cc.TITLE_CAM)], title
+    else:
+        shots, t = [(0.0, WIDE_CAMS[0])], min(3.5, duration / 4)
+    end = duration - title if title else duration
+    dollies = list(cc.DOLLY_CAMS)
+    next_dolly, n_dolly = DOLLY_FIRST, 0
+    recent = []                                               # groups and players featured lately
+    while t < end - 1.5:
+        last = shots[-1][1]
+        if t >= next_dolly and t + cc.DOLLY_SECONDS <= end - 1.0:
+            cam, hold = dollies[n_dolly % len(dollies)], cc.DOLLY_SECONDS
+            n_dolly += 1
+            next_dolly = t + hold + DOLLY_EVERY
+            shots.append((t, cam)); t += hold
+            continue
+        r = rng.random()
+        cam = None
+        if r < CLOSE_SHARE:                                   # one player: the loudest few, spread around
+            hold = rng.uniform(3.0, 5.0)
+            loud = sorted(((_energy(ns, t, hold), p) for p, ns in per.items()
+                           if p in PLAYER_CAMS and p not in recent[-3:]), reverse=True)
+            loud = [p for e, p in loud[:3] if e > 0.25 * hold]   # sounding for a real share of the shot
+            if loud:
+                player = rng.choice(loud)
                 recent.append(player)
-                cam = rng.choice([c for c in PLAYER_CAMS[player] if c != shots[-1][1]] or PLAYER_CAMS[player])
-        shots.append((t, cam))
-        t += hold; k += 1
+                cam = rng.choice([c for c in PLAYER_CAMS[player] if c != last] or PLAYER_CAMS[player])
+        elif r < CLOSE_SHARE + WIDE_SHARE:
+            hold = rng.uniform(4.0, 6.0)
+        else:                                                 # a group: the busiest few groups
+            hold = rng.uniform(4.5, 7.0)
+            busy = sorted(((sum(_energy(per[p], t, hold) for p in players if p in per), name)
+                           for name, (players, *_rest) in cc.GROUP_CAMS.items()
+                           if name != last and name not in recent[-2:]), reverse=True)
+            busy = [name for e, name in busy[:3] if e > 0.25 * hold]
+            if busy:
+                cam = rng.choice(busy)
+                recent.append(cam)
+        if cam is None:                                       # nothing busy enough: a wide shot
+            cam = rng.choice([c for c in WIDE_CAMS[:3] if c != last])
+        shots.append((t, cam)); t += hold
+    if title:
+        shots = [s for s in shots if s[0] < end] + [(end, cc.TITLE_CAM)]
     return shots
 
 
@@ -1072,6 +1103,8 @@ def parse_args():
     p.add_argument("--camera", default=None, help="hold one camera for the whole render")
     p.add_argument("--cues", default=None, help=f"cue sheet: one of {sorted(CUE_SHEETS)} or 'm:ss=Camera;m:ss=Camera'")
     p.add_argument("--seed", type=int, default=7, help="camera generator seed")
+    p.add_argument("--title", default=None,
+                   help="title card text file (concert_title.py); default Uploads/<piece>.title.txt if it exists; 'none' for no card")
     p.add_argument("--autogen", action="append", default=None, help="accepted for render_farm.sh compatibility; start:end:seed")
     p.add_argument("--list-voices", action="store_true", help="print the voice map and exit")
     args, unknown = p.parse_known_args(argv)
@@ -1113,7 +1146,7 @@ class Performance:
     """Everything needed to put the stage into the state of one moment of a piece. Used by the farm render
     (main, below) and by concert_preview.py, so the Blender viewport shows exactly what gets rendered."""
 
-    def __init__(self, npy, tempo, duration, cues=None, seed=7, camera=None):
+    def __init__(self, npy, tempo, duration, cues=None, seed=7, camera=None, title=None):
         cp.load_layout()
         self.per = load_notes(npy, tempo)
         self.players = {key: make_player(key, ns) for key, ns in self.per.items() if key in cp.PLAYERS}
@@ -1121,7 +1154,12 @@ class Performance:
             if isinstance(pl, GuitarPlayer):
                 pl.tempo = tempo
         self.puppets = {key: cp.get_puppet(key) for key in cp.PLAYERS}
-        self.shots = parse_cues(cues) if cues else build_shots(self.per, duration, seed, camera)
+        # title card on the backdrop, first and last seconds (the title camera holds unless --camera is fixed)
+        self.title = cc.TitleCard.for_piece(npy, duration, title)
+        self.fixed_camera = camera
+        tsec = self.title.seconds if self.title else 0.0
+        self.shots = parse_cues(cues) if cues else build_shots(self.per, duration, seed, camera, tsec)
+        self.dolly_dirs = cc.dolly_directions(self.shots)
         self.lights = {k: bpy.data.objects.get(v) for k, v in SPECIAL_LIGHT.items()}
         # over-the-shoulder cameras ride along with a player who steps sideways
         self.follow = {PLAYER_CAMS[k][0]: k for k in ("Marimba", "Marimba 2", "Vibraphone") if k in cp.PLAYERS}
@@ -1140,11 +1178,20 @@ class Performance:
             lt = self.lights.get(key)
             if lt:
                 lt["level"] = 0.45 + 1.1 * (envelope(self.per[key], t) if key in self.per else 0.0)
+        cc.place_dollies(self.shots, self.dolly_dirs, t)
+        if self.title:
+            self.title.apply(t)
         if set_camera:
-            scene.camera = bpy.data.objects[shot_at(self.shots, t)]
+            cam = shot_at(self.shots, t)
+            if self.title and self.title.showing(t) and not self.fixed_camera:
+                cam = cc.TITLE_CAM
+            scene.camera = bpy.data.objects[cam]
 
     def restore(self):
-        """Back to the rest pose, lights at level 1, cameras home (for saving the .blend)."""
+        """Back to the rest pose, lights at level 1, cameras home, title hidden (for saving the .blend)."""
+        cc.home_dollies()
+        if self.title:
+            self.title.hide()
         for key in cp.PLAYERS:
             cp.pose(key, None, self.puppets[key])
         for k in ("Finger Piano", "Finger Piano 2", "Bass Finger Piano"):
@@ -1168,7 +1215,8 @@ def main():
     if bpy.context.window_manager.windows:                    # interactive session; --background has none
         bpy.context.window_manager.windows[0].scene = scene
     scene.render.use_sequencer = False                        # a preview's sound strip must never replace the 3D render
-    perf = Performance(args.npy, args.tempo, args.duration, args.cues, args.seed, args.camera)
+    perf = Performance(args.npy, args.tempo, args.duration, args.cues, args.seed, args.camera, args.title)
+    print(f"[concert] title card: {f'{perf.title.seconds:g} s at the start and end' if perf.title else 'none'}")
     print("[concert] camera shots: " + ", ".join(f"{int(t0 // 60)}:{t0 % 60:04.1f} {c}" for t0, c in perf.shots))
 
     configure_engine(scene, args)
