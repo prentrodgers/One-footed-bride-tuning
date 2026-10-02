@@ -1138,8 +1138,9 @@ MALLET_SETS = {"Marimba": ("Marimba", 0.90, 0.55, 0.18, 0.34, -0.30, 0.075, 0.03
                "Marimba 2": ("Marimba 2", 0.90, 0.55, 0.18, 0.34, -0.30, 0.075, 0.035),
                "Vibraphone": ("Vibraphone", 0.86, 0.44, 0.19, 0.28, -0.26, 0.070, 0.030)}
 # key: (rig, bar top z, hand y offset, head y offset, L hand x, R hand x, mallet spread, head height)
-# The marimbas (two players since the stereo split) play one mallet per hand; the outer mallets are hidden.
-MALLETS_PER_HAND = {"Marimba": 1, "Marimba 2": 1}
+# The marimbas (two players since the stereo split) and the vibraphone play one mallet per hand, gripped in
+# the fist (mallet_fist); the outer mallets are hidden.
+MALLETS_PER_HAND = {"Marimba": 1, "Marimba 2": 1, "Vibraphone": 1}
 
 
 def mallet_heads_rest(key):

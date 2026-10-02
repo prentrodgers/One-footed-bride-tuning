@@ -34,12 +34,12 @@ DOLLY_SECONDS = 30.0
 GROUP_CAMS = {
     "Cam 40 Strings (finger piano 2, cello, violin, viola)":
         (("Finger Piano 2", "Cello", "Violin", "Viola"), -18, 12, 35),
-    "Cam 41 Centre (viola, oboe, horn, vibraphone)":
-        (("Viola", "Oboe", "French Horn", "Vibraphone"), 0, 14, 35),
+    "Cam 41 Centre (horn, viola, oboe, flute)":
+        (("French Horn", "Viola", "Oboe", "Flute"), 0, 14, 35),
     "Cam 42 Front Right (oboe, finger piano, flute, bass finger piano)":
         (("Oboe", "Finger Piano", "Flute", "Bass Finger Piano"), 18, 12, 35),
-    "Cam 43 Riser (trumpet, clarinet, trombone, bassoon)":           # high enough to clear the vibraphonist
-        (("Trumpet", "Clarinet", "Trombone", "Bassoon"), 0, 38, 40),
+    "Cam 43 Riser (trumpet, clarinet, vibraphone, trombone, bassoon)":
+        (("Trumpet", "Clarinet", "Vibraphone", "Trombone", "Bassoon"), 0, 24, 40),
     "Cam 44 Low Brass (tuba, marimba 2, trombone, horn)":
         (("Tuba", "Marimba 2", "Trombone", "French Horn"), -32, 20, 35),
     "Cam 45 Bass Side (marimba, bassoon, baritone, bass finger piano)":

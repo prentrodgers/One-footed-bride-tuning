@@ -12,8 +12,9 @@ Cloning copies those objects under a new name (the rig, its children, cameras, l
 objects); the parts that are generated per player are then rebuilt by the usual builders: body and
 arms (concert_poses.build_all), mallets and live bars (marimba), tines (finger piano).
 
-Used once to give the stage two marimbas (ends of the riser) and two treble finger pianos (one on
-each side), for splitting those voices by stereo position (see concert_stage.SPLIT).
+Used to give the stage two marimbas (ends of the riser) and two treble finger pianos (one on each
+side), for splitting those voices by stereo position (see concert_stage.SPLIT), and on 2 Oct 2026 to
+put the vibraphone in the back row of the riser and move the violin, oboe and horn upstage.
 """
 import json
 import math
@@ -30,14 +31,24 @@ OWNED = {
     "Finger Piano": ["Finger Piano Stand", "Stool - Finger Piano", "Stool Footring - Finger Piano",
                      "Pignose Amp - Finger Piano", "Cable - Finger Piano", "Cable - Finger Piano Plugs"],
     "Trumpet": [], "Clarinet": [],
+    "Violin": ["Violin Bow"], "Oboe": [], "French Horn": ["Stool - French Horn"], "Vibraphone": [],
 }
 CAMS = {
     "Marimba": ["Cam 4 Marimba Player POV", "Cam 33 Marimba Player (side, full figure)"],
     "Finger Piano": ["Cam 10 Finger Piano (player view)", "Cam 29 Finger Piano Hands (front)"],
     "Trumpet": ["Cam 22 Trumpet Hands"], "Clarinet": [],
+    "Violin": ["Cam 12 Violin Close"], "Oboe": ["Cam 34 Oboe Player", "Cam 7 Oboe Keys"],
+    "French Horn": ["Cam 26 French Horn"], "Vibraphone": ["Cam 25 Vibraphone Player View"],
+}
+# cameras that frame this player and someone who stays put: they move half as far, so both stay in shot
+SHARED_CAMS = {
+    "Violin": ["Cam 21 Viola & Violin", "Cam 5 Cello & Violin"],
+    "Trumpet": ["Cam 9 Trumpet & Trombone (riser)"], "Clarinet": ["Cam 15 Bassoon & Clarinet (riser)"],
 }
 LIGHTS = {"Marimba": "Special 8 Marimba", "Finger Piano": "Special 3 Finger Piano",
-          "Trumpet": "Special 10 Trumpet", "Clarinet": "Special 6 Clarinet"}
+          "Trumpet": "Special 10 Trumpet", "Clarinet": "Special 6 Clarinet",
+          "Violin": "Special 2 Violin", "Oboe": "Special 7 Oboe", "French Horn": "Special 14 French Horn",
+          "Vibraphone": "Special 16 Vibraphone"}
 
 
 def _yaw(f):
@@ -74,17 +85,44 @@ def _carry_rest(ob, T):
         ob["rest_matrix"] = [v for row in R for v in row]
 
 
+LIGHT_TRUSSES = ("Truss Front", "Truss Mid")   # the specials hang from these, never the upstage truss
+LIGHT_HANG = (-0.2, 7.3)                       # 0.2 m in front of the truss, at this height
+
+
+def hang_light(key):
+    """Re-hang a player's special light (and its fixture) on the nearest truss in front of the player,
+    keeping its x; the Aim empty travels with the player, so the light still points at them."""
+    L = bpy.data.objects.get(LIGHTS.get(key, ""))
+    if L is None:
+        return
+    py = sk.LAYOUT[key]["pos"][1]
+    ys = []
+    for n in LIGHT_TRUSSES:
+        bb = [bpy.data.objects[n].matrix_world @ Vector(c) for c in bpy.data.objects[n].bound_box]
+        ys.append(sum(p.y for p in bb) / 8)
+    front = [y for y in ys if y < py] or [min(ys)]
+    L.location.y = max(front) + LIGHT_HANG[0]
+    L.location.z = LIGHT_HANG[1]
+
+
 def _save_layout():
     bpy.data.objects["Stage Controls"]["layout_json"] = json.dumps(sk.LAYOUT)
 
 
 def move_player(key, new_pos, rebuild=True):
+    half = (Vector(new_pos) - Vector(sk.LAYOUT[key]["pos"])) / 2
     T = player_transform(key, new_pos)
     for ob in owned_objects(key):
         ob.matrix_world = T @ ob.matrix_world
         _carry_rest(ob, T)
+    for c in SHARED_CAMS.get(key, []):
+        for n in (c, c + " Target"):
+            ob = bpy.data.objects.get(n)
+            if ob is not None and ob.parent is None:
+                ob.location += half
     sk.LAYOUT[key]["pos"] = list(new_pos)
     _save_layout()
+    hang_light(key)
     if rebuild:
         rebuild_players([key])
     return T
