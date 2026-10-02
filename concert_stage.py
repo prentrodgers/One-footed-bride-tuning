@@ -623,7 +623,25 @@ def stop_distance(scale, semis):
 # is drawn as a quick shimmer (a different rate per string so neighbours do not move in step), with an
 # amplitude a little larger than life so it reads on camera: bowed strings sustain while the bow moves,
 # plucked ones (pizzicato, guitar) ring down.
-STRING_AMP = {"Violin": 0.0011, "Viola": 0.0011, "Cello": 0.0020, "Baritone Flying V": 0.0016}
+STRING_AMP = {"Violin": 0.0024, "Viola": 0.0024, "Cello": 0.0040, "Baritone Flying V": 0.0030}
+
+# Left-hand fingering for the bowed strings, planned over the whole part (a Viterbi pass, BowedPlayer
+# _plan_fingering). A hand POSITION is the semitone above the open string under the first finger; from
+# there each finger reaches the semitones in FINGER_OF (violin and viola: whole-tone hand frame, with an
+# extension back; cello: a half step per finger). Each note goes on a (string, position) that keeps the
+# hand where it is, crosses few strings, avoids open strings and stays low on the neck where it can - so
+# a run up the E string climbs through the positions the way a player shifts, instead of every note being
+# played in first position on the highest string that reaches it.
+FINGER_OF = {"violin": {-1: 0, 0: 0, 1: 1, 2: 1, 3: 2, 4: 2, 5: 3, 6: 3},
+             "cello": {-1: 0, 0: 0, 1: 1, 2: 2, 3: 3, 4: 3}}
+POS_MAX = {"Violin": 13, "Viola": 13, "Cello": 10}      # highest position (semitones) the hand goes to
+STOP_MAX = 29                                           # highest stop: the end of the fingerboard (semitones)
+# First position puts the first finger 2 semitones up (a whole step); a shift costs more the farther it
+# goes (squared, so a run climbs through 3rd, 5th, 7th position rather than leaping), less after a rest.
+FIRST_POS = 2
+FING_COST = dict(shift=0.6, shift_sq=0.12, cross=0.15, open=0.35, high=0.03, rest_relax=0.35,
+                 finger=(0.0, 0.0, 0.05, 0.15),     # the little finger least (and never to land a shift on)
+                 shift_onto_4=0.4)
 STRING_HZ = (11.3, 13.1, 14.7, 12.2, 15.9, 10.4)
 
 
@@ -652,32 +670,93 @@ class BowedPlayer:
                 direction = -direction; end = pos + direction * travel
             end = max(0.08, min(0.65, end))
             self.plan.append((n, start, end)); pos, direction = end, -direction
+        self.assign = self._plan_fingering()
+
+    def _plan_fingering(self):
+        """{id(note): (string, semitones above the open string, finger or None, position)} for every note:
+        a Viterbi pass over the part's onsets (chords: their top note), then each chord's other notes on
+        other strings within the same hand position."""
+        fmap = FINGER_OF["cello" if self.key == "Cello" else "violin"]
+        pmax, C = POS_MAX[self.key], FING_COST
+        groups = []
+        for n in sorted(self.notes, key=lambda n: (n["t0"], -n["midi"])):
+            if groups and n["t0"] - groups[-1][0] < 0.03:
+                groups[-1][1].append(n)
+            else:
+                groups.append((n["t0"], [n]))
+
+        def cands(midi):
+            out = []
+            for s, o in enumerate(self.opens):
+                k = midi - o
+                if k < 0 or k > STOP_MAX:
+                    continue
+                high = lambda P: C["high"] * max(0, P - FIRST_POS)
+                if k == 0:                                     # open: the hand may be anywhere
+                    out += [(s, P, 0, None, C["open"] + high(P)) for P in range(1, pmax + 1)]
+                else:
+                    for P in range(max(1, k - max(fmap)), min(pmax, k - min(fmap)) + 1):
+                        if (k - P) in fmap:
+                            f = fmap[k - P]
+                            out.append((s, P, k, f, high(P) + C["finger"][f]))
+            return out
+
+        layers, back = [], []
+        for gi, (t0, ns) in enumerate(groups):
+            cs_ = cands(ns[0]["midi"])
+            if not cs_:                                        # out of range: the old rule, first position
+                s = string_for(self.opens, ns[0]["midi"]); k = max(0, ns[0]["midi"] - self.opens[s])
+                cs_ = [(s, max(1, min(pmax, k)), k, min(3, max(0, (k - 1) // 2)) if k else None, 9.0)]
+            relax = C["rest_relax"] if gi and t0 - groups[gi - 1][0] > 0.6 else 1.0
+            costs, bp = [], []
+            for c in cs_:
+                if not layers:
+                    costs.append(c[4]); bp.append(-1); continue
+                best, arg = 1e18, -1
+                for j, (pc, pcost) in enumerate(zip(layers[-1][0], layers[-1][1])):
+                    shift = 0.0 if pc[1] == c[1] else relax * (C["shift"] + C["shift_sq"] * (pc[1] - c[1]) ** 2
+                                                               + (C["shift_onto_4"] if c[3] == 3 else 0.0))
+                    v = pcost + shift + C["cross"] * abs(pc[0] - c[0])
+                    if v < best:
+                        best, arg = v, j
+                costs.append(best + c[4]); bp.append(arg)
+            layers.append((cs_, costs)); back.append(bp)
+        assign = {}
+        j = min(range(len(layers[-1][1])), key=lambda i: layers[-1][1][i]) if layers else -1
+        for gi in range(len(layers) - 1, -1, -1):
+            s, P, k, f, _c = layers[gi][0][j]
+            ns = groups[gi][1]
+            assign[id(ns[0])] = (s, k, f, P)
+            used = {s}
+            for n in ns[1:2]:                                  # a double stop: another string, same position
+                for s2 in range(len(self.opens) - 1, -1, -1):
+                    k2 = n["midi"] - self.opens[s2]
+                    if s2 in used or k2 < 0:
+                        continue
+                    if k2 == 0 or (k2 - P) in fmap:
+                        assign[id(n)] = (s2, k2, None if k2 == 0 else fmap[k2 - P], P); used.add(s2)
+                        break
+            j = back[gi][j]
+        return assign
 
     def _fingering(self, notes):
-        """Up to two sounding notes -> [(string, stop distance, finger or None for open)], one finger each.
-        Each note on the highest string at or below it (the lowest position); a second note that would
-        land on the same string moves to the next lower one. Fingers are dealt in order along the neck."""
+        """Up to two sounding notes -> [(string, stop distance, finger or None for open)], from the planned
+        fingering (_plan_fingering). Two notes wanting one finger: the higher keeps it, the other moves to
+        the next finger along the neck."""
         L = SCALE_LEN[self.key]
-        out, used = [], set()
+        out, used_f = [], set()
         for n in sorted(notes, key=lambda n: -n["midi"])[:2]:
-            s = string_for(self.opens, n["midi"])
-            while s in used and s > 0 and n["midi"] >= self.opens[s - 1]:
-                s -= 1
-            if s in used:
+            a = self.assign.get(id(n))
+            if a is None or any(o[0] == a[0] for o in out):
                 continue
-            used.add(s)
-            out.append([s, stop_distance(L, n["midi"] - self.opens[s]), None])
-        stopped = sorted((o for o in out if o[1] > 0), key=lambda o: o[1])
-        if stopped:
-            d0 = stopped[0][1]
-            semis0 = round(-12 * math.log2(1 - d0 / L))
-            f0 = min(3, max(0, (semis0 - 1) // 2)) if len(stopped) == 1 else min(2, max(0, (semis0 - 1) // 2))
-            gap = max(0.017 * L / 0.328, 0.025 * L / 0.328 * math.sqrt(1 - d0 / L))
-            stopped[0][2] = f0
-            for o in stopped[1:]:
-                if o[1] - d0 > 3.3 * gap:                        # beyond one hand's span: that note is not fingered
-                    out.remove(o); continue
-                o[2] = max(f0 + 1, min(3, f0 + round((o[1] - d0) / gap)))
+            s, k, f, _P = a
+            if f is not None:
+                while f in used_f and f < 3:
+                    f += 1
+                if f in used_f:
+                    continue
+                used_f.add(f)
+            out.append([s, stop_distance(L, k), f])
         return out
 
     def state(self, t):
