@@ -201,14 +201,20 @@ class MalletPlayer:
     HEAD_R = 0.021
     LIFT = 0.07                                               # hover height above the bars
 
+    ORDER2 = [("L", 0), ("R", 0)]                             # one mallet per hand (cp.MALLETS_PER_HAND)
+    GAP2 = 0.08                                               # one per hand: the hands keep apart
+
     def __init__(self, key, notes):
         import itertools
         self.key = key
+        if cp.MALLETS_PER_HAND.get(key, 2) == 1:
+            self.ORDER, self.GAP = self.ORDER2, self.GAP2
+        n_m = len(self.ORDER)
         self.pts = bar_points(key)
         lo, hi = min(self.pts), max(self.pts)
         rest = cp.mallet_heads_rest(key)
-        self.rest = {(s, i): rest[s][i] for s in ("L", "R") for i in (0, 1)}
-        self.rest_cx = sum(p.x for p in self.rest.values()) / 4
+        self.rest = {(s, i): rest[s][i] for s, i in self.ORDER}
+        self.rest_cx = sum(p.x for p in self.rest.values()) / n_m
         self.bar_z = sum(p.z for p in self.pts.values()) / len(self.pts)
         pos = {k: Vector(p) for k, p in self.rest.items()}
         self.ev = {k: [] for k in self.ORDER}                   # mallet -> [(t, point, strike)]
@@ -219,15 +225,17 @@ class MalletPlayer:
                 chord.append(notes[i + len(chord)])
             i += len(chord)
             t0 = chord[0]["t0"]
-            targets = sorted({fold(n["midi"], lo, hi) for n in chord})[:4]
+            targets = sorted({fold(n["midi"], lo, hi) for n in chord})
+            if len(targets) > n_m:                              # more notes than mallets: the outer voices
+                targets = targets[:n_m] if n_m == 4 else [targets[0], targets[-1]]
             tp = [self.pts[m] for m in targets]                 # low -> high pitch = high -> low x
             def cost(c):
                 x = [pos[k].x for k in self.ORDER]
                 for j, p in zip(c, tp):
                     x[j] = p.x
-                over = max(0.0, x[0] - x[1] - self.SPAN) + max(0.0, x[2] - x[3] - self.SPAN)
+                over = max(0.0, x[0] - x[1] - self.SPAN) + max(0.0, x[2] - x[3] - self.SPAN) if n_m == 4 else 0.0
                 return sum(abs(pos[self.ORDER[j]].x - p.x) for j, p in zip(c, tp)) + 10.0 * over
-            best = min(itertools.combinations(range(4), len(tp)), key=cost)
+            best = min(itertools.combinations(range(n_m), len(tp)), key=cost)
             fixed, fmid = {}, {}
             lvl = {fold(n["midi"], lo, hi): n["lvl"] for n in chord}
             for j, p, m in zip(best, tp, targets):
@@ -236,14 +244,15 @@ class MalletPlayer:
             for j, p in fixed.items():
                 x[j] = p.x
             for _ in range(3):                                  # carry the idle mallets: keep order and reach
-                for j in range(4):
+                for j in range(n_m):
                     if j in fixed:
                         continue
-                    partner = {0: 1, 1: 0, 2: 3, 3: 2}[j]
-                    x[j] = max(min(x[j], x[partner] + self.SPAN), x[partner] - self.SPAN)
+                    if n_m == 4:
+                        partner = {0: 1, 1: 0, 2: 3, 3: 2}[j]
+                        x[j] = max(min(x[j], x[partner] + self.SPAN), x[partner] - self.SPAN)
                     if j > 0:                                   # order wins over reach
                         x[j] = min(x[j], x[j - 1] - self.GAP)
-                    if j < 3:
+                    if j < n_m - 1:
                         x[j] = max(x[j], x[j + 1] + self.GAP)
             for j, k in enumerate(self.ORDER):
                 if j in fixed:
@@ -357,7 +366,7 @@ class MalletPlayer:
         # letting a mallet that is on (or about to hit) its bar hold its place
         w = [10.0 if self._striking(k, t) else 1.0 for k in self.ORDER]
         for _ in range(4):
-            for j in range(1, 4):
+            for j in range(1, len(hs)):
                 short = self.GAP - (hs[j - 1].x - hs[j].x)
                 if short > 0:
                     hs[j - 1].x += short * w[j] / (w[j - 1] + w[j])
@@ -371,7 +380,8 @@ class MalletPlayer:
     STEP_LIFT = 0.045
 
     def _cx(self, t):
-        return sum(h.x for h in self._heads(t)) / 4 - self.rest_cx     # +x is the player's left
+        hs = self._heads(t)
+        return sum(h.x for h in hs) / len(hs) - self.rest_cx           # +x is the player's left
 
     def _plan_steps(self):
         t_end = max((e[0] for k in self.ORDER for e in self.ev[k]), default=0.0) + 1.0
@@ -409,13 +419,18 @@ class MalletPlayer:
         if not hasattr(self, "steps"):
             self._plan_steps()
         hs = self._heads(t)
-        heads = {"L": (hs[1], hs[0]), "R": (hs[2], hs[3])}     # (inner, outer)
+        th = [self.theta(k, t) for k in self.ORDER]
+        if len(hs) == 4:
+            heads = {"L": (hs[1], hs[0]), "R": (hs[2], hs[3])}     # (inner, outer)
+            theta = {"L": (th[1], th[0]), "R": (th[2], th[3])}
+        else:                                                     # one per hand: "outer" mirrors "inner"
+            heads = {"L": (hs[0], hs[0]), "R": (hs[1], hs[1])}
+            theta = {"L": (th[0], th[0]), "R": (th[1], th[1])}
         feet, px = self._stance(t)
-        cx = sum(h.x for h in hs) / 4 - self.rest_cx
+        cx = sum(h.x for h in hs) / len(hs) - self.rest_cx
         lean = max(-self.LEAN_MAX, min(self.LEAN_MAX, (cx - px) * 0.5))
         # body_shift is for the over-the-shoulder camera, which rides along with her stance
-        th = [self.theta(k, t) for k in self.ORDER]
-        return {"heads": heads, "theta": {"L": (th[1], th[0]), "R": (th[2], th[3])}, "bars": self.bars(t),
+        return {"heads": heads, "theta": theta, "bars": self.bars(t),
                 "stance": feet, "lean": lean, "body_shift": (px, 0.0, 0.0)}
 
 

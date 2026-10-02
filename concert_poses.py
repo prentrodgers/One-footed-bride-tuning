@@ -1138,12 +1138,17 @@ MALLET_SETS = {"Marimba": ("Marimba", 0.90, 0.55, 0.18, 0.34, -0.30, 0.075, 0.03
                "Marimba 2": ("Marimba 2", 0.90, 0.55, 0.18, 0.34, -0.30, 0.075, 0.035),
                "Vibraphone": ("Vibraphone", 0.86, 0.44, 0.19, 0.28, -0.26, 0.070, 0.030)}
 # key: (rig, bar top z, hand y offset, head y offset, L hand x, R hand x, mallet spread, head height)
+# The marimbas (two players since the stereo split) play one mallet per hand; the outer mallets are hidden.
+MALLETS_PER_HAND = {"Marimba": 1, "Marimba 2": 1}
 
 
 def mallet_heads_rest(key):
     rig, top, hy, heady, xl, xr, spread, hz = MALLET_SETS[key]
     o = bpy.data.objects[rig].matrix_world.translation
     tz = o.z + top
+    xl, xr = o.x + xl, o.x + xr                 # relative to the instrument wherever it stands (not x = 0)
+    if MALLETS_PER_HAND.get(key, 2) == 1:       # one mallet in each hand, a little wider apart
+        return {"L": (Vector((xl, o.y + heady, tz + hz)),) * 2, "R": (Vector((xr, o.y + heady, tz + hz)),) * 2}
     return {"L": (Vector((xl - spread, o.y + heady, tz + hz)), Vector((xl + spread, o.y + heady, tz + hz))),
             "R": (Vector((xr + spread, o.y + heady, tz + hz)), Vector((xr - spread, o.y + heady, tz + hz)))}   # (inner, outer)
 
@@ -1179,7 +1184,14 @@ def hands_mallets(state=None, key="Marimba"):
         H = Gc - Vector((0, -0.026, -0.020))
         gi = H + Vector((0, -0.030, -0.018)) + inward * 0.018
         go = H + Vector((0, -0.020, -0.022)) - inward * 0.040
+        one = MALLETS_PER_HAND.get(key, 2) == 1
+        if one:                                              # one mallet per hand: the outer one is put away
+            ob = bpy.data.objects.get(f"{key} Mallet {side} outer")
+            if ob and not ob.hide_render:
+                ob.hide_render = ob.hide_viewport = True
         for g, base, ang, tag in ((gi, inner, thetas[side][0], "inner"), (go, outer, thetas[side][1], "outer")):
+            if one and tag == "outer":
+                continue
             v = base - g
             axis = v.cross(UP)
             h = g + (Matrix.Rotation(ang, 3, axis.normalized()) @ v if axis.length > 1e-6 else v)
@@ -1578,7 +1590,7 @@ def regrip_mallets(key, side):
     for tag, joints in MALLET_GRIP:
         ob = bpy.data.objects.get(f"{key} Mallet {side} {tag}")
         js = [bpy.data.objects.get(f"{bn} {side} {j}") for j in joints]
-        if ob is None or not all(js):
+        if ob is None or ob.hide_render or not all(js):
             continue
         grip = sum((j.matrix_world.translation for j in js), Vector()) / len(js)
         h = ob.matrix_world.translation.copy()
