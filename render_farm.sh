@@ -190,13 +190,16 @@ while [ $# -gt 0 ]; do
         | while IFS=$'\t' read -r pod phase node args; do
             first=$(sed -n 's/.*--frame-start \([0-9]*\).*/\1/p' <<<"$args")
             last=$(sed -n 's/.*--frame-end \([0-9]*\).*/\1/p' <<<"$args")
-            line=$(kubectl -n "$NS" logs "$pod" --tail=1 2>/dev/null)
+            # the last line that names a frame: a finished pod's very last lines are
+            # "[stage] done" and "Blender quit", which would read as "not started"
+            line=$(kubectl -n "$NS" logs "$pod" --tail=200 2>/dev/null | grep -a 'frame_[0-9]*\.png' | tail -n 1 || true)
             cur=$(sed -n "s/.*frame_0*\([0-9][0-9]*\)\.png.*/\1/p" <<<"$line")
             clock=$(awk '{print $1}' <<<"$line")
             awk -v pod="${pod#blender-farm-}" -v node="$node" -v phase="$phase" \
                 -v a="$first" -v b="$last" -v c="${cur:-}" -v clk="$clock" 'BEGIN{
               span = b - a + 1
-              if (c == "") { printf "  %-7s %-4s %-10s   %6d frames, not started\n", pod, node, phase, span; exit }
+              if (c == "") { printf "  %-7s %-4s %-10s   %6d frames, %s\n", pod, node, phase, span, \
+                                    (phase == "Succeeded" ? "finished" : "not started"); exit }
               done = c - a + 1
               n = split(clk, t, ":")
               secs = (n == 3) ? t[1]*3600 + t[2]*60 + t[3] : t[1]*60 + t[2]
@@ -205,8 +208,9 @@ while [ $# -gt 0 ]; do
               bars = int(20 * done / span)
               bar = ""
               for (i = 0; i < 20; i++) bar = bar (i < bars ? "#" : ".")
-              printf "  %-7s %-4s %s %5.1f%%  %5d/%-5d  %.2fs/frame  eta %2.0fm\n", \
-                     pod, node, bar, 100*done/span, done, span, (rate>0?1/rate:0), eta
+              printf "  %-7s %-4s %s %5.1f%%  %5d/%-5d  %.2fs/frame  %s\n", \
+                     pod, node, bar, 100*done/span, done, span, (rate>0?1/rate:0), \
+                     (phase == "Succeeded" ? "finished" : sprintf("eta %2.0fm", eta))
             }'
           done
       exit 0;;
