@@ -27,6 +27,9 @@ import textwrap
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 BEST = os.path.join(HERE, "Archive", "straw-man", "best-tunings")
+# the concert videos' own wording for score_video.py's first three lines
+HEADING = "Chorale Prelude based on Bach Chorale {chorale}"
+BY = "Extended by Prent Rodgers"
 CREDIT = "with considerable help from Claude Code Opus"
 WRAP = 84                # about as wide as the tuning-information lines
 
@@ -70,7 +73,11 @@ def main():
 
     out = []
     for text, style in sv.title_text(chorale, header):
-        if text.startswith("with considerable help"):
+        if text.startswith("Bach Chorale"):
+            text = HEADING.format(chorale=chorale.upper())
+        elif text.startswith("Tuned by"):
+            text = BY
+        elif text.startswith("with considerable help"):
             text = CREDIT
         if style == "wrap":
             out += [("body", ln) for ln in textwrap.wrap(text, WRAP)]

@@ -1023,11 +1023,11 @@ def _energy(ns, t, hold):
     return sum(n["lvl"] * max(0.0, min(n["t1"], t + hold) - max(n["t0"], t)) for n in ns)
 
 
-def build_shots(per, duration, seed, fixed=None, title=0.0, lead=0.0):
+def build_shots(per, duration, seed, fixed=None, lead=0.0):
     """[(t_start, camera name)] in video time; the music (`duration` long, note times in `per`) starts at
     `lead`. Mostly group shots of the busiest 3-5 players, some wides, a few close-ups of one player, and
-    now and then a 30 s dolly along one row (front, second, riser in turn). With a title card, the title
-    camera holds for the `lead` seconds before the music and the last `title` seconds of it."""
+    now and then a 30 s dolly along one row (front, second, riser in turn). With a title card (`lead` > 0)
+    the title camera holds for the `lead` seconds before the music and from the moment it stops."""
     if fixed:
         return [(0.0, fixed)]
     rng = random.Random(seed)
@@ -1035,7 +1035,7 @@ def build_shots(per, duration, seed, fixed=None, title=0.0, lead=0.0):
         shots, t = [(0.0, cc.TITLE_CAM), (lead, WIDE_CAMS[0])], lead + min(4.0, duration / 4)
     else:
         shots, t = [(0.0, WIDE_CAMS[0])], min(3.5, duration / 4)
-    end = lead + duration - title
+    end = lead + duration                                     # the music stops
     dollies = list(cc.DOLLY_CAMS)
     next_dolly, n_dolly = lead + DOLLY_FIRST, 0
     recent = []                                               # groups and players featured lately
@@ -1072,7 +1072,7 @@ def build_shots(per, duration, seed, fixed=None, title=0.0, lead=0.0):
         if cam is None:                                       # nothing busy enough: a wide shot
             cam = rng.choice([c for c in WIDE_CAMS[:3] if c != last])
         shots.append((t, cam)); t += hold
-    if title:
+    if lead:                                                  # the closing card
         shots = [s for s in shots if s[0] < end] + [(end, cc.TITLE_CAM)]
     return shots
 
@@ -1092,7 +1092,7 @@ def parse_args():
     p.add_argument("--npy", required=True)
     p.add_argument("--tempo", type=float, required=True)
     p.add_argument("--duration", type=float, required=True,
-                   help="the music's length; with a title card the video is 8 s longer (render_farm.sh adds it too)")
+                   help="the music's length; with a title card the video is 16 s longer (render_farm.sh adds it too)")
     p.add_argument("--out", default="frames_concert")
     p.add_argument("--res-x", type=int, default=1280)
     p.add_argument("--res-y", type=int, default=720)
@@ -1157,19 +1157,19 @@ class Performance:
                 pl.tempo = tempo
         self.puppets = {key: cp.get_puppet(key) for key in cp.PLAYERS}
         # Title card on the backdrop (the title camera holds unless --camera is fixed): for `lead` seconds
-        # before the music, while the players rest, and over the end of it. All times past this point are
-        # video times; the music, and every note time in self.per, starts at self.lead.
+        # before the music and `tail` seconds after it, while the players rest. All times past this point
+        # are video times; the music, and every note time in self.per, starts at self.lead.
         self.title = cc.TitleCard.for_piece(npy, duration, title)
         self.lead = self.title.lead if self.title else 0.0
-        self.duration = duration                              # the music; the video is lead + duration
+        self.tail = self.title.tail if self.title else 0.0
+        self.duration = duration                              # the music; the video is lead + duration + tail
         self.fixed_camera = camera
-        tsec = self.title.seconds if self.title else 0.0
         if cues:                                              # cue sheets are written in music time
             self.shots = [(t0 + self.lead, c) for t0, c in parse_cues(cues)]
-            if self.lead:
-                self.shots.insert(0, (0.0, cc.TITLE_CAM))
+            if self.title:
+                self.shots = [(0.0, cc.TITLE_CAM)] + self.shots + [(self.lead + duration, cc.TITLE_CAM)]
         else:
-            self.shots = build_shots(self.per, duration, seed, camera, tsec, self.lead)
+            self.shots = build_shots(self.per, duration, seed, camera, self.lead)
         self.dolly_dirs = cc.dolly_directions(self.shots)
         self.lights = {k: bpy.data.objects.get(v) for k, v in SPECIAL_LIGHT.items()}
         # over-the-shoulder cameras ride along with a player who steps sideways
@@ -1177,10 +1177,11 @@ class Performance:
         self.follow_base = {c: bpy.data.objects[c].location.copy() for c in self.follow}
 
     def apply(self, scene, t, set_camera=True):
-        """t is video time. Before the music starts (the opening title) every player is at rest."""
+        """t is video time. Before the music starts and after it stops (the title cards) every player rests."""
         tm = t - self.lead                                    # music time
+        playing = 0 <= tm < self.duration or not self.title
         for key in cp.PLAYERS:
-            pl = self.players.get(key) if tm >= 0 else None
+            pl = self.players.get(key) if playing else None
             st = pl.state(tm) if pl else None
             if isinstance(pl, Breathing):
                 st = dict(st or {}); st["breath"] = pl.breath(tm); st["lower"] = pl.lowered(tm)
@@ -1229,8 +1230,8 @@ def main():
         bpy.context.window_manager.windows[0].scene = scene
     scene.render.use_sequencer = False                        # a preview's sound strip must never replace the 3D render
     perf = Performance(args.npy, args.tempo, args.duration, args.cues, args.seed, args.camera, args.title)
-    print("[concert] title card: " + (f"{perf.lead:g} s before the music (audio delayed {perf.lead:g} s when muxed), "
-                                      f"{perf.title.seconds:g} s over its end" if perf.title else "none"))
+    print("[concert] title card: " + (f"{perf.lead:g} s before the music (audio delayed {perf.lead:g} s when muxed) "
+                                      f"and {perf.tail:g} s after it" if perf.title else "none"))
     print("[concert] camera shots: " + ", ".join(f"{int(t0 // 60)}:{t0 % 60:04.1f} {c}" for t0, c in perf.shots))
 
     configure_engine(scene, args)
@@ -1238,11 +1239,12 @@ def main():
     scene.render.resolution_percentage = 100
     scene.render.fps = FPS
     scene.render.image_settings.file_format = 'PNG'
-    n_frames = int(math.ceil((args.duration + perf.lead) * FPS - 1e-9))   # as render_farm.sh counts them
+    video = args.duration + perf.lead + perf.tail
+    n_frames = int(math.ceil(video * FPS - 1e-9))             # as render_farm.sh counts them
     f0 = max(0, args.frame_start)
     f1 = n_frames - 1 if args.frame_end is None else min(args.frame_end, n_frames - 1)
     out = Path(args.out); out.mkdir(parents=True, exist_ok=True)
-    print(f"[concert] animating frames {f0}..{f1} of {n_frames} ({args.duration + perf.lead:.1f}s @ {FPS}fps) -> {out}/")
+    print(f"[concert] animating frames {f0}..{f1} of {n_frames} ({video:.1f}s @ {FPS}fps) -> {out}/")
     # Resume: frames already in --out are kept (a relaunched slice after a crash only renders what is
     # missing). The newest one in the range is redone, in case the crash cut its write short.
     have = {fi for fi in range(f0, f1 + 1) if (out / f"frame_{fi:06d}.png").is_file()

@@ -40,7 +40,7 @@
 #                   stage. Same flags, same frame_%06d.png output, same mux:
 #     SCRIPT=concert_stage.py BLEND=Concert_Stage.blend ./render_farm.sh --npy ... --tempo ... --duration ... --out ...
 #                   Mux it with ./concert_mux.sh, which delays the audio when the piece
-#                   has a title card (the video then opens with 8 s of title).
+#                   has a title card (8 s of title before the music and 8 s after).
 #
 # The rate table below was measured on blender_stage.py; the Concert Stage
 # paces differently (26 shadowed spot lights, 1200 puppet pieces posed per
@@ -241,18 +241,19 @@ done
 # it, else 5 (EEVEE).
 RATE_COL=5; case " ${EXTRA[*]:-} " in *" cycles "*) RATE_COL=6;; esac
 
-# The Concert Stage opens with its title card for LEAD seconds before the music when the piece has
-# one (Uploads/<piece>.title.txt, from concert_title.py; concert_cameras.TITLE_SECONDS), so the video
-# is that much longer than --duration, which stays the music's length. concert_mux.sh delays the audio.
-LEAD=0
+# The Concert Stage shows its title card for LEAD seconds before the music and TAIL seconds after it
+# when the piece has one (Uploads/<piece>.title.txt, from concert_title.py;
+# concert_cameras.TITLE_SECONDS), so the video is that much longer than --duration, which stays the
+# music's length. concert_mux.sh delays the audio by LEAD.
+LEAD=0; TAIL=0
 if [ "$(basename "$SCRIPT")" = concert_stage.py ] && [ -f "${NPY%.npy}.title.txt" ] \
    && [[ " ${EXTRA[*]:-} " != *" --title none "* ]]; then
-  LEAD=8
-  echo "title card: the video opens with ${LEAD} s of title before the music"
+  LEAD=8; TAIL=8
+  echo "title card: ${LEAD} s of title before the music and ${TAIL} s after it"
 fi
 
-# Frame count exactly as blender_stage.py / concert_stage.py compute it: ceil((duration + lead) * FPS).
-TOTAL=$(awk -v d="$DURATION" -v l="$LEAD" -v f="$FPS" 'BEGIN{t=(d+l)*f; c=int(t); if (t-c>1e-9) c++; print c}')
+# Frame count exactly as blender_stage.py / concert_stage.py compute it: ceil((duration + lead + tail) * FPS).
+TOTAL=$(awk -v d="$DURATION" -v l="$((LEAD + TAIL))" -v f="$FPS" 'BEGIN{t=(d+l)*f; c=int(t); if (t-c>1e-9) c++; print c}')
 
 # Slices in proportion to each worker's measured rate, contiguous, with the
 # last one taking the remainder so no frame is missed or rendered twice.

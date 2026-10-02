@@ -10,9 +10,9 @@ concert_stage.py uses the rest at render time (and so does the viewport preview)
   * place_dollies() moves each dolly camera along its row: it crosses from one end to the other in
     DOLLY_SECONDS, starting when its shot starts, and alternates direction each time it is used.
   * TitleCard reads Uploads/<piece>.title.txt (written by concert_title.py) and shows it on the
-    backdrop, with a fade, while the title camera holds: for TITLE_SECONDS before the music starts
-    (the players rest and the audio is delayed by that much: the video is TITLE_SECONDS longer than
-    the music) and over the last TITLE_SECONDS of the music.
+    backdrop, with a fade, while the title camera holds: for TITLE_SECONDS before the music starts and
+    for TITLE_SECONDS after it stops. The players rest through both, the audio is delayed by
+    TITLE_SECONDS, and the video is 2 x TITLE_SECONDS longer than the music.
 
 Directions: the audience looks along +y, so +x is the audience's right ("stage left").
 """
@@ -25,7 +25,7 @@ from mathutils import Vector
 import concert_poses as cp
 
 TITLE_CAM = "Cam 39 Title (backdrop)"
-TITLE_SECONDS = 8.0      # also in render_farm.sh (LEAD) and concert_mux.sh, which add it to the video's length
+TITLE_SECONDS = 8.0      # also in render_farm.sh (LEAD, TAIL) and concert_mux.sh (the audio delay)
 TITLE_FADE = 1.0
 DOLLY_SECONDS = 30.0
 
@@ -214,6 +214,8 @@ TITLE_PARTS = {          # object -> (font, size, line spacing, glyph thickening
 }
 GLYPH = {"sans": 0.68, "mono": 0.53}                # height of one line of text at size 1 (measured)
 MONO_ADVANCE = 0.3346                               # Adwaita Mono character width at size 1 (measured)
+SANS_ADVANCE = 0.37                                 # Adwaita Sans, average per character of a title (measured)
+TITLE_MAX_W = 11.0       # the title camera sees 13.2 m of the backdrop; a longer heading is set smaller
 TITLE_PLANE_Y = 5.0      # just in front of the backdrop (its front face is at y = 5.12)
 TITLE_TOP_Z = 6.75       # under the upstage truss and its lights (z 6.9-7.5, right at the backdrop)
 TITLE_GAP = 0.30         # between the heading, the credits and the body; a blank line is 0.6 of this
@@ -285,8 +287,8 @@ def build():
 
 
 class TitleCard:
-    """The title text for one piece, shown on the backdrop at the start and the end. Times are video
-    times: the music starts at `lead` and lasts `duration`."""
+    """The title text for one piece, shown on the backdrop before and after the music. Times are video
+    times: the music starts at `lead`, stops at `music_end`, and the closing card runs to `end`."""
 
     def __init__(self, lines, duration):
         self.parts = {name: [] for name in TITLE_PARTS}
@@ -304,8 +306,9 @@ class TitleCard:
         self.parts["Title Details"] = body[:cut]
         self.parts["Title Info"] = [ln for ln in body[cut:] if ln.strip()]
         self.lead = TITLE_SECONDS                       # the opening card, before the music
-        self.seconds = min(TITLE_SECONDS, duration / 3)  # the closing card, over the end of the music
-        self.end = self.lead + duration                 # the end of the video
+        self.tail = TITLE_SECONDS                       # the closing card, after it
+        self.music_end = self.lead + duration
+        self.end = self.music_end + self.tail           # the end of the video
         self.obs = [bpy.data.objects.get(n) for n in TITLE_PARTS]
         self.fade = bpy.data.materials["Title Text"].node_tree.nodes["Title Fade"]
         self._layout()
@@ -329,6 +332,10 @@ class TitleCard:
         for ob in self.obs:
             lines = self.parts[ob.name]
             ob.data.body = "\n".join(lines)
+            if ob.name in ("Title Heading", "Title Credits"):   # shrink a long line to fit the shot
+                base = TITLE_PARTS[ob.name][1]
+                widest = max((len(ln) for ln in lines), default=0) * SANS_ADVANCE
+                ob.data.size = min(base, TITLE_MAX_W / widest) if widest else base
             ob.location.z = z
             if ob.name == "Title Info":                       # centre the left-aligned block
                 ob.location.x = -max((len(ln) for ln in lines), default=0) * MONO_ADVANCE * ob.data.size / 2
@@ -338,15 +345,14 @@ class TitleCard:
                 z -= TITLE_GAP * (0.6 if ob.name == "Title Details" else 1.0)
 
     def alpha(self, t):
-        close = self.end - self.seconds
         if t < self.lead:
             return max(0.0, min(1.0, (self.lead - t) / TITLE_FADE))
-        if t >= close:
-            return max(0.0, min(1.0, (t - close) / TITLE_FADE))
+        if t >= self.music_end:
+            return max(0.0, min(1.0, (t - self.music_end) / TITLE_FADE))
         return 0.0
 
     def showing(self, t):
-        return t < self.lead or t >= self.end - self.seconds
+        return t < self.lead or t >= self.music_end
 
     def apply(self, t):
         a = self.alpha(t)

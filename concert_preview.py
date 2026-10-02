@@ -64,8 +64,9 @@ def load(stem, tempo, cues=None, duration=None, follow_cues=True, shading='MATER
     perf = STATE["perf"] = cs.Performance(npy, tempo, duration, cues)
     STATE["cut"] = follow_cues
     scene.render.fps = cs.FPS
-    # with a title card the music (and its sound strip) starts perf.lead seconds in, as in the muxed video
-    scene.frame_start, scene.frame_end = 0, int(math.ceil((duration + perf.lead) * cs.FPS)) - 1
+    # with a title card the music (and its sound strip) starts perf.lead seconds in, as in the muxed video,
+    # and the closing card runs perf.tail seconds past its end
+    scene.frame_start, scene.frame_end = 0, int(math.ceil((duration + perf.lead + perf.tail) * cs.FPS)) - 1
     if os.path.exists(mp3):                                 # audio in sync with the timeline
         strips = _strips(scene)
         s = strips.new_sound(SOUND_STRIP, mp3, channel=1, frame_start=int(round(perf.lead * cs.FPS)))
