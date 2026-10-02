@@ -32,6 +32,10 @@ OWNED = {
                      "Pignose Amp - Finger Piano", "Cable - Finger Piano", "Cable - Finger Piano Plugs"],
     "Trumpet": [], "Clarinet": [],
     "Violin": ["Violin Bow"], "Oboe": [], "French Horn": ["Stool - French Horn"], "Vibraphone": [],
+    "Viola": ["Viola Bow"], "Tuba": ["Stool - Tuba"],
+    "Baritone Flying V": ["Stool - Baritone Flying V", "Stool Footring - Baritone Flying V",
+                          "Pignose Amp - Baritone Flying V", "Cable - Baritone Flying V",
+                          "Cable - Baritone Flying V Plugs"],
 }
 CAMS = {
     "Marimba": ["Cam 4 Marimba Player POV", "Cam 33 Marimba Player (side, full figure)"],
@@ -39,16 +43,21 @@ CAMS = {
     "Trumpet": ["Cam 22 Trumpet Hands"], "Clarinet": [],
     "Violin": ["Cam 12 Violin Close"], "Oboe": ["Cam 34 Oboe Player", "Cam 7 Oboe Keys"],
     "French Horn": ["Cam 26 French Horn"], "Vibraphone": ["Cam 25 Vibraphone Player View"],
+    "Viola": [], "Tuba": ["Cam 14 Tuba Close", "Cam 24 Tuba Side"],
+    "Baritone Flying V": ["Cam 18 Flying V & Amp", "Cam 20 Baritone Full String Length", "Cam 11 Fretboard Close"],
 }
 # cameras that frame this player and someone who stays put: they move half as far, so both stay in shot
 SHARED_CAMS = {
     "Violin": ["Cam 21 Viola & Violin", "Cam 5 Cello & Violin"],
     "Trumpet": ["Cam 9 Trumpet & Trombone (riser)"], "Clarinet": ["Cam 15 Bassoon & Clarinet (riser)"],
+    "Viola": ["Cam 21 Viola & Violin"], "Tuba": ["Cam 17 Tuba & Cello Side"],
+    "Baritone Flying V": ["Cam 32 Bass Section (guitar & bass finger piano)"], "Finger Piano": ["Cam 6 Finger Pianos"],
 }
 LIGHTS = {"Marimba": "Special 8 Marimba", "Finger Piano": "Special 3 Finger Piano",
           "Trumpet": "Special 10 Trumpet", "Clarinet": "Special 6 Clarinet",
           "Violin": "Special 2 Violin", "Oboe": "Special 7 Oboe", "French Horn": "Special 14 French Horn",
-          "Vibraphone": "Special 16 Vibraphone"}
+          "Vibraphone": "Special 16 Vibraphone", "Viola": "Special 13 Viola", "Tuba": "Special 11 Tuba",
+          "Baritone Flying V": "Special 1 Baritone Flying V"}
 
 
 def _yaw(f):
