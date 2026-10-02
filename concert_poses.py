@@ -1225,7 +1225,7 @@ FIST_RISE = 0.42                    # the shaft climbs toward the hand about 23 
 FIST_TOE_IN = math.radians(20)      # the shaft angles inward from straight ahead, the hand outward of its head
 FIST_TOE_OFF = (0.25, 0.55)         # ... less as the head goes out from her centre: all of it within 0.25 m,
                                     # none at 0.55 m (arm's length), so a far reach isn't made longer
-FIST_ACROSS = math.radians(55)      # the shaft crosses the palm this far from the hand's own direction
+FIST_ACROSS = math.radians(40)      # the shaft crosses the palm this far from the hand's own direction
 FIST_PIVOT = 0.12                   # the stroke pivots this far behind the wrist
 FIST_STROKE = 0.6                   # share of the stroke angle the hand turns (its head swings ~ as far as before)
 FIST_PALM = 0.022                   # the shaft runs this far under the knuckles, against the palm
@@ -1234,7 +1234,10 @@ FIST_PALM = 0.022                   # the shaft runs this far under the knuckles
 # and little fingers meet the shaft farther back under the palm and need the deeper curl).
 FIST_TIP = (0.025, 0.018)
 FIST_TIP_STEP = 0.006
-FIST_ELBOW_OUT = 0.0                # the elbows hang straight down (the arm's pole): forearm and hand in line
+# The elbows rest a little away from the torso (the arm's pole leans out this much from straight down: at
+# rest they are ~1.4 x shoulder width apart). Straight down tucked them against the ribs; with the shaft
+# crossing the palm at 40 deg the hand still points along the forearm (median wrist angle ~20 deg).
+FIST_ELBOW_OUT = 0.4
 
 
 def mallet_fist(key, side, contact, ang, f, inward, toe=FIST_TOE_IN):

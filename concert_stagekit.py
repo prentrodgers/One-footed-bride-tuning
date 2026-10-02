@@ -396,6 +396,42 @@ def stool(key, height=0.46):
         S.cyl(p + Vector((math.cos(a0), math.sin(a0), 0)) * 0.17 + up * 0.18, p + Vector((math.cos(a1), math.sin(a1), 0)) * 0.17 + up * 0.18, 0.008, mi=0, seg=6)
     return S.build(f"Stool - {key}", [steel_m, seat_m], collection=coll("Furniture & Stands"), smooth=True)
 
+def finger_piano_stand(key, outset=0.02, splay=0.06, leg_r=0.011, rail_r=0.009):
+    """A small black steel stand for a finger piano, in the bass finger piano's style: a rail frame just
+    under the box (tilted with it), open on the player's side for the knees, four legs splayed out to the
+    floor beyond the knees, and a stretcher low down on each side. Replaces "<key> Stand"."""
+    rig = bpy.data.objects[key]
+    M = rig.matrix_world
+    Mi = M.inverted()
+    kids = [c for c in rig.children_recursive if c.type == 'MESH' and "Tine" not in c.name]
+    pts = [Mi @ (c.matrix_world @ Vector(v)) for c in kids for v in c.bound_box]
+    x0, x1 = min(q.x for q in pts) - outset, max(q.x for q in pts) + outset
+    y0, y1 = min(q.y for q in pts) - outset, max(q.y for q in pts) + outset
+    z = min(q.z for q in pts) - rail_r
+    c = {(i, j): M @ Vector((x, y, z)) for i, x in ((0, x0), (1, x1)) for j, y in ((0, y0), (1, y1))}
+    p, f, l, up = frame_for(key)
+    near = lambda j: (c[(0, j)] + c[(1, j)]) / 2 - p                 # the long edges: which is the player's?
+    front = 0 if Vector((near(0).x, near(0).y, 0)).length > Vector((near(1).x, near(1).y, 0)).length else 1
+    mid = sum(c.values(), Vector()) / 4
+    S = Builder()
+    S.cyl(c[(0, front)], c[(1, front)], rail_r, mi=0, seg=8)             # front rail (the back stays open)
+    for i in (0, 1):
+        S.cyl(c[(i, 0)], c[(i, 1)], rail_r, mi=0, seg=8)                 # side rails
+    feet = {}
+    for k, top in c.items():
+        out = Vector((top.x - mid.x, top.y - mid.y, 0)).normalized()
+        feet[k] = Vector((top.x, top.y, p.z + 0.012)) + out * splay
+        S.cyl(top, feet[k], leg_r, mi=0, seg=8)
+        S.sphere(feet[k], leg_r * 1.5, mi=0, seg=8, rings=6)             # rubber foot
+    for i in (0, 1):                                                      # stretchers, low on each side
+        S.cyl(c[(i, 0)].lerp(feet[(i, 0)], 0.75), c[(i, 1)].lerp(feet[(i, 1)], 0.75), rail_r * 0.8, mi=0, seg=8)
+    old = bpy.data.objects.get(f"{key} Stand")
+    if old is not None:
+        bpy.data.objects.remove(old, do_unlink=True)
+    steel_m = mat("Stand Steel Black", (0.02, 0.02, 0.02), metal=0.8, rough=0.4)
+    return S.build(f"{key} Stand", [steel_m], collection=coll("Furniture & Stands"), smooth=True)
+
+
 def music_stand(key, offset_f, offset_r, height):
     p, f, l, up = frame_for(key); right = -l
     steel_m = mat("Stand Steel Black", (0.02, 0.02, 0.02), metal=0.8, rough=0.4)
