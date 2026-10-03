@@ -113,7 +113,8 @@ def build_body(key, leg_style="normal"):
             cs, sn = math.cos(th), math.sin(th)
             v = bm.verts.new(c + right * (a * cs) + fwd * (b * sn))
             ring.append(v)
-            breath.append((v, c + right * (a * (1 + 0.05 * w) * cs) + fwd * (b * sn * (1 + BREATH_DEPTH * w * max(0.0, sn) ** 0.7 + 0.04 * w))))
+            breath.append((v, c + right * (a * (1 + BREATH_SIDE * w) * cs)
+                           + fwd * (b * sn * (1 + BREATH_DEPTH * w * max(0.0, sn) ** 0.7 + BREATH_SIDE * 0.8 * w))))
         rings.append((s, ring))
     for (s0, r0), (s1, r1) in zip(rings[:-1], rings[1:]):
         for k in range(TORSO_SEG):
@@ -209,7 +210,9 @@ TORSO_PROFILE = [(0.00, 0.158, 0.104, 0.000), (0.12, 0.150, 0.099, 0.000), (0.26
                  (1.00, 0.055, 0.045, -0.004)]
 TORSO_SEG = 24
 BELT_S = 0.14
-BREATH_DEPTH = 0.30          # a full breath pushes the front of the abdomen out ~3 cm
+BREATH_DEPTH = 0.65          # a full breath pushes the front of the abdomen out ~7 cm (was 0.30, ~3 cm: the
+                             # inhale before a phrase was hard to see)
+BREATH_SIDE = 0.09           # ... and the waist widens a little (was 0.05)
 BREATH_REST = 0.30
 BREATHERS = {"Flute", "Clarinet", "Oboe", "Bassoon", "Trumpet", "Trombone", "Tuba", "French Horn"}
 SKIRTS = {"Cello", "Tuba", "Bassoon", "Marimba"}     # the players referred to as "she"
