@@ -132,8 +132,11 @@ def build_body(key, leg_style="normal"):
     # seat of the trousers, rounding the bottom of the torso into the hips
     B.sphere(pel - UP * 0.015, 1.0, mi=2, scale=(0.168, 0.118, 0.105), rot=Rb, seg=20, rings=10)
     head = neckb + UP * 0.155 + f * (0.01 + lean * 0.5)
-    B.cyl(neckb - UP * 0.02, head - UP * 0.075 - f * 0.012, 0.050, mi=0, seg=16, r2=0.046)
-    cf.build_head(B, head, right, f, key, idx)
+    # The neck and head (face, hair, glasses, cap) are their own object, a child of the body, so they can
+    # turn and nod (pose_head). Built in the body's own space, so the skin's face map lines up exactly.
+    HB = sk.Builder()
+    HB.cyl(neckb - UP * 0.02, head - UP * 0.075 - f * 0.012, 0.050, mi=0, seg=16, r2=0.046)
+    cf.build_head(HB, head, right, f, key, idx)
     # Shoulder girdle. The torso ellipsoid narrows toward its top, so a lone ball at each shoulder
     # floated outside it with a gap underneath. Instead: a broad upper chest, a trapezius slope from
     # the neck out to each shoulder, and a deltoid cap over the joint. The cap is bigger than the upper
@@ -177,6 +180,12 @@ def build_body(key, leg_style="normal"):
     ob = B.build(body_name(key), mats, collection=sk.coll("Musicians"), smooth=True)
     ob["player"] = key
     cf.mark_skin_body(ob)
+    hob = HB.build(body_name(key) + " Head", mats, collection=sk.coll("Musicians"), smooth=True)
+    hob.parent = ob
+    hob.matrix_parent_inverse = Matrix.Identity(4)
+    hob["pivot"], hob["fwd"], hob["left"] = tuple(neckb - UP * 0.02), tuple(f), tuple(l)
+    hob["centre"] = tuple(head)
+    cf.mark_skin_body(hob)
     if key in SWAYERS:
         old = bpy.data.objects.get(body_name(key) + " Legs")
         if old:
@@ -1629,6 +1638,18 @@ HANDS = {
 }
 
 
+def pose_head(key, angles=None):
+    """Turn the head (a child of the body, so it rides along with any sway or step) about the base of the
+    neck: angles = (yaw, pitch) in radians, + yaw toward the player's left, + pitch looking down."""
+    hob = bpy.data.objects.get(body_name(key) + " Head")
+    if hob is None or "pivot" not in hob:
+        return
+    yaw, pitch = angles or (0.0, 0.0)
+    P, left = Vector(hob["pivot"]), Vector(hob["left"])
+    hob.matrix_basis = (Matrix.Translation(P) @ Matrix.Rotation(yaw, 4, UP) @ Matrix.Rotation(pitch, 4, left)
+                        @ Matrix.Translation(-P))
+
+
 def pose(key, state=None, pup=None):
     """Pose one player (and its bow/mallets/slide) for a musical state."""
     if key in LOWER:
@@ -1653,6 +1674,7 @@ def pose(key, state=None, pup=None):
         if body:
             body.matrix_world = Mb
         S = {side: Mb @ s for side, s in shoulders(key).items()}
+    pose_head(key, (state or {}).get("head"))
     p, f, l, up = frame(key)
     default_pole = {"L": -UP + l * 0.8 - f * 0.3, "R": -UP - l * 0.8 - f * 0.3}
     for side in ("L", "R"):

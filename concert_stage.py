@@ -1015,6 +1015,149 @@ def make_player(key, notes):
     return BrassPlayer(key, notes)
 
 
+# ─────────────────────────────── heads ───────────────────────────────
+# Where each player looks: (yaw, pitch) of the head, + yaw toward the player's left, + pitch looking down.
+# - the finger pianists look down at their (tiny, devilishly hard) instruments in busy passages;
+# - the string players glance at another string player just before an entrance, as if for a cue;
+# - everyone, two or three times in the piece, uses a long rest to look at someone playing and nod;
+# - otherwise a slight idle drift, so nobody is frozen.
+# A wind or brass player's head only moves with the instrument away from the lips (Breathing.lowered);
+# the violin and viola have the chin on the instrument, so their heads turn only a little.
+FINGER_PIANOS = ("Finger Piano", "Finger Piano 2", "Bass Finger Piano")
+BOWED_KEYS = ("Violin", "Viola", "Cello")
+STRUCK = FINGER_PIANOS + ("Marimba", "Marimba 2", "Vibraphone", "Baritone Flying V")
+HEAD_LIMIT = {"Violin": (0.45, 0.16), "Viola": (0.45, 0.16)}      # (yaw, pitch) radians
+HEAD_LIMIT_ALL = (0.85, 0.42)
+LOOK_DOWN = 0.40             # radians (23 deg): a finger pianist looking at the tines
+BUSY = 3.0                   # notes a second for a passage to count as busy
+NOD = 0.17                   # radians: the depth of a nod
+NODS_PER_PIECE = 3
+
+
+def _smooth(x):
+    x = max(0.0, min(1.0, x))
+    return x * x * (3 - 2 * x)
+
+
+class HeadPlanner:
+    def __init__(self, per, duration, seed=11):
+        rng = random.Random(seed)
+        self.events = {k: [] for k in cp.PLAYERS}                # (t0, t1, yaw, pitch, nods)
+        self.phase = {k: (rng.uniform(0, 6.3), rng.uniform(0, 6.3)) for k in cp.PLAYERS}
+        heads = {}
+        for k in cp.PLAYERS:
+            hob = bpy.data.objects.get(cp.body_name(k) + " Head")
+            heads[k] = Vector(hob["centre"]) if hob is not None and "centre" in hob else \
+                Vector(sk_pos(k)) + Vector((0, 0, 1.55))
+        self.heads = heads
+        self.aim = lambda a, b: self._aim(a, heads[a], heads[b])
+        playing = lambda k, t0, t1: sum(1 for n in per.get(k, []) if n["t0"] < t1 and n["t1"] > t0)
+        # finger pianists: now and then look down in a busy passage (one look in 20 s at most, up to 4 s)
+        for k in FINGER_PIANOS:
+            ns = per.get(k, [])
+            last_end, t = -99.0, 0.0
+            onsets = [n["t0"] for n in ns]
+            busy_from = None
+            while t < duration:
+                dens = sum(1 for o in onsets if t - 1.0 <= o < t + 1.0) / 2.0
+                if dens >= BUSY and busy_from is None:
+                    busy_from = t
+                if (dens < BUSY or t + 0.5 >= duration) and busy_from is not None:
+                    if t - busy_from >= 1.5 and busy_from - last_end >= 20.0:
+                        end = min(t, busy_from + 4.0)
+                        self.events[k].append((busy_from, end, 0.0, LOOK_DOWN, 0))
+                        last_end = end
+                    busy_from = None
+                t += 0.5
+        # strings: a glance at another string player, as if for a cue - just before a phrase starts (after a
+        # gap of half a second) or while holding a long note; one every 25 s at most
+        for k in BOWED_KEYS:
+            ns = per.get(k, [])
+            others = [o for o in BOWED_KEYS if o != k and o in per]
+            if not others:
+                continue
+            last, end = -99.0, -99.0
+            for n in ns:
+                window = None
+                if n["t0"] - end >= 0.5:
+                    window = (n["t0"] - 1.4, n["t0"] - 0.1)                # before the entrance
+                elif n["dur"] >= 1.2:
+                    window = (n["t0"] + 0.3, n["t0"] + min(1.6, n["dur"] - 0.3))   # through a held note
+                end = max(end, n["t1"])
+                if window is None or window[0] - last < 25.0:
+                    continue
+                who = max(others, key=lambda o: (playing(o, window[0] - 1, window[1] + 1), -(heads[o] - heads[k]).length))
+                yaw, pitch = self.aim(k, who)
+                self.events[k].append((window[0], window[1], yaw, pitch, 0))
+                last = window[0]
+        # everyone: in two or three of the longest rests (a minute apart), look at someone playing and nod.
+        # A player who never rests 5 s uses shorter rests (down to 1.5 s, with a quicker look). A struck or
+        # plucked note rings on long after the stroke, so for those players a rest is a gap between strokes.
+        for k in cp.PLAYERS:
+            ns = per.get(k, [])
+            if not ns:
+                continue
+            stop = (lambda n: n["t0"] + min(n["dur"], 0.4)) if k in STRUCK else (lambda n: n["t1"])
+            rests, end = [], stop(ns[0])
+            for n in ns[1:]:
+                if n["t0"] - end >= 1.3:
+                    rests.append((n["t0"] - end, end))
+                end = max(end, stop(n))
+            chosen = []
+            for length, start in sorted(rests, reverse=True):
+                if len(chosen) == NODS_PER_PIECE:
+                    break
+                if all(abs(start - c[1]) >= 60.0 for c in chosen):
+                    chosen.append((length, start))
+            for length, start in chosen:
+                lead_in = 1.0 if length >= 5.0 else 0.2
+                hold = min(3.0, length - lead_in - 0.4)
+                if hold < 0.7:
+                    continue
+                t0 = start + lead_in
+                others = [o for o in cp.PLAYERS if o != k]
+                who = max(others, key=lambda o: (playing(o, t0, t0 + hold), -(heads[o] - heads[k]).length))
+                yaw, pitch = self.aim(k, who)
+                nods = 2 + (rng.random() < 0.4) if hold >= 2.4 else 1 + (hold >= 1.6)
+                self.events[k].append((t0, t0 + hold, yaw, pitch, nods))
+        for k in self.events:
+            self.events[k].sort()
+
+    @staticmethod
+    def _aim(key, me, target):
+        p, f, l, up = cp.frame(key)
+        d = target - me
+        yaw = math.atan2(d.dot(l), d.dot(f))
+        horiz = math.hypot(d.dot(l), d.dot(f))
+        pitch = math.atan2(-d.dot(up), max(horiz, 1e-6))
+        return yaw, pitch
+
+    def angles(self, key, t, free=1.0):
+        """(yaw, pitch) at music time t; `free` (0..1) scales everything (a wind player's head is held by
+        the instrument at the lips)."""
+        a, b = self.phase[key]
+        yaw = 0.035 * math.sin(2 * math.pi * t / 7.3 + a)                  # idle drift
+        pitch = 0.025 * math.sin(2 * math.pi * t / 5.1 + b)
+        for t0, t1, ey, ep, nods in self.events[key]:
+            if t < t0 - 0.01:
+                break
+            w = min(_smooth((t - t0) / 0.5), 1.0 - _smooth((t - t1) / 0.6))
+            if w <= 0:
+                continue
+            yaw += (ey - yaw) * w
+            pitch += (ep - pitch) * w
+            if nods:                                                       # nods once the head has turned
+                u = (t - t0 - 0.6) / 0.5
+                if 0 <= u < nods:
+                    pitch += NOD * 0.5 * (1 - math.cos(2 * math.pi * (u % 1.0)))
+        ly, lp = HEAD_LIMIT.get(key, HEAD_LIMIT_ALL)
+        return (max(-ly, min(ly, yaw)) * free, max(-lp, min(lp, pitch)) * free)
+
+
+def sk_pos(key):
+    return cp.sk.LAYOUT[key]["pos"]
+
+
 # ─────────────────────────────── camera ───────────────────────────────
 # Hand-authored cue sheets: --cues NAME, or inline --cues "0:00=Cam 1 Audience Wide;0:04.5=Cam 29 ..."
 # Times are "m:ss" (or seconds); every camera must exist in the .blend (checked before rendering).
@@ -1261,6 +1404,7 @@ class Performance:
             self.shots = build_shots(self.per, duration, seed, camera, self.lead)
         self.dolly_dirs = cc.dolly_directions(self.shots)
         self.lighting = cl.LightingPlan(duration, self.lead, self.tail)
+        self.heads = HeadPlanner(self.per, duration, seed)
         self.lights = {k: bpy.data.objects.get(v) for k, v in SPECIAL_LIGHT.items()}
         # over-the-shoulder cameras ride along with a player who steps sideways
         self.follow = {PLAYER_CAMS[k][0]: k for k in ("Marimba", "Marimba 2", "Vibraphone") if k in cp.PLAYERS}
@@ -1275,6 +1419,9 @@ class Performance:
             st = pl.state(tm) if pl else None
             if isinstance(pl, Breathing):
                 st = dict(st or {}); st["breath"] = pl.breath(tm); st["lower"] = pl.lowered(tm)
+            if 0 <= tm < self.duration:                       # heads still during the title cards
+                st = dict(st or {})
+                st["head"] = self.heads.angles(key, tm, st.get("lower", 1.0) if isinstance(pl, Breathing) else 1.0)
             cp.pose(key, st, self.puppets[key])
             for cam, who in self.follow.items():
                 if who == key:
