@@ -1027,7 +1027,7 @@ def make_player(key, notes):
 # Where each player looks: (yaw, pitch) of the head, + yaw toward the player's left, + pitch looking down.
 # - the finger pianists look down at their (tiny, devilishly hard) instruments in busy passages;
 # - the string players glance at another string player just before an entrance, as if for a cue;
-# - everyone, two or three times in the piece, uses a long rest to look at someone playing and nod;
+# - everyone uses their longest rests (up to six) to watch someone playing, nodding every other time;
 # - otherwise a slight idle drift, so nobody is frozen.
 # A wind or brass player's head only moves with the instrument away from the lips (Breathing.lowered);
 # the violin and viola have the chin on the instrument, so their heads turn only a little.
@@ -1039,7 +1039,10 @@ HEAD_LIMIT_ALL = (0.85, 0.42)
 LOOK_DOWN = 0.40             # radians (23 deg): a finger pianist looking at the tines
 BUSY = 3.0                   # notes a second for a passage to count as busy
 NOD = 0.17                   # radians: the depth of a nod
-NODS_PER_PIECE = 3
+# How often players turn to watch each other (doubled at the user's request, 2026-10-03):
+LOOKS_PER_PIECE = 6          # looks at someone playing, in a player's longest rests ...
+LOOK_SPACING = 30.0          # ... at least this many seconds apart; every other one with a nod
+CUE_EVERY = 11.0             # a string player's cue glance at most this often (seconds; was 25)
 
 
 def _smooth(x):
@@ -1078,7 +1081,7 @@ class HeadPlanner:
                     busy_from = None
                 t += 0.5
         # strings: a glance at another string player, as if for a cue - just before a phrase starts (after a
-        # gap of half a second) or while holding a long note; one every 25 s at most
+        # gap of half a second) or while holding a long note; one every CUE_EVERY seconds at most
         for k in BOWED_KEYS:
             ns = per.get(k, [])
             others = [o for o in BOWED_KEYS if o != k and o in per]
@@ -1092,13 +1095,14 @@ class HeadPlanner:
                 elif n["dur"] >= 1.2:
                     window = (n["t0"] + 0.3, n["t0"] + min(1.6, n["dur"] - 0.3))   # through a held note
                 end = max(end, n["t1"])
-                if window is None or window[0] - last < 25.0:
+                if window is None or window[0] - last < CUE_EVERY:
                     continue
                 who = max(others, key=lambda o: (playing(o, window[0] - 1, window[1] + 1), -(heads[o] - heads[k]).length))
                 yaw, pitch = self.aim(k, who)
                 self.events[k].append((window[0], window[1], yaw, pitch, 0))
                 last = window[0]
-        # everyone: in two or three of the longest rests (a minute apart), look at someone playing and nod.
+        # everyone: in up to LOOKS_PER_PIECE of the longest rests (LOOK_SPACING apart), watch someone playing,
+        # nodding every other time.
         # A player who never rests 5 s uses shorter rests (down to 1.5 s, with a quicker look). A struck or
         # plucked note rings on long after the stroke, so for those players a rest is a gap between strokes.
         for k in cp.PLAYERS:
@@ -1113,11 +1117,11 @@ class HeadPlanner:
                 end = max(end, stop(n))
             chosen = []
             for length, start in sorted(rests, reverse=True):
-                if len(chosen) == NODS_PER_PIECE:
+                if len(chosen) == LOOKS_PER_PIECE:
                     break
-                if all(abs(start - c[1]) >= 60.0 for c in chosen):
+                if all(abs(start - c[1]) >= LOOK_SPACING for c in chosen):
                     chosen.append((length, start))
-            for length, start in chosen:
+            for j, (length, start) in enumerate(sorted(chosen, key=lambda c: c[1])):
                 lead_in = 1.0 if length >= 5.0 else 0.2
                 hold = min(3.0, length - lead_in - 0.4)
                 if hold < 0.7:
@@ -1127,7 +1131,7 @@ class HeadPlanner:
                 who = max(others, key=lambda o: (playing(o, t0, t0 + hold), -(heads[o] - heads[k]).length))
                 yaw, pitch = self.aim(k, who)
                 nods = 2 + (rng.random() < 0.4) if hold >= 2.4 else 1 + (hold >= 1.6)
-                self.events[k].append((t0, t0 + hold, yaw, pitch, nods))
+                self.events[k].append((t0, t0 + hold, yaw, pitch, nods if j % 2 == 0 else 0))   # every other: just watch
         for k in self.events:
             self.events[k].sort()
 
