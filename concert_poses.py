@@ -492,8 +492,9 @@ def pose_arm(pup, side, S, spec, pole):
     # fingertip lies ahead of the knuckle, and still well defined when it lies straight toward the palm
     # (fingers reaching over a fingerboard), where bending toward n alone picked a random plane.
     bend = n - pd
+    knuckles = [Vector(k) for k in spec["knuckles"]] if "knuckles" in spec else None
     for i in range(4):
-        k = kc + ac * (-0.027 + 0.018 * i)
+        k = knuckles[i] if knuckles else kc + ac * (-0.027 + 0.018 * i)
         pts = finger_chain(k, tips[i], bend, [_FINGER_L[i] * s for s in PHALANX], pd)
         _ball(g(f"f{i}k"), k)
         for j in range(3):
@@ -851,7 +852,7 @@ def _stopping_hand(G, M, shift, knuckle, thumb, heel_x, wrist=None, top_z=None):
 
 
 def stopping_hand(G, mw, tips, shift, ks, knuckle_out, knuckle_dz, wrist_out, wrist_below, thumb_x, thumb_dz,
-                  high_wrist=None, lifted=None, wrist_x=0.012):
+                  high_wrist=None, lifted=None, wrist_x=0.012, hand_d=None, curl=None):
     """A left hand stopping strings, in the instrument's own frame (x along the neck toward the scroll,
     y across the strings, z out of the top). ks = the side the knuckles are on (+1/-1 in y): the palm
     faces the neck from that side and the fingers arch over the fingerboard onto the strings.
@@ -862,24 +863,56 @@ def stopping_hand(G, mw, tips, shift, ks, knuckle_out, knuckle_dz, wrist_out, wr
     inv = mw.inverted()
     tl = [inv @ Vector(t) for t in tips]
     down = [t for t, up_ in zip(tl, lifted or [False] * 4) if not up_] or tl
-    kx = sum(t.x for t in down) / len(down) + (0.0 if len(down) == 4 else
-         sum(-0.027 + 0.018 * i for i, up_ in enumerate(lifted) if not up_) / len(down))   # hand centred on the stopping fingers
+    if hand_d is not None:                              # anchored to its position: over its four finger spots
+        kx = G["x_n"] - hand_d
+    else:                                               # hand centred on the stopping fingers
+        kx = sum(t.x for t in down) / len(down) + (0.0 if len(down) == 4 else
+             sum(-0.027 + 0.018 * i for i, up_ in enumerate(lifted) if not up_) / len(down))
     kc = Vector((kx, ks * knuckle_out, s_z(kx) + knuckle_dz))
+    knuckles = None
+    if hand_d is not None:
+        # One knuckle level with each finger's spot along the neck (as far as a hand can spread or close),
+        # beside the fingerboard and above the strings: each finger arches over and comes straight down,
+        # crossing the neck at a right angle - the cellist's hand.
+        sc = mw.to_scale().x
+        gmin, gmax = KNUCKLE_GAP[0] / sc, KNUCKLE_GAP[1] / sc
+        xs = [t.x for t in tl]                          # index nearest the nut (largest x) .. little finger
+        span = xs[0] - xs[3]
+        if span > 1e-6:
+            k = max(3 * gmin, min(3 * gmax, span)) / span
+            m = sum(xs) / 4
+            xs = [kx + (x - m) * k for x in xs]
+        else:
+            xs = [kx + (1.5 - i) * gmin for i in range(4)]
+        knuckles = [Vector((x, ks * knuckle_out, s_z(x) + knuckle_dz)) for x in xs]
     W = Vector((kx + wrist_x, ks * wrist_out, s_z(kx) - wrist_below))
     if high_wrist is not None:                          # past the heel: over the body
         u = max(0.0, min(1.0, (0.02 - kx) / 0.06))
         Wh = Vector((kx + 0.004, ks * high_wrist[0], high_wrist[1]))     # beside the bout: fingers come ACROSS the neck
         W = W.lerp(Wh, u); kc.z += 0.024 * u; kc.y += ks * 0.006 * u
+        if knuckles:
+            knuckles = [k + Vector((0, ks * 0.006 * u, 0.024 * u)) for k in knuckles]
     tx = max(kx + thumb_x, min(0.0, kx + 0.045))       # at the heel, or under the fingerboard's edge within reach
     th = Vector((tx, -ks * 0.004, s_z(tx) - thumb_dz))
     R3 = mw.to_3x3()
-    if lifted:                                          # a finger not stopping a note curls above the strings, by its knuckle
+    if lifted and hand_d is None:                       # a finger not stopping a note curls above the strings, by its knuckle
+        # (an anchored hand's spare fingers hover over their own spots instead: tips given 1.2 cm up)
         tips = list(tips)
         for i, up_ in enumerate(lifted):
             if up_:
                 kxi = kc.x - (-0.027 + 0.018 * i)
                 tips[i] = mw @ Vector((kxi, kc.y - ks * 0.030, max(s_z(kxi) + 0.008, kc.z - 0.010)))
-    return dict(kc=mw @ kc, wrist=mw @ W, tips=tips, thumb=mw @ th, palm=(R3 @ Vector((0, -ks, 0.35))).normalized())
+    # the side the fingers curl toward: across the neck and up from knuckles below the strings; for an anchored
+    # hand (knuckles above the strings) `curl` = (across, up) in the instrument's frame: over and down
+    c = Vector((0, -ks, 0.35)) if curl is None or hand_d is None else Vector((0, -ks * curl[0], curl[1]))
+    spec = dict(kc=mw @ kc, wrist=mw @ W, tips=tips, thumb=mw @ th, palm=(R3 @ c).normalized())
+    if knuckles:
+        spec["knuckles"] = [mw @ k for k in knuckles]
+        spec["kc"] = sum(spec["knuckles"], Vector()) / 4
+    return spec
+
+
+KNUCKLE_GAP = (0.016, 0.024)        # a hand's knuckles: as close / as spread as they go along the neck (m)
 
 
 # The violinist's left hand (stopping_hand's arguments, in the instrument's own frame). The viola is the same
@@ -887,17 +920,21 @@ def stopping_hand(G, mw, tips, shift, ks, knuckle_out, knuckle_dz, wrist_out, wr
 # scaled up) the straighter arm left the hand bent back, fingers up, at ~66 deg to the forearm (violin ~47).
 # The viola's hand is the violinist's size again (divided by the scale) with the wrist drawn back toward
 # the player, so it continues the forearm the way the violinist's does.
+# The knuckles sit 4.5 cm out from the strings on the E side, 1 cm above them: far enough for the fingers to
+# arch over the fingerboard and come straight down (~19 deg off perpendicular; at 3.6 cm out and 1.6 cm up
+# the fingers came in at a slant from below, 39 deg; closer and higher, an 8 cm finger hooks back).
 LEFT_HAND = {
-    "Violin": dict(knuckle_out=0.036, knuckle_dz=0.016, wrist_out=0.034, wrist_below=0.072, thumb_x=0.018,
+    "Violin": dict(knuckle_out=0.045, knuckle_dz=0.010, wrist_out=0.034, wrist_below=0.072, thumb_x=0.018,
                    thumb_dz=0.020, high_wrist=(0.082, 0.068), wrist_x=0.012),
 }
-VIOLA_WRIST = (-0.035, 0.050)       # the viola's wrist: toward the player along the neck, below the strings (m)
+VIOLA_WRIST = (0.0, 0.060)          # the viola's wrist: toward the player along the neck, below the strings (m)
 
 
 def _left_hand_args(key, scale):
     if key != "Viola":
         return LEFT_HAND["Violin"]
-    a = {k: (tuple(x / scale for x in v) if isinstance(v, tuple) else v / scale) for k, v in LEFT_HAND["Violin"].items()}
+    a = {k: v if k == "curl" or v is None else (tuple(x / scale for x in v) if isinstance(v, tuple) else v / scale)
+         for k, v in LEFT_HAND["Violin"].items()}             # lengths to the viola's own units; a direction stays
     a["wrist_x"], a["wrist_below"] = VIOLA_WRIST[0] / scale, VIOLA_WRIST[1] / scale
     return a
 
@@ -917,7 +954,7 @@ def hands_violin(state=None, key="Violin"):
     set_live_strings(key, st.get("strings", {}))
     # knuckles on the E-string side (-y), wrist under the neck, thumb under the G side
     lh = stopping_hand(G, mw, tips, shift, ks=-1, **_left_hand_args(key, mw.to_scale().x),
-                       lifted=[lift > 0 for _d, _s, lift in stops] if "stops" in st else None)
+                       lifted=[lift > 0 for _d, _s, lift in stops] if "stops" in st else None, hand_d=st.get("hand_d"))
     xc = G["x_b"] + (G["fb_end"] - G["x_b"]) * 0.4
     bow_string = st.get("bow_string", 1.5)
     contact = mw @ (bowed_string_point(G, xc, bow_string) + Vector((0, 0, 0.0005)))
@@ -954,6 +991,8 @@ def hands_cello(state=None):
     lh = stopping_hand(G, mw, tips, shift, ks=a_side, knuckle_out=0.050, knuckle_dz=0.024, wrist_out=0.070,
                        wrist_below=0.070, thumb_x=0.025, thumb_dz=0.048, high_wrist=(0.19, 0.075),
                        lifted=[lift > 0 for _d, _s, lift in stops] if "stops" in st else None)
+    # (the cellist's hand is the model the violin and viola were brought to: it stays as it was, centred on
+    # its stopping fingers - anchoring it with one knuckle per spot left her widest stretches ~9 mm short)
     xc = G["x_b"] + (G["fb_end"] - G["x_b"]) * 0.35
     bow_string = st.get("bow_string", 1.5)
     contact = mw @ (bowed_string_point(G, xc, bow_string) + Vector((0, 0, 0.0008)))

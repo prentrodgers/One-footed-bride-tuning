@@ -635,12 +635,16 @@ STRING_AMP = {"Violin": 0.0024, "Viola": 0.0024, "Cello": 0.0040, "Baritone Flyi
 # played in first position on the highest string that reaches it.
 FINGER_OF = {"violin": {-1: 0, 0: 0, 1: 1, 2: 1, 3: 2, 4: 2, 5: 3, 6: 3},
              "cello": {-1: 0, 0: 0, 1: 1, 2: 2, 3: 3, 4: 3}}
+# Where each finger sits in a position (semitones above the position's first-finger note). The hand is
+# placed over these four spots and stays there while the notes stay within reach: the fingers do the
+# work, and the hand moves only when the planned position changes - as string players are taught.
+HAND_SPOTS = {"violin": (0, 2, 4, 5), "cello": (0, 1, 2, 3)}
 POS_MAX = {"Violin": 13, "Viola": 13, "Cello": 10}      # highest position (semitones) the hand goes to
 STOP_MAX = 29                                           # highest stop: the end of the fingerboard (semitones)
 # First position puts the first finger 2 semitones up (a whole step); a shift costs more the farther it
 # goes (squared, so a run climbs through 3rd, 5th, 7th position rather than leaping), less after a rest.
 FIRST_POS = 2
-FING_COST = dict(shift=0.6, shift_sq=0.12, cross=0.15, open=0.35, high=0.03, rest_relax=0.35,
+FING_COST = dict(shift=1.2, shift_sq=0.24, cross=0.15, open=0.35, high=0.03, rest_relax=0.35,
                  finger=(0.0, 0.0, 0.05, 0.15),     # the little finger least (and never to land a shift on)
                  shift_onto_4=0.4)
 STRING_HZ = (11.3, 13.1, 14.7, 12.2, 15.9, 10.4)
@@ -748,7 +752,11 @@ class BowedPlayer:
         out, used_f = [], set()
         for n in sorted(notes, key=lambda n: -n["midi"])[:2]:
             a = self.assign.get(id(n))
-            if a is None or any(o[0] == a[0] for o in out):
+            if a is None:                                     # a chord's lower note left without a place in the
+                s = string_for(self.opens, n["midi"])          # position (and outlasting the top note): first
+                k = max(0, n["midi"] - self.opens[s])          # position on the highest string that reaches it
+                a = (s, k, min(3, max(0, (k - 1) // 2)) if k else None, FIRST_POS)
+            if any(o[0] == a[0] for o in out):
                 continue
             s, k, f, _P = a
             if f is not None:
@@ -769,28 +777,28 @@ class BowedPlayer:
             st["frog_dist"] = a + (b - a) * u
             fing = self._fingering([p[0] for p in cur])
             st["bow_string"] = sum(o[0] for o in fing) / len(fing)
-            stopped = [o for o in fing if o[1] > 0]
-            if stopped:
-                L = SCALE_LEN[self.key]
-                s0, d0, f0 = min(stopped, key=lambda o: o[1])
-                # a finger's spacing: it narrows up the neck, but fingers never get closer than their width
-                gap = max(0.017 * L / 0.328, 0.025 * L / 0.328 * math.sqrt(1 - d0 / L))
-                # the hand's position: where its first finger would sit
-                base_first = [0.034, 0.060, 0.084, 0.104][f0] * (L / 0.328)
-                st["shift"] = max(0.0, d0 - base_first)
-                stops = [None] * 4
-                for s, d, fi in stopped:
-                    stops[fi] = (d, s, 0.0)                        # a finger ON the string for each note
-                fb = 0.270 * L / 0.328 if self.key != "Cello" else 0.58
-                for i in range(4):                                 # the others curve just above, off the strings
-                    if stops[i] is None:
-                        stops[i] = (max(0.01, min(fb, d0 + (i - f0) * gap)), s0, 0.012)
-                st["stops"] = stops
         else:
             prev = last_onset([p[0] for p in self.plan], t)
             if prev is not None:
                 pl = [p for p in self.plan if p[0] is prev][0]
                 st["frog_dist"] = pl[2]
+        # The left hand sits over its four spots in the planned position (of the sounding note, or the last
+        # one through a rest) and stays there: a finger presses for each note, the others hover over their
+        # own spots, and the hand moves along the neck only when the position changes.
+        ref = [p[0] for p in cur] if cur else [n for n in [last_onset([p[0] for p in self.plan], t)] if n]
+        a = self.assign.get(id(max(ref, key=lambda n: n["midi"]))) if ref else None
+        if a is not None:
+            L = SCALE_LEN[self.key]
+            fb = 0.270 * L / 0.328 if self.key != "Cello" else 0.58
+            spots = [min(fb, stop_distance(L, a[3] + o)) for o in HAND_SPOTS["cello" if self.key == "Cello" else "violin"]]
+            st["hand_d"] = sum(spots) / 4
+            st["shift"] = max(0.0, spots[0] - stop_distance(L, FIRST_POS))
+            stops = [(spots[i], a[0], 0.012) for i in range(4)]
+            if cur:
+                for s, d, fi in fing:
+                    if d > 0 and fi is not None:
+                        stops[fi] = (d, s, 0.0)                    # a finger ON the string for each note
+            st["stops"] = stops
         # the string that is sounding (or ringing on after its note): stopped where the finger is, vibrating
         notes = [p[0] for p in cur] if cur else [n for n in [last_onset([p[0] for p in self.plan], t)] if n]
         if notes:
