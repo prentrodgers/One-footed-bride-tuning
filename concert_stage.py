@@ -16,6 +16,7 @@ are puppets posed by concert_poses.py from a per-frame musical state. Notes use
 the nearest 12-tone equal-tempered pitch for fingering, frets, bars and tines.
 """
 import argparse
+import bisect
 import math
 import random
 import sys
@@ -1037,6 +1038,9 @@ STRUCK = FINGER_PIANOS + ("Marimba", "Marimba 2", "Vibraphone", "Baritone Flying
 HEAD_LIMIT = {"Violin": (0.45, 0.16), "Viola": (0.45, 0.16)}      # (yaw, pitch) radians
 HEAD_LIMIT_ALL = (0.85, 0.42)
 LOOK_DOWN = 0.40             # radians (23 deg): a finger pianist looking at the tines
+LOOK_DOWN_EVERY = 12.0       # ... at most once in this many seconds while a passage stays busy (twice as many
+                             # looks as one per busy passage, 20 s apart: 45 -> 92 in b425f, at the user's request)
+REST_LOOK_MIN = 1.25         # a finger pianist's pause between strokes this long or longer: they look around
 BUSY = 3.0                   # notes a second for a passage to count as busy
 NOD = 0.17                   # radians: the depth of a nod
 # How often players turn to watch each other (doubled at the user's request, 2026-10-03):
@@ -1063,21 +1067,25 @@ class HeadPlanner:
         self.heads = heads
         self.aim = lambda a, b: self._aim(a, heads[a], heads[b])
         playing = lambda k, t0, t1: sum(1 for n in per.get(k, []) if n["t0"] < t1 and n["t1"] > t0)
-        # finger pianists: now and then look down in a busy passage (one look in 20 s at most, up to 4 s)
+        # finger pianists: now and then look down in a busy passage (one look in LOOK_DOWN_EVERY s at most, up
+        # to 4 s); and in each pause between strokes, look up and around the stage (self.rest_looks)
+        self.rest_looks = {}
         for k in FINGER_PIANOS:
-            ns = per.get(k, [])
-            last_end, t = -99.0, 0.0
-            onsets = [n["t0"] for n in ns]
-            busy_from = None
-            while t < duration:
-                dens = sum(1 for o in onsets if t - 1.0 <= o < t + 1.0) / 2.0
-                if dens >= BUSY and busy_from is None:
-                    busy_from = t
-                if (dens < BUSY or t + 0.5 >= duration) and busy_from is not None:
-                    if t - busy_from >= 1.5 and busy_from - last_end >= 20.0:
-                        end = min(t, busy_from + 4.0)
-                        self.events[k].append((busy_from, end, 0.0, LOOK_DOWN, 0))
-                        last_end = end
+            ons = sorted(n["t0"] for n in per.get(k, []))
+            self.rest_looks[k] = [(a + 0.15, b, rng.choice((-1, 1)) * rng.uniform(0.18, 0.55), rng.uniform(-0.14, 0.0))
+                                  for a, b in zip(ons, ons[1:]) if b - a >= REST_LOOK_MIN]
+        for k in FINGER_PIANOS:
+            onsets = sorted(n["t0"] for n in per.get(k, []))
+            last_start, busy_from, t = -99.0, None, 0.0
+            while t < duration:                                # (a long busy stretch gets a look every so often)
+                dens = (bisect.bisect_left(onsets, t + 1.0) - bisect.bisect_left(onsets, t - 1.0)) / 2.0
+                if dens >= BUSY:
+                    if busy_from is None:
+                        busy_from = t
+                    if t - busy_from >= 1.5 and t - 1.0 - last_start >= LOOK_DOWN_EVERY:
+                        self.events[k].append((t - 1.0, t + 2.0, 0.0, LOOK_DOWN, 0))
+                        last_start = t - 1.0
+                else:
                     busy_from = None
                 t += 0.5
         # strings: a glance at another string player, as if for a cue - just before a phrase starts (after a
@@ -1150,6 +1158,16 @@ class HeadPlanner:
         a, b = self.phase[key]
         yaw = 0.035 * math.sin(2 * math.pi * t / 7.3 + a)                  # idle drift
         pitch = 0.025 * math.sin(2 * math.pi * t / 5.1 + b)
+        looks = self.rest_looks.get(key)
+        if looks:                                                          # a pause between strokes: look around
+            i = bisect.bisect_right(looks, (t, 9e9)) - 1
+            if i >= 0 and looks[i][0] <= t < looks[i][1]:
+                s, e, ty, tp = looks[i]
+                w = min(_smooth((t - s) / 0.35), _smooth((e - 0.3 - t) / 0.35))
+                ty += 0.10 * math.sin(2 * math.pi * t / 2.3 + a)          # and wander a little while there
+                tp += 0.04 * math.sin(2 * math.pi * t / 1.7 + b)
+                yaw += (ty - yaw) * w
+                pitch += (tp - pitch) * w
         for t0, t1, ey, ep, nods in self.events[key]:
             if t < t0 - 0.01:
                 break
