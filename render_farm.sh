@@ -41,6 +41,8 @@
 #     SCRIPT=concert_stage.py BLEND=Concert_Stage.blend ./render_farm.sh --npy ... --tempo ... --duration ... --out ...
 #                   Mux it with ./concert_mux.sh, which delays the audio when the piece
 #                   has a title card (8 s of title before the music and 8 s after).
+#                   A missing title card is made on one-footed-bride-pod first
+#                   (concert_title.py); --title none renders without one.
 #
 # The rate table below was measured on blender_stage.py; the Concert Stage
 # paces differently (26 shadowed spot lights, 1200 puppet pieces posed per
@@ -249,6 +251,27 @@ RATE_COL=5; case " ${EXTRA[*]:-} " in *" cycles "*) RATE_COL=6;; esac
 # when the piece has one (Uploads/<piece>.title.txt, from concert_title.py;
 # concert_cameras.TITLE_SECONDS), so the video is that much longer than --duration, which stays the
 # music's length. concert_mux.sh delays the audio by LEAD.
+#
+# A missing title is made here, on one-footed-bride-pod (the only host with numpy, music21 and Pillow,
+# and its repo is the one the farm pods and concert_mux.sh read), then copied beside the .npy here.
+# Rendering without one is a 4-hour mistake to find out about afterwards (b411h, 4 Oct 2026), so if it
+# cannot be made the launch stops; --title none renders without one on purpose. Not on --only: a
+# re-launched slice must keep the frame ranges of the launch it belongs to.
+TITLE_HOST=${TITLE_HOST:-one-footed-bride-pod}
+TITLE_FILE="${NPY%.npy}.title.txt"
+if [ "$(basename "$SCRIPT")" = concert_stage.py ] && [ ! -f "$TITLE_FILE" ] && [ -z "$ONLY" ] \
+   && [[ " ${EXTRA[*]:-} " != *" --title none "* ]]; then
+  echo "== no $TITLE_FILE: making it on $TITLE_HOST"
+  if ssh -o BatchMode=yes -o LogLevel=ERROR "$TITLE_HOST" \
+         "cd Repos/One-footed-bride-tuning && python concert_title.py '${NPY%.npy}'" \
+     && scp -q "$TITLE_HOST:Repos/One-footed-bride-tuning/$TITLE_FILE" "$TITLE_FILE"; then
+    echo "   copied to $TITLE_FILE here (fs1 needs a copy too only for the Blender preview)"
+  else
+    echo "could not make the title on $TITLE_HOST (is ${NPY} there too?). Nothing launched." >&2
+    echo "Pass --title none to render without a title card." >&2
+    exit 2
+  fi
+fi
 LEAD=0; TAIL=0
 if [ "$(basename "$SCRIPT")" = concert_stage.py ] && [ -f "${NPY%.npy}.title.txt" ] \
    && [[ " ${EXTRA[*]:-} " != *" --title none "* ]]; then
