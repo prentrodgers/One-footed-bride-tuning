@@ -267,7 +267,7 @@ if [ "$(basename "$SCRIPT")" = concert_stage.py ] && [ ! -f "$TITLE_FILE" ] && [
      && scp -q "$TITLE_HOST:Repos/One-footed-bride-tuning/$TITLE_FILE" "$TITLE_FILE"; then
     echo "   copied to $TITLE_FILE here (fs1 needs a copy too only for the Blender preview)"
   else
-    echo "could not make the title on $TITLE_HOST (is ${NPY} there too?). Nothing launched." >&2
+    echo "could not make the title on $TITLE_HOST (see above). Nothing launched." >&2
     echo "Pass --title none to render without a title card." >&2
     exit 2
   fi
