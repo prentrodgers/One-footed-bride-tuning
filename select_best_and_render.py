@@ -23,7 +23,12 @@ count, sum, mean, median, p90 and max, plus how many gaps exceed 10/20/30¢, and
 then lists the largest individual gaps with their chord index, voice and note
 name so they can be found by ear in the rendered audio.
 
---sort_by only orders the rows; it does not declare anything best.
+--sort_by only orders the rows.  The default, best, puts first what the user listens for: tunings
+with GapSum under --good_gapsum (10 by default: by ear, gaps that small are not heard), and among
+them the fewest intervals built on a high prime (11, 13, 17, 19 - the High% column, chord_report's
+SUMMARY figure) and then the lowest chord average (which tracks High% closely, r = 0.93 over 288
+cells).  A chorale with no tuning under --good_gapsum leads with its lowest GapSum instead.  The
+leading row per chorale is what --copy_npy_to and --render act on.
 
 Usage:
     python select_best_and_render.py \
@@ -160,7 +165,22 @@ def score_array(cent_4n, tonal_diamond, tolerance):
     return float(np.mean(scores)), float(np.max(scores)), int(np.argmax(scores))
 
 
+GOOD_GAPSUM = 10.0          # --good_gapsum: under this, the gaps are not heard
+
+
+def high_share(arr, limit_max, tolerance):
+    """Percent of the tuning's intervals built on a high prime (chord_report's SUMMARY figure).
+    Imported here, not at the top: chord_report imports this module."""
+    import chord_report
+    return chord_report.high_prime_share(arr, limit_max, tolerance)[0]
+
+
 SORT_KEYS = {
+    # GapSum under GOOD_GAPSUM first, then the fewest high primes, then the lowest chord average;
+    # a chorale with no such tuning leads with its lowest GapSum, the most listenable of the rest
+    'best':   lambda r: ((False, r['high'], r['mean_score']) if r['g']['total'] < GOOD_GAPSUM
+                         else (True, r['g']['total'], r['mean_score'])),
+    'high':   lambda r: (r['high'], r['mean_score']),
     'score':  lambda r: r['mean_score'],
     'gapsum': lambda r: r['g']['total'],
     # Worst single jump first, total gap as the tie-break.  The worst jump is what
@@ -194,10 +214,13 @@ def main():
                         help='Glissando reference: WreckingCrew slides a gap only below this '
                              'value. Shown as the final bucket column; it no longer discards '
                              'anything (default: 33)')
-    parser.add_argument('--sort_by', type=str, default='score', choices=sorted(SORT_KEYS),
-                        help='Row ordering only — implies no judgement of quality. '
+    parser.add_argument('--sort_by', type=str, default='best', choices=sorted(SORT_KEYS),
+                        help='Row ordering. best = GapSum under --good_gapsum first, then fewest '
+                             'high primes, then lowest chord average; high = fewest high primes; '
                              'score=mean chord score, gapsum=total gap cents, maxgap, p90, '
-                             'over20=count of gaps above 20¢, name (default: score)')
+                             'over20=count of gaps above 20¢, name (default: best)')
+    parser.add_argument('--good_gapsum', type=float, default=10.0,
+                        help='GapSum below which gaps are not heard; best ranks these first (default: 10)')
     parser.add_argument('--top_gaps', type=int, default=10,
                         help='List this many largest individual gaps per detailed directory; '
                              '0 disables the detail section (default: 10)')
@@ -228,6 +251,8 @@ def main():
     parser.add_argument('--short_repeats', action='store_true',
                         help='Pass --short_repeats to WreckingCrew.py')
     args = parser.parse_args()
+    global GOOD_GAPSUM
+    GOOD_GAPSUM = args.good_gapsum
 
     root = (args.numpy_dir_root if os.path.isabs(args.numpy_dir_root)
             else os.path.join(base_dir, args.numpy_dir_root))
@@ -258,7 +283,9 @@ def main():
 
     for version in args.chorale_list:
         print(f'\n{"=" * 108}')
-        print(f'Chorale: {version}   sorted by {args.sort_by} (ordering only, not a ranking)')
+        order = (f'best: GapSum < {args.good_gapsum:g} first, then fewest high primes, then lowest ChordAvg'
+                 if args.sort_by == 'best' else f'{args.sort_by} (ordering only, not a ranking)')
+        print(f'Chorale: {version}   sorted by {order}')
         print(f'{"=" * 108}')
 
         rows = []
@@ -285,6 +312,7 @@ def main():
                     rows.append({
                         'dir': d, 'suffix': sfx, 'path': path, 'params': fparams,
                         'mean_score': mean_sc, 'max_score': max_sc, 'max_chord': max_ch,
+                        'high': high_share(arr, lm, tol),
                         'gaps': gaps, 'g': summarize_gaps(gaps, args.max_cents_slide),
                     })
 
@@ -296,10 +324,10 @@ def main():
 
         ms = int(args.max_cents_slide)
         print(f'  {"Directory":<30} {"sfx":<6} {"t":>2} {"ratio":>6} {"lm":>3} '
-              f'{"ChordAvg":>8} {"ChordMax":>8} |'
+              f'{"ChordAvg":>8} {"ChordMax":>8} {"High%":>6} |'
               f' {"N":>4} {"GapSum":>7} {"Avg":>6} {"Med":>6} {"p90":>6} {"Max":>6} |'
               f' {">10":>4} {">20":>4} {">30":>4} {">=" + str(ms):>5}')
-        print(f'  {"-" * 30} {"-" * 6} {"-" * 2} {"-" * 6} {"-" * 3} {"-" * 8} {"-" * 8} |'
+        print(f'  {"-" * 30} {"-" * 6} {"-" * 2} {"-" * 6} {"-" * 3} {"-" * 8} {"-" * 8} {"-" * 6} |'
               f' {"-" * 4} {"-" * 7} {"-" * 6} {"-" * 6} {"-" * 6} {"-" * 6} |'
               f' {"-" * 4} {"-" * 4} {"-" * 4} {"-" * 5}')
         for r in rows:
@@ -307,7 +335,7 @@ def main():
             sfx_label = 'trans' if 'trans' in r['suffix'] else 'opt'
             print(f'  {os.path.basename(r["dir"])[:30]:<30} {sfx_label:<6} '
                   f'{p["tolerance"]:>2} {p["ratio_factor"]:>6.3f} {p["limit_max"]:>3} '
-                  f'{r["mean_score"]:>8.1f} {r["max_score"]:>8.0f} |'
+                  f'{r["mean_score"]:>8.1f} {r["max_score"]:>8.0f} {r["high"]:>6.1f} |'
                   f' {g["n"]:>4} {g["total"]:>7.0f} {g["mean"]:>6.1f} {g["median"]:>6.1f} '
                   f'{g["p90"]:>6.1f} {g["mx"]:>6.1f} |'
                   f' {g["over10"]:>4} {g["over20"]:>4} {g["over30"]:>4} {g["at_slide"]:>5}')
@@ -328,7 +356,11 @@ def main():
                         rows[0]['path']))
 
     print(f'\n{"=" * 108}')
-    print('Report only — no winner was chosen. Row order reflects --sort_by.')
+    if args.sort_by == 'best':
+        print(f'Leading row per chorale: GapSum < {args.good_gapsum:g} with the fewest high primes, '
+              f'or, where none is, the lowest GapSum.')
+    else:
+        print('Report only — no winner was chosen. Row order reflects --sort_by.')
 
     render_start_time = None
     if args.render:

@@ -218,6 +218,34 @@ def print_prime_histogram(intervals, n_chords, chorale=''):
           f'{counts}  chords {len(high_chords)}/{n_chords}  intervals {total}')
 
 
+def high_prime_share(cents, limit_max, tolerance):
+    """The SUMMARY line's numbers for a tuned (4, N) cent array, without the listing or the score:
+    (percent of intervals whose ratio uses a high prime, high intervals, intervals, chords using one,
+    chords). Counted exactly as print_chords counts them: six intervals per chord, each matched to its
+    tonal-diamond ratio, a repeated chord counted once. For select_best_and_render.py and
+    ray_ratchet.py, which rank tunings by it."""
+    tonal_diamond = atu.build_tonal_diamond(limit_max)
+    scorer = atu.ChordScorer(tonal_diamond)
+    scorer.reset_cache()
+    cents = np.rint(cents).astype(int)
+    total = high = high_chords = n_chords = 0
+    prev = np.zeros(4, dtype=int)
+    for chord in cents.T:
+        if not np.array_equal(prev, chord):
+            n_chords += 1
+            any_high = False
+            for i1, i2 in combinations(range(4), 2):
+                delta, _moves, _target = atu.cent_value_interval(np.array([chord[i1], chord[i2]]))
+                idx = scorer.find_best_interval(delta, tolerance)[0]
+                total += 1
+                if is_high(str(atu.limit_format(tonal_diamond[idx])[0]).strip()):
+                    high += 1
+                    any_high = True
+            high_chords += any_high
+        prev = chord.copy()
+    return (100.0 * high / total if total else 0.0), high, total, high_chords, n_chords
+
+
 def print_chords(version, input_file, numpy_dir, measure, tolerance,
                  chord_scorer, tonal_diamond, keys, root, mode,
                  cents, listing=True, color=False):

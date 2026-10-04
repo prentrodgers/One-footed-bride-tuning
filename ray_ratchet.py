@@ -7,7 +7,21 @@ same `grid_search.sh` single-cell command a Kubernetes Job did.  The driver
 submits every cell once, and then keeps re-running each one — FRESH=0, so the
 tuner's keep-previous ratchet holds whichever result is better and seeds the
 next pass from it — until that cell has gone PATIENCE passes in a row without
-the ratchet accepting a new tuning, or has hit MAX_PASSES, or its GapSum is 0.
+the ratchet accepting a new tuning, or has hit MAX_PASSES, or is pruned.
+
+What is wanted per chorale is one GOOD tuning (GapSum under --good_gapsum, 10:
+gaps that small are not heard) with as few high primes as possible, which the
+chord average tracks (r = 0.93).  GapSum 0 is not the finish line: a good cell
+keeps ratcheting its average down while the tuner accepts.  Cells that cannot
+win stop early (the 20261003 run, replayed, said ~35% of its passes bought
+nothing):
+
+  * dominated — after --prune_after passes, a cell stops once another cell of
+    its chorale holds a good tuning with an average no higher than its own, or,
+    if it is good itself, once a good cell is more than --avg_slack lower;
+  * hard chorale — while no cell of a chorale is good, its cells stop at
+    --hard_max_passes (4).  bwv403/404/407/413 plateaued by pass 4; passes 5-12
+    cost ~300 passes and moved GapSum by a few cents.
 
 This is the thoroughness the hand ratchet lacked.  ratchet-until-still.sh
 re-ran only the TOP=3 cells per chorale by GapSum, so 21 of 24 cells never got
@@ -24,10 +38,11 @@ Usage (normally via ray-ratchet.sh, which brings the cluster up and down):
 
 The tuner's own accept decision is what counts as progress: a pass is
 "accepted" when the ratchet wrote a new tuning, read off the sidecar's
-last_improved timestamp before and after.  GapSum, gap count, p90, max and
-chord average are computed for every pass as well (with the same functions
-select_best_and_render.py uses) and logged to
-Archive/straw-man/ray-ratchet-<start>.tsv, one line per pass.
+last_improved timestamp before and after.  GapSum, gap count, p90, max, chord
+average and high-prime share are computed for every pass as well (with the same
+functions select_best_and_render.py and chord_report.py use) and logged to
+Archive/straw-man/ray-ratchet-<start>.tsv, one line per pass.  At the end
+select_best_and_render.py --sort_by best reports each chorale's leader.
 
 Ratios are strings, spelled as the cell directory is named: 1.50, not 1.5.
 """
@@ -72,6 +87,7 @@ def run_cell(k, fresh, task_id):
     sys.path.insert(0, REPO)
     import select_best_and_render as sbr
     import adaptive_tuning_util as atu
+    import chord_report
 
     d = os.path.join(RESULTS, cell_dir(k))
     sidecar = os.path.join(d, f'{k.chorale}-opt.txt')
@@ -98,6 +114,7 @@ def run_cell(k, fresh, task_id):
     g = sbr.summarize_gaps(sbr.collect_gaps(arr), 33.0)
     return dict(accepted=after.get('last_improved') != before, seconds=seconds,
                 chordavg=mean_sc, chordmax=max_sc,
+                high=chord_report.high_prime_share(arr, k.lm, k.t)[0],
                 n=g['n'], gapsum=g['total'], p90=g['p90'], mx=g['mx'])
 
 
@@ -133,6 +150,15 @@ def parse_args():
     p.add_argument('--patience', type=int, default=2,
                    help='retire a cell after this many consecutive passes the ratchet rejected (default 2)')
     p.add_argument('--max_passes', type=int, default=8, help='hard cap per cell (default 8)')
+    p.add_argument('--good_gapsum', type=float, default=10.0,
+                   help='a tuning with GapSum under this is good: its gaps are not heard (default 10)')
+    p.add_argument('--hard_max_passes', type=int, default=4,
+                   help='cap per cell while no cell of its chorale is good (default 4)')
+    p.add_argument('--prune_after', type=int, default=2,
+                   help='passes a cell gets before it can be pruned as dominated (default 2)')
+    p.add_argument('--avg_slack', type=float, default=1.0,
+                   help='a good cell stops once another good cell\'s chord average is more than '
+                        'this much lower (default 1.0)')
     p.add_argument('--fresh_first', action='store_true',
                    help='FRESH=1 on each cell\'s FIRST pass: wipe its saved tuning and start over. '
                         'Later passes ratchet as usual.  Default keeps what is on disk.')
@@ -158,7 +184,8 @@ def main():
     print(f'{len(keys)} (cell, chorale) tasks: {len(cells)} cells x {len(chorales)} chorales')
     print(f'  chorales: {" ".join(chorales)}')
     print(f'  cells:    {" ".join(cells)}')
-    print(f'  patience {a.patience}, max_passes {a.max_passes}, '
+    print(f'  patience {a.patience}, max_passes {a.max_passes} ({a.hard_max_passes} while a chorale '
+          f'has no GapSum < {a.good_gapsum:g}), prune after {a.prune_after} at avg slack {a.avg_slack:g}, '
           f'{a.task_cpus} CPU + {a.task_memory_gb}GiB per task'
           + (', FRESH=1 on first pass' if a.fresh_first else ''))
     if a.dry_run:
@@ -179,7 +206,8 @@ def main():
     start = datetime.datetime.now()
     tsv_path = os.path.join(RESULTS, f'ray-ratchet-{start:%Y%m%d-%H%M}.tsv')
     tsv = open(tsv_path, 'w', buffering=1)
-    tsv.write('time\tchorale\tcell\tpass\taccepted\tseconds\tchordavg\tn\tgapsum\tp90\tmax\tstatus\n')
+    # high is last so the earlier columns keep their places for older readers of these logs
+    tsv.write('time\tchorale\tcell\tpass\taccepted\tseconds\tchordavg\tn\tgapsum\tp90\tmax\tstatus\thigh\n')
 
     # Per-key state.  A key sits in exactly one of: ready (deque), inflight
     # (dict ref->key), or retired (reason set).
@@ -204,27 +232,61 @@ def main():
     def retire(k, reason):
         st[k]['retired'] = reason
 
+    def good(m):
+        return m is not None and m['gapsum'] < a.good_gapsum
+
+    def rank(m):
+        """select_best_and_render's 'best' order: good first, by high primes then average;
+        the rest by GapSum."""
+        return (False, m['high'], m['chordavg']) if good(m) else (True, m['gapsum'], m['chordavg'])
+
+    def pruned(k):
+        """Why k should stop now although it is neither stalled nor capped, or None.  s['last'] is
+        the tuning the cell holds (the metrics come from the npy on disk, which the ratchet only
+        replaces with a better one)."""
+        s = st[k]
+        mates = [st[kk]['last'] for kk in keys if kk.chorale == k.chorale and kk != k]
+        good_avgs = [m['chordavg'] for m in mates if good(m)]
+        if not good_avgs and not good(s['last']) and s['passes'] >= a.hard_max_passes:
+            return f'hard chorale, {a.hard_max_passes} passes'
+        if good_avgs and s['passes'] >= a.prune_after:
+            best_avg = min(good_avgs)
+            if not good(s['last']) and best_avg <= s['last']['chordavg']:
+                return f'dominated (good cell avg {best_avg:.1f})'
+            if good(s['last']) and best_avg < s['last']['chordavg'] - a.avg_slack:
+                return f'outclassed (good cell avg {best_avg:.1f})'
+        return None
+
     def status():
         active = sum(1 for s in st.values() if s['retired'] is None)
         print(f'\n-- {datetime.datetime.now():%H:%M:%S}  passes done {done_passes}, '
               f'inflight {len(inflight)}, ready {len(ready)}, cells active {active}/{len(keys)}')
-        print(f'   {"chorale":<8} {"best cell":<18} {"GapSum":>6} {"n":>3} {"p90":>5} {"max":>5} {"avg":>5}  active  retired')
+        print(f'   {"chorale":<8} {"best cell":<18} {"GapSum":>6} {"n":>3} {"p90":>5} {"max":>5} {"avg":>5} '
+              f'{"high%":>5}  good  active  retired')
         for c in chorales:
             rows = [(k, s) for k, s in st.items() if k.chorale == c and s['last']]
             act = sum(1 for k, s in st.items() if k.chorale == c and s['retired'] is None)
             ret = sum(1 for k, s in st.items() if k.chorale == c and s['retired'])
+            n_good = sum(1 for k, s in rows if good(s['last']))
             if not rows:
-                print(f'   {c:<8} {"(no pass finished yet)":<18}{"":>34}  {act:>6}  {ret:>7}')
+                print(f'   {c:<8} {"(no pass finished yet)":<18}{"":>40}  {"":>4}  {act:>6}  {ret:>7}')
                 continue
-            k, s = min(rows, key=lambda ks: (ks[1]['last']['gapsum'], ks[1]['last']['mx']))
+            k, s = min(rows, key=lambda ks: rank(ks[1]['last']))
             m = s['last']
             print(f'   {c:<8} {cell_dir(k):<18} {m["gapsum"]:>6.0f} {m["n"]:>3} {m["p90"]:>5.1f} '
-                  f'{m["mx"]:>5.1f} {m["chordavg"]:>5.1f}  {act:>6}  {ret:>7}')
+                  f'{m["mx"]:>5.1f} {m["chordavg"]:>5.1f} {m["high"]:>5.1f}  {n_good:>4}  {act:>6}  {ret:>7}')
         print(flush=True)
 
     while ready or inflight:
         while ready and len(inflight) < max_inflight:
-            submit(ready.popleft())
+            k = ready.popleft()
+            # the chorale may have moved on since k was queued
+            why = pruned(k) if st[k]['last'] else None
+            if why:
+                retire(k, why)
+                print(f'{k.chorale} {cell_dir(k):<18} after pass {st[k]["passes"]}: RETIRED: {why}', flush=True)
+                continue
+            submit(k)
 
         done, _ = ray.wait(list(inflight), num_returns=1, timeout=30)
         if time.time() - last_status >= a.status_every:
@@ -261,12 +323,13 @@ def main():
             else:
                 s['stall'] += 1
 
-            if m['gapsum'] == 0:
-                retire(k, 'GapSum 0')
-            elif s['stall'] >= a.patience:
+            why = pruned(k)
+            if s['stall'] >= a.patience:
                 retire(k, f'stalled {s["stall"]}')
             elif s['passes'] >= a.max_passes:
                 retire(k, f'max passes {a.max_passes}')
+            elif why:
+                retire(k, why)
             else:
                 ready.append(k)
 
@@ -274,26 +337,30 @@ def main():
             verdict = 'accepted' if m['accepted'] else f'rejected ({s["stall"]}/{a.patience})'
             tail = f'  RETIRED: {s["retired"]}' if s['retired'] else ''
             print(f'{label}: {verdict:<15} GapSum {delta}{m["gapsum"]:.0f} n {m["n"]} '
-                  f'p90 {m["p90"]:.1f} max {m["mx"]:.1f} avg {m["chordavg"]:.1f}  ({m["seconds"]:.0f}s){tail}',
-                  flush=True)
+                  f'p90 {m["p90"]:.1f} max {m["mx"]:.1f} avg {m["chordavg"]:.1f} high {m["high"]:.1f}%'
+                  f'  ({m["seconds"]:.0f}s){tail}', flush=True)
             tsv.write(f'{datetime.datetime.now():%F %T}\t{k.chorale}\t{cell_dir(k)}\t{s["passes"]}'
                       f'\t{int(m["accepted"])}\t{m["seconds"]:.0f}\t{m["chordavg"]:.1f}\t{m["n"]}'
-                      f'\t{m["gapsum"]:.0f}\t{m["p90"]:.1f}\t{m["mx"]:.1f}\t{s["retired"] or "active"}\n')
+                      f'\t{m["gapsum"]:.0f}\t{m["p90"]:.1f}\t{m["mx"]:.1f}\t{s["retired"] or "active"}'
+                      f'\t{m["high"]:.1f}\n')
 
     tsv.close()
     status()
     elapsed = datetime.datetime.now() - start
-    reasons = collections.Counter(s['retired'] for s in st.values())
+    # the good-cell average in a pruning reason varies; count by kind
+    reasons = collections.Counter((s['retired'] or 'active').split(' (')[0] for s in st.values())
     print(f'done in {elapsed}: {done_passes} passes over {len(keys)} cells; '
           f'retired: ' + ', '.join(f'{n} {r}' for r, n in reasons.most_common()))
     print(f'per-pass log: {os.path.relpath(tsv_path, REPO)}')
 
     if not a.no_report:
-        print('\nselect_best_and_render.py, sorted by gapsum (a report, not a verdict):\n', flush=True)
+        print(f'\nselect_best_and_render.py --sort_by best: GapSum < {a.good_gapsum:g} first, '
+              f'then fewest high primes, then lowest average:\n', flush=True)
         subprocess.run([sys.executable, 'select_best_and_render.py',
                         '--numpy_dir_root', 'Archive/straw-man',
                         '--chorale_list', *chorales,
-                        '--suffix=-opt.npy', '--sort_by', 'gapsum', '--top_gaps', '0'],
+                        '--suffix=-opt.npy', '--sort_by', 'best', '--good_gapsum', str(a.good_gapsum),
+                        '--top_gaps', '0'],
                        cwd=REPO)
 
 
