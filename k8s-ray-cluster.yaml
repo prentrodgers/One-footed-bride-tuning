@@ -21,25 +21,32 @@
 # emptyDir home around it (the image's /home/prent is root's), seLinux level
 # s0, uid 1000, node affinity to the nodes that can mount dropbox-pvc.
 #
-# ── Sizing (19 Sep 2026) ──────────────────────────────────────────────────
+# ── Sizing (6 Oct 2026) ───────────────────────────────────────────────────
 # One worker pod per node, sized to what the node has FREE after its resident
-# pods (blender-farm, monitoring, the jupyter deployment), not to its
-# allocatable total.  A task takes 4 CPU (matching VITERBI_WORKERS=4; more
-# workers than that only contend, see the Job template) so each pod's CPU is
-# a multiple of 4:
+# pods (Ceph, monitoring, the jupyter deployment), not to its allocatable
+# total.  A task takes 4 CPU (matching VITERBI_WORKERS=4; more workers than
+# that only contend, see the Job template) so each pod's CPU is a multiple
+# of 4:
 #
-#            allocatable   committed    pod        tasks
-#   fs2       18 / 15Gi    0.5 / 1.7Gi  16 / 12Gi    4     (15Gi node: memory bound)
-#   fs3       18 / 31Gi    1.7 / 5.5Gi  16 / 12Gi    4
-#   fs5       24 / 46Gi    5.9 / 34Gi   16 / 12Gi    4     (blender b70a/b70b hold 34Gi)
-#   fs7       24 / 30Gi    6.0 / 16Gi   16 / 12Gi    4
-#   fs9       24 / 30Gi    5.9 / 16Gi   16 / 12Gi    4
-#   fs4       20 / 62Gi    7.1 / 22Gi   12 / 12Gi    3
-#   fs8       18 / 31Gi    5.4 / 16Gi   12 / 12Gi    3
-#   fs6       16 / 30Gi    6.9 / 20Gi    8 /  8Gi    2
-#                                                   28 concurrent tasks
-#   plus the head (0.5 CPU / 1.5Gi requested) on fs6, fs7 or fs9 — see the
-#   headGroupSpec comment.
+#            allocatable   committed     pod        tasks   left
+#   fs5       24 / 46Gi    5.9 / 34Gi    16 / 12Gi    4     2.1 / 0.7Gi  (jupyter + 4 OSDs)
+#   fs7       24 / 30Gi    6.4 / 17Gi    16 / 12Gi    4     1.6 / 1.8Gi
+#   fs9       24 / 30Gi    5.9 / 16Gi    16 / 12Gi    4     2.1 / 2.5Gi
+#   fs2       18 / 31Gi    2.7 / 6.0Gi   12 / 12Gi    3     3.3 / 13Gi   (rook-ceph-tools: 2 CPU)
+#   fs3       18 / 31Gi    5.8 / 16Gi    12 / 12Gi    3     0.2 / 3.2Gi  (Ceph mds a+b, mgr-b, rgw, operator)
+#   fs4       20 / 62Gi    5.1 / 18Gi    12 / 12Gi    3     2.9 / 32Gi
+#   fs6       16 / 30Gi    2.7 / 9.5Gi   12 / 12Gi    3     1.3 / 8.6Gi
+#   fs8       18 / 31Gi    5.4 / 16Gi    12 / 12Gi    3     0.6 / 3.0Gi
+#                                                    27 concurrent tasks
+#   plus the head (0.5 CPU / 1.5Gi requested) on fs2, fs4, fs6 or fs9 — see
+#   the headGroupSpec comment.
+#
+# The Ceph daemons that are Deployments (mds, mgr, rgw, operator, toolbox)
+# move when a node reboots: fs2's memory upgrade (16 -> 32GB, 5 Oct) put
+# ~6 CPU of them on fs3 and the 2-CPU toolbox on fs2, and fs2 and fs3 went
+# from 16-CPU workers to Pending.  After any reboot, recheck "committed"
+# (`kubectl describe node fsN | grep -A12 Allocated`) before a run.  fs3 has
+# 0.2 CPU to spare: anything new there and its worker is Pending.
 #
 # Requests equal limits (Guaranteed QoS) so Ray's idea of the node matches
 # what the kubelet enforces.  A task declares memory=2.5GiB to Ray so four fit
@@ -77,7 +84,8 @@ spec:
             level: s0
         # The head shares a node with one of the workers, so it can only go
         # where the table's arithmetic leaves room for it after that worker:
-        # fs6 (1.1 CPU, 2.5Gi left), fs7 (2.0, 2.4Gi) and fs9 (2.1, 2.4Gi).
+        # fs2 (3.3 CPU, 13Gi left), fs4 (2.9, 32Gi), fs6 (1.3, 8.6Gi) and
+        # fs9 (2.1, 2.5Gi).  Not fs7 (1.8Gi) or fs5/fs3/fs8 (too little).
         # Anywhere else it takes the CPU the node's worker needed and that
         # worker sits Pending — which is what happened on fs3 the first time.
         affinity:
@@ -87,7 +95,7 @@ spec:
               - matchExpressions:
                 - key: kubernetes.io/hostname
                   operator: In
-                  values: [fs6, fs7, fs9]
+                  values: [fs2, fs4, fs6, fs9]
         containers:
         - name: ray-head
           image: quay.io/prentrodgers/python-music:0.11
@@ -179,12 +187,12 @@ spec:
         - name: regcred
 
   workerGroupSpecs:
-  # Three groups differing only in size and node list — see the table above.
+  # Two groups differing only in size and node list — see the table above.
   # The group name is in the pod name (tuning-w16-worker-xxxxx).
   - groupName: w16
-    replicas: 5
-    minReplicas: 5
-    maxReplicas: 5
+    replicas: 3
+    minReplicas: 3
+    maxReplicas: 3
     rayStartParams:
       num-cpus: "16"
       object-store-memory: "500000000"
@@ -203,7 +211,7 @@ spec:
               - matchExpressions:
                 - key: kubernetes.io/hostname
                   operator: In
-                  values: [fs2, fs3, fs5, fs7, fs9]
+                  values: [fs5, fs7, fs9]
           # One pod per node: a second on the same node would not fit anyway,
           # and this makes the failure a clear Pending instead of a surprise.
           podAntiAffinity: &one-per-node
@@ -254,9 +262,9 @@ spec:
         - name: regcred
 
   - groupName: w12
-    replicas: 2
-    minReplicas: 2
-    maxReplicas: 2
+    replicas: 5
+    minReplicas: 5
+    maxReplicas: 5
     rayStartParams:
       num-cpus: "12"
       object-store-memory: "500000000"
@@ -275,7 +283,7 @@ spec:
               - matchExpressions:
                 - key: kubernetes.io/hostname
                   operator: In
-                  values: [fs4, fs8]
+                  values: [fs2, fs3, fs4, fs6, fs8]
           podAntiAffinity: *one-per-node
         containers:
         - name: ray-worker
@@ -289,48 +297,6 @@ spec:
           resources:
             requests: {cpu: "12", memory: "12Gi"}
             limits:   {cpu: "12", memory: "12Gi"}
-          volumeMounts: *mounts
-          env: *env
-        volumes: *volumes
-        imagePullSecrets:
-        - name: regcred
-
-  - groupName: w8
-    replicas: 1
-    minReplicas: 1
-    maxReplicas: 1
-    rayStartParams:
-      num-cpus: "8"
-      object-store-memory: "500000000"
-    template:
-      metadata:
-        labels:
-          app: ray-tuning
-      spec:
-        securityContext:
-          seLinuxOptions:
-            level: s0
-        affinity:
-          nodeAffinity:
-            requiredDuringSchedulingIgnoredDuringExecution:
-              nodeSelectorTerms:
-              - matchExpressions:
-                - key: kubernetes.io/hostname
-                  operator: In
-                  values: [fs6]
-          podAntiAffinity: *one-per-node
-        containers:
-        - name: ray-worker
-          image: quay.io/prentrodgers/python-music:0.11
-          imagePullPolicy: IfNotPresent
-          securityContext:
-            runAsUser: 1000
-            runAsGroup: 1000
-          livenessProbe: *worker-probe
-          readinessProbe: *worker-probe
-          resources:
-            requests: {cpu: "8", memory: "8Gi"}
-            limits:   {cpu: "8", memory: "8Gi"}
           volumeMounts: *mounts
           env: *env
         volumes: *volumes
