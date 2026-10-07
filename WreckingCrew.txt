@@ -18512,10 +18512,7 @@ kubectl exec $POD -- bash -c "echo echo $TOKEN > /tmp/askpass.sh && chmod +x /tm
       And you need an MP3 file to process:
             python WreckingCrew.py --numpy_dir Archive/straw-man/viterbi-tunings-6-29 --chorale_list bwv261 --deep_bass_backoff 0.25 --back_off_clicks 0.25 --album 7 --mod d --include_slice 0 16 --density_level 5
       But first you need csound, sox, ffmpeg. You have to build csound7 from sources. See /home/prent/Dropbox/Tutorials/Set-Up-Linux-on-Lenovo-Machines/Set_Up_M70q_linux.txt search for And from here on out is the procedure on fedora 44:
-            sudo dnf install sox sox-devel 
-            sudo dnf install lame libmad
-            sudo dnf install ffmpeg ffmpeg-libs --allowerasing
-            sudo dnf install sox sox-devel lame libmad
+            sudo dnf install sox sox-devel lame libmad ffmpeg ffmpeg-libs --allowerasing
       Then you can generate the video:
             ./gen-video.sh bwv261
       Trouble with a mismatched file name in compose_stage_merge.py: 
@@ -22431,7 +22428,7 @@ ____________________________
       Before I start this, add a title and closing frame. The title page should read like this:
       Bach Chorale BWVxxx 
       Tuned by Prent Rodgers
-      with considerable help from Claude Code
+      with considerable help from Claude Code Opus
       Tuning is based on my One Footed Bride Tuning, minimizing ratios of the numerator and denominator using Simulated Annealing and Viterbi Optimization.
       Chorale tuning information:
       bwv427  bwv427_t2_r1.250_lm19-opt.npy
@@ -22478,10 +22475,10 @@ ________________________
 9/17/26 New video ideas
       1. Add Sagittal accidentals to the scrolling scores
       2. Do the same for a complete Chorale Prelude. Start with a subset. --include_slice start end
-      3. Try to locate some clarino samples in the McGill University Master Samples Review the manual here: /home/prent/Dropbox/csound/McGill/McGill.htm or here: /home/prent/Dropbox/csound/McGill.dat Could it be the TRUMPET-BACH? Must be it ./McGill/Partition E/TRUMPET-BACH/TRUMPETC#4.aif Sounds like a clarino. 
-      4. Place the instruments where they are in the audio field at that moment. Have them disappear when they aren't playing. Perhaps have the marimba, finger piano, bass finger piano just appear with a single bar or tine sized appropriately for the pitch. 
-      5. Lower the volume of the flute from 2 to 0. FIx the duplicates. Done.
-      6. In addition to showing the high prime ratios, please also highlight the gaps in the cent value of the same pitch class in adjacent chords.
+      3. Try to locate some clarino samples in the McGill University Master Samples Review the manual here: /home/prent/Dropbox/csound/McGill/McGill.htm or here: /home/prent/Dropbox/csound/McGill.dat Could it be the TRUMPET-BACH? Must be it ./McGill/Partition E/TRUMPET-BACH/TRUMPETC#4.aif Sounds like a clarino. Done
+      4. Place the instruments where they are in the audio field at that moment. Have them disappear when they aren't playing. Perhaps have the marimba, finger piano, bass finger piano just appear with a single bar or tine sized appropriately for the pitch. Done with marimba and finger piano, one on the left, one on the right playing the notes that stereo places there. 
+      5. Lower the volume of the flute from 2 to 0. Fix the duplicates. Done.
+      6. In addition to showing the high prime ratios, please also highlight the gaps in the cent value of the same pitch class in adjacent chords. DOne
 
 ________________________
 9/18/26 Complete the album started on 9/16.
@@ -22977,7 +22974,7 @@ __________________________
             Title: Chorale Prelude based on Bach's BWV416 "Vater unser im Himmelreich"
             Description: 
             These chorale preludes are fantasies based on the notes in Bach's chorale, as if performed by an orchestra of invisible musicians. 
-            This one is created based on the modes of BWV416, tuned using my One Footed Bride Tuning. The audio is created using a density_factor 3, leading a moderately sparse yet occasionaly dense result. It is 6:24 in length, at a tempo of 88 beats per minute. Tuning is done to the 19 limit, with ratio_factor 1.625, and tolerance of 2, meaning the cent values of intervals are allowed to differ from the cent value of the actual ratio by up to plus or minus 2 cents. The video was created using Claude Code Opus 5 who wrote the python code to be run by Blender. Each action is created to imitate the appearance and movements of real instruments. Fake but almost accurate. 
+            This one is created based on the modes of BWV416, tuned using my One Footed Bride Tuning. The audio is created using a density_factor 3, leading a moderately sparse yet occasionally dense result. It is 6:24 in length, at a tempo of 88 beats per minute. Tuning is done to the 19 limit, with ratio_factor 1.625, and tolerance of 2, meaning the cent values of intervals are allowed to differ from the cent value of the actual ratio by up to plus or minus 2 cents. The video was created using Claude Code Opus 5 who wrote the python code to be run by Blender. Each action is created to imitate the appearance and movements of real instruments. Fake but almost accurate. 
             
             I call it Animicrotonal Music Videos. 
 
@@ -23038,7 +23035,7 @@ __________________________
 _________________________
 9/26/26 Made some more enhancements to WreckingCrew.py.
       Built the punchy envelope 8 as an option.
-            --articulate_accent 8@0.2 # this changes the envelope from 1 and 5 to occasionaly 8. Listen to the results.
+            --articulate_accent 8@0.2 # this changes the envelope from 1 and 5 to occasionally 8. Listen to the results.
       I then asked claude to do this to give me a clarino like the one in the Brandenburg Concertos: I would like one more addition to the orchestra. I like the sound of the TRUMPET-BACH in @C:\Users\Windows\Dropbox\csound\McGill.dat. Please check the files to see if we need to fine tune the pitch to exactly match the 12 tone equal temperament pitch using sox. This is done by altering the pitch adjustment value in columns 19-21. Then I will edit C:\Users\Windows\Dropbox\csound\inton.csd in the same directory to build the values to add to ball9.csd so that calling instrument number 39 will pull in this instrument. This is the process I followed to create ball9.csd for the other instruments. Once that is done, we need to add it to the instrument dictionary voice_time in @adaptive_tuning.py.
 
       I'm struggling with getting the ball9.mac to work. I suspect I made changes to it to support the bosendorfer samples that messed up all the other sample processing. The symptoms are that it jumps over many of the samples. I'm going to chalk that up to bugs in the csound directory version of ball9.csd. I'll come back to it if I need to. I placed it after the bosendorfer samples, with a metadata starting ftable of 1751, samples at 1755-1769. I then added 1751 to ftable 1:
@@ -23313,3 +23310,386 @@ _________________________
       Scrubbing the timeline, or pressing Spacebar, poses every player, cuts cameras per the cue sheet and moves the lights, using exactly the same code the farm runs.
       The piece's mp3 is on the timeline, so you hear it in sync.
       The viewport switches to Material Preview.
+
+_________________
+10/1/26 Moved the Claude/Blender environment to the fs1. Many troubles, but I think I have it sorted now.
+      I think I may have to stop using Claude Desktop, which I like for it's ability to show pictures and videos, but I can work with terminal Claude if I have to. 
+      Try to create an album on the fs1:
+            CHORALES=${1:-$(echo bwv{415..426})}
+            CHORALES=bwv424
+            python WreckingCrew.py --chorale_list $CHORALES --deep_bass_backoff 0.25 --back_off_clicks 0.25 --album 9 --mod f --rondo_section_a 0 32 --rondo_insert_a_after 63 127 --density_level 3 --articulate wood_winds:3,brass_section:1 --articulate_gain 0.12,0.9 --articulate_accent 8@0.25 --ap 3
+      Even one trumpet set for articulation is too many.
+            python WreckingCrew.py --chorale_list $CHORALES --deep_bass_backoff 0.25 --back_off_clicks 0.25 --album 9 --mod f --rondo_section_a 0 32 --rondo_insert_a_after 63 127 --density_level 3 --articulate wood_winds:4 --articulate_gain 0.12,0.9 --articulate_accent 8@0.25 --ap 3
+      Stereo marimbas and finger pianos.
+      Thanks, understood. Every farm render now sets PER_CARD=2: it's in the launch scripts, and I've saved it as a standing rule so future sessions use it too.
+
+      The chorale with the new layout finished. All 14,301 frames came through, and the video is 7:57. I can't send files in this session, so it's here:
+
+      C:\Users\prent\AppData\Local\Temp\claude\C--Users-prent-OneDrive-Documents-Blender\28a41653-9d54-42c8-bc84-9d5ab2b6aae7\scratchpad\farm\concert_b425f_v3.mp4
+
+      I haven't watched it.
+
+      What it shows:
+      - Marimbas: a marimba at each end of the riser. Notes with stereo position below 8 go to the stage-right player (1,573 notes), 8 and above to the stage-left one (2,021).
+      - Finger pianos: a second treble finger piano downstage right (1,177 notes), with the original on stage left (1,492).
+      - Trumpet and clarinet: now in the middle of the riser, behind the vibraphone.
+      - Cameras: four new ones (35–38) for the new players, and the automatic camera plan cuts to them.
+      - Workload: in the busiest 2 seconds, each marimbist now plays 16–19 notes instead of 32, and each finger pianist plucks 14–19 instead of 24.
+
+      Render notes:
+      - Run time: with two processes per card the render took about 95 minutes. A one-per-card run of the same piece earlier today took about 115.
+      - Crash: one of fs4's two processes crashed (a segfault) at frame 13446, about 7½ minutes into the piece. It had slowed sharply just before, so two processes may be too much for the B50 card in fs4. If it happens again, fs4 may need a single process.
+      - Resume fix: I changed concert_stage.py to keep frames that are already rendered, then relaunched just that slice with --only b50f4-2. It skipped the 147 frames already done and redid the last one in case it was cut short. A crashed slice can now be resumed without starting over.
+
+__________________________
+10/2/26 I much prefer Claude Desktop to the terminal version of claude. I like the way he can show me pictures in the UI.
+
+      How to transfer. It didn't work. Just open a Desktop session and he will read the notes and get up to speed. That took a while, but he's back to full strength with some hints from me. 
+
+      New way to call render_farm.sh:
+            ssh fs2
+            cd ~/Repos/One-footed-bride-tuning && PER_CARD=2 SCRIPT=concert_stage.py BLEND=Concert_Stage.blend ./render_farm.sh --npy Uploads/b425f_df5_t2_d08_00_t096_ap3_lm19_r1.50.npy --tempo 96 --duration 476.68 --out frames_concert_b425f_v4
+      Then the mux, which has to run in the pod 
+            ssh one-footed-bride-pod
+            cd ~/Repos/One-footed-bride-tuning && ./concert_mux.sh frames_concert_b425f_v4 Uploads/b425f_df5_t2_d08_00_t096_ap3_lm19_r1.50 concert_b425f_v4.mp4
+      Some recommendations:
+      1. The marimba and vibraphone mallets stop just before reaching the bars. They should impact them, however briefly, and cause a subtle vibration in the bar that is visible. If there is one now, it's too subtle to observe. 
+      2. The viola player (in the blue shirt) has his hand in an awkward position. The position of the hands in the player with the red shirt is good, and the blue shirt needs to copy that. 
+      3. I get the impression that there are only 3-4 positions of the hands of the bowed, plucked, and martele instruments. I'd like to provide a sample of a three octave scale and have you draw the hands as if they are playing each at different hand positions. I can barely see the strings vibrating, so that needs to be just a little more prominent. 
+      4. The overall impression is of an overexposed picture. It's too light overall. I would like to have a variety of lighting over the course of the piece, the way the backdrop changes over time. Make it come way down in intensity, then gradually grow, then become different colors and intensity, perhaps once every minute over the course of the piece. 
+      5. The musicians need to move their heads more. Specifically, the finger piano parts are devilishly hard to play on such a tiny instrument (why I switched to samples and csound from playing my live instrument). The musicians should occasionally look down at the instrument during a busy section. The the bowed, plucked, and martele instruments should look at each other sometimes as if looking for a cue. The all the musicians need to rest when not playing by looking at the other musicians and nodding, two or three times during the whole piece.
+
+______________________
+10/3/26 Making slow but steady progress on the video. 
+      I have to do something serious about the string player's finger and hand positions.
+      Prompt to Claude: I'm observing the scale on the cello, viola, and violin. The cello player's left hand on the fingerboard is excellent in form. Unlike the others, she has the fingers of her hand perpendicular to the fingerboard. This gives her the maximum force with minimum effort. She also keeps her position for several notes. Beginner string players starting out learn first position, which is a term for the hand near the nut, able to play 3-4 notes near the nut without moving the arm. All the motion is in the hand. Then they learn 2nd position, which is a little higher on the fingerboard which is responsible for several note within reach. They only switch position if necessary to hit a different note. The cellist respects those hard earned lessons: 1. fingers perpendicular to the fingerboard. 2. Move the hand to a different position only when necessary. Try to choose a position for the notes you have to play next so that you can play the most notes without moving the hand up and down the fingerboard. This is done because finger movements can be more precise than hand movements. This has been true for hundreds of years of string playing. Now, back to the violin and viola players. They do not obey either of these rules. The red shirt fingers are bent towards his head and need to have the hand over the fingerboard, with the fingers perpendicular to the fingerboard. The hand is too low.. The blue shirt fingers are bent away from his head,. The hand is too low. The fingers are not perpendicular to the fingerboard. Please fix these.
+
+      More head moves increase realism. Claude provided. 
+
+      Run the render:
+            ssh fs2
+            cd ~/Repos/One-footed-bride-tuning && ./render_farm.sh --stop && PER_CARD=2 SCRIPT=concert_stage.py BLEND=Concert_Stage.blend ./render_farm.sh --npy Uploads/b425f_df5_t2_d08_00_t096_ap3_lm19_r1.50.npy --tempo 96 --duration 476.68 --out frames_concert_b425f_v5
+      Monitor
+            watch -n 20 "./render_farm.sh --progress ; ./render_farm.sh --status"
+      mux 
+            ssh one-footed-bride-pod 
+            cd ~/Repos/One-footed-bride-tuning && ./concert_mux.sh frames_concert_b425f_v5 Uploads/b425f_df5_t2_d08_00_t096_ap3_lm19_r1.50 concert_b425f_v5.mp4
+      Then go to the Windows Explorer folder: C:\Users\prent\Dropbox\Uploads\d8-09-13-26-videos-4xx . Right mouse click Open in Terminal
+            scp one-footed-bride-pod:~/Repos/One-footed-bride-tuning/concert_b425f_v5.mp4 .
+
+      concert_b425f_v5.mp4 from Uploads/b425f_df5_t2_d08_00_t096_ap3_lm19_r1.50
+            Title: Chorale Prelude based on Bach's BWV425 "Was willst du dich, o meine Seele, kränken" 
+            Description: These chorale preludes are fantasies based on the notes in Bach's chorale, as if performed by an orchestra of musicians on a mythical stage.
+            This one is created based on the notes of BWV425 "Why do you want to upset yourself, oh my soul", tuned using my One Footed Bride Tuning. The audio is created using a density_factor 5, maximum density, 8:00 in length, at a tempo of 96 beats per minute. Tuning is done to the 19 limit, with ratio_factor 1.5, and tolerance of 2, meaning the cent values of intervals are allowed to differ from the cent value of the actual ratio by up to plus or minus 2 cents. The video was created using Claude Code Opus 5 who wrote the python code to be run by Blender. Each action is created to imitate the appearance and movements of real instruments. Fake but almost accurate. I call it Animicrotonal Music Videos. 
+
+            The audio, video, tuning, and program code is described in detail here: https://github.com/prentrodgers/One-footed-bride-tuning
+            Link: https://youtu.be/zAW1IwvdVF0
+      
+      score_bwv422.mp4 
+            Title: Original Bach Chorale BWV422 "Warum sollt ich mich denn grämen"
+            Description: The notes are just as Bach wrote them but tuned by me using the One Footed Bride Tuning algorithm. Performed by woodwinds and brass, realized using Csound. Tuning is assisted by Claude Code Opus 5, who wrote or edited some of the python code. More here:  https://github.com/prentrodgers/One-footed-bride-tuning
+            link: https://youtu.be/PF1PylTqc4A
+
+      _______________
+      Time to tune a new set of chorales. 
+            # ./ray-ratchet.sh --chorales bwv{415..426} # what are the options to ./ray-ratchet.sh --help
+            ./ray-ratchet.sh --chorales bwv{403..414} --no_report --patience 3 --max_passes 12 # skip select_best_and_render.py - let me run it.
+      The per-pass log goes to Archive/straw-man/ray-ratchet-<start>.tsv either way.
+
+                  done in 4:59:49.162550: 1305 passes over 288 cells; retired: 163 stalled 3, 121 GapSum 0, 4 max passes 12
+                  per-pass log: Archive/straw-man/ray-ratchet-20261003-1618.tsv
+                  2026-10-03 21:18:15,961 INFO sdk.py:520 -- WebSocket closed for job ratchet-20261003-161815 with close code 1000
+                  2026-10-03 21:18:15,966 SUCC cli.py:66 -- ---------------------------------------
+                  2026-10-03 21:18:15,966 SUCC cli.py:67 -- Job 'ratchet-20261003-161815' succeeded
+                  2026-10-03 21:18:15,966 SUCC cli.py:68 -- ---------------------------------------
+                  21:18:16 job ratchet-20261003-161815: SUCCEEDED
+                  21:18:16 deleting the RayCluster (and the dashboard NodePort)
+                  all hosts on balanced
+      Looking back I should not have set --patience 3 on the first run. Instead I should have left it at default, then chosen the ones most likely to improve to run by themselves at --patience 3. Live and learn. Five hours is find overnight, but not so good in the daytime. 
+
+_______________________________
+10/4/26 Check the results
+      But first I need to set up the access in vscode to one-footed-bride-pod.
+
+      Once that is in place, run select_best...
+
+            python select_best_and_render.py --numpy_dir_root Archive/straw-man --chorale_list bwv{403..414} --suffix="-opt.npy" --sort_by gapsum > summary-report.txt 
+
+            scp one-footed-bride-pod:Repos/One-footed-bride-tuning/summary-report.txt .
+      I asked claude what it would change to optimize to three things:
+      1. Gapsum < 10 
+      2. Lowest average score
+      3. fewest high primes
+
+      I'd change four things, three in ray_ratchet.py and one in the report:
+
+            1. Aim for GapSum under 10, not 0. Count a chorale as good once a cell is under 10. Don't stop a cell just for reaching GapSum 0, either: once under 10, it should keep running while the tuner keeps accepting, because each accepted pass can still lower the average.
+            2. Stop cells that can't beat the chorale's best. After two passes, a cell stops if another cell of the same chorale is already under GapSum 10 with an equal or lower average. A good cell more than 1 point behind the chorale's best stops too. Replaying this on the last run used 13% fewer passes, and every chorale's best result came out the same, apart from one 0.1 difference on bwv411.
+            3. Cap the chorales that can't reach the target. Use patience 2 and at most 4 passes per cell for any chorale with no cell under 10. That saves about 300 passes, as above.
+            4. Rank by what you care about. Add the high-prime share to select_best_and_render.py's report. Then it can pick, for each chorale, the cell with the fewest high primes and lowest average among those under GapSum 10. Right now it only sorts by GapSum or score.
+
+            Together, 1–3 would have cut the last run from 1,305 passes to roughly 840, about a third less: around 3¼ hours instead of 5. Every chorale that reached your target would have finished with the same tuning.
+
+            None of these settings help the five hard chorales (bwv403, 404, 407, 410 and 413). No cell gets them under 10, and more passes plateau far above it. That points to the tuner itself, perhaps the gap weight in what the ratchet accepts or the MAX_GAP setting, and is worth a separate look.
+      My response:
+            Yes make those changes. For the bad boys (bwv403, 404, 407, 410 and 413), my intent is to listen to them with --short_repeats to hear how they sound. Sometimes they have high interestingness, you never know.
+      Claude What changed:
+            1. Good enough is GapSum under 10 (--good_gapsum 10). A cell no longer stops when it reaches GapSum 0. It keeps lowering its average for as long as the tuner accepts new tunings.
+            2. Losing cells stop early. After 2 passes, a cell stops once another cell of the same chorale is good and has an equal or lower average. A good cell also stops once another good cell's average is more than 1.0 lower.
+            3. Hard chorales are capped. While no cell of a chorale is good, its cells stop at 4 passes (--hard_max_passes). Patience stays at 2.
+            4. The report ranks by what you listen for. select_best_and_render.py has a new High% column, and --sort_by best is now the default:
+                  Tunings with GapSum under 10 come first, ranked by fewest high primes, then lowest average.
+                  A chorale with no such tuning leads with its lowest GapSum.
+                  The ratchet's closing report uses this order, and its status table and per-pass log now show high%.
+            Report on the existing tunings: it scored all 288 in 3 seconds. Each chorale's leader:
+
+                  Chorale	Cell	            Avg	High%	GapSum
+                  bwv405	t3_r1.375_lm19	49.9	0.5	0 # <-- nice minor with only one sour chord
+                  bwv406	t3_r1.375_lm19	50.7	1.5	0 # <-- Borderline. Lots of 11 ratios
+                  bwv408	t1_r1.25_lm17	49.9	0.0	2 # <-- no high primes. Nice minor key.
+                  bwv409	t1_r1.25_lm17	49.8	2.3	0 # <-- nice major, two high primes. Repeat?
+                  bwv411	t3_r1.625_lm19	53.4	2.5	0 # <-- lovely opening in G major
+                  bwv412	t3_r1.50_lm19	51.1	0.7	0 # <-- I'm liking this one
+
+                  bwv414	t3_r1.375_lm19	49.3	0.6	0 # <-- BWV 253 is identical but in A major.
+
+                  bwv403	t2_r1.25_lm19	60.5	9.1	74 # <-- this one is hopeless. Too many weird chords
+                  bwv404	t1_r1.625_lm19	54.4	3.4	59 # <-- borderline A minor. Could be our challege candidate.
+                  bwv407	t1_r1.625_lm19	54.2	4.7	52 # <-- One chord measure 7 has 3 high primes:  13:12, 13:10, 16:13 
+                  bwv410	t3_r1.50_lm19	54.6	5.6	19 # <-- lots of high primes 
+                  bwv413	t3_r1.375_lm19	54.5	4.9	53 # <-- borderline F major. Could be our challege candidate.  
+      Listen to the worst:
+            python3 select_best_and_render.py --numpy_dir_root Archive/straw-man --chorale_list bwv403 bwv404 bwv407 bwv410 bwv413 --suffix=-opt.npy --top_gaps 0 --render --short_repeats
+      And then the best:
+            python3 select_best_and_render.py --numpy_dir_root Archive/straw-man --chorale_list bwv405 bwv406 bwv408 bwv409 bwv411 bwv412 bwv414 --suffix=-opt.npy --top_gaps 0 --render --short_repeats
+      Then copy them all into best, regardless of scores:
+            python3 select_best_and_render.py --numpy_dir_root Archive/straw-man --chorale_list bwv{403..414} --suffix=-opt.npy --top_gaps 0 --copy_npy_to Archive/straw-man/best-tunings
+      To really understand what's happening, you need to run this on fs2, where lilypond is installed:
+            ssh fs2 
+            scp one-footed-bride-pod:Repos/One-footed-bride-tuning/Uploads/b4??a_*.mp3 Uploads
+            scp one-footed-bride-pod:Repos/One-footed-bride-tuning/Archive/straw-man/best-tunings/bwv4??*-opt.npy Archive/straw-man/best-tunings
+            for n in bwv{403..414}; do echo $n ; ./make_score_videos.sh $n ; done
+
+      If I'm looking for two candidates, I'd pick bwv411 in G major for the sweet one and bwv413 in F major for the challenging one. 
+      Choose --density_level 4 for 411 --ap 3 and --density_level 0 for bwv413 with -ap 1
+            python WreckingCrew.py --chorale_list bwv411 --deep_bass_backoff 0.25 --back_off_clicks 0.25 --album 9 --mod h --rondo_section_a 0 32 --rondo_insert_a_after 63 127 --density_level 4 --articulate wood_winds:4 --articulate_gain 0.12,0.9 --articulate_accent 8@0.25 --ap 3
+            python WreckingCrew.py --chorale_list bwv413 --deep_bass_backoff 0.25 --back_off_clicks 0.25 --album 9 --mod h --rondo_section_a 0 32 --rondo_insert_a_after 63 127 --density_level 0 --articulate wood_winds:4 --articulate_gain 0.12,0.9 --articulate_accent 8@0.25 --ap 1
+      Now copy them do the Repo on fs1.
+            ls -lth Uploads/b41?h_df*.*
+                  -rw-r--r--. 1 prent prent  17M Oct  4 12:15 Uploads/b411h_df4_t3_d07_04_t084_ap3_lm19_r1.62.mp3
+                  -rw-r--r--. 1 prent prent 3.2M Oct  4 12:14 Uploads/b411h_df4_t3_d07_04_t084_ap3_lm19_r1.62.npy
+                  -rw-r--r--. 1 prent prent  17M Oct  4 12:23 Uploads/b413h_df1_t3_d07_09_t092_ap1_lm19_r1.38.mp3
+                  -rw-r--r--. 1 prent prent 2.1M Oct  4 12:23 Uploads/b413h_df1_t3_d07_09_t092_ap1_lm19_r1.38.npy
+                  
+      Render bwv411:
+            ssh fs2
+            cd ~/Repos/One-footed-bride-tuning 
+            ffprobe -v error -show_entries format=duration -of csv=p=0 Uploads/b411h_df4_t3_d07_04_t084_ap3_lm19_r1.62.mp3
+                  420.2
+      Create the title page:
+            ssh one-footed-bride-pod "cd Repos/One-footed-bride-tuning && python concert_title.py Uploads/b411h_df4_t3_d07_04_t084_ap3_lm19_r1.62"
+      Copy it to fs2            
+            scp one-footed-bride-pod:Repos/One-footed-bride-tuning/Uploads/b411h_df4_t3_d07_04_t084_ap3_lm19_r1.62.title.txt Uploads/
+      Then from fs1 
+            scp fs2:Repos/One-footed-bride-tuning/Uploads/b411h_df4_t3_d07_04_t084_ap3_lm19_r1.62.title.txt ~/Repos/One-footed-bride-tuning/Uploads/
+      Then run the render:
+            ssh fs2
+            cd ~/Repos/One-footed-bride-tuning 
+            ./render_farm.sh --stop && PER_CARD=2 SCRIPT=concert_stage.py BLEND=Concert_Stage.blend ./render_farm.sh --npy Uploads/b411h_df4_t3_d07_04_t084_ap3_lm19_r1.62.npy --tempo 84 --duration 420.2 --out frames_concert_b411h_v2
+      Monitor
+            watch -n 20 "./render_farm.sh --progress ; ./render_farm.sh --status"
+      mux 
+            ssh one-footed-bride-pod 
+            
+            cd ~/Repos/One-footed-bride-tuning
+            ./concert_mux.sh frames_concert_b411h_v2 Uploads/b411h_df4_t3_d07_04_t084_ap3_lm19_r1.62.mp3 concert_b411h_v2.mp4
+      Copy them to fs2 and fs1:
+            ssh one-footed-bride-pod ls Repos/One-footed-bride-tuning/concert_b411h_v2.mp4
+            scp one-footed-bride-pod:Repos/One-footed-bride-tuning/concert_b411h_v2.mp4 .
+      Title: Chorale Prelude based on Bach's BWV411 "Singt dem Herrn ein neues Lied"
+      Description: These chorale preludes are fantasies based on the notes in Bach's chorale, as if performed by an orchestra of AI musicians. 
+      This one is created based on the modes of BWV411, tuned using my One Footed Bride Tuning. The audio is created using a density_factor 4, a relatively dense orchestration, 7:04 in length, at a tempo of 84 beats per minute. Tuning is done to the 19 limit, with ratio_factor 1.625, and tolerance of 3, meaning the cent values of intervals are allowed to differ from the cent value of the actual ratio by up to plus or minus 3 cents. The video was created using Claude Code Opus 5 who wrote the python code to be run by Blender. Each action is created to imitate the appearance and movements of real instruments. Fake but almost accurate. I call it Animicrotonal Music Videos. 
+      Link: https://youtu.be/RIxgmHy0ZMA
+
+      Title: Original Bach Chorale BWV411 "Singt dem Herrn ein neues Lied"
+            Description: The notes are just as Bach wrote them but tuned by me using the One Footed Bride Tuning algorithm. Performed by woodwinds and brass, realized using Csound. Tuning is assisted by Claude Code Opus 5, who wrote or edited some of the python code. More here:  https://github.com/prentrodgers/One-footed-bride-tuning
+            link: https://youtu.be/sACkAZDIFRY
+
+      413 Render the challenging one - these need to be matched the above command strings. 
+            ssh one-footed-bride-pod
+            cd Repos/One-footed-bride-tuning/
+            ffprobe -v error -show_entries format=duration -of csv=p=0 Uploads/b413h_df1_t3_d07_09_t092_ap1_lm19_r1.38.mp3
+                  420.8
+      Create the title page:
+            python concert_title.py Uploads/b413h_df1_t3_d07_09_t092_ap1_lm19_r1.38
+                  big   Chorale Prelude based on Bach Chorale BWV413
+      Copy it to fs2            
+            scp one-footed-bride-pod:Repos/One-footed-bride-tuning/Uploads/b413h_df1_t3_d07_09_t092_ap1_lm19_r1.38.title.txt Uploads/
+                  b413h_df1_t3_d07_09_t092_ap1_lm19_r1.38.title.txt
+      Then from fs1 
+            scp fs2:Repos/One-footed-bride-tuning/Uploads/b413h_df1_t3_d07_09_t092_ap1_lm19_r1.38.title.txt ~/Repos/One-footed-bride-tuning/Uploads/
+                  b413h_df1_t3_d07_09_t092_ap1_lm19_r1.38.title.txt
+      Then run the render:
+            ssh fs2
+            cd ~/Repos/One-footed-bride-tuning 
+            ./render_farm.sh --stop && PER_CARD=2 SCRIPT=concert_stage.py BLEND=Concert_Stage.blend ./render_farm.sh --npy Uploads/b413h_df1_t3_d07_09_t092_ap1_lm19_r1.38.npy --tempo 92 --duration 420.8 --out frames_concert_b413h_v1
+      Monitor
+            watch -n 20 "./render_farm.sh --progress ; ./render_farm.sh --status"
+      mux 
+            ssh one-footed-bride-pod 
+            
+            cd ~/Repos/One-footed-bride-tuning
+            ./concert_mux.sh frames_concert_b413h_v1 Uploads/b413h_df1_t3_d07_09_t092_ap1_lm19_r1.38.mp3 concert_b413h_v1.mp4
+      Copy them to fs2 and fs1:
+            ssh one-footed-bride-pod ls Repos/One-footed-bride-tuning/concert_b413h_v1.mp4
+            scp one-footed-bride-pod:Repos/One-footed-bride-tuning/concert_b413h_v1.mp4 .
+      Title: Chorale Prelude based on Bach's BWV413 "Sollt ich meinem Gott nicht singen"
+            "Shouldn't I sing to my God"
+      Description: These chorale preludes are fantasies based on the notes in Bach's chorale, as if performed by an orchestra of AI musicians. 
+      This one is created based on the modes of BWV413, tuned using my One Footed Bride Tuning. The audio is created using a density_factor 1, a relatively soarse orchestration, 7:09 in length, at a tempo of 92 beats per minute. Tuning is done to the 19 limit, with ratio_factor 1.375, and tolerance of 3, meaning the cent values of intervals are allowed to differ from the cent value of the actual ratio by up to plus or minus 3 cents. The video was created using Claude Code Opus 5 who wrote the python code to be run by Blender. Each action is created to imitate the appearance and movements of real instruments. Fake but almost accurate. I call it Animicrotonal Music Videos. 
+      Link: https://youtu.be/tJ9tb9lJ0-k
+      
+      Title: Original Bach Chorale BWV413 "Sollt ich meinem Gott nicht singen"
+            Description: The notes are just as Bach wrote them but tuned by me using the One Footed Bride Tuning algorithm. Performed by woodwinds and brass, realized using Csound. Tuning is assisted by Claude Code Opus 5, who wrote or edited some of the python code. More here:  https://github.com/prentrodgers/One-footed-bride-tuning
+            link: https://youtu.be/S5KJuu_G3BA
+
+_____________________
+10/6/26 I am trying to reduce my power and heat footprint when running in my home lab.
+      I just purchased a Minisforum M2 Pro with Ultra X7 358H. Are there other mini systems with Ultra X9 and what are their multicore scores. I'm trying to reduce my power footprint from where it is now to something less, but still get great scientific python and blender rendering performance. Today I'm using kuberay on kubernetes for the scientific computing on these systems: 
+      
+            Node	Single Multi	CPU	             Threads	Memory GPU
+            fs7	3345	 23226	Ultra 7 270K Plus	    24	32GB   None
+            fs4	3302	 22973	Ultra 7 265K	    20	64GB   Arc Pro B50
+            fs5	3492	 22969	Ultra 9 285K	    24	48GB   2 Arc B70
+            fs3	3134	 19846	Ultra 5 250KF Plus    18	32GB   Arc B580
+            fs8	3203	 19339	Ultra 5 250K Plus	    18	32GB   None
+            fs2	3212	 18287	Ultra 5 250K Plus	    18	32GB   None
+            fs9	2924	 16802	Ryzen 9 7900	    24	32GB   Arc B580
+            fs6	2743	 15541	Ryzen 7 7800X3D	    16	32GB   Arc B580	
+      
+      Run another render and see who's running:
+            # ./ray-ratchet.sh --chorales bwv{403..414} --no_report --patience 3 --max_passes 12 #
+            ./ray-ratchet.sh --chorales bwv{391..402} --no_report 
+      To monitor go to the prometheus/grafana port on the local web
+      Or use this:
+            k get po -owide -l app=ray-tuning -w
+      Look at the logs:
+            k exec tuning-head-b82ms -- ray job logs ratchet-20261006-073110 | grep RETIRED | grep accepted
+            k exec tuning-head-b82ms -- ray job logs ratchet-20261006-073110 | grep "passes done"
+      But it failed:
+                  NAME                      READY   STATUS    RESTARTS   AGE   IP             NODE     
+                  tuning-head-n7gsd         1/1     Running   0          10m   10.244.9.20    fs6      
+                  tuning-w12-worker-2bv2c   1/1     Running   0          10m   10.244.3.13    fs8      
+                  tuning-w12-worker-lb8lh   1/1     Running   0          10m   10.244.8.14    fs4      
+                  tuning-w16-worker-9sp7q   1/1     Running   0          10m   10.244.6.14    fs9      
+                  tuning-w16-worker-gb7pk   0/1     Pending   0          10m   <none>         <none>   
+                  tuning-w16-worker-rm2hj   0/1     Pending   0          10m   <none>         <none>   
+                  tuning-w16-worker-slp8r   1/1     Running   0          10m   10.244.10.28   fs7      
+                  tuning-w16-worker-tpmqw   1/1     Running   0          10m   10.244.4.12    fs5      
+                  tuning-w8-worker-m8fgl    1/1     Running   0          10m   10.244.9.19    fs6      
+                  a Pending worker usually means its node has less free CPU/memory than k8s-ray-cluster.yaml assumes:
+                  kubectl describe pod <pod> | grep -A5 Events
+                  06:36:42 deleting the RayCluster (and the dashboard NodePort)
+                  all hosts on balanced
+      The balance variables in ray-ratchet.sh were wrong. Once Claude fixed them it ran to completion in 3 hours:
+                  done in 3:07:39.643231: 972 passes over 288 cells; retired: 125 stalled 2, 122 dominated, 28 hard chorale, 4 passes, 8 outclassed, 5 max passes 8
+                  per-pass log: Archive/straw-man/ray-ratchet-20261006-0731.tsv
+                  2026-10-06 10:39:02,970 INFO sdk.py:520 -- WebSocket closed for job ratchet-20261006-073110 with close code 1000
+                  2026-10-06 10:39:02,984 SUCC cli.py:66 -- ---------------------------------------
+                  2026-10-06 10:39:02,985 SUCC cli.py:67 -- Job 'ratchet-20261006-073110' succeeded
+                  2026-10-06 10:39:02,985 SUCC cli.py:68 -- ---------------------------------------
+                  10:39:03 job ratchet-20261006-073110: SUCCEEDED
+            ssh one-footed-bride-pod ls -lth Repos/One-footed-bride-tuning/Archive/straw-man
+                  -rw-r--r--. 1 prent prent  79K Oct  6 10:38 ray-ratchet-20261006-0731.tsv
+            ssh one-footed-bride-pod ls -lth Repos/One-footed-bride-tuning/Archive/straw-man/ray-ratchet-20261006-0731.tsv
+            scp one-footed-bride-pod:Repos/One-footed-bride-tuning/Archive/straw-man/ray-ratchet-20261006-0731.tsv Archive/straw-man
+      This shows the progress over time from 7:30 to 10:30 am. To determine the winners, run this:
+            ssh one-footed-bride-pod 
+            cd Repos/One-footed-bride-tuning
+            python select_best_and_render.py --numpy_dir_root Archive/straw-man --chorale_list bwv{391..402} --suffix="-opt.npy" > summary-report.txt 
+      Sort by is critical:  --sort_by {best,gapsum,high,maxgap,name,over20,p90,score}
+                        Row ordering. best = GapSum under --good_gapsum first, then fewest high primes, then lowest chord average; high = fewest high
+                        primes; score=mean chord score, gapsum=total gap cents, maxgap, p90, over20=count of gaps above 20¢, name (default: best)
+            scp one-footed-bride-pod:Repos/One-footed-bride-tuning/summary-report.txt .
+      Conclusions:
+                  Directory                      sfx     t  ratio  lm ChordAvg ChordMax  High% |    N  GapSum    Avg    Med    p90    Max |  >10  >20  >30  >=33
+      The good:
+            bwv391 - picked the one with tolerance 1. There were a lot of low scoring, low high primes. low gapsums.
+                  t1_r1.375_lm17                 opt     1  1.375  17     51.4       90    0.8 |    0       0    0.0    0.0    0.0    0.0 |    0    0    0     0
+            bwv393 - moderate scores, low gapsum, low high primes, low chordMax
+                  t3_r1.50_lm19                  opt     3  1.500  19     52.9       98    2.3 |    2       5    2.5    2.5    2.9    3.0 |    0    0    0     0
+            bwv396 - low scores, low gapsum, low high primes, moderate maxChord
+                  t3_r1.25_lm17                  opt     3  1.250  17     52.5       95    0.7 |    2       4    2.0    2.0    2.0    2.0 |    0    0    0     0
+            bwv398 - low score, moderate chordMax, low high primes, 0 gapsum
+                  t3_r1.375_lm19                 opt     3  1.375  19     51.4       96    1.9 |    0       0    0.0    0.0    0.0    0.0 |    0    0    0     0
+            bwv400 = low scores, moderate chordMax, low high primes, 0 gapsum, tolerance 1
+                  t1_r1.25_lm19                  opt     1  1.250  19     51.9       97    0.8 |    0       0    0.0    0.0    0.0    0.0 |    0    0    0     0
+      The medium:
+            bwv392 - higher averages, high primes, gapsum 
+                  t3_r1.25_lm19                  opt     3  1.250  19     55.6      135    2.7 |    3       7    2.3    2.0    2.8    3.0 |    0    0    0     0 
+            bwv394 - higher averages, high primes, low gapsum, tolerance 1
+                  t1_r1.375_lm19                 opt     1  1.375  19     56.1      141    4.8 |    0       0    0.0    0.0    0.0    0.0 |    0    0    0     0
+            bwv395 - higer averages, high primes, low gapsum,      
+                  t3_r1.375_lm19                 opt     3  1.375  19     55.4      113    2.8 |    2       5    2.5    2.5    2.9    3.0 |    0    0    0     0
+            bwv399 - low scores, moderate chordMax, high primes, moderate gapsum
+                  t3_r1.375_lm19                 opt     3  1.375  19     52.8      113    5.7 |    2      18    9.0    9.0    9.8   10.0 |    0    0    0     0
+            bwv401 - moderate score, moderate chordMax, moderate high primes, 0 gapsum
+                  t3_r1.375_lm19                 opt     3  1.375  19     55.7      113    3.3 |    0       0    0.0    0.0    0.0    0.0 |    0    0    0     0
+      The bad:
+            bwv397 - moderate score, high chordMax, high primes, low gapsum
+                  t3_r1.625_lm19                 opt     3  1.625  19     55.9      123    4.8 |    2       5    2.5    2.5    2.9    3.0 |    0    0    0     0
+      Second time through:
+                  t3_r1.50_lm19                  opt     3  1.500  19     55.7      123    4.2 |    2       5    2.5    2.5    2.9    3.0 |    0    0    0     0
+            bwv402 - high scores, high chordMax, moderate high primes, moderate gapsum
+                  t2_r1.375_lm19                 opt     2  1.375  19     58.6      140    4.2 |    5      36    7.2    9.0   10.8   12.0 |    1    0    0     0
+                  t2_r1.375_lm19                 opt     2  1.375  19     58.7      140    4.2 |    3      30   10.0    9.0   11.4   12.0 |    1    0    0     0
+      Not much better. 
+      Conclusion: run 397 & 402 first, see if you can improve scores
+            ./ray-ratchet.sh --chorales bwv397 bwv402 --no_report 
+            python select_best_and_render.py --numpy_dir_root Archive/straw-man --chorale_list bwv397 bwv402 --suffix="-opt.npy" > summary-report-select.txt 
+      Copy the winners to best-tuning:
+            python select_best_and_render.py --numpy_dir_root Archive/straw-man --chorale_list bwv{391..402} --suffix="-opt.npy" --copy_npy_to Archive/straw-man/best-tunings
+                  bwv391  →  bwv391_t2_r1.375_lm19-opt.npy  (from t2_r1.375_lm19) # <-- I chose t1_r1.375_lm17 
+                  bwv392  →  bwv392_t3_r1.250_lm19-opt.npy  (from t3_r1.25_lm19) # <-- I chose t3_r1.50_lm19  
+                  bwv393  →  bwv393_t3_r1.500_lm19-opt.npy  (from t3_r1.50_lm19)
+                  bwv394  →  bwv394_t3_r1.500_lm17-opt.npy  (from t3_r1.50_lm17)
+                  bwv395  →  bwv395_t3_r1.375_lm19-opt.npy  (from t3_r1.375_lm19)
+                  bwv396  →  bwv396_t3_r1.250_lm17-opt.npy  (from t3_r1.25_lm17)
+                  bwv397  →  bwv397_t3_r1.500_lm19-opt.npy  (from t3_r1.50_lm19)
+                  bwv398  →  bwv398_t3_r1.375_lm19-opt.npy  (from t3_r1.375_lm19)
+                  bwv399  →  bwv399_t3_r1.375_lm19-opt.npy  (from t3_r1.375_lm19)
+                  bwv400  →  bwv400_t1_r1.250_lm19-opt.npy  (from t1_r1.25_lm19)
+                  bwv401  →  bwv401_t3_r1.375_lm19-opt.npy  (from t3_r1.375_lm19)
+                  bwv402  →  bwv402_t2_r1.375_lm19-opt.npy  (from t2_r1.375_lm19)
+      With top_gaps 0 didn't change anything. What about my hand picked selections above?
+                  bwv391  =   bwv391_t2_r1.375_lm19-opt.npy  (already the leader; unchanged)
+                  bwv392  =   bwv392_t3_r1.250_lm19-opt.npy  (already the leader; unchanged)
+                  bwv393  =   bwv393_t3_r1.500_lm19-opt.npy  (already the leader; unchanged)
+                  bwv394  =   bwv394_t3_r1.500_lm17-opt.npy  (already the leader; unchanged)
+                  bwv395  =   bwv395_t3_r1.375_lm19-opt.npy  (already the leader; unchanged)
+                  bwv396  =   bwv396_t3_r1.250_lm17-opt.npy  (already the leader; unchanged)
+                  bwv397  =   bwv397_t3_r1.500_lm19-opt.npy  (already the leader; unchanged)
+                  bwv398  =   bwv398_t3_r1.375_lm19-opt.npy  (already the leader; unchanged)
+                  bwv399  =   bwv399_t3_r1.375_lm19-opt.npy  (already the leader; unchanged)
+                  bwv400  =   bwv400_t1_r1.250_lm19-opt.npy  (already the leader; unchanged)
+                  bwv401  =   bwv401_t3_r1.375_lm19-opt.npy  (already the leader; unchanged)
+                  bwv402  =   bwv402_t2_r1.375_lm19-opt.npy  (already the leader; unchanged)
+      Make an album to listen to:
+            python WreckingCrew.py --chorale_list bwv{391..402} --deep_bass_backoff 0.25 --back_off_clicks 0.25 --album 9 --mod g --rondo_section_a 0 32 --rondo_insert_a_after 63 127 --auto_density --shuffle_density --articulate wood_winds:4 --articulate_gain 0.1,0.9 --articulate_accent 8@0.25 
+
+
+
+
+
+
+
+
+
+
+
+
+
+      Do a dry run of blender
+            PER_CARD=2 SCRIPT=concert_stage.py BLEND=Concert_Stage.blend ./render_farm.sh --npy Uploads/b413h_df1_t3_d07_09_t092_ap1_lm19_r1.38.npy --tempo 92 --duration 420.8 --out frames_concert_b413h_v1 --dry_run
+
+      That showed that the work would start several pods to split the work across the six GPU. Copilot suggested trying PER_CARD 3 to see if elapsed time improved. This was driven by the discovery that the B70 and B580 has similar Cycles seconds/frame. That was a surprise. That suggests the bottleneck is not GPU performance but somewhere else, most likely single threaded Python. In turn that suggests more python streams running at once, which PER_CARD 3 or 4 might speed thimgs up a bit. But Copilot also did the math of replacing the fleet of Core Ultra 200 machines with mini systems would need 60 Ultra iGPU mini PCs to match the current blender render tasks. They would do great on the kuberay tuning work, but dismal on the blender tasks.  Each run that is currently taking 2 hours on 6 mini PC's would drop to 10% of the performance, or 10x the time: 20 hours! And that's after spending 5 * $2000 = $10k investment. I'd have a hard time justifying that. 
