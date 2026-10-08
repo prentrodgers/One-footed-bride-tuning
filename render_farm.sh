@@ -129,13 +129,20 @@ RES_Y=720
 # pinned to Gen4), and the B50 on fs4 is slower than it was on fs3
 # because it now shares fs4's CPU with the iGPU worker. The iGPUs did
 # 39-40 s/frame on that run: pass IGPU_RATE_CYC=40.
+# 8 Oct 2026: Cycles column re-measured on the Concert Stage, the 7641-frame
+# b394g render (--cycles-hw-rt, PER_CARD=3, powersave-gpu), per card from
+# each pod's container start/finish and frame count. The old order did not
+# hold: fs9's B580, rated fastest, was slowest and finished ~25 min after
+# most of the farm, and the B50 was fastest. All six land within 20%, so the
+# Concert Stage on Cycles is paced by the nodes' CPUs, not the cards (fs5
+# runs six Blender processes for its two B70s).
 WORKERS=(
-  "b70a   fs5  8086:e223  0           1.701  3.995"
-  "b70b   fs5  8086:e223  1           1.751  3.992"
-  "b580f6 fs6  8086:e20b  -           1.651  3.821"
-  "b580f9 fs9  8086:e20b  -           1.829  3.688"
-  "b580f3 fs3  8086:e20b  -           1.740  4.323"
-  "b50f4  fs4  8086:e212  -           2.129  4.793"
+  "b70a   fs5  8086:e223  0           1.701  3.68"
+  "b70b   fs5  8086:e223  1           1.751  3.82"
+  "b580f6 fs6  8086:e20b  -           1.651  3.52"
+  "b580f9 fs9  8086:e20b  -           1.829  3.89"
+  "b580f3 fs3  8086:e20b  -           1.740  3.61"
+  "b50f4  fs4  8086:e212  -           2.129  3.22"
 )
 # The Core Ultra iGPUs (Xe-LPG, PCI 0x7d67), opt-in with IGPU=1. fs4 now
 # also carries the B50, so it fields two workers; each pod keeps only the
