@@ -23555,7 +23555,9 @@ _______________________________
 
 _____________________
 10/6/26 I am trying to reduce my power and heat footprint when running in my home lab.
-      I just purchased a Minisforum M2 Pro with Ultra X7 358H. Are there other mini systems with Ultra X9 and what are their multicore scores. I'm trying to reduce my power footprint from where it is now to something less, but still get great scientific python and blender rendering performance. Today I'm using kuberay on kubernetes for the scientific computing on these systems: 
+      I just purchased a Minisforum M2 Pro with Ultra X7 358H. Are there other mini systems with Ultra X9 but their geekbench scores are the same.
+      
+      I'm trying to reduce my power footprint from where it is now to something less, but still get great scientific python and blender rendering performance. Today I'm using kuberay on kubernetes for the scientific computing on these systems: 
       
             Node	Single Multi	CPU	             Threads	Memory GPU
             fs7	3345	 23226	Ultra 7 270K Plus	    24	32GB   None
@@ -23677,19 +23679,60 @@ _____________________
       Make an album to listen to:
             python WreckingCrew.py --chorale_list bwv{391..402} --deep_bass_backoff 0.25 --back_off_clicks 0.25 --album 9 --mod g --rondo_section_a 0 32 --rondo_insert_a_after 63 127 --auto_density --shuffle_density --articulate wood_winds:4 --articulate_gain 0.1,0.9 --articulate_accent 8@0.25 
 
-
-
-
-
-
-
-
-
-
-
-
-
       Do a dry run of blender
-            PER_CARD=2 SCRIPT=concert_stage.py BLEND=Concert_Stage.blend ./render_farm.sh --npy Uploads/b413h_df1_t3_d07_09_t092_ap1_lm19_r1.38.npy --tempo 92 --duration 420.8 --out frames_concert_b413h_v1 --dry_run
+            PER_CARD=3 SCRIPT=concert_stage.py BLEND=Concert_Stage.blend ./render_farm.sh --npy Uploads/b413h_df1_t3_d07_09_t092_ap1_lm19_r1.38.npy --tempo 92 --duration 420.8 --out frames_concert_b413h_v1 --dry_run
 
-      That showed that the work would start several pods to split the work across the six GPU. Copilot suggested trying PER_CARD 3 to see if elapsed time improved. This was driven by the discovery that the B70 and B580 has similar Cycles seconds/frame. That was a surprise. That suggests the bottleneck is not GPU performance but somewhere else, most likely single threaded Python. In turn that suggests more python streams running at once, which PER_CARD 3 or 4 might speed thimgs up a bit. But Copilot also did the math of replacing the fleet of Core Ultra 200 machines with mini systems would need 60 Ultra iGPU mini PCs to match the current blender render tasks. They would do great on the kuberay tuning work, but dismal on the blender tasks.  Each run that is currently taking 2 hours on 6 mini PC's would drop to 10% of the performance, or 10x the time: 20 hours! And that's after spending 5 * $2000 = $10k investment. I'd have a hard time justifying that. 
+      That bash script showed that the work would start several pods to split the work across the six GPU. Copilot suggested trying PER_CARD 3 to see if elapsed time improved. This was driven by the discovery that the B70 and B580 has similar Cycles seconds/frame. That was a surprise. That suggests the bottleneck is not GPU performance but somewhere else, most likely single threaded Python. In turn that suggests more python streams running at once, which PER_CARD 3 or 4 might speed thimgs up a bit. But Copilot also did the math of replacing the fleet of Core Ultra 200 machines with mini systems would need 60 Ultra iGPU mini PCs to match the current blender render tasks. They would do great on the kuberay tuning work, but dismal on the blender tasks.  Each run that is currently taking 2 hours on 6 mini PC's would drop to 10% of the performance, or 10x the time: 20 hours! And that's after spending 5 * $2000 = $10k investment. I'd have a hard time justifying that. 
+
+______________________
+10/8/26 What about the Octane engine of Blender? Nvidia only.    
+      Install claude desktop. Won't run on Linux yet. In beta on Ubuntu. Tried to install, but failed.
+            sudo curl -fsSLo /usr/share/keyrings/claude-desktop-archive-keyring.asc https://downloads.claude.ai/claude-desktop/key.asc
+                  curl: (23) client returned ERROR on write of 1369 bytes
+            sudo mkdir /usr/share/keyrings # once this was done, the curl command worked. 
+            gpg --show-keys /usr/share/keyrings/claude-desktop-archive-keyring.asc
+      The rest is specific to Ubuntu. 
+            echo "deb [arch=amd64,arm64 signed-by=/usr/share/keyrings/claude-desktop-archive-keyring.asc] https://downloads.claude.ai/claude-desktop/apt/stable stable main" | sudo tee /etc/apt/sources.list.d/claude-desktop.list
+
+      ___________________
+      Next render should be 394 sweet and 392 busy
+
+      Use this as a template:
+      
+      Copy the mp3 and npy files to the pod pvc:
+            scp Uploads/b394g_df3_t3_d04_03_t076_ap4_lm17_r1.50.mp3 one-footed-bride-pod:Repos/One-footed-bride-tuning/Uploads/b394g_df3_t3_d04_03_t076_ap4_lm17_r1.50.mp3
+            ssh one-footed-bride-pod
+            cd Repos/One-footed-bride-tuning/
+            ffprobe -v error -show_entries format=duration -of csv=p=0 Uploads/b394g_df3_t3_d04_03_t076_ap4_lm17_r1.50.mp3
+                  238.7
+      Create the title page:
+            python concert_title.py Uploads/b394g_df3_t3_d04_03_t076_ap4_lm17_r1.50
+                  big   Chorale Prelude based on Bach Chorale BWV394
+      Copy it to fs2            
+            scp one-footed-bride-pod:Repos/One-footed-bride-tuning/Uploads/b394g_df3_t3_d04_03_t076_ap4_lm17_r1.50.title.txt Uploads/
+                  b394g_df3_t3_d04_03_t076_ap4_lm17_r1.50.title.txt
+      Then from fs1 
+            scp fs2:Repos/One-footed-bride-tuning/Uploads/b394g_df3_t3_d04_03_t076_ap4_lm17_r1.50.title.txt ~/Repos/One-footed-bride-tuning/Uploads/
+                  b394g_df3_t3_d04_03_t076_ap4_lm17_r1.50.title.txt
+      Then run the render:
+            ssh fs2
+            cd ~/Repos/One-footed-bride-tuning 
+            ./render_farm.sh --stop 
+            PER_CARD=3 SCRIPT=concert_stage.py BLEND=Concert_Stage.blend ./render_farm.sh --npy Uploads/b394g_df3_t3_d04_03_t076_ap4_lm17_r1.50.npy --tempo 76 --duration 238.7 --out frames_concert_b394_cyc_v1 --engine cycles --cycles-hw-rt
+
+      Monitor
+            watch -n 20 "./render_farm.sh --progress ; ./render_farm.sh --status"
+      Reset to balanced:
+            ./render_farm.sh --stop
+      mux 
+            ssh one-footed-bride-pod 
+            cd ~/Repos/One-footed-bride-tuning
+            ./concert_mux.sh frames_concert_b394_cyc_v1 Uploads/b394g_df3_t3_d04_03_t076_ap4_lm17_r1.50.mp3 concert_b394_cyc_v1.mp4
+      Copy them to fs2 and fs1:
+            ssh one-footed-bride-pod ls Repos/One-footed-bride-tuning/concert_b394_cyc_v1.mp4
+            scp one-footed-bride-pod:Repos/One-footed-bride-tuning/concert_b394_cyc_v1.mp4 .
+
+      Title: Chorale Prelude based on Bach's BWV394 "..."
+      Description: These chorale preludes are fantasies based on the notes in Bach's chorale, as if performed by an orchestra of AI musicians. 
+      This one is created based on the modes of BWV394, tuned using my One Footed Bride Tuning. The audio is created using a density_factor 3, a middel density factor, not sparse or dense, 4:03 in length, at a tempo of 76 beats per minute. Tuning is done to the 17 limit, with ratio_factor 1.5, and tolerance of 3, meaning the cent values of intervals are allowed to differ from the cent value of the actual ratio by up to plus or minus 3 cents. The video was created using Claude Code Opus 5 who wrote the python code to be run by Blender. Each action is created to imitate the appearance and movements of real instruments. Fake but almost accurate. I call it Animicrotonal Music Videos. 
+      Link: 
