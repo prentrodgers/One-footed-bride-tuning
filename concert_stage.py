@@ -139,14 +139,15 @@ def next_onset(ns, t):
     return None
 
 
-def envelope(ns, t, decay=0.6):
-    """0..1 activity for lights and camera: held notes sustain, released ones decay."""
+def envelope(ns, t, decay=0.6, attack=0.0):
+    """0..1 activity for lights and camera: held notes sustain, released ones decay. With `attack` a note
+    rises to its level over that many seconds instead of in one frame."""
     e = 0.0
     for n in ns:
         if n["t0"] > t:
             break
         if t < n["t1"]:
-            e = max(e, n["lvl"])
+            e = max(e, n["lvl"] * (min(1.0, (t - n["t0"]) / attack) if attack > 0 else 1.0))
         else:
             e = max(e, n["lvl"] * math.exp(-(t - n["t1"]) / decay))
     return e
@@ -1361,6 +1362,16 @@ def parse_args():
     p.add_argument("--engine", choices=("eevee", "cycles"), default="eevee")
     p.add_argument("--samples", type=int, default=64)
     p.add_argument("--cycles-hw-rt", action="store_true")
+    p.add_argument("--emitters-light", action="store_true",
+                   help="Cycles: let the backdrop, fixture lenses and tines light the stage (the 8 Oct look)")
+    p.add_argument("--clamp-indirect", type=float, default=3.0, help="Cycles indirect clamp (0 = off; the .blend has 10)")
+    p.add_argument("--blur-glossy", type=float, default=1.0, help="Cycles Filter Glossy (at least this)")
+    p.add_argument("--diffuse-bounces", type=int, default=None, help="Cycles diffuse bounces (default: the .blend's)")
+    p.add_argument("--motion-blur", type=float, default=0.0,
+                   help="Cycles: camera motion blur, shutter in frames (0.5 = a film camera's 180 degrees; 0 = off)")
+    p.add_argument("--special-attack", type=float, default=0.0,
+                   help="seconds for a player's special to rise on a note (0: in one frame, as before)")
+    p.add_argument("--cycles-exposure", type=float, default=0.0, help="Cycles: added to the scene's exposure (stops)")
     p.add_argument("--gpu-name", default="Arc")
     p.add_argument("--frame-start", type=int, default=0)
     p.add_argument("--frame-end", type=int, default=None)
@@ -1404,6 +1415,69 @@ def configure_engine(scene, args):
     scene.cycles.device = "GPU"; scene.cycles.samples = args.samples
     scene.cycles.use_denoising = True; scene.cycles.denoiser = "OPENIMAGEDENOISE"
     print(f"[concert] Cycles on {chosen}, {args.samples} samples")
+    tame_cycles(scene, args)
+
+
+# Glowing meshes: under EEVEE they only glow, under Cycles they are lights. The backdrop (19 x 8.5 m)
+# then floods the stage from behind and flattens the looks the lighting plan was tuned for under EEVEE
+# (b394g on Cycles, 8 Oct 2026, read as the washed-out look of 10/2); the 27 fixture lenses and 147
+# tines are tiny, bright and hard to sample, and their reflections in the brass were part of the
+# frame-to-frame shimmer once the camera moved. So under Cycles they light nothing: still seen by the
+# camera, and the backdrop still reflected in the brass (big and smooth, so cheap to sample).
+REFLECTED_EMITTERS = ("Backdrop Cyclorama",)
+
+
+def _emitters():
+    glow = set()
+    for m in bpy.data.materials:
+        if not m.use_nodes:
+            continue
+        for n in m.node_tree.nodes:
+            if n.type == "EMISSION" or (n.type == "BSDF_PRINCIPLED" and (
+                    n.inputs["Emission Strength"].is_linked or n.inputs["Emission Strength"].default_value > 0)):
+                glow.add(m)
+    return [o for o in bpy.data.objects if o.type == "MESH" and any(s.material in glow for s in o.material_slots)]
+
+
+def tame_cycles(scene, args):
+    """Cycles-only settings that keep it close to the EEVEE look and steady from frame to frame."""
+    cy = scene.cycles
+    if not args.emitters_light:
+        objs = _emitters()
+        for o in objs:
+            o.visible_diffuse = False
+            o.visible_transmission = False
+            o.visible_volume_scatter = False
+            o.visible_glossy = o.name in REFLECTED_EMITTERS
+        print(f"[concert] {len(objs)} glowing meshes light nothing under Cycles")
+    # The highlights on the brass jumped about once the camera moved: at 64 samples the denoiser guesses
+    # them afresh on every frame. No caustics and a low clamp on indirect light remove the rare bright
+    # paths behind that; blur_glossy (1.0 in the .blend) softens what is left.
+    cy.caustics_reflective = cy.caustics_refractive = False
+    cy.sample_clamp_indirect = args.clamp_indirect
+    cy.blur_glossy = max(cy.blur_glossy, args.blur_glossy)
+    if args.diffuse_bounces is not None:
+        cy.diffuse_bounces = args.diffuse_bounces
+    scene.view_settings.exposure += args.cycles_exposure
+    print(f"[concert] Cycles: clamp indirect {args.clamp_indirect:g}, diffuse bounces {cy.diffuse_bounces}, "
+          f"exposure {scene.view_settings.exposure:+.2f}")
+
+
+def camera_motion_blur(scene, perf, shutter):
+    """Blur only what the camera's own movement smears. The cameras are moved from Python (the dollies), not
+    keyframed, so Cycles sees their motion only if the dollies are placed again at the shutter's subframes;
+    it calls frame_set(frame, subframe) for those, which runs this handler. The players and instruments
+    keep no motion blur: posing them at subframes would cost the per-frame Python three times over."""
+    for o in bpy.data.objects:
+        if o.type != "CAMERA" and hasattr(o, "cycles"):
+            o.cycles.use_motion_blur = False
+    scene.render.use_motion_blur = True
+    scene.render.motion_blur_shutter = shutter
+
+    def place(sc, *_):
+        cc.place_dollies(perf.shots, perf.dolly_dirs, (sc.frame_current + sc.frame_subframe) / FPS)
+    bpy.app.handlers.frame_change_pre.append(place)
+    print(f"[concert] camera motion blur, shutter {shutter:g} frame")
 
 
 class Performance:
@@ -1433,6 +1507,7 @@ class Performance:
         else:
             self.shots = build_shots(self.per, duration, seed, camera, self.lead)
         self.dolly_dirs = cc.dolly_directions(self.shots)
+        self.special_attack = 0.0
         self.lighting = cl.LightingPlan(duration, self.lead, self.tail)
         self.heads = HeadPlanner(self.per, duration, seed)
         self.lights = {k: bpy.data.objects.get(v) for k, v in SPECIAL_LIGHT.items()}
@@ -1458,7 +1533,8 @@ class Performance:
                     bpy.data.objects[cam].location = self.follow_base[cam] + Vector((st or {}).get("body_shift", (0, 0, 0)))
             lt = self.lights.get(key)
             if lt:
-                lt["level"] = 0.45 + 1.1 * (envelope(self.per[key], tm) if key in self.per else 0.0)
+                lt["level"] = 0.45 + 1.1 * (envelope(self.per[key], tm, attack=self.special_attack)
+                                            if key in self.per else 0.0)
         cc.place_dollies(self.shots, self.dolly_dirs, t)
         self.lighting.apply(t)
         if self.title:
@@ -1504,7 +1580,10 @@ def main():
                                       f"and {perf.tail:g} s after it" if perf.title else "none"))
     print("[concert] camera shots: " + ", ".join(f"{int(t0 // 60)}:{t0 % 60:04.1f} {c}" for t0, c in perf.shots))
 
+    perf.special_attack = args.special_attack
     configure_engine(scene, args)
+    if args.engine == "cycles" and args.motion_blur > 0:
+        camera_motion_blur(scene, perf, args.motion_blur)
     scene.render.resolution_x, scene.render.resolution_y = args.res_x, args.res_y
     scene.render.resolution_percentage = 100
     scene.render.fps = FPS
