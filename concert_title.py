@@ -10,6 +10,8 @@ summary of the tuning that was rendered.
 
 The chorale and its tuning come from the piece's name: b425f..._t2_..._lm19_r1.50 is bwv425 tuned with
 Archive/straw-man/best-tunings/bwv425_t2_r1.500_lm19-opt.npy. Override with --chorale / --tuning.
+The rest of the name goes on the hyperparameters line: b392g_df5_t3_d04_05_t104_ap3_... adds
+"density 5, duration 4:05, tempo 104, rhythm set ap 3".
 Needs chord_report.py's and score_video.py's modules (numpy, music21, Pillow): run it on
 one-footed-bride-pod, then copy the .title.txt to the other repo copies.
 
@@ -51,6 +53,26 @@ def tuning_for(stem):
     return chorale, min(cands, key=lambda p: abs(ratio(p) - float(r.group(1))))
 
 
+def piece_details(stem):
+    """The rendering choices in a piece's name, worded as on the title cards:
+    b392g_df5_t3_d04_05_t104_ap3_lm19_r1.25 -> "density 5, duration 4:05, tempo 104, rhythm set ap 3"."""
+    name = os.path.basename(stem)
+    parts = []
+    m = re.search(r"_df(\d+)", name)
+    if m:
+        parts.append(f"density {m.group(1)}")
+    m = re.search(r"_d(\d+)_(\d\d)(?=_)", name)
+    if m:
+        parts.append(f"duration {int(m.group(1))}:{m.group(2)}")
+    m = re.search(r"_t(\d{2,3})(?=_|$)", name)          # tempo; the tolerance is the one-digit _t3_
+    if m:
+        parts.append(f"tempo {int(m.group(1))}")
+    m = re.search(r"_ap(\d+)", name)
+    if m:
+        parts.append(f"rhythm set ap {m.group(1)}")
+    return ", ".join(parts)
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[1])
     ap.add_argument("piece", help="Uploads/<piece> (with or without .npy)")
@@ -83,6 +105,9 @@ def main():
             out += [("body", ln) for ln in textwrap.wrap(text, WRAP)]
         else:
             out.append((style, text))
+    extra = piece_details(stem)
+    if extra:                                           # the hyperparameters line, then how it was rendered
+        out = [(s, t + ", " + extra if t.lstrip().startswith("Hyperparameters:") else t) for s, t in out]
     path = args.out or stem + ".title.txt"
     with open(path, "w", encoding="utf-8") as f:
         f.write("".join(f"{s}\t{t}\n" for s, t in out))
