@@ -176,7 +176,7 @@ def build_body(key, leg_style="normal"):
     bm.verts.index_update()
     breath = [(v.index, pos) for v, pos in breath]
     mats = _mats(idx)
-    cf.skin_texture(mats[0], (head, right, f)); cf.hair_texture(mats[4])
+    cf.skin_texture(mats[0], (head, right, f)); cf.hair_texture(mats[4]); cf.cloth_texture(mats[2])
     mats += [sk.mat("Belt Buckle Brass", (0.8, 0.6, 0.3), metal=1.0, rough=0.3)] + cf.face_materials(idx, sk.SKINS[idx % 12])
     ob = B.build(body_name(key), mats, collection=sk.coll("Musicians"), smooth=True)
     ob["player"] = key
@@ -187,6 +187,7 @@ def build_body(key, leg_style="normal"):
     hob["pivot"], hob["fwd"], hob["left"] = tuple(neckb - UP * 0.02), tuple(f), tuple(l)
     hob["centre"] = tuple(head)
     cf.mark_skin_body(hob)
+    add_blink(key)
     if key in SWAYERS:
         old = bpy.data.objects.get(body_name(key) + " Legs")
         if old:
@@ -593,7 +594,10 @@ _vfx = lambda n: _V_XN - _V_SCALE * (1 - 2 ** (-n / 12))
 def guitar_string_point(x, i):
     t = (_V_XN - x) / (_V_XN - _V_XS)
     yn = 0.018 - 0.0072 * i; ys = 0.026 - 0.0104 * i
-    return Vector((x, yn + (ys - yn) * t, 0.0125 + 0.0055 * t))
+    # 1.3 mm over the frets at the nut, rising toward the saddle: ~1.5 mm at the 1st fret, ~2.5 mm at the 12th,
+    # 3 mm at the last (2026-10-09: the saddle, bridge pickup and neck pickup lowered 3 / 4.5 mm in the .blend;
+    # was + 0.0055 * t, 4 mm at the 12th fret - an action that made every stop look like hard work)
+    return Vector((x, yn + (ys - yn) * t, 0.0125 + 0.0025 * t))
 
 
 def hands_guitar(state=None):
@@ -609,16 +613,19 @@ def hands_guitar(state=None):
         n = max(n, 1)
         x = _vfx(n) + 0.25 * (_vfx(n - 1) - _vfx(n))
         pressed = press_depth(key, _vfx(n), s) if lift == 0 else 0.0     # string held down onto the fret
-        tips.append(mw @ guitar_string_point(x, s) + Zg * (0.0078 + lift - pressed))
+        tips.append(mw @ guitar_string_point(x, s) + Zg * (0.0052 + lift - pressed))      # pad pressing the string (0.0078 left 1.6-1.9 mm of air)
     set_live_strings(key, st.get("strings", {}))
     ref = max(1, stops[1][0])
-    lh = dict(kc=M((_vfx(ref), -0.052, -0.004)), tips=tips, thumb=M((_vfx(ref) + 0.01, 0.012, -0.026)))
+    # knuckles along the treble edge of the fretboard, just above its face, so the fingers arch over the
+    # strings and come down on their tips (they were 2.3 cm beyond the edge and below the face: a finger
+    # reaching the low strings lay flat across the neck)
+    lh = dict(kc=M((_vfx(ref), -0.038, 0.016)), tips=tips, thumb=M((_vfx(ref) + 0.01, 0.012, -0.026)))
     dz = st.get("pick_dy", 0.0)                                         # strumming: pick travels across the strings (local y)
     # Right hand as one connected chain lined up on the pick: the forearm comes in over the upper
     # wing (where the arm rests and keeps the V from tipping forward), the wrist floats 6 cm over
     # the strings, knuckles straight behind the pick, index and thumb pinching it, the other three
     # fingers loosely curled toward the bridge, clear of the strings.
-    P = Vector((_V_XS + 0.115, 0.012 + dz, 0.0225))                     # the pick (rig-local)
+    P = Vector((_V_XS + 0.115, 0.012 + dz, 0.0200))                     # the pick (rig-local; 2.5 mm lower with the action)
     E0 = Vector((-0.40, 0.205, 0.045))                                  # forearm rest on the upper wing
     d = Vector((P.x - E0.x, P.y - E0.y, 0.0)).normalized()              # forearm direction, over the top
     s = Vector((d.y, -d.x, 0.0))                                        # across the hand, toward the pinky
@@ -748,7 +755,8 @@ def build_live_strings(key, strings_obj):
 
 
 def set_live_strings(key, specs):
-    """specs: {string index: {"d": stop distance from the nut (0 = open), "disp": signed vibration (m)}}.
+    """specs: {string index: {"d": stop distance from the nut (0 = open), "disp": signed vibration (m),
+    "press": False to keep the stop as the end of the vibrating length without holding the string down}}.
     Strings not listed lie straight and still."""
     if key not in _live_cache:
         strings, press, x_n, x_b = _live_spec(key)
@@ -764,14 +772,14 @@ def set_live_strings(key, specs):
     L = x_n - x_b
     for i, (N, B, r, _m) in enumerate(strings):
         sp = specs.get(i)
-        sig = None if sp is None else (round(sp.get("d", 0.0), 5), round(sp.get("disp", 0.0), 6))
+        sig = None if sp is None else (round(sp.get("d", 0.0), 5), round(sp.get("disp", 0.0), 6), sp.get("press", True))
         if last.get(i) == sig:
             continue
         last[i] = sig
         d = sp.get("d", 0.0) if sp else 0.0
         disp = sp.get("disp", 0.0) if sp else 0.0
         us = max(0.0, min(0.95, d / L)) if d > 0 else 0.0       # stop point, as a fraction from the nut
-        depth = press(x_n - d, i) if d > 0 else 0.0
+        depth = press(x_n - d, i) if d > 0 and sp.get("press", True) else 0.0
         co = []
         if d > 0:                                               # rings spread so one sits exactly at the stop
             k1 = max(2, min(LIVE_RINGS - 3, round(us * (LIVE_RINGS - 1)) + 1))
@@ -1680,12 +1688,55 @@ HANDS = {
 }
 
 
-def pose_head(key, angles=None):
+# Blinking: a "Blink" shape key on each head brings the upper lid down over the eye to meet the lower lid.
+# The lids are the scaled spheres concert_faces.build_head puts above and below each eyeball; they are
+# found again by their exact ellipsoid, so the key can be added to a head already in the .blend.
+LID_UP = ((0.0, 0.0070, 0.0010), (0.0140, 0.0131, 0.0066))      # (up, forward offset from the eye), radii
+BLINK_REACH = 1.674          # the closed lid's height over its open height (top edge fixed under the brow)
+BLINK_BULGE = (1.3, 0.0015)  # ... and it comes forward over the cornea: depth scale, extra forward (m)
+
+
+def add_blink(key):
+    hob = bpy.data.objects.get(body_name(key) + " Head")
+    if hob is None or "centre" not in hob:
+        return 0
+    me = hob.data
+    if me.shape_keys and "Blink" in me.shape_keys.key_blocks:
+        return 0
+    hc, f, l = Vector(hob["centre"]), Vector(hob["fwd"]), Vector(hob["left"])
+    right = -l
+    (_, du, df), (rx, ry, rz) = LID_UP
+    moves = []
+    for s in (-1, 1):
+        ex = s * 0.032
+        ec = hc + right * ex + f * (cf.front_y(ex, 0.022) - 0.0065) + UP * 0.022
+        c = ec + UP * du + f * df
+        for v in me.vertices:
+            d = v.co - c
+            X, Y, Z = d.dot(right), d.dot(f), d.dot(UP)
+            if abs((X / rx) ** 2 + (Y / ry) ** 2 + (Z / rz) ** 2 - 1.0) < 2e-3:
+                Z2 = rz - (rz - Z) * BLINK_REACH
+                Y2 = Y * BLINK_BULGE[0] + BLINK_BULGE[1]
+                moves.append((v.index, c + right * X + f * Y2 + UP * Z2))
+    if not moves:
+        return 0
+    if not me.shape_keys:
+        hob.shape_key_add(name="Basis", from_mix=False)
+    kb = hob.shape_key_add(name="Blink", from_mix=False)
+    for i, co in moves:
+        kb.data[i].co = co
+    kb.value = 0.0
+    return len(moves)
+
+
+def pose_head(key, angles=None, blink=0.0):
     """Turn the head (a child of the body, so it rides along with any sway or step) about the base of the
     neck: angles = (yaw, pitch) in radians, + yaw toward the player's left, + pitch looking down."""
     hob = bpy.data.objects.get(body_name(key) + " Head")
     if hob is None or "pivot" not in hob:
         return
+    if hob.data.shape_keys and "Blink" in hob.data.shape_keys.key_blocks:
+        hob.data.shape_keys.key_blocks["Blink"].value = blink
     yaw, pitch = angles or (0.0, 0.0)
     P, left = Vector(hob["pivot"]), Vector(hob["left"])
     hob.matrix_basis = (Matrix.Translation(P) @ Matrix.Rotation(yaw, 4, UP) @ Matrix.Rotation(pitch, 4, left)
@@ -1716,7 +1767,7 @@ def pose(key, state=None, pup=None):
         if body:
             body.matrix_world = Mb
         S = {side: Mb @ s for side, s in shoulders(key).items()}
-    pose_head(key, (state or {}).get("head"))
+    pose_head(key, (state or {}).get("head"), (state or {}).get("blink", 0.0))
     p, f, l, up = frame(key)
     default_pole = {"L": -UP + l * 0.8 - f * 0.3, "R": -UP - l * 0.8 - f * 0.3}
     for side in ("L", "R"):

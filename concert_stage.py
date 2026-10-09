@@ -646,9 +646,13 @@ STOP_MAX = 29                                           # highest stop: the end 
 # First position puts the first finger 2 semitones up (a whole step); a shift costs more the farther it
 # goes (squared, so a run climbs through 3rd, 5th, 7th position rather than leaping), less after a rest.
 FIRST_POS = 2
+# Fingers (2026-10-09, at the user's request): a single stopped note goes under the index finger where it
+# can, then the middle, then the ring; the little finger only takes a note that would otherwise need a
+# shift (its cost stays below the cheapest shift, 1.44), never to land one. A double stop is planned with
+# both of its notes (a position where they fall under index and middle is cheapest), not its top note alone.
 FING_COST = dict(shift=1.2, shift_sq=0.24, cross=0.15, open=0.35, high=0.03, rest_relax=0.35,
-                 finger=(0.0, 0.0, 0.05, 0.15),     # the little finger least (and never to land a shift on)
-                 shift_onto_4=0.4)
+                 finger=(0.0, 0.30, 0.55, 1.10),
+                 shift_onto_4=0.4, double_miss=1.5)
 STRING_HZ = (11.3, 13.1, 14.7, 12.2, 15.9, 10.4)
 
 
@@ -692,7 +696,20 @@ class BowedPlayer:
             else:
                 groups.append((n["t0"], [n]))
 
-        def cands(midi):
+        def second(s, P, midi):
+            """Cheapest place for a double stop's other note on another string in position P: (cost, string)."""
+            best = (C["double_miss"], None)
+            for s2, o in enumerate(self.opens):
+                k2 = midi - o
+                if s2 == s or k2 < 0:
+                    continue
+                if k2 == 0:
+                    best = min(best, (C["open"], s2))
+                elif (k2 - P) in fmap:
+                    best = min(best, (C["finger"][fmap[k2 - P]], s2))
+            return best
+
+        def cands(midi, other=None):
             out = []
             for s, o in enumerate(self.opens):
                 k = midi - o
@@ -706,11 +723,13 @@ class BowedPlayer:
                         if (k - P) in fmap:
                             f = fmap[k - P]
                             out.append((s, P, k, f, high(P) + C["finger"][f]))
+            if other is not None:                              # a double stop: add the other note's finger
+                out = [(s, P, k, f, c + second(s, P, other)[0]) for s, P, k, f, c in out]
             return out
 
         layers, back = [], []
         for gi, (t0, ns) in enumerate(groups):
-            cs_ = cands(ns[0]["midi"])
+            cs_ = cands(ns[0]["midi"], ns[1]["midi"] if len(ns) > 1 else None)
             if not cs_:                                        # out of range: the old rule, first position
                 s = string_for(self.opens, ns[0]["midi"]); k = max(0, ns[0]["midi"] - self.opens[s])
                 cs_ = [(s, max(1, min(pmax, k)), k, min(3, max(0, (k - 1) // 2)) if k else None, 9.0)]
@@ -736,13 +755,10 @@ class BowedPlayer:
             assign[id(ns[0])] = (s, k, f, P)
             used = {s}
             for n in ns[1:2]:                                  # a double stop: another string, same position
-                for s2 in range(len(self.opens) - 1, -1, -1):
+                _c, s2 = second(s, P, n["midi"])
+                if s2 is not None:
                     k2 = n["midi"] - self.opens[s2]
-                    if s2 in used or k2 < 0:
-                        continue
-                    if k2 == 0 or (k2 - P) in fmap:
-                        assign[id(n)] = (s2, k2, None if k2 == 0 else fmap[k2 - P], P); used.add(s2)
-                        break
+                    assign[id(n)] = (s2, k2, None if k2 == 0 else fmap[k2 - P], P); used.add(s2)
             j = back[gi][j]
         return assign
 
@@ -883,9 +899,12 @@ class GuitarPlayer:
             if t > prev["t1"]:
                 amp *= math.exp(-(t - prev["t1"]) / 0.12)
             held = t < prev["t1"]
-            d = stop_distance(0.686, fret) if held else 0.0
-            if amp > 1e-5 or d > 0:
-                st["strings"] = {s: {"d": d, "disp": string_disp("Baritone Flying V", s, amp, t) if amp > 1e-5 else 0.0}}
+            # Only the length from the stop to the saddle vibrates - also while the note dies away after the
+            # finger lets go (the stop stays the end of the vibrating length, just no longer held down).
+            d = stop_distance(0.686, fret) if fret > 0 else 0.0
+            if amp > 1e-5 or (held and d > 0):
+                st["strings"] = {s: {"d": d, "press": held,
+                                     "disp": string_disp("Baritone Flying V", s, amp, t) if amp > 1e-5 else 0.0}}
         return st
 
 
@@ -1027,27 +1046,36 @@ def make_player(key, notes):
 
 # ─────────────────────────────── heads ───────────────────────────────
 # Where each player looks: (yaw, pitch) of the head, + yaw toward the player's left, + pitch looking down.
-# - the finger pianists look down at their (tiny, devilishly hard) instruments in busy passages;
+# Reworked 2026-10-09 at the user's request - much more looking down and around, fewer nods, and blinks:
+# - the finger pianists look down at their (tiny, devilishly hard) instruments most of the time they
+#   play, glancing up at someone else playing every so often;
+# - the mallet players mostly watch their bars; the guitarist and the cellist look down at the
+#   fingerboard now and then;
 # - the string players glance at another string player just before an entrance, as if for a cue;
-# - everyone uses their longest rests (up to six) to watch someone playing, nodding every other time;
+# - everyone fills every rest with a chain of looks: at someone playing, down (the music, the
+#   instrument, the floor) or around the stage - with a nod only now and then;
+# - everyone blinks, every 2 to 5.5 s, now and then twice;
 # - otherwise a slight idle drift, so nobody is frozen.
 # A wind or brass player's head only moves with the instrument away from the lips (Breathing.lowered);
 # the violin and viola have the chin on the instrument, so their heads turn only a little.
 FINGER_PIANOS = ("Finger Piano", "Finger Piano 2", "Bass Finger Piano")
+MALLETS = ("Marimba", "Marimba 2", "Vibraphone")
 BOWED_KEYS = ("Violin", "Viola", "Cello")
-STRUCK = FINGER_PIANOS + ("Marimba", "Marimba 2", "Vibraphone", "Baritone Flying V")
+STRUCK = FINGER_PIANOS + MALLETS + ("Baritone Flying V",)
 HEAD_LIMIT = {"Violin": (0.45, 0.16), "Viola": (0.45, 0.16)}      # (yaw, pitch) radians
 HEAD_LIMIT_ALL = (0.85, 0.42)
 LOOK_DOWN = 0.40             # radians (23 deg): a finger pianist looking at the tines
-LOOK_DOWN_EVERY = 12.0       # ... at most once in this many seconds while a passage stays busy (twice as many
-                             # looks as one per busy passage, 20 s apart: 45 -> 92 in b425f, at the user's request)
-REST_LOOK_MIN = 1.25         # a finger pianist's pause between strokes this long or longer: they look around
-BUSY = 3.0                   # notes a second for a passage to count as busy
+WATCH_DOWN = {"Marimba": 0.34, "Marimba 2": 0.34, "Vibraphone": 0.30,        # looking down while playing:
+              "Baritone Flying V": 0.30, "Cello": 0.22}                      # pitch
+WATCH_SHARE = {"Marimba": 0.75, "Marimba 2": 0.75, "Vibraphone": 0.70,       # ... and how much of the time
+               "Baritone Flying V": 0.40, "Cello": 0.30}
+NECK_YAW = {"Baritone Flying V": 0.35, "Cello": 0.20}                       # toward the fretting hand
+REST_MIN = 1.3               # a rest this long or longer (a gap between strokes for struck players) gets looks
 NOD = 0.17                   # radians: the depth of a nod
-# How often players turn to watch each other (doubled at the user's request, 2026-10-03):
-LOOKS_PER_PIECE = 6          # looks at someone playing, in a player's longest rests ...
-LOOK_SPACING = 30.0          # ... at least this many seconds apart; every other one with a nod
-CUE_EVERY = 11.0             # a string player's cue glance at most this often (seconds; was 25)
+NOD_CHANCE = 0.08            # share of looks at someone that end in a nod (was every other look)
+CUE_EVERY = 11.0             # a string player's cue glance at most this often (seconds)
+BLINK_GAP = (2.0, 5.5)       # seconds between blinks
+BLINK_TWICE = 0.12           # share of blinks that come as a quick double
 
 
 def _smooth(x):
@@ -1068,27 +1096,74 @@ class HeadPlanner:
         self.heads = heads
         self.aim = lambda a, b: self._aim(a, heads[a], heads[b])
         playing = lambda k, t0, t1: sum(1 for n in per.get(k, []) if n["t0"] < t1 and n["t1"] > t0)
-        # finger pianists: now and then look down in a busy passage (one look in LOOK_DOWN_EVERY s at most, up
-        # to 4 s); and in each pause between strokes, look up and around the stage (self.rest_looks)
-        self.rest_looks = {}
-        for k in FINGER_PIANOS:
-            ons = sorted(n["t0"] for n in per.get(k, []))
-            self.rest_looks[k] = [(a + 0.15, b, rng.choice((-1, 1)) * rng.uniform(0.18, 0.55), rng.uniform(-0.14, 0.0))
-                                  for a, b in zip(ons, ons[1:]) if b - a >= REST_LOOK_MIN]
-        for k in FINGER_PIANOS:
-            onsets = sorted(n["t0"] for n in per.get(k, []))
-            last_start, busy_from, t = -99.0, None, 0.0
-            while t < duration:                                # (a long busy stretch gets a look every so often)
-                dens = (bisect.bisect_left(onsets, t + 1.0) - bisect.bisect_left(onsets, t - 1.0)) / 2.0
-                if dens >= BUSY:
-                    if busy_from is None:
-                        busy_from = t
-                    if t - busy_from >= 1.5 and t - 1.0 - last_start >= LOOK_DOWN_EVERY:
-                        self.events[k].append((t - 1.0, t + 2.0, 0.0, LOOK_DOWN, 0))
-                        last_start = t - 1.0
+        busiest = lambda k, t0, t1: max((o for o in cp.PLAYERS if o != k),
+                                        key=lambda o: (playing(o, t0, t1), rng.random()))
+
+        def watch(k, t0, t1):
+            """A look at someone playing in [t0, t1] (the busiest, ties at random)."""
+            yaw, pitch = self.aim(k, busiest(k, t0, t1))
+            return (t0, t1, yaw, pitch, 1 if rng.random() < NOD_CHANCE and t1 - t0 >= 1.6 else 0)
+
+        def segments(k):
+            """(playing spans, rests) for player k, each a list of (start, end)."""
+            ns = per.get(k, [])
+            if not ns:
+                return [], [(0.0, duration)]
+            stop = (lambda n: n["t0"] + min(n["dur"], 0.4)) if k in STRUCK else (lambda n: n["t1"])
+            spans, rests = [], []
+            a, e = ns[0]["t0"], stop(ns[0])
+            if a >= REST_MIN:
+                rests.append((0.0, a))
+            for n in ns[1:]:
+                if n["t0"] - e >= REST_MIN:
+                    spans.append((a, e)); rests.append((e, n["t0"])); a = n["t0"]
+                e = max(e, stop(n))
+            spans.append((a, e))
+            if duration - e >= REST_MIN:
+                rests.append((e, duration))
+            return spans, rests
+
+        def fill_rest(k, a, b):
+            """A rest: one look after another - at someone playing, down, or around."""
+            t = a + rng.uniform(0.2, 0.5)
+            while t + 0.9 < b - 0.3:
+                hold = min(rng.uniform(1.2, 3.2), b - 0.3 - t)
+                if hold < 0.8:
+                    break
+                r = rng.random()
+                if r < 0.50:
+                    self.events[k].append(watch(k, t, t + hold))
+                elif r < 0.78:
+                    self.events[k].append((t, t + hold, rng.uniform(-0.15, 0.15), rng.uniform(0.22, 0.38), 0))
                 else:
-                    busy_from = None
-                t += 0.5
+                    self.events[k].append((t, t + hold, rng.choice((-1, 1)) * rng.uniform(0.3, 0.7),
+                                           rng.uniform(-0.12, 0.08), 0))
+                t += hold + rng.uniform(0.3, 0.8)
+
+        def fill_play(k, a, b, down, share, yaw_down=0.0):
+            """Playing: looking down at the instrument for `share` of the time, glancing up at the others."""
+            t = a - 0.4
+            while t < b:
+                if rng.random() < share:
+                    hold = rng.uniform(2.5, 7.0)
+                    self.events[k].append((t, min(b, t + hold), yaw_down + rng.uniform(-0.08, 0.08),
+                                           down + rng.uniform(-0.04, 0.04), 0))
+                else:
+                    hold = rng.uniform(0.9, 1.8)
+                    self.events[k].append(watch(k, t, min(b, t + hold)))
+                t += hold + rng.uniform(0.2, 0.5)
+
+        for k in cp.PLAYERS:
+            spans, rests = segments(k)
+            for a, b in rests:
+                fill_rest(k, a, b)
+            if k in FINGER_PIANOS:
+                for a, b in spans:
+                    fill_play(k, a, b, LOOK_DOWN, 0.85)
+            elif k in WATCH_DOWN:
+                for a, b in spans:
+                    if b - a >= 2.0:
+                        fill_play(k, a, b, WATCH_DOWN[k], WATCH_SHARE[k], NECK_YAW.get(k, 0.0))
         # strings: a glance at another string player, as if for a cue - just before a phrase starts (after a
         # gap of half a second) or while holding a long note; one every CUE_EVERY seconds at most
         for k in BOWED_KEYS:
@@ -1106,43 +1181,24 @@ class HeadPlanner:
                 end = max(end, n["t1"])
                 if window is None or window[0] - last < CUE_EVERY:
                     continue
+                if any(e0 < window[1] and e1 > window[0] for e0, e1, *_ in self.events[k]):
+                    continue                                                # already looking somewhere
                 who = max(others, key=lambda o: (playing(o, window[0] - 1, window[1] + 1), -(heads[o] - heads[k]).length))
                 yaw, pitch = self.aim(k, who)
                 self.events[k].append((window[0], window[1], yaw, pitch, 0))
                 last = window[0]
-        # everyone: in up to LOOKS_PER_PIECE of the longest rests (LOOK_SPACING apart), watch someone playing,
-        # nodding every other time.
-        # A player who never rests 5 s uses shorter rests (down to 1.5 s, with a quicker look). A struck or
-        # plucked note rings on long after the stroke, so for those players a rest is a gap between strokes.
-        for k in cp.PLAYERS:
-            ns = per.get(k, [])
-            if not ns:
-                continue
-            stop = (lambda n: n["t0"] + min(n["dur"], 0.4)) if k in STRUCK else (lambda n: n["t1"])
-            rests, end = [], stop(ns[0])
-            for n in ns[1:]:
-                if n["t0"] - end >= 1.3:
-                    rests.append((n["t0"] - end, end))
-                end = max(end, stop(n))
-            chosen = []
-            for length, start in sorted(rests, reverse=True):
-                if len(chosen) == LOOKS_PER_PIECE:
-                    break
-                if all(abs(start - c[1]) >= LOOK_SPACING for c in chosen):
-                    chosen.append((length, start))
-            for j, (length, start) in enumerate(sorted(chosen, key=lambda c: c[1])):
-                lead_in = 1.0 if length >= 5.0 else 0.2
-                hold = min(3.0, length - lead_in - 0.4)
-                if hold < 0.7:
-                    continue
-                t0 = start + lead_in
-                others = [o for o in cp.PLAYERS if o != k]
-                who = max(others, key=lambda o: (playing(o, t0, t0 + hold), -(heads[o] - heads[k]).length))
-                yaw, pitch = self.aim(k, who)
-                nods = 2 + (rng.random() < 0.4) if hold >= 2.4 else 1 + (hold >= 1.6)
-                self.events[k].append((t0, t0 + hold, yaw, pitch, nods if j % 2 == 0 else 0))   # every other: just watch
         for k in self.events:
             self.events[k].sort()
+        # blinks: start times, each player on their own rhythm
+        self.blinks = {}
+        for k in cp.PLAYERS:
+            t, bl = rng.uniform(0.0, BLINK_GAP[1]), []
+            while t < duration + 30.0:
+                bl.append(t)
+                if rng.random() < BLINK_TWICE:
+                    bl.append(t + 0.28)
+                t += rng.uniform(*BLINK_GAP)
+            self.blinks[k] = bl
 
     @staticmethod
     def _aim(key, me, target):
@@ -1153,28 +1209,37 @@ class HeadPlanner:
         pitch = math.atan2(-d.dot(up), max(horiz, 1e-6))
         return yaw, pitch
 
+    def blink(self, key, t):
+        """0..1 how closed the eyes are at time t: shut in 2 frames, open again over 3."""
+        bl = self.blinks.get(key)
+        if not bl:
+            return 0.0
+        i = bisect.bisect_right(bl, t) - 1
+        if i < 0:
+            return 0.0
+        u = t - bl[i]
+        if u < 0.06:
+            return u / 0.06
+        if u < 0.10:
+            return 1.0
+        if u < 0.22:
+            return 1.0 - (u - 0.10) / 0.12
+        return 0.0
+
     def angles(self, key, t, free=1.0):
         """(yaw, pitch) at music time t; `free` (0..1) scales everything (a wind player's head is held by
         the instrument at the lips)."""
         a, b = self.phase[key]
         yaw = 0.035 * math.sin(2 * math.pi * t / 7.3 + a)                  # idle drift
         pitch = 0.025 * math.sin(2 * math.pi * t / 5.1 + b)
-        looks = self.rest_looks.get(key)
-        if looks:                                                          # a pause between strokes: look around
-            i = bisect.bisect_right(looks, (t, 9e9)) - 1
-            if i >= 0 and looks[i][0] <= t < looks[i][1]:
-                s, e, ty, tp = looks[i]
-                w = min(_smooth((t - s) / 0.35), _smooth((e - 0.3 - t) / 0.35))
-                ty += 0.10 * math.sin(2 * math.pi * t / 2.3 + a)          # and wander a little while there
-                tp += 0.04 * math.sin(2 * math.pi * t / 1.7 + b)
-                yaw += (ty - yaw) * w
-                pitch += (tp - pitch) * w
         for t0, t1, ey, ep, nods in self.events[key]:
             if t < t0 - 0.01:
                 break
             w = min(_smooth((t - t0) / 0.5), 1.0 - _smooth((t - t1) / 0.6))
             if w <= 0:
                 continue
+            ey += 0.05 * math.sin(2 * math.pi * t / 2.3 + a)                # never quite still while looking
+            ep += 0.03 * math.sin(2 * math.pi * t / 1.7 + b)
             yaw += (ey - yaw) * w
             pitch += (ep - pitch) * w
             if nods:                                                       # nods once the head has turned
@@ -1527,6 +1592,7 @@ class Performance:
             if 0 <= tm < self.duration:                       # heads still during the title cards
                 st = dict(st or {})
                 st["head"] = self.heads.angles(key, tm, st.get("lower", 1.0) if isinstance(pl, Breathing) else 1.0)
+            st = dict(st or {}); st["blink"] = self.heads.blink(key, tm)
             cp.pose(key, st, self.puppets[key])
             for cam, who in self.follow.items():
                 if who == key:

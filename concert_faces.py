@@ -285,6 +285,62 @@ def hair_texture(m):
     m["hair_v3"] = 1
 
 
+CLOTH_V = 3
+
+
+def cloth_texture(m):
+    """Concert black that reads as cloth rather than plastic, and stays black: a fine twill (a diagonal
+    rib, seen in close-ups), soft drape-scale undulation in the bump, a slight unevenness in the dye and
+    the shine, and a faint sheen at grazing angles. Object coordinates, so it stays put on a moving leg.
+    (v1 had full white sheen and a strong fleck: it read as grey felt.)"""
+    if m.get("cloth_v") == CLOTH_V:
+        return
+    nt = m.node_tree; N, L = nt.nodes, nt.links
+    for n in [n for n in N if n.type not in ('BSDF_PRINCIPLED', 'OUTPUT_MATERIAL')]:
+        N.remove(n)
+    b = N["Principled BSDF"]
+    base = tuple(m.get("cloth_base") or (0.03, 0.03, 0.035))
+    m["cloth_base"] = base
+    tc = N.new("ShaderNodeTexCoord")
+    twill = N.new("ShaderNodeTexWave")                      # ~2.5 mm diagonal ribs
+    twill.wave_type = 'BANDS'; twill.bands_direction = 'DIAGONAL'
+    twill.inputs["Scale"].default_value = 250.0
+    twill.inputs["Distortion"].default_value = 0.6
+    twill.inputs["Detail"].default_value = 1.0
+    drape = N.new("ShaderNodeTexNoise")                     # 10-15 cm undulation: cloth is never flat
+    drape.inputs["Scale"].default_value = 7.0
+    drape.inputs["Detail"].default_value = 3.0
+    fleck = N.new("ShaderNodeTexNoise")                     # uneven dye and wear
+    fleck.inputs["Scale"].default_value = 40.0
+    fleck.inputs["Detail"].default_value = 4.0
+    for n in (twill, drape, fleck):
+        L.new(tc.outputs["Object"], n.inputs["Vector"])
+    ramp = N.new("ShaderNodeValToRGB")
+    ramp.color_ramp.elements[0].position = 0.35
+    ramp.color_ramp.elements[0].color = tuple(c * 0.85 for c in base) + (1,)
+    ramp.color_ramp.elements[1].position = 0.70
+    ramp.color_ramp.elements[1].color = tuple(c * 1.15 for c in base) + (1,)
+    L.new(fleck.outputs["Fac"], ramp.inputs["Fac"])
+    L.new(ramp.outputs["Color"], b.inputs["Base Color"])
+    rough = N.new("ShaderNodeMapRange")
+    rough.inputs["To Min"].default_value = 0.78; rough.inputs["To Max"].default_value = 0.90
+    L.new(fleck.outputs["Fac"], rough.inputs["Value"])
+    L.new(rough.outputs["Result"], b.inputs["Roughness"])
+    b1 = N.new("ShaderNodeBump")
+    b1.inputs["Strength"].default_value = 0.55; b1.inputs["Distance"].default_value = 0.025
+    L.new(drape.outputs["Fac"], b1.inputs["Height"])
+    b2 = N.new("ShaderNodeBump")
+    b2.inputs["Strength"].default_value = 0.20; b2.inputs["Distance"].default_value = 0.0005
+    L.new(twill.outputs["Fac"], b2.inputs["Height"])
+    L.new(b1.outputs["Normal"], b2.inputs["Normal"])
+    L.new(b2.outputs["Normal"], b.inputs["Normal"])
+    if "Sheen Weight" in b.inputs:
+        b.inputs["Sheen Weight"].default_value = 0.12
+        b.inputs["Sheen Roughness"].default_value = 0.35
+        b.inputs["Sheen Tint"].default_value = (0.35, 0.35, 0.38, 1.0)
+    m["cloth_v"] = CLOTH_V
+
+
 def face_materials(i, skin_color):
     sclera = sk.mat("Eye Sclera", (0.82, 0.80, 0.76), rough=0.12)
     iris = sk.mat(f"Iris {i}", IRIS[i % len(IRIS)], rough=0.10, coat=1.0)
@@ -400,7 +456,7 @@ def _pince_nez(B, P, Rb, right, f):
 def _cap(B, hc, right, f):
     """A baseball cap over the (short) hair: a six-panel crown with a button, a curved bill tilted a
     little down, and an interlocking NY on the front panel."""
-    off, seg, rows = 0.021, 48, 10
+    off, seg, rows = 0.016, 48, 10                     # 16 mm off the skull (was 21: a size too big, 2026-10-09)
     band = lambda s: 0.041 + 0.010 * s                                    # sits a little higher at the front
     def point(c, r):
         th = 2 * math.pi * c / seg
