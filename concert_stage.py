@@ -1071,7 +1071,9 @@ WATCH_SHARE = {"Marimba": 0.75, "Marimba 2": 0.75, "Vibraphone": 0.70,       # .
                "Baritone Flying V": 0.40, "Cello": 0.30}
 NECK_YAW = {"Baritone Flying V": 0.35, "Cello": 0.20}                       # toward the fretting hand
 REST_MIN = 1.3               # a rest this long or longer (a gap between strokes for struck players) gets looks
-NOD = 0.17                   # radians: the depth of a nod
+NOD = 0.06                   # radians (3.4 deg): a nod just big enough to signal someone (was 0.17)
+LOOK_SCALE = (0.1, 1.0)      # each look aside turns this share of the way to its target, smaller ones more
+                             # often (2026-10-09: the full turn on every look was too much movement)
 NOD_CHANCE = 0.08            # share of looks at someone that end in a nod (was every other look)
 CUE_EVERY = 11.0             # a string player's cue glance at most this often (seconds)
 BLINK_GAP = (2.0, 5.5)       # seconds between blinks
@@ -1099,10 +1101,15 @@ class HeadPlanner:
         busiest = lambda k, t0, t1: max((o for o in cp.PLAYERS if o != k),
                                         key=lambda o: (playing(o, t0, t1), rng.random()))
 
+        def amount():
+            lo, hi = LOOK_SCALE
+            return lo + (hi - lo) * rng.random() ** 1.5
+
         def watch(k, t0, t1):
-            """A look at someone playing in [t0, t1] (the busiest, ties at random)."""
+            """A look at someone playing in [t0, t1] (the busiest, ties at random), part of the way."""
             yaw, pitch = self.aim(k, busiest(k, t0, t1))
-            return (t0, t1, yaw, pitch, 1 if rng.random() < NOD_CHANCE and t1 - t0 >= 1.6 else 0)
+            a = amount()
+            return (t0, t1, yaw * a, pitch * a, 1 if rng.random() < NOD_CHANCE and t1 - t0 >= 1.6 else 0)
 
         def segments(k):
             """(playing spans, rests) for player k, each a list of (start, end)."""
@@ -1134,10 +1141,12 @@ class HeadPlanner:
                 if r < 0.50:
                     self.events[k].append(watch(k, t, t + hold))
                 elif r < 0.78:
-                    self.events[k].append((t, t + hold, rng.uniform(-0.15, 0.15), rng.uniform(0.22, 0.38), 0))
+                    a = amount()
+                    self.events[k].append((t, t + hold, a * rng.uniform(-0.15, 0.15), a * rng.uniform(0.22, 0.38), 0))
                 else:
-                    self.events[k].append((t, t + hold, rng.choice((-1, 1)) * rng.uniform(0.3, 0.7),
-                                           rng.uniform(-0.12, 0.08), 0))
+                    a = amount()
+                    self.events[k].append((t, t + hold, a * rng.choice((-1, 1)) * rng.uniform(0.3, 0.7),
+                                           a * rng.uniform(-0.12, 0.08), 0))
                 t += hold + rng.uniform(0.3, 0.8)
 
         def fill_play(k, a, b, down, share, yaw_down=0.0):
