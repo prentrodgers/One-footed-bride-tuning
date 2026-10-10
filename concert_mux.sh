@@ -12,7 +12,7 @@ set -euo pipefail
 FRAMES=$1; P=${2%.npy}; P=${P%.mp3}; V=$3
 LEAD=${LEAD:-$([ -f "$P.title.txt" ] && echo 8 || echo 0)}
 n=$(find "$FRAMES" -maxdepth 1 -name 'frame_*.png' | wc -l)
-missing=$(for ((i = 0; i < n; i++)); do f=$(printf '%s/frame_%06d.png' "$FRAMES" $i); [ -s "$f" ] || echo $i; done | head)
+missing=$(for ((i = 0; i < n; i++)); do f=$(printf '%s/frame_%06d.png' "$FRAMES" $i); [ -s "$f" ] || echo $i; done | head || true)
 [ -z "$missing" ] || { echo "missing frames: $missing" >&2; exit 1; }
 ms=$(awk -v l="$LEAD" 'BEGIN{printf "%d", l * 1000}')
 ffmpeg -nostdin -y -loglevel error -framerate 30 -i "$FRAMES/frame_%06d.png" -i "$P.mp3" \
