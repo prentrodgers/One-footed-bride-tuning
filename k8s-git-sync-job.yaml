@@ -41,7 +41,7 @@ spec:
               - key: kubernetes.io/hostname
                 operator: In
                 values:
-                - fs2
+                - fs1   # fs2 is out for memtest86+ (Oct 2026)
                 - fs3
                 - fs4
                 - fs5

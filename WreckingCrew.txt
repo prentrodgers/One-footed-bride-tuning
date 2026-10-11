@@ -23736,3 +23736,9 @@ ______________________
       Description: These chorale preludes are fantasies based on the notes in Bach's chorale, as if performed by an orchestra of AI musicians. 
       This one is created based on the modes of BWV394, tuned using my One Footed Bride Tuning. The audio is created using a density_factor 3, a middel density factor, not sparse or dense, 4:03 in length, at a tempo of 76 beats per minute. Tuning is done to the 17 limit, with ratio_factor 1.5, and tolerance of 3, meaning the cent values of intervals are allowed to differ from the cent value of the actual ratio by up to plus or minus 3 cents. The video was created using Claude Code Opus 5 who wrote the python code to be run by Blender. Each action is created to imitate the appearance and movements of real instruments. Fake but almost accurate. I call it Animicrotonal Music Videos. 
       Link: 
+
+
+      ______________________
+      Now do a new set of 12:
+      Last one to run was bwv{391..402}
+            ./ray-ratchet.sh --chorales bwv{379..390}

@@ -28,7 +28,7 @@
 #   4. submit ray_ratchet.py as a Ray job on the head and follow its log.  The
 #      job runs on the head, not in this shell: if the ssh session drops, the
 #      run continues and `./ray-ratchet.sh --attach` picks the log back up.
-#   5. delete the RayCluster — its pods hold most of what fs2-fs9 have free.
+#   5. delete the RayCluster — its pods hold most of what fs1, fs3-fs9 have free.
 #
 # Dashboard while it runs: http://192.168.68.14:30265 (a NodePort, the
 # Service at the end of k8s-ray-cluster.yaml) — per-task CPU and memory,

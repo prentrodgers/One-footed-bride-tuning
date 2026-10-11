@@ -12,8 +12,8 @@
 #
 # Applied by ray-ratchet.sh at the start of a run and deleted at the end.  It
 # is not meant to sit resident: its worker pods hold their CPU and memory
-# whether or not a task is running, and that is most of what fs2-fs9 have
-# free.  KubeRay (install-kuberay.sh) turns this manifest into pods.
+# whether or not a task is running, and that is most of what fs1, fs3-fs9
+# have free.  KubeRay (install-kuberay.sh) turns this manifest into pods.
 #
 # Everything mount- and security-related is copied from the Job template,
 # where the comments explain each hard-won piece: the repo as a subPath (not
@@ -21,7 +21,7 @@
 # emptyDir home around it (the image's /home/prent is root's), seLinux level
 # s0, uid 1000, node affinity to the nodes that can mount dropbox-pvc.
 #
-# ── Sizing (6 Oct 2026) ───────────────────────────────────────────────────
+# ── Sizing (11 Oct 2026) ──────────────────────────────────────────────────
 # One worker pod per node, sized to what the node has FREE after its resident
 # pods (Ceph, monitoring, the jupyter deployment), not to its allocatable
 # total.  A task takes 4 CPU (matching VITERBI_WORKERS=4; more workers than
@@ -30,23 +30,27 @@
 #
 #            allocatable   committed     pod        tasks   left
 #   fs5       24 / 46Gi    5.9 / 34Gi    16 / 12Gi    4     2.1 / 0.7Gi  (jupyter + 4 OSDs)
-#   fs7       24 / 30Gi    6.4 / 17Gi    16 / 12Gi    4     1.6 / 1.8Gi
-#   fs9       24 / 30Gi    5.9 / 16Gi    16 / 12Gi    4     2.1 / 2.5Gi
-#   fs2       18 / 31Gi    2.7 / 6.0Gi   12 / 12Gi    3     3.3 / 13Gi   (rook-ceph-tools: 2 CPU)
-#   fs3       18 / 31Gi    5.8 / 16Gi    12 / 12Gi    3     0.2 / 3.2Gi  (Ceph mds a+b, mgr-b, rgw, operator)
-#   fs4       20 / 62Gi    5.1 / 18Gi    12 / 12Gi    3     2.9 / 32Gi
+#   fs7       24 / 30Gi    6.4 / 17Gi    16 / 12Gi    4     1.6 / 1.7Gi
+#   fs9       24 / 30Gi    5.2 / 15Gi    16 / 12Gi    4     2.8 / 3.1Gi
+#   fs1       16 / 31Gi    0.9 / 2.2Gi   12 / 12Gi    3     3.1 / 16Gi   (358H, low power, stays on balanced)
+#   fs3       18 / 31Gi    4.7 / 11Gi    12 / 12Gi    3     1.3 / 7.3Gi  (Ceph mds-a, mgr-a, rgw, operator)
 #   fs6       16 / 30Gi    2.7 / 9.5Gi   12 / 12Gi    3     1.3 / 8.6Gi
-#   fs8       18 / 31Gi    5.4 / 16Gi    12 / 12Gi    3     0.6 / 3.0Gi
-#                                                    27 concurrent tasks
-#   plus the head (0.5 CPU / 1.5Gi requested) on fs2, fs4, fs6 or fs9 — see
+#   fs8       18 / 31Gi    4.9 / 15Gi    12 / 12Gi    3     1.1 / 4.0Gi
+#   fs4       20 / 62Gi    9.1 / 28Gi     8 / 12Gi    2     2.9 / 22Gi   (mds-b, mgr-b, 3 OSDs, toolbox: 2 CPU)
+#                                                    26 concurrent tasks
+#   plus the head (0.5 CPU / 1.5Gi requested) on fs1, fs4, fs6 or fs9 — see
 #   the headGroupSpec comment.
 #
+# fs2 is out (memtest86+, Oct 2026) and fs1 has its place: a 32GB Linux
+# server, left on the balanced profile — power-save-all.sh does not touch it.
+#
 # The Ceph daemons that are Deployments (mds, mgr, rgw, operator, toolbox)
-# move when a node reboots: fs2's memory upgrade (16 -> 32GB, 5 Oct) put
+# move when a node goes down: fs2's memory upgrade (16 -> 32GB, 5 Oct) put
 # ~6 CPU of them on fs3 and the 2-CPU toolbox on fs2, and fs2 and fs3 went
-# from 16-CPU workers to Pending.  After any reboot, recheck "committed"
-# (`kubectl describe node fsN | grep -A12 Allocated`) before a run.  fs3 has
-# 0.2 CPU to spare: anything new there and its worker is Pending.
+# from 16-CPU workers to Pending; fs2's removal put the toolbox on fs4,
+# leaving it 10.9 CPU (too few for 12), so fs4 got its own 8-CPU group.
+# After any reboot, recheck "committed"
+# (`kubectl describe node fsN | grep -A12 Allocated`) before a run.
 #
 # Requests equal limits (Guaranteed QoS) so Ray's idea of the node matches
 # what the kubelet enforces.  A task declares memory=2.5GiB to Ray so four fit
@@ -84,8 +88,8 @@ spec:
             level: s0
         # The head shares a node with one of the workers, so it can only go
         # where the table's arithmetic leaves room for it after that worker:
-        # fs2 (3.3 CPU, 13Gi left), fs4 (2.9, 32Gi), fs6 (1.3, 8.6Gi) and
-        # fs9 (2.1, 2.5Gi).  Not fs7 (1.8Gi) or fs5/fs3/fs8 (too little).
+        # fs1 (3.1 CPU, 16Gi left), fs4 (2.9, 22Gi), fs6 (1.3, 8.6Gi) and
+        # fs9 (2.8, 3.1Gi).  Not fs7 (1.7Gi) or fs5/fs3/fs8 (too little).
         # Anywhere else it takes the CPU the node's worker needed and that
         # worker sits Pending — which is what happened on fs3 the first time.
         affinity:
@@ -95,7 +99,7 @@ spec:
               - matchExpressions:
                 - key: kubernetes.io/hostname
                   operator: In
-                  values: [fs2, fs4, fs6, fs9]
+                  values: [fs1, fs4, fs6, fs9]
         containers:
         - name: ray-head
           image: quay.io/prentrodgers/python-music:0.11
@@ -187,7 +191,7 @@ spec:
         - name: regcred
 
   workerGroupSpecs:
-  # Two groups differing only in size and node list — see the table above.
+  # Three groups differing only in size and node list — see the table above.
   # The group name is in the pod name (tuning-w16-worker-xxxxx).
   - groupName: w16
     replicas: 3
@@ -262,9 +266,9 @@ spec:
         - name: regcred
 
   - groupName: w12
-    replicas: 5
-    minReplicas: 5
-    maxReplicas: 5
+    replicas: 4
+    minReplicas: 4
+    maxReplicas: 4
     rayStartParams:
       num-cpus: "12"
       object-store-memory: "500000000"
@@ -283,7 +287,7 @@ spec:
               - matchExpressions:
                 - key: kubernetes.io/hostname
                   operator: In
-                  values: [fs2, fs3, fs4, fs6, fs8]
+                  values: [fs1, fs3, fs6, fs8]
           podAntiAffinity: *one-per-node
         containers:
         - name: ray-worker
@@ -297,6 +301,50 @@ spec:
           resources:
             requests: {cpu: "12", memory: "12Gi"}
             limits:   {cpu: "12", memory: "12Gi"}
+          volumeMounts: *mounts
+          env: *env
+        volumes: *volumes
+        imagePullSecrets:
+        - name: regcred
+
+  # fs4 alone: the Ceph toolbox moved there when fs2 went down and left it
+  # 10.9 CPU free.  Back to w12 when the toolbox moves off (or is scaled to 0).
+  - groupName: w8
+    replicas: 1
+    minReplicas: 1
+    maxReplicas: 1
+    rayStartParams:
+      num-cpus: "8"
+      object-store-memory: "500000000"
+    template:
+      metadata:
+        labels:
+          app: ray-tuning
+      spec:
+        securityContext:
+          seLinuxOptions:
+            level: s0
+        affinity:
+          nodeAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              nodeSelectorTerms:
+              - matchExpressions:
+                - key: kubernetes.io/hostname
+                  operator: In
+                  values: [fs4]
+          podAntiAffinity: *one-per-node
+        containers:
+        - name: ray-worker
+          image: quay.io/prentrodgers/python-music:0.11
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            runAsUser: 1000
+            runAsGroup: 1000
+          livenessProbe: *worker-probe
+          readinessProbe: *worker-probe
+          resources:
+            requests: {cpu: "8", memory: "12Gi"}
+            limits:   {cpu: "8", memory: "12Gi"}
           volumeMounts: *mounts
           env: *env
         volumes: *volumes

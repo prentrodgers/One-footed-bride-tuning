@@ -39,7 +39,10 @@ set -u
 VERIFY_ONLY=0
 [ "${1:-}" = "--verify" ] && { VERIFY_ONLY=1; shift; }
 HOSTS=("$@")
-[ ${#HOSTS[@]} -eq 0 ] && HOSTS=(fs2 fs3 fs4 fs5 fs6 fs7 fs8 fs9)   # fs6/fs9 (Ryzen + B580) added 13 Sep 2026
+# fs6/fs9 (Ryzen + B580) added 13 Sep 2026.  fs2 out for memtest86+ (Oct 2026).
+# fs1 is deliberately NOT here: a low-power server that stays on balanced
+# (under 70 W at 100% CPU) — never switch its profile.
+[ ${#HOSTS[@]} -eq 0 ] && HOSTS=(fs3 fs4 fs5 fs6 fs7 fs8 fs9)
 SSH="ssh -o BatchMode=yes -o ConnectTimeout=5"
 
 PROFILE='[main]
