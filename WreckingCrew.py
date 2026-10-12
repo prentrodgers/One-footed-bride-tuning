@@ -1265,6 +1265,8 @@ def parse_articulate(spec: str | None) -> dict:
     where running figuration belongs and where it does not turn to mud.
     """
     out: dict = {}
+    if (spec or '').strip().lower() == 'none':   # --articulate none: turn off the default
+        return out
     for token in (spec or '').split(','):
         token = token.strip()
         if not token:
@@ -2431,7 +2433,47 @@ def trim_csound(version, duration, trim = True, mp3=True):
     return result
 
 
-def create_repeat_array_pattern(chorale_array, pattern=None, axis=1):
+def apply_chaconne(cent_value_chorale, chorale, kept, section, insert_after, repeats=1):
+    """Copy the raw chords of a chaconne section in after each insertion point.
+
+    Unlike apply_rondo, which splices in a note-for-note copy of the section after
+    expansion, this works on the raw (4, n_chords) arrays before anything else
+    happens, so each copy goes through the repeats, glides and expand_chorale on
+    its own and comes out as a variation rather than a replay.
+
+    cent_value_chorale, chorale – (4, n) arrays, already reduced by --include_list/--include_slice
+    kept         – the raw chord index of each of their n columns
+    section      – (start, end), raw chord indices [start, end); chords outside the
+                   included slices are left out of the copy
+    insert_after – raw chord indices, each one an included chord; the copy goes
+                   directly after it (the --rondo_insert_*_after convention)
+    repeats      – how many copies go back to back at each insertion point
+                   (--chaconne_repeats): the ground coming round again and again
+
+    Returns the two arrays with the copies spliced in, and the (start, end) column
+    span of each copy in them (one per copy, so each gets its own repeat pattern).
+    """
+    pos = {raw: i for i, raw in enumerate(kept)}
+    s, e = section
+    sec_cols = [pos[raw] for raw in range(s, e) if raw in pos]
+    if not sec_cols:
+        raise SystemExit(f'--chaconne_section {s} {e}: none of those chords are in the included slices')
+    missing = [n for n in insert_after if n not in pos]
+    if missing:
+        raise SystemExit(f'--chaconne_insert_after {missing}: not included chords '
+                         f'(insert after a chord inside an --include_slice)')
+    order, copies, prev = [], [], 0
+    for cut in sorted(pos[n] + 1 for n in insert_after):
+        order.extend(range(prev, cut))
+        for _ in range(repeats):
+            copies.append((len(order), len(order) + len(sec_cols)))
+            order.extend(sec_cols)
+        prev = cut
+    order.extend(range(prev, len(kept)))
+    return cent_value_chorale[:, order], chorale[:, order], copies
+
+
+def create_repeat_array_pattern(chorale_array, pattern=None, axis=1, fresh_spans=None):
     """
     Repeat each chord according to a fixed pattern.
 
@@ -2439,6 +2481,8 @@ def create_repeat_array_pattern(chorale_array, pattern=None, axis=1):
         chorale_array: Input array. Expected shape (voices, time_steps, features) so chords are on axis=1.
         pattern: List of repeat counts. If None, uses default prime pattern.
         axis: The axis containing the chords/time steps (default 1).
+        fresh_spans: (start, end) chord spans that get their own draw from the pattern —
+            the chaconne copies (apply_chaconne).
 
     Returns:
         Expanded array with repeated chords, and the repeat_values used (array length = number of chords).
@@ -2452,11 +2496,20 @@ def create_repeat_array_pattern(chorale_array, pattern=None, axis=1):
     else:
         pattern = np.array(pattern, dtype=int)
     logging.info(f'Using repeat pattern: {pattern = }')
+    base = pattern
     # rng.shuffle(pattern)  # Shuffle the pattern for randomness
-    pattern = rng.choice(pattern, size=pattern.shape[0], replace=True) # much more random the piece will be. 
+    pattern = rng.choice(pattern, size=pattern.shape[0], replace=True) # much more random the piece will be.
     logging.info(f'After shuffle: {pattern = }')
     # Create repeat sequence by cycling through pattern to length num_chords
     repeat_values = np.tile(pattern, int(np.ceil(num_chords / len(pattern))))[:num_chords].astype(int)
+
+    # Chaconne copies: the cycle above repeats every len(pattern) chords, so a copy
+    # whose offset from its source is a multiple of that would get the source's
+    # rhythm exactly. Each copy draws its own pattern, cycled from its first chord.
+    for start, end in fresh_spans or []:
+        own = rng.choice(base, size=base.shape[0], replace=True)
+        repeat_values[start:end] = np.tile(own, int(np.ceil((end - start) / len(own))))[:end - start]
+        logging.info(f'chaconne copy [{start}, {end}): own repeat pattern {own = }')
 
     # Sanity checks
     assert repeat_values.shape[0] == num_chords, "repeat_values must have one entry per chord"
@@ -2478,7 +2531,8 @@ def chorale_to_wave_v4(version, album, include_sections, ratio_factor, limit_max
       stability_factor=0.0, max_delta=33, spread=7, fp_density_starts=None, fp_hold_scale=1.0, prime_count=8, ap=None, articulated_sections=None, articulate_cfg=None, density_level=5,
         fatigue_min_chain=2, fatigue_density_threshold=1, include_slice=None,
         deep_bass_backoff=1.0, back_off_clicks=0.0,
-        rondo_sections=None, rondo_insertions=None):
+        rondo_sections=None, rondo_insertions=None, chaconne_section=None, chaconne_insertions=None,
+        chaconne_repeats=1):
 
     print(f'In chorale_to_wave_v4. {version = }, {limit_max = }, {short_repeats = }, {ratio_factor = }')
     if short_repeats: # if you just want a straight woodwind/brass chorale, set short_repeats = True
@@ -2540,8 +2594,11 @@ def chorale_to_wave_v4(version, album, include_sections, ratio_factor, limit_max
 
     n_chords_raw = cent_value_chorale.shape[1]
     effective_include = list(include_list) if include_list is not None else []
-    if include_slice is not None:
-        start, end = include_slice
+    # --include_slice can be given more than once: a list of [START, END) pairs.
+    # A single (START, END) pair, as it used to be passed, is still accepted.
+    if include_slice is not None and len(include_slice) and np.isscalar(include_slice[0]):
+        include_slice = [include_slice]
+    for start, end in include_slice or []:
         if end <= start:
             raise SystemExit(f'--include_slice expects END > START, got START={start}, END={end}')
         if start < 0 or end > n_chords_raw:
@@ -2559,6 +2616,17 @@ def chorale_to_wave_v4(version, album, include_sections, ratio_factor, limit_max
         chorale = chorale[:, effective_include]
     if len(effective_include) < chorale.shape[1]:
         print(f'{effective_include = }')
+
+    # Chaconne: copy the raw chords of the section in after each insertion point,
+    # before octaves, repeats and everything else, so every copy is varied by the
+    # rest of the pipeline. Indices are raw, like --include_slice.
+    chaconne_spans = []
+    if chaconne_section is not None and chaconne_insertions:
+        kept = effective_include if effective_include else list(range(n_chords_raw))
+        cent_value_chorale, chorale, chaconne_spans = apply_chaconne(
+            cent_value_chorale, chorale, kept, chaconne_section, chaconne_insertions, chaconne_repeats)
+        logging.info(f'chaconne: section {chaconne_section} inserted {chaconne_repeats}x after {chaconne_insertions}; '
+                     f'copies at columns {chaconne_spans}, {chorale.shape[1]} chords in all')
 
     # we don't need to score the chords at this point.
     # print(f'About to score the chorale as loaded. {chorale_in_cents.shape = }')
@@ -2614,7 +2682,8 @@ def chorale_to_wave_v4(version, album, include_sections, ratio_factor, limit_max
         primes = all_primes[:int(np.clip(prime_count, 1, all_primes.shape[0]))]
         # the previous line is just a super-safe way to slice the all_primes array to the first prime_count elements of the all_primes array. 
         
-        choral_octaves_repeated, repeats = create_repeat_array_pattern(chorale_in_cents_octaves, pattern=primes)
+        choral_octaves_repeated, repeats = create_repeat_array_pattern(chorale_in_cents_octaves, pattern=primes,
+                                                                       fresh_spans=chaconne_spans)
         logging.info(f'created repeats pattern using primes. {primes = }, {prime_count = }, {repeats[:primes.shape[0]] = }')
 
     logging.info(f'{repeats.shape = }, after merging octaves and cents {chorale_in_cents_octaves.shape = }, after repeats applied: {choral_octaves_repeated.shape = }')
@@ -2690,14 +2759,15 @@ def mainline(chorale_override=None, short_repeats=False, just_triangle=False, in
              numpy_dir_arg=None, stability_factor=0.0, max_delta=33, spread=7, limit_max=23, auto_density=False, prime_count=8, ap=None, articulated_sections=None, articulate_cfg=None, density_level=None, shuffle_density=False, auto_density_weights=None,
              fatigue_min_chain=2, fatigue_density_threshold=1, include_slice=None,
              deep_bass_backoff=1.0, back_off_clicks=0.0,
-             rondo_sections=None, rondo_insertions=None):
+             rondo_sections=None, rondo_insertions=None, chaconne_section=None, chaconne_insertions=None,
+             chaconne_repeats=1):
       if include_list is None:
             include_list = []
 
-      # Keep level 5 as the effective default, but allow --auto_density to operate
-      # when density_level is not explicitly provided.
+      # Level 3 is the effective default (5 until 12 Oct 2026), but allow
+      # --auto_density to operate when density_level is not explicitly provided.
       if density_level is None and not auto_density:
-            density_level = 5
+            density_level = 3
 
       # Override numpy_dir: use explicit argument if provided, otherwise use tolerance-specific directory
       global numpy_dir
@@ -2847,7 +2917,9 @@ def mainline(chorale_override=None, short_repeats=False, just_triangle=False, in
                                     fatigue_min_chain=fatigue_min_chain, fatigue_density_threshold=fatigue_density_threshold,
                                     include_slice=include_slice,
                                     deep_bass_backoff=deep_bass_backoff, back_off_clicks=back_off_clicks,
-                                    rondo_sections=rondo_sections, rondo_insertions=rondo_insertions)
+                                    rondo_sections=rondo_sections, rondo_insertions=rondo_insertions,
+                                    chaconne_section=chaconne_section, chaconne_insertions=chaconne_insertions,
+                                    chaconne_repeats=chaconne_repeats)
 
       # Generate a playlist of all the pieces in this album. This never worked correctly in the pod.
       print(f' {UPLOADS_DIR = }')
@@ -2874,7 +2946,9 @@ if __name__ == "__main__":
       parser.add_argument("--include_list", dest="include_list", nargs='+', type=int, default=[],
                       help="List of chord numbers to include in the piece (default: empty list for all chords)")
       parser.add_argument("--include_slice", dest="include_slice", nargs=2, type=int, metavar=('START', 'END'), default=None,
-                      help="Raw chord slice [START, END) on loaded uncompressed arrays, e.g. --include_slice 228 273")
+                      action="append",
+                      help="Raw chord slice [START, END) on loaded uncompressed arrays, e.g. --include_slice 228 273; "
+                           "repeat it to join several, e.g. --include_slice 0 36 --include_slice 256 308")
       parser.add_argument("--csound", dest="csound", action="store_true", default=True,
                           help="Run the generated .csd file through csound to create a .wav file (default: True)")
       parser.add_argument("--no_csound", dest="csound", action="store_false",
@@ -2931,7 +3005,7 @@ if __name__ == "__main__":
       parser.add_argument("--auto_density_weights", dest="auto_density_weights", type=str, default=None,
                           help="Comma-separated weights for density levels 0..5 when using --auto_density (default: equal weights). Example: 1,1,1,2,3,4")
       parser.add_argument("--density_level", dest="density_level", type=int, default=None,
-                          help="Pin all chorales to one density level 0-5 (0=sparsest, 5=densest). Overrides --auto_density. If omitted, defaults to 5 unless --auto_density is set.")
+                          help="Pin all chorales to one density level 0-5 (0=sparsest, 5=densest). Overrides --auto_density. If omitted, defaults to 3 unless --auto_density is set.")
       parser.add_argument("--prime_count", dest="prime_count", type=int, default=8,
                           help="How many primes from [1,3,5,11,17,31,47,71] to use for chord repeats (1-8, default: 8); overridden per-chorale when --auto_density is set")
       parser.add_argument("--articulate", dest="articulate", type=str, default=None,
@@ -2945,7 +3019,8 @@ if __name__ == "__main__":
                                "arrays run high to low (SS AA TT BB), so a count takes the upper "
                                "voices. 'wood_winds:4,brass_section:1' arpeggios the four high "
                                "winds and the first trumpet; a bare 'wood_winds' takes the whole "
-                               "section. Default: none.")
+                               "section. 'none' turns it off. Default: wood_winds:4, "
+                               "or none with --short_repeats")
       parser.add_argument("--articulate_env", dest="articulate_env", type=str, default="1,5",
                           help="Sustained envelope shapes the articulated instruments draw from "
                                "(ball9.csd: score value N selects f-table 298-N). e1 is attack, "
@@ -2955,12 +3030,12 @@ if __name__ == "__main__":
                                "the end of the note, which reads as sustain on a decaying bar "
                                "and as a crescendo on anything that sustains by itself. "
                                "Default: 1,5")
-      parser.add_argument("--articulate_accent", dest="articulate_accent", type=str, default="8@0.2",
+      parser.add_argument("--articulate_accent", dest="articulate_accent", type=str, default="8@0.25",
                           help="Accent envelope shapes mixed in with the sustained ones, and how "
                                "often they are drawn, as '<envelopes>@<probability>'. e8 is the "
                                "bass's 'hit and drop most': a full-level attack that falls to half "
                                "by mid-note and to zero at the end. 'none' turns accents off. "
-                               "Default: 8@0.2")
+                               "Default: 8@0.25")
       parser.add_argument("--articulate_hold", dest="articulate_hold", type=str, default="on",
                           choices=["on", "off"],
                           help="Whether articulated notes ALSO get their sounding length trimmed "
@@ -2968,7 +3043,7 @@ if __name__ == "__main__":
                                "the full gap and lets the envelopes do all the shaping. The two "
                                "multiply: e8 is down to half by mid-note, so a 0.12 hold leaves "
                                "only its attack. Default: on")
-      parser.add_argument("--articulate_gain", dest="articulate_gain", type=str, default="0.60,0.90",
+      parser.add_argument("--articulate_gain", dest="articulate_gain", type=str, default="0.1,0.9",
                           help="Volume multipliers for articulated notes, as "
                                "'<accent>,<sustained>'. Applied AFTER the sustained "
                                "auto-balance, which equalises sections on hold*loudness and so "
@@ -2977,7 +3052,7 @@ if __name__ == "__main__":
                                "articulated notes are touched; instruments in the same section "
                                "that kept their usual writing are untouched. Amplitude is linear "
                                "here, so 0.60 is about -4.4 dB and 0.90 about -0.9 dB. "
-                               "Use '1,1' for no reduction. Default: 0.60,0.90")
+                               "Use '1,1' for no reduction. Default: 0.1,0.9 (0.1 is -20 dB)")
       parser.add_argument("--ap", dest="ap", type=int, default=None, choices=sorted(PRIME_PATTERNS),
                           help="Pin the chord-repeat pattern (the _ap tag in the output filename) instead of "
                                "drawing one at random. Relative to ap4: "
@@ -2989,10 +3064,10 @@ if __name__ == "__main__":
                           help="Minimum consecutive 0.25-duration notes/bins before staccato thinning is applied (default: 2)")
       parser.add_argument("--fatigue_density_threshold", dest="fatigue_density_threshold", type=int, default=1,
                           help="Phase 2 thinning: minimum simultaneous staccato voices per time bin to be considered dense (default: 1)")
-      parser.add_argument("--deep_bass_backoff", dest="deep_bass_backoff", type=float, default=1.0,
-                          help="Scale factor (0.0-1.0) applied to all bass finger piano rescue probabilities; 0.5 rescues half as many deep bass notes, 0.0 disables rescue entirely (default: 1.0)")
-      parser.add_argument("--back_off_clicks", dest="back_off_clicks", type=float, default=0.0,
-                          help="Skip bass rescue for notes whose duration (in clicks) is <= this value; 0.25 suppresses rescue of short staccato notes (default: 0.0 = no threshold)")
+      parser.add_argument("--deep_bass_backoff", dest="deep_bass_backoff", type=float, default=0.25,
+                          help="Scale factor (0.0-1.0) applied to all bass finger piano rescue probabilities; 0.5 rescues half as many deep bass notes, 0.0 disables rescue entirely, 1.0 rescues all (default: 0.25)")
+      parser.add_argument("--back_off_clicks", dest="back_off_clicks", type=float, default=0.25,
+                          help="Skip bass rescue for notes whose duration (in clicks) is <= this value; 0.25 suppresses rescue of short staccato notes, 0.0 = no threshold (default: 0.25)")
       parser.add_argument("--rondo_section_a", dest="rondo_section_a", type=int, nargs=2, default=None,
                           metavar=('START', 'END'),
                           help="Section A chord range [START, END) for rondo/leitmotif recall, e.g. --rondo_section_a 0 16")
@@ -3005,7 +3080,25 @@ if __name__ == "__main__":
       parser.add_argument("--rondo_insert_b_after", dest="rondo_insert_b_after", type=int, nargs='+', default=None,
                           metavar='CHORD',
                           help="Insert section B after each listed chord index, e.g. --rondo_insert_b_after 64")
+      parser.add_argument("--chaconne_section", "--chaconne-section", dest="chaconne_section", type=int, nargs=2, default=None,
+                          metavar=('START', 'END'),
+                          help="Raw chord range [START, END) whose chords are copied in at each --chaconne_insert_after "
+                               "before any processing, so every copy comes out as a variation, e.g. --chaconne_section 0 36")
+      parser.add_argument("--chaconne_insert_after", "--chaconne-insert-after", dest="chaconne_insert_after", type=int,
+                          nargs='+', default=None, metavar='CHORD',
+                          help="Raw chord index (inside an --include_slice) after which to insert the chaconne section; "
+                               "several allowed, e.g. --chaconne_insert_after 35. Raw indices, like --include_slice; "
+                               "--rondo_* and other chord indices count the piece after the insertions.")
+      parser.add_argument("--chaconne_repeats", "--chaconne-repeats", dest="chaconne_repeats", type=int, default=1,
+                          metavar='N',
+                          help="Copies of the chaconne section inserted back to back at each --chaconne_insert_after, "
+                               "each one its own variation, e.g. --chaconne_repeats 26 (default: 1)")
       args = parser.parse_args()
+
+      # --articulate's default depends on --short_repeats: a straight chorale has no
+      # arpeggio figuration to hand to the winds.
+      if args.articulate is None:
+            args.articulate = 'none' if args.short_repeats else 'wood_winds:4'
 
       # Extract the tuning parameters encoded in the cent file name (old layout) or in
       # the tuning directory name (current layout, e.g. Archive/straw-man/t3_r1.25_lm17).
@@ -3065,6 +3158,13 @@ if __name__ == "__main__":
           rondo_sections = _sec
           rondo_insertions = sorted(_ins, key=lambda x: x[0])
 
+      if (args.chaconne_section is None) != (args.chaconne_insert_after is None):
+          raise SystemExit('--chaconne_section and --chaconne_insert_after go together')
+      if args.chaconne_section is not None and args.chaconne_section[1] <= args.chaconne_section[0]:
+          raise SystemExit(f'--chaconne_section: END ({args.chaconne_section[1]}) must be > START ({args.chaconne_section[0]})')
+      if args.chaconne_repeats < 1:
+          raise SystemExit(f'--chaconne_repeats must be at least 1, got {args.chaconne_repeats}')
+
       mainline(chorale_override=args.chorale_name, short_repeats=args.short_repeats,
                just_triangle=args.just_triangle, include_list=include_list, csound=args.csound, convolve=args.convolve,
                mp3=args.mp3, max_cents_slide=args.max_cents_slide, melody_sustain=args.melody_sustain, bass_sustain=args.bass_sustain,
@@ -3082,6 +3182,8 @@ if __name__ == "__main__":
                fatigue_min_chain=args.fatigue_min_chain, fatigue_density_threshold=args.fatigue_density_threshold,
                include_slice=args.include_slice,
                deep_bass_backoff=args.deep_bass_backoff, back_off_clicks=args.back_off_clicks,
-               rondo_sections=rondo_sections, rondo_insertions=rondo_insertions)
+               rondo_sections=rondo_sections, rondo_insertions=rondo_insertions,
+               chaconne_section=args.chaconne_section, chaconne_insertions=args.chaconne_insert_after,
+               chaconne_repeats=args.chaconne_repeats)
 
 
