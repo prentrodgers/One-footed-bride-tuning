@@ -23742,3 +23742,23 @@ ______________________
       Now do a new set of 12:
       Last one to run was bwv{391..402}
             ./ray-ratchet.sh --chorales bwv{379..390}
+      100 cores. If I were to replace all my servers that's how many cores I could keep busy. 
+      Monitor:
+            k get po -l app=ray-tuning -w -owide
+      Also Grafana has a dashboard see ray:default for core and node usage. For temperature see One-footed-brid: tunin jobs
+      
+___________________________
+10/12/26 The tuning run finished at 18:12. Started at 14:20. 8 Hours. 
+      Read the log file and find the best five results of the tuning run. 
+      This shows the leading row per chorale: GapSum < 10 with the fewest high primes, or, where none is, the lowest GapSum.
+            grep Chorale: ratchet-20261011-142305.log -A8 > best_results.txt
+            python select_best_and_render.py --numpy_dir_root Archive/straw-man --chorale_list bwv{379..390} --suffix="-opt.npy" --sort_by best | grep Chorale: -A8 >best_results.txt
+             grep Chorale: ratchet-20261011-142305.log -A8 > best_results.txt
+            python select_best_and_render.py --numpy_dir_root Archive/straw-man --chorale_list bwv{379..390} --suffix="-opt.npy" --sort_by best --render --short_repeats --uploads_dir Uploads/best
+      Now sort by the p90 gaps, 90% of the gaps are less than this, a few might sneak through.
+            python select_best_and_render.py --numpy_dir_root Archive/straw-man --chorale_list bwv{379..390} --suffix="-opt.npy" --sort_by p90 | grep Chorale: -A8 >best_results.txt
+      Create ones you can listen to:
+            python select_best_and_render.py --numpy_dir_root Archive/straw-man --chorale_list bwv{379..390} --suffix="-opt.npy" --sort_by p90 --render --short_repeats --uploads_dir Uploads/p90
+      When you are happy with the sort:
+            python select_best_and_render.py --numpy_dir_root Archive/straw-man --chorale_list bwv{379..390} --suffix="-opt.npy" --copy_npy_to Archive/straw-man/best-tunings
+
