@@ -23762,3 +23762,71 @@ ___________________________
       When you are happy with the sort:
             python select_best_and_render.py --numpy_dir_root Archive/straw-man --chorale_list bwv{379..390} --suffix="-opt.npy" --copy_npy_to Archive/straw-man/best-tunings
 
+      I want to create in @WreckingCrew.py a new set of arguments similar to the --rondo_section_a and --rondo_insert_a_after, where we capture the transformed array of note features and reuse them later. The new argument will seek to create a piece that is a chaconne type structure. Different from the rondo argument where the transformed version is copied note for note, the chaconne creates variations with every time it is played. To do this, take the original notes and octaves based on --chaconne_section start finish of the original array and insert them in --chaconne_insert_after. All the insertions could be done at the start of the processing of the original notes and octaves array creation. Then the result run through the normal transformations. I would reduce the total number of chords using --include_slice, probably only four measures of the total chorale. I may want to include multiple slices, for example, the first two measures and the last two measures. I would do the chaconne over the first two measures and insert them after the end of the first two measures. 
+            python WreckingCrew.py --chorale_list bwv261 --include_slice 0 48 --include_slice 252 308 --chaconne-section 0 48 --chaconne_insert_after 48
+      Does that make sense? Claude built it with a few enhancements I requested. 
+            python WreckingCrew.py --chorale_list bwv261 --include_slice 0 36 --include_slice 256 308 --chaconne_section 0 36 --chaconne_insert_after 35 --chaconne_repeats 4 --deep_bass_backoff 0.25 --back_off_clicks 0.25 --articulate wood_winds:4 --articulate_gain 0.1,0.9 --articulate_accent 8@0.25 --density_level 3
+      That one is pretty good. Uploads\b261a_df3_t3_d05_46_t088_ap3_lm17_r1.25.mp3. Now try bwv394, the sweet one.
+            python chorale_pdf.py bwv394
+                  bwv394: Chorale-pdf/bwv394.pdf  (Soprano, Alto, Tenor, Bass)
+      Then render it straight 
+            python WreckingCrew.py --chorale_list bwv394 --short_repeats
+      Now make it a chaconne:
+            python WreckingCrew.py --chorale_list bwv394 --include_slice 0 32 --include_slice 160 192 --chaconne_section 0 32 --chaconne_insert_after 31 --chaconne_repeats 4 # I set all the arguments to this: --deep_bass_backoff 0.25 --back_off_clicks 0.25 --articulate wood_winds:4 --articulate_gain 0.1,0.9 --articulate_accent 8@0.25 --density_level 3
+      This sounds terrific. But I already have a video on this chorale. Try one of the ones done in the latest collection. First print the pdf scores.
+            python chorale_pdf.py bwv{379..390}
+      The first few of these sound pretty boring. Nothing unusual. I'm focussing on the first two measures. 
+                  Directory                      sfx     t  ratio  lm ChordAvg ChordMax  High% |    N  GapSum    Avg    Med    p90    Max |  >10  >20  >30  >=33
+                  ------------------------------ ------ -- ------ --- -------- -------- ------ | ---- ------- ------ ------ ------ ------ | ---- ---- ---- -----
+      bwv385 is the best so far. It's also the lowest score with the fewest gaps
+                  t3_r1.25_lm19                  opt     3  1.250  19     50.5      111    1.9 |    0       0    0.0    0.0    0.0    0.0 |    0    0    0     0
+      bwv386 is pretty good. Also low score and mostly small gaps.
+                  t3_r1.25_lm19                  opt     3  1.250  19     50.8       97    2.6 |    3      22    7.3    5.0   10.6   12.0 |    1    0    0     0
+      bwv389 is good. Higher score, minimal gaps, nice beginning and ending phrases 
+                  t2_r1.375_lm19                 opt     2  1.375  19     54.6      141    2.0 |    1       2    2.0    2.0    2.0    2.0 |    0    0    0     0
+      bwv390 is very pleasing if simple.
+                  t3_r1.25_lm19                  opt     3  1.250  19     51.7       98    1.4 |    7      52    7.4   11.0   11.0   11.0 |    4    0    0     0
+            python WreckingCrew.py --chorale_list bwv390 --include_slice 0 48 --include_slice 384 432 --chaconne_section 0 48 --chaconne_insert_after 47 --chaconne_repeats 4 --ap 3
+      I made two of these, one with the default --ap 4 and the other with --ap 3 
+      Neither is very special. 
+      What if I could vary the density more across the variations?
+
+-------------------
+10/13/26 Next step: Find a way to make the Chaconne work. 
+      The key is having the first two measures unique enough to make a decent theme for the variations. 
+      Robert Greenberg said in his analysis of the Goldberg Variations that every variation was based on the same ground bass. Take a look at the score and see how Bach did it. Pull it down as bwv988. Not there. But I have a ton of scores I've downloaded over the years here: Dropbox/csound/Scores/ including many versions of the Goldberg scores.
+      I would also like it if Claude could code up different --density_level(s) for each repetition, to give it a sense of greater variety of each repetition. 
+      Claude came through. He's going to render the entire piece 4 times, with each of the 4 renders taking a different density_level, since many of the density levels affect the entire piece. For example, of the six things affected by density_level the argument, three affect the whole piece, and three can be sectionalized. 
+      
+      How you'd specify it:
+            --chaconne_density 1 2 3 4 5
+      For example:
+            python WreckingCrew.py --chorale_list bwv390 --include_slice 0 48 --include_slice 384 432 --chaconne_section 0 48 --chaconne_insert_after 47 --chaconne_repeats 5 --ap 3 --chaconne_density 1 2 3 4 5
+
+____________________
+10/14/26 Take an inventory. Make sure you have albums for all the tuned chorales.
+      Scan the directories for mp3 files:
+            ls -1 ~/Dropbox/Uploads 
+                  d0-08-21-26 contains: ball9-t53d - 64
+                  d1-8-22-26-short-repeats contains ball9-t53 - 64
+                  d3-8-23-26 contains: ball9-t53d - 64
+                  d4-08-24-26-short-repeats contains: ball9-t53d - 64
+                  d5-08-24-26 contains: ball9-t53d - 64
+                  d6-08-29-26 contains: ball9-t53d - 64
+                  d7-08-31-26-videos-2xx contains: stage_full_bwv256, 257 258 259 261
+                  d7-09-01-26 contains: ball9-t53d - 64
+                  d8-09-13-26-videos-4xx contains: concert_b425 (2) stage_full 427 432 434 437 438 score_bwv421 422 423
+                  d9-09-13-26 contains: ball9-t27d - ball9-t38d which is 427-438
+                  dA-09-15-26-Short-Repeats ball9-t24 - t38 which are bwv424-438 short repeats
+                  Db-09-16-26 contains ball9-t27 - 38 which are bwv427-438
+                  Dc-09-25-26 contains b415f_df0_t2_d05_15_t056_ap3_lm19_r1.50.mp3 through 426 - new naming scheme
+                  Dd-09-26-26 contains b415 - 426
+                  De-10-04-26 contains b411h_df4_t3_d07_04_t084_ap3_lm19_r1.62.mp3 concert_b411h_v1.mp4 score_bwv411.mp4
+                  Df-10-06-26 contains b391-402 plus concert_b392 394  score 392 394
+                  Dg-10-14-26 copy from pod PVC to Dropbox b379-390 
+            What's missing, needs to be run, and posted to file-service? 
+            427-438 - posted Sept
+            415-426 - posted Sept
+            403-414 - not yet rendered or posted
+            391-402 - posted Oct
+            379-390 - not yet posted
