@@ -23825,8 +23825,11 @@ ____________________
                   Df-10-06-26 contains b391-402 plus concert_b392 394  score 392 394
                   Dg-10-14-26 copy from pod PVC to Dropbox b379-390 
             What's missing, needs to be run, and posted to file-service? 
-            427-438 - posted Sept
-            415-426 - posted Sept
-            403-414 - not yet rendered or posted
-            391-402 - posted Oct
-            379-390 - not yet posted
+            427-438 - posted Sept to dropbox d9-09-13-26 and microtonalnotes.net
+            415-426 - posted Sept to dropbox Dc-09-25-26 and microtonalnotes.net
+            403-414 - posted to Dropbox as Dg-403-414 but not yet microtonalnotes.net # <-- this is next
+            391-402 - posted Oct to dropbox Df-10-06-26 and microtonalnotes.net
+            379-390 - posted to Dropbox as Dh-379-390 posted today to microtonalnotes.net
+
+      Render 403-414 and 379-390
+            python WreckingCrew.py --chorale_list bwv{379..390} --deep_bass_backoff 0.25 --back_off_clicks 0.25 --album 9 --mod h --rondo_section_a 0 32 --rondo_insert_a_after 63 127 --auto_density --shuffle_density --articulate wood_winds:4 --articulate_gain 0.1,0.9 --articulate_accent 8@0.25 
