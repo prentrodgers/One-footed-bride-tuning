@@ -23833,3 +23833,30 @@ ____________________
 
       Render 403-414 and 379-390
             python WreckingCrew.py --chorale_list bwv{379..390} --deep_bass_backoff 0.25 --back_off_clicks 0.25 --album 9 --mod h --rondo_section_a 0 32 --rondo_insert_a_after 63 127 --auto_density --shuffle_density --articulate wood_winds:4 --articulate_gain 0.1,0.9 --articulate_accent 8@0.25 
+      
+_______________________________
+10/15/26 Get back to the chaconne. Try 410, 411, and 412
+            ls -lth Uploads/b410g_*.*
+                  -rw-r--r--. 1 prent prent  15M Oct 14 12:40 Uploads/b410g_df3_t3_d06_22_t084_ap4_lm19_r1.50.mp3
+                  -rw-r--r--. 1 prent prent 2.4M Oct 14 12:39 Uploads/b410g_df3_t3_d06_22_t084_ap4_lm19_r1.50.npy
+      bwv411 
+            ls -lth Uploads/b411g_*.*
+                  -rw-r--r--. 1 prent prent 9.0M Oct 14 12:40 Uploads/b411g_df5_t3_d03_58_t100_ap1_lm19_r1.62.mp3
+                  -rw-r--r--. 1 prent prent 2.5M Oct 14 12:40 Uploads/b411g_df5_t3_d03_58_t100_ap1_lm19_r1.62.npy
+            
+            ls -lth Uploads/b412g_*.*
+                  -rw-r--r--. 1 prent prent  19M Oct 14 12:40 Uploads/b412g_df5_t3_d07_59_t106_ap1_lm19_r1.50.mp3
+                  -rw-r--r--. 1 prent prent 5.4M Oct 14 12:40 Uploads/b412g_df5_t3_d07_59_t106_ap1_lm19_r1.50.npy
+      Chaconne arguments:
+            --chaconne_section START END, --chaconne-section START END
+                        Raw chord range [START, END] whose chords are copied in at each --chaconne_insert_after before any processing, so every copy comes out as a
+                        variation, e.g. --chaconne_section 0 36
+            --chaconne_insert_after CHORD [CHORD ...], --chaconne-insert-after CHORD [CHORD ...]
+                                    Raw chord index (inside an --include_slice) after which to insert the chaconne section; several allowed, e.g. --chaconne_insert_after 35. Raw
+                                    indices, like --include_slice; --rondo_* and other chord indices count the piece after the insertions.
+            --chaconne_repeats N, --chaconne-repeats N
+                                    Copies of the chaconne section inserted back to back at each --chaconne_insert_after, each one its own variation, e.g. --chaconne_repeats 26
+                                    (default: 1)
+      For example:
+            python WreckingCrew.py --chorale_list bwv411 --include_slice 0 64 --include_slice 184 208 --chaconne_section 0 64 --chaconne_insert_after 63 --chaconne_repeats 4 --ap 3 --chaconne_density 1 2 3 4 --density_level 5
+      But I need to see the chorale score to choose the sections correctly.

@@ -1981,6 +1981,60 @@ def apply_rondo(notes_16: np.ndarray,
     return np.vstack(result_blocks) if result_blocks else notes_16[:0]
 
 
+def _splice_by_chord(renders: dict, chord_level: np.ndarray,
+                     boundaries: np.ndarray, tpq: float = 0.25) -> np.ndarray:
+    """Assemble one N×16 notes array, each span of chords from the rendering at its level.
+
+    renders     – level → N×16 array (col 15 = chord_idx), each a full rendering of the
+                  whole piece at that density level (--chaconne_density)
+    chord_level – the level of every chord
+    boundaries  – step boundaries of the chords, as in expand_chorale
+
+    Each voice's notes are split where the level changes (_split_voice_at_steps, as
+    apply_rondo does), so every note lies within one span, and the voice then takes
+    each span's notes from that span's rendering. A voice is one timeline whose start
+    times accumulate from the durations, so a span it does not fill in its rendering
+    (a voice that has tapered out) is padded with a silent rest — volume 0, dropped by
+    the audibility filter after fix_start_times — to keep it in step with the other
+    voices for the spans that follow. The last span is left as it is: voices thin out
+    into the final cadence anyway.
+    """
+    n = len(chord_level)
+    changes = [i for i in range(1, n) if chord_level[i] != chord_level[i - 1]]
+    edges = [0] + changes + [n]
+    cut_steps = [float(boundaries[i]) for i in changes]
+
+    voice_ids = list(dict.fromkeys(int(v) for r in renders.values() for v in r[:, 6]))
+    split = {}   # (level, voice) -> that voice's notes in that rendering, split at the changes
+    for lvl, rows in renders.items():
+        for vid in voice_ids:
+            vrows = rows[rows[:, 6].astype(int) == vid]
+            split[lvl, vid] = _split_voice_at_steps(vrows, cut_steps, boundaries, tpq) if vrows.shape[0] else vrows
+
+    blocks, padded = [], 0
+    for vid in voice_ids:
+        template = next(split[lvl, vid][0] for lvl in renders if split[lvl, vid].shape[0])
+        pieces = []
+        for k, (s, e) in enumerate(zip(edges[:-1], edges[1:])):
+            vrows = split[chord_level[s], vid]
+            seg = vrows[(vrows[:, 15] >= s) & (vrows[:, 15] < e)]
+            pieces.append(seg)
+            short = (boundaries[e] - boundaries[s]) - float(np.sum(seg[:, 1])) / tpq
+            if k < len(edges) - 2 and short > 1e-6:
+                rest = template.copy()
+                rest[1] = short * tpq     # duration
+                rest[2] = 0.0             # hold
+                rest[5] = 0               # octave 0: silent
+                rest[14] = 0.0            # volume 0: inaudible, filtered after timing is set
+                rest[15] = float(e - 1)
+                pieces.append(rest[None, :])
+                padded += 1
+        blocks.append(np.vstack(pieces))
+    if padded:
+        logging.info(f'_splice_by_chord: {padded} silent rests padded voices that fell short of a span')
+    return np.vstack(blocks)
+
+
 # this function takes the original chorale array and expands it dramatically. It is only called once per chorale.
 def expand_chorale(repeats, chorale_in_cents_slides, glides, stored_gliss, voice_time,\
     include_sections, mod, ratio_factor, mask=True, tpq=0, octave_reduce=0, woodwinds_volume=8,\
@@ -1989,7 +2043,7 @@ def expand_chorale(repeats, chorale_in_cents_slides, glides, stored_gliss, voice
     stability_factor=0.0, max_delta=33, spread=7, fp_density_starts=None, fp_hold_scale=1.0, density_level=None,
     fatigue_thin_ratio=0.0, fatigue_min_chain=2, fatigue_density_threshold=1, version='',
     deep_bass_backoff=1.0, back_off_clicks=0.0,
-    rondo_sections=None, rondo_insertions=None, primes_tag='', lm_tag='', articulated_sections=None,
+    rondo_sections=None, rondo_insertions=None, chaconne_levels=None, primes_tag='', lm_tag='', articulated_sections=None,
     articulate_cfg=None):
     # As of 1/10/26 the chorale_in_cents_slides has already been repeated according to the repeats array. (no longer an integer)
     # send the arrays to the file new_output.csd which csound will convert to a wave file to make music
@@ -2024,238 +2078,246 @@ def expand_chorale(repeats, chorale_in_cents_slides, glides, stored_gliss, voice
     logging.info(f'probabilities: {probs.shape[0] = }, {round(step,4) = }, {round(np.max(probs[:,1]),4) = }, {round(np.average(probs[:,1]),4) = }, {round(1 - max_silence, 4) = }')
 
     logging.debug(f'{mask = }')
-    if mask: # 
-        _prime_count = len(np.unique(repeats))  # recovers prime_count: repeats cycles through primes, so unique values = prime_count
-        _total_expanded = int(np.sum(repeats))   # total expanded chord count; scales with both chorale length and prime magnitudes
-        time_slots = int(np.clip(_total_expanded // 52, 6, 80))
-        max_value = 11 # how loud can each instrument go
-        logging.info(f'{time_slots = }, {_prime_count = }, {_total_expanded = }, {repeats.shape = }, {repeats_average = }')
-        # 7/1/26: previously only levels 0-2 restricted simultaneous active sections (3-5 were
-        # all unrestricted/identical on this axis). Now every level gets a distinct range so the
-        # sparse end plays fewer of the 8 sections at once and the dense end is pushed to nearly
-        # all of them, widening the audible gap between e.g. density_level 1 and density_level 5.
-        # 7/1/26 pm: level 5 bumped from (7,8) to (8,8) — force every time slot to use the full
-        # ensemble, a small further push per listening feedback ("come up a small amount").
-        _sparse_range = {0: (1, 2), 1: (2, 3), 2: (3, 4), 3: (5, 6), 4: (6, 7), 5: (8, 8)}.get(density_level, False)
-        volume_function = generate_random_volumes(time_slots=time_slots, sparse_mode=_sparse_range)
-        logging.info(f'{volume_function.shape = }')
-        logging.info(f'sums of each time_slot: ')
-        total_sums = 0
-        for i in np.arange(time_slots):
-            logging.info(f'{i}: {np.sum(volume_function.T[i])}')
-            total_sums += np.sum(volume_function.T[i])
-        logging.info(f'Average sums: {total_sums // time_slots}')
-    else: volume_function = np.full((8, 14), 2, dtype = int)
+    # 13 Oct 2026: everything from the section volume plan to the articulated gains is
+    # one rendering of the whole piece at one density level. --chaconne_density renders
+    # it once per level used and splices each chaconne copy out of its own level's
+    # rendering (_splice_by_chord below); without it this runs once, as before. The
+    # parameters shadow the outer names so the body reads exactly as it did.
+    articulated_sections = dict(articulated_sections or {})   # out here: _render only reads it
+    def _render(density_level, bass_hold_scale, bass_hold_swing, fp_hold_scale,
+                fp_density_starts, fatigue_thin_ratio):
+        if mask: # 
+            _prime_count = len(np.unique(repeats))  # recovers prime_count: repeats cycles through primes, so unique values = prime_count
+            _total_expanded = int(np.sum(repeats))   # total expanded chord count; scales with both chorale length and prime magnitudes
+            time_slots = int(np.clip(_total_expanded // 52, 6, 80))
+            max_value = 11 # how loud can each instrument go
+            logging.info(f'{time_slots = }, {_prime_count = }, {_total_expanded = }, {repeats.shape = }, {repeats_average = }')
+            # 7/1/26: previously only levels 0-2 restricted simultaneous active sections (3-5 were
+            # all unrestricted/identical on this axis). Now every level gets a distinct range so the
+            # sparse end plays fewer of the 8 sections at once and the dense end is pushed to nearly
+            # all of them, widening the audible gap between e.g. density_level 1 and density_level 5.
+            # 7/1/26 pm: level 5 bumped from (7,8) to (8,8) — force every time slot to use the full
+            # ensemble, a small further push per listening feedback ("come up a small amount").
+            _sparse_range = {0: (1, 2), 1: (2, 3), 2: (3, 4), 3: (5, 6), 4: (6, 7), 5: (8, 8)}.get(density_level, False)
+            volume_function = generate_random_volumes(time_slots=time_slots, sparse_mode=_sparse_range)
+            logging.info(f'{volume_function.shape = }')
+            logging.info(f'sums of each time_slot: ')
+            total_sums = 0
+            for i in np.arange(time_slots):
+                logging.info(f'{i}: {np.sum(volume_function.T[i])}')
+                total_sums += np.sum(volume_function.T[i])
+            logging.info(f'Average sums: {total_sums // time_slots}')
+        else: volume_function = np.full((8, 14), 2, dtype = int)
     
-    # 5/30/25 Expanded from shape 8,9 to shape 8,12, then to 8,14
-    # 9/20/23, reduced the upper numbers by 1. 8 became 7, and so forth. Prevent clipping.
-    # 3/31/25, changed to 8 instrument sections from original 6. You have to use a multiple of 4 since there are 4 voices in a chorale: S,A,T,B. 
+        # 5/30/25 Expanded from shape 8,9 to shape 8,12, then to 8,14
+        # 9/20/23, reduced the upper numbers by 1. 8 became 7, and so forth. Prevent clipping.
+        # 3/31/25, changed to 8 instrument sections from original 6. You have to use a multiple of 4 since there are 4 voices in a chorale: S,A,T,B. 
 
-    logging.info(f'before shuffle: {[np.sum(vol) for vol in volume_function.T] = }')
-    end_value = volume_function.T[-1].reshape(-1,1)
-    volume_function = volume_function[:,np.random.permutation(volume_function.shape[1] - 1)]
-    volume_function = np.concatenate((volume_function, end_value), axis = 1)
-    logging.info(f'after shuffle: {[np.sum(vol) for vol in volume_function.T] = }')
+        logging.info(f'before shuffle: {[np.sum(vol) for vol in volume_function.T] = }')
+        end_value = volume_function.T[-1].reshape(-1,1)
+        volume_function = volume_function[:,np.random.permutation(volume_function.shape[1] - 1)]
+        volume_function = np.concatenate((volume_function, end_value), axis = 1)
+        logging.info(f'after shuffle: {[np.sum(vol) for vol in volume_function.T] = }')
 
-    density_profile = build_density_multiplier_profile(chorale_in_cents_slides.shape[1])
-    logging.info(
-        'global density profile range/mean: '
-        f'min={np.min(density_profile):.2f}, max={np.max(density_profile):.2f}, '
-        f'mean={np.mean(density_profile):.2f}'
-    )
+        density_profile = build_density_multiplier_profile(chorale_in_cents_slides.shape[1])
+        logging.info(
+            'global density profile range/mean: '
+            f'min={np.min(density_profile):.2f}, max={np.max(density_profile):.2f}, '
+            f'mean={np.mean(density_profile):.2f}'
+        )
 
-    def _save_section_npy(section_name: str, rows: np.ndarray) -> None:
-        pass
+        def _save_section_npy(section_name: str, rows: np.ndarray) -> None:
+            pass
 
-    def _section_density_sum(rows: np.ndarray) -> float:
-        if rows.size == 0:
-            return 0.0
-        hold = rows[:, 2].astype(float)
-        vel = np.clip(rows[:, 3].astype(float), 50.0, 90.0)
-        vol = rows[:, 14].astype(float)
-        return float(np.sum(hold * ((10 ** (vel / 20.0)) * vol / 5.0)))
+        def _section_density_sum(rows: np.ndarray) -> float:
+            if rows.size == 0:
+                return 0.0
+            hold = rows[:, 2].astype(float)
+            vel = np.clip(rows[:, 3].astype(float), 50.0, 90.0)
+            vol = rows[:, 14].astype(float)
+            return float(np.sum(hold * ((10 ** (vel / 20.0)) * vol / 5.0)))
 
-    notes_features_15 = np.empty((0,15), dtype = float) # start with an empty array you can concatenate onto.
-    section_slices: dict[str, tuple[int, int]] = {}
-    if fp_density_starts is None:
-        fp_density_starts = {'finger_pianos': 'moderate', 'pizz_strings': 'moderate', 'marimbas': 'moderate'}
-    fp_volumes = {'finger_pianos': 2, 'pizz_strings': 3, 'marimbas': 3}
-    articulated_sections = dict(articulated_sections or {})
-    # A name that matches no section would otherwise be skipped without a word:
-    # '--articulate brass:4' left the brass playing as usual.
-    _unknown = sorted(set(articulated_sections) - set(include_sections))
-    if _unknown:
-        raise SystemExit(f'--articulate: no section named {", ".join(_unknown)}. '
-                         f'Sections are: {", ".join(include_sections)}')
-    # The gains are applied after the sustained auto-balance below, not here: that
-    # balancer scales a section's volume to hit the median of hold*loudness, so a
-    # reduction made now would simply be scaled back out.
-    _art_cfg = dict(articulate_cfg or {})
-    _accent_gain = float(_art_cfg.pop('accent_gain', 0.60))
-    _sus_gain = float(_art_cfg.pop('sustain_gain', 0.90))
-    _accent_envs = [int(e) for e in _art_cfg.get('accent_envelopes', (8,))]
-    _art_slices: dict[str, tuple[int, int]] = {}   # the ARTICULATED rows only, per section
+        notes_features_15 = np.empty((0,15), dtype = float) # start with an empty array you can concatenate onto.
+        section_slices: dict[str, tuple[int, int]] = {}
+        if fp_density_starts is None:
+            fp_density_starts = {'finger_pianos': 'moderate', 'pizz_strings': 'moderate', 'marimbas': 'moderate'}
+        fp_volumes = {'finger_pianos': 2, 'pizz_strings': 3, 'marimbas': 3}
+        # A name that matches no section would otherwise be skipped without a word:
+        # '--articulate brass:4' left the brass playing as usual.
+        _unknown = sorted(set(articulated_sections) - set(include_sections))
+        if _unknown:
+            raise SystemExit(f'--articulate: no section named {", ".join(_unknown)}. '
+                             f'Sections are: {", ".join(include_sections)}')
+        # The gains are applied after the sustained auto-balance below, not here: that
+        # balancer scales a section's volume to hit the median of hold*loudness, so a
+        # reduction made now would simply be scaled back out.
+        _art_cfg = dict(articulate_cfg or {})
+        _accent_gain = float(_art_cfg.pop('accent_gain', 0.60))
+        _sus_gain = float(_art_cfg.pop('sustain_gain', 0.90))
+        _accent_envs = [int(e) for e in _art_cfg.get('accent_envelopes', (8,))]
+        _art_slices: dict[str, tuple[int, int]] = {}   # the ARTICULATED rows only, per section
 
-    def _voice_nums(names):
-        """The voice numbers these instrument names carry in column 6."""
-        return [int(voice_time[str(n)]["time_tracker_number"]) for n in names]
+        def _voice_nums(names):
+            """The voice numbers these instrument names carry in column 6."""
+            return [int(voice_time[str(n)]["time_tracker_number"]) for n in names]
 
-    def _normal_rows(section, sec_num):
-        """What this section would have played had --articulate not named it.
+        def _normal_rows(section, sec_num):
+            """What this section would have played had --articulate not named it.
 
-        Mirrors the dispatch below, and is reached only when --articulate takes
-        PART of a section, so the instruments left behind keep their usual
-        writing. Sections handed over whole never call this.
-        """
-        insts = include_sections[section][1]
-        if section in ['pizz_strings', 'marimbas', 'finger_pianos']:
-            return finger_piano_part(chorale_in_cents_slides, glides, repeats_average, insts, voice_time, tpq,
-                volume_function[sec_num], probs=probs, fp_volume=fp_volumes.get(section, 2),
-                density_start=fp_density_starts.get(section, 'moderate'),
-                density_profile=density_profile, fp_hold_scale=fp_hold_scale)
-        if section == 'melody_section':
-            return melody_part(chorale_in_cents_slides, glides, repeats_average, insts, voice_time, tpq,
-                volume_function[sec_num], mask=mask, prob_silence=prob_silence, octave_reduce=octave_reduce,
-                woodwinds_volume=woodwinds_volume, sustain=melody_sustain, density_profile=density_profile)
-        if section == 'bass_section':
-            return bass_part(chorale_in_cents_slides, glides, repeats_average, insts, voice_time, tpq,
-                volume_function[sec_num], probs=probs, bass_sustain=bass_sustain, fp_volume=3,
-                bass_hold_scale=bass_hold_scale, bass_hold_swing=bass_hold_swing, bass_hold_cycles=bass_hold_cycles,
-                density_profile=density_profile, deep_bass_backoff=deep_bass_backoff, back_off_clicks=back_off_clicks)
-        return woodwinds_part(chorale_in_cents_slides, glides, repeats_average, insts, voice_time, tpq,
-            volume_function[sec_num], mask=mask, prob_silence=prob_silence, octave_reduce=0,
-            woodwinds_volume=woodwinds_volume, density_profile=density_profile)
-
-    for sec_num, section in zip(count(0,1), include_sections):
-        if include_sections[section][0]: # if the dictionary value for this instrument section is set to True
-            print(f'{sec_num}: {section}, includes instruments: {include_sections[section][1]}')
-            _rows_before = notes_features_15.shape[0]
-            # Checked first, so --articulate can take any section away from whichever
-            # part function would normally have it. The intended use is to hand the
-            # winds and brass some of the figuration the marimba and finger pianos
-            # carry, which needs the arpeggio engine plus notes that stop in time.
-            if section in articulated_sections:
-                _insts = include_sections[section][1]
-                _n_all = int(_insts.shape[0])
-                _want = articulated_sections[section]
-                _n_art = _n_all if _want is None else int(np.clip(_want, 0, _n_all))
-                print(f'playing {section}: {_n_art} of {_n_all} instruments as arpeggios with '
-                      f'self-limiting holds{"" if _n_art >= _n_all else ", the rest as usual"}')
-                # Both engines are written for a full eight-voice section, so neither can
-                # be handed a slice: finger_piano_part indexes
-                # density_function[(pvoice + twin) % 4 + 4], which runs off the end of a
-                # four-instrument array, and its `voices // 4` is 0 for anything under
-                # four. So render the whole section each way and keep, from each
-                # rendering, only the instruments assigned to it. Every instrument lands
-                # in exactly one stream, which matters because a voice is a single
-                # timeline -- start times accumulate from column 1 -- so two streams on
-                # one instrument would queue up end to end rather than sound together.
-                _rows = articulated_part(chorale_in_cents_slides, glides, repeats_average, _insts,
-                    voice_time, tpq, volume_function[sec_num], probs=probs,
-                    fp_volume=fp_volumes.get(section, 2),
+            Mirrors the dispatch below, and is reached only when --articulate takes
+            PART of a section, so the instruments left behind keep their usual
+            writing. Sections handed over whole never call this.
+            """
+            insts = include_sections[section][1]
+            if section in ['pizz_strings', 'marimbas', 'finger_pianos']:
+                return finger_piano_part(chorale_in_cents_slides, glides, repeats_average, insts, voice_time, tpq,
+                    volume_function[sec_num], probs=probs, fp_volume=fp_volumes.get(section, 2),
                     density_start=fp_density_starts.get(section, 'moderate'),
-                    density_profile=density_profile, fp_hold_scale=fp_hold_scale,
-                    **_art_cfg)
-                _rows = (_rows[np.isin(_rows[:, 6].astype(int), _voice_nums(_insts[:_n_art]))]
-                         if _n_art > 0 else _rows[:0])
-                # Where the articulated notes land, so the gain below can find them
-                # without touching the instruments that kept their usual writing.
-                _art_slices[section] = (_rows_before, _rows_before + _rows.shape[0])
-                if _n_art < _n_all:
-                    _rest = _normal_rows(section, sec_num)
-                    _rest = _rest[np.isin(_rest[:, 6].astype(int), _voice_nums(_insts[_n_art:]))]
-                    logging.info(f'{section}: {_rows.shape[0]} articulated notes on {list(_insts[:_n_art])}, '
-                                 f'{_rest.shape[0]} normal notes on {list(_insts[_n_art:])}')
-                    _rows = np.concatenate((_rows, _rest), axis = 0)
-                notes_features_15 = np.concatenate((notes_features_15, _rows), axis = 0)
-                _save_section_npy(section, notes_features_15[_rows_before:])
-            elif section in ['pizz_strings', 'marimbas', 'finger_pianos']:
-                print(f'playing {section}')
-                notes_features_15 = np.concatenate((notes_features_15, finger_piano_part(chorale_in_cents_slides, glides, repeats_average, include_sections[section][1], voice_time, tpq, volume_function[sec_num], probs = probs,
-                    fp_volume=fp_volumes.get(section, 2), density_start=fp_density_starts.get(section, 'moderate'), density_profile=density_profile, fp_hold_scale=fp_hold_scale)), axis = 0)
-                logging.info(f'octaves before change: {np.unique(notes_features_15[:, 5].astype(int),return_counts=True)}')
-                # if section == 'pizz_strings':
-                    # notes_features_15[:, 5] += 1 # raise the octaves by one to prevent mud
-                    # notes_features_15[:, 5] = np.clip(notes_features_15[:, 5], 1, 7) # clip at 7 max to prevent chirps
-                logging.info(f'octaves after change: {np.unique(notes_features_15[:, 5].astype(int),return_counts=True)}')
-                if fatigue_thin_ratio > 0:
-                    logging.info(f'before fatigue thinning {section}: zero-octave rows = {int(np.sum(notes_features_15[_rows_before:, 5] == 0))} of {notes_features_15.shape[0] - _rows_before}')
-                    notes_features_15[_rows_before:] = thin_staccato_chains(
-                        notes_features_15[_rows_before:], min_chain_len=fatigue_min_chain, thin_ratio=fatigue_thin_ratio, density_threshold=fatigue_density_threshold)
-                    logging.info(f'after fatigue thinning {section}: zero-octave rows = {int(np.sum(notes_features_15[_rows_before:, 5] == 0))} of {notes_features_15.shape[0] - _rows_before}')
-                _save_section_npy(section, notes_features_15[_rows_before:])
-            elif section in ['melody_section']:
-                print(f'playing {section}')
-                notes_features_15 = np.concatenate((notes_features_15, melody_part(chorale_in_cents_slides, glides, repeats_average, include_sections[section][1], voice_time, tpq, volume_function[sec_num], mask=mask, prob_silence=prob_silence, octave_reduce=octave_reduce, woodwinds_volume=woodwinds_volume, sustain=melody_sustain, density_profile=density_profile)), axis = 0)
-                _save_section_npy(section, notes_features_15[_rows_before:])
-            elif section in ['wood_winds', 'brass_section', 'bowed_strings']:
-                print(f'playing {section}')
-                notes_features_15 = np.concatenate((notes_features_15, woodwinds_part(chorale_in_cents_slides, glides, repeats_average, include_sections[section][1], voice_time, tpq, volume_function[sec_num], mask=mask, prob_silence=prob_silence, octave_reduce=0, woodwinds_volume=woodwinds_volume, density_profile=density_profile)), axis = 0)
-                _save_section_npy(section, notes_features_15[_rows_before:])
-            elif section in ['bass_section']:
-                print(f'playing {section}')
-                notes_features_15 = np.concatenate((notes_features_15, bass_part(chorale_in_cents_slides, glides, repeats_average, include_sections[section][1], voice_time, tpq, volume_function[sec_num], probs = probs, bass_sustain=bass_sustain, fp_volume=3,
-                    bass_hold_scale=bass_hold_scale, bass_hold_swing=bass_hold_swing, bass_hold_cycles=bass_hold_cycles, density_profile=density_profile,
-                    deep_bass_backoff=deep_bass_backoff, back_off_clicks=back_off_clicks)), axis = 0)
-                if fatigue_thin_ratio > 0:
-                    logging.info(f'before fatigue thinning bass_section: zero-octave rows = {int(np.sum(notes_features_15[_rows_before:, 5] == 0))} of {notes_features_15.shape[0] - _rows_before}')
-                    notes_features_15[_rows_before:] = thin_staccato_chains(
-                        notes_features_15[_rows_before:], min_chain_len=fatigue_min_chain, thin_ratio=fatigue_thin_ratio, density_threshold=fatigue_density_threshold)
-                    logging.info(f'after fatigue thinning bass_section: zero-octave rows = {int(np.sum(notes_features_15[_rows_before:, 5] == 0))} of {notes_features_15.shape[0] - _rows_before}')
-                _save_section_npy(section, notes_features_15[_rows_before:])
-            section_slices[section] = (_rows_before, notes_features_15.shape[0])
-            print(f'{section}: {[(inst, voice_time[inst]["start"]) for inst in include_sections[section][1]]}')
-            logging.debug(f'{notes_features_15.shape = }')
-            print(f'after concatenating {section = }, {notes_features_15.shape = }')
+                    density_profile=density_profile, fp_hold_scale=fp_hold_scale)
+            if section == 'melody_section':
+                return melody_part(chorale_in_cents_slides, glides, repeats_average, insts, voice_time, tpq,
+                    volume_function[sec_num], mask=mask, prob_silence=prob_silence, octave_reduce=octave_reduce,
+                    woodwinds_volume=woodwinds_volume, sustain=melody_sustain, density_profile=density_profile)
+            if section == 'bass_section':
+                return bass_part(chorale_in_cents_slides, glides, repeats_average, insts, voice_time, tpq,
+                    volume_function[sec_num], probs=probs, bass_sustain=bass_sustain, fp_volume=3,
+                    bass_hold_scale=bass_hold_scale, bass_hold_swing=bass_hold_swing, bass_hold_cycles=bass_hold_cycles,
+                    density_profile=density_profile, deep_bass_backoff=deep_bass_backoff, back_off_clicks=back_off_clicks)
+            return woodwinds_part(chorale_in_cents_slides, glides, repeats_average, insts, voice_time, tpq,
+                volume_function[sec_num], mask=mask, prob_silence=prob_silence, octave_reduce=0,
+                woodwinds_volume=woodwinds_volume, density_profile=density_profile)
 
-    # Auto-normalize sustained sections to comparable density per render.
-    sustained_sections = ['wood_winds', 'bowed_strings', 'brass_section', 'melody_section']
-    available_sustained = [s for s in sustained_sections if s in section_slices]
-    for _ in range(2):
-        sustained_sums = {}
+        for sec_num, section in zip(count(0,1), include_sections):
+            if include_sections[section][0]: # if the dictionary value for this instrument section is set to True
+                print(f'{sec_num}: {section}, includes instruments: {include_sections[section][1]}')
+                _rows_before = notes_features_15.shape[0]
+                # Checked first, so --articulate can take any section away from whichever
+                # part function would normally have it. The intended use is to hand the
+                # winds and brass some of the figuration the marimba and finger pianos
+                # carry, which needs the arpeggio engine plus notes that stop in time.
+                if section in articulated_sections:
+                    _insts = include_sections[section][1]
+                    _n_all = int(_insts.shape[0])
+                    _want = articulated_sections[section]
+                    _n_art = _n_all if _want is None else int(np.clip(_want, 0, _n_all))
+                    print(f'playing {section}: {_n_art} of {_n_all} instruments as arpeggios with '
+                          f'self-limiting holds{"" if _n_art >= _n_all else ", the rest as usual"}')
+                    # Both engines are written for a full eight-voice section, so neither can
+                    # be handed a slice: finger_piano_part indexes
+                    # density_function[(pvoice + twin) % 4 + 4], which runs off the end of a
+                    # four-instrument array, and its `voices // 4` is 0 for anything under
+                    # four. So render the whole section each way and keep, from each
+                    # rendering, only the instruments assigned to it. Every instrument lands
+                    # in exactly one stream, which matters because a voice is a single
+                    # timeline -- start times accumulate from column 1 -- so two streams on
+                    # one instrument would queue up end to end rather than sound together.
+                    _rows = articulated_part(chorale_in_cents_slides, glides, repeats_average, _insts,
+                        voice_time, tpq, volume_function[sec_num], probs=probs,
+                        fp_volume=fp_volumes.get(section, 2),
+                        density_start=fp_density_starts.get(section, 'moderate'),
+                        density_profile=density_profile, fp_hold_scale=fp_hold_scale,
+                        **_art_cfg)
+                    _rows = (_rows[np.isin(_rows[:, 6].astype(int), _voice_nums(_insts[:_n_art]))]
+                             if _n_art > 0 else _rows[:0])
+                    # Where the articulated notes land, so the gain below can find them
+                    # without touching the instruments that kept their usual writing.
+                    _art_slices[section] = (_rows_before, _rows_before + _rows.shape[0])
+                    if _n_art < _n_all:
+                        _rest = _normal_rows(section, sec_num)
+                        _rest = _rest[np.isin(_rest[:, 6].astype(int), _voice_nums(_insts[_n_art:]))]
+                        logging.info(f'{section}: {_rows.shape[0]} articulated notes on {list(_insts[:_n_art])}, '
+                                     f'{_rest.shape[0]} normal notes on {list(_insts[_n_art:])}')
+                        _rows = np.concatenate((_rows, _rest), axis = 0)
+                    notes_features_15 = np.concatenate((notes_features_15, _rows), axis = 0)
+                    _save_section_npy(section, notes_features_15[_rows_before:])
+                elif section in ['pizz_strings', 'marimbas', 'finger_pianos']:
+                    print(f'playing {section}')
+                    notes_features_15 = np.concatenate((notes_features_15, finger_piano_part(chorale_in_cents_slides, glides, repeats_average, include_sections[section][1], voice_time, tpq, volume_function[sec_num], probs = probs,
+                        fp_volume=fp_volumes.get(section, 2), density_start=fp_density_starts.get(section, 'moderate'), density_profile=density_profile, fp_hold_scale=fp_hold_scale)), axis = 0)
+                    logging.info(f'octaves before change: {np.unique(notes_features_15[:, 5].astype(int),return_counts=True)}')
+                    # if section == 'pizz_strings':
+                        # notes_features_15[:, 5] += 1 # raise the octaves by one to prevent mud
+                        # notes_features_15[:, 5] = np.clip(notes_features_15[:, 5], 1, 7) # clip at 7 max to prevent chirps
+                    logging.info(f'octaves after change: {np.unique(notes_features_15[:, 5].astype(int),return_counts=True)}')
+                    if fatigue_thin_ratio > 0:
+                        logging.info(f'before fatigue thinning {section}: zero-octave rows = {int(np.sum(notes_features_15[_rows_before:, 5] == 0))} of {notes_features_15.shape[0] - _rows_before}')
+                        notes_features_15[_rows_before:] = thin_staccato_chains(
+                            notes_features_15[_rows_before:], min_chain_len=fatigue_min_chain, thin_ratio=fatigue_thin_ratio, density_threshold=fatigue_density_threshold)
+                        logging.info(f'after fatigue thinning {section}: zero-octave rows = {int(np.sum(notes_features_15[_rows_before:, 5] == 0))} of {notes_features_15.shape[0] - _rows_before}')
+                    _save_section_npy(section, notes_features_15[_rows_before:])
+                elif section in ['melody_section']:
+                    print(f'playing {section}')
+                    notes_features_15 = np.concatenate((notes_features_15, melody_part(chorale_in_cents_slides, glides, repeats_average, include_sections[section][1], voice_time, tpq, volume_function[sec_num], mask=mask, prob_silence=prob_silence, octave_reduce=octave_reduce, woodwinds_volume=woodwinds_volume, sustain=melody_sustain, density_profile=density_profile)), axis = 0)
+                    _save_section_npy(section, notes_features_15[_rows_before:])
+                elif section in ['wood_winds', 'brass_section', 'bowed_strings']:
+                    print(f'playing {section}')
+                    notes_features_15 = np.concatenate((notes_features_15, woodwinds_part(chorale_in_cents_slides, glides, repeats_average, include_sections[section][1], voice_time, tpq, volume_function[sec_num], mask=mask, prob_silence=prob_silence, octave_reduce=0, woodwinds_volume=woodwinds_volume, density_profile=density_profile)), axis = 0)
+                    _save_section_npy(section, notes_features_15[_rows_before:])
+                elif section in ['bass_section']:
+                    print(f'playing {section}')
+                    notes_features_15 = np.concatenate((notes_features_15, bass_part(chorale_in_cents_slides, glides, repeats_average, include_sections[section][1], voice_time, tpq, volume_function[sec_num], probs = probs, bass_sustain=bass_sustain, fp_volume=3,
+                        bass_hold_scale=bass_hold_scale, bass_hold_swing=bass_hold_swing, bass_hold_cycles=bass_hold_cycles, density_profile=density_profile,
+                        deep_bass_backoff=deep_bass_backoff, back_off_clicks=back_off_clicks)), axis = 0)
+                    if fatigue_thin_ratio > 0:
+                        logging.info(f'before fatigue thinning bass_section: zero-octave rows = {int(np.sum(notes_features_15[_rows_before:, 5] == 0))} of {notes_features_15.shape[0] - _rows_before}')
+                        notes_features_15[_rows_before:] = thin_staccato_chains(
+                            notes_features_15[_rows_before:], min_chain_len=fatigue_min_chain, thin_ratio=fatigue_thin_ratio, density_threshold=fatigue_density_threshold)
+                        logging.info(f'after fatigue thinning bass_section: zero-octave rows = {int(np.sum(notes_features_15[_rows_before:, 5] == 0))} of {notes_features_15.shape[0] - _rows_before}')
+                    _save_section_npy(section, notes_features_15[_rows_before:])
+                section_slices[section] = (_rows_before, notes_features_15.shape[0])
+                print(f'{section}: {[(inst, voice_time[inst]["start"]) for inst in include_sections[section][1]]}')
+                logging.debug(f'{notes_features_15.shape = }')
+                print(f'after concatenating {section = }, {notes_features_15.shape = }')
+
+        # Auto-normalize sustained sections to comparable density per render.
+        sustained_sections = ['wood_winds', 'bowed_strings', 'brass_section', 'melody_section']
+        available_sustained = [s for s in sustained_sections if s in section_slices]
+        for _ in range(2):
+            sustained_sums = {}
+            for section in available_sustained:
+                start, end = section_slices[section]
+                sustained_sums[section] = _section_density_sum(notes_features_15[start:end])
+            nonzero = [v for v in sustained_sums.values() if v > 0]
+            if len(nonzero) < 2:
+                break
+            target_sum = float(np.median(nonzero))
+            logging.info(f'sustained auto-balance: {sustained_sums = }, {target_sum = }')
+            for section, current_sum in sustained_sums.items():
+                if current_sum <= 0:
+                    continue
+                scale = float(np.clip(target_sum / current_sum, 0.25, 4.00))
+                start, end = section_slices[section]
+                notes_features_15[start:end, 14] = np.clip(
+                    notes_features_15[start:end, 14].astype(float) * scale,
+                    0,
+                    14,
+                )
+
+        # Articulated notes sit back a little. This runs AFTER the auto-balance above,
+        # deliberately: that balancer equalises sections on hold*loudness, and trimming
+        # the holds lowers an articulated section's sum, so it answers by scaling the
+        # section's volume UP. Reducing before it would simply be undone.
+        #
+        # The accent-envelope notes get their own multiplier. Nothing here is
+        # intrinsically louder -- every envelope table peaks at 1.0 -- but e8 puts that
+        # peak right at the attack, on top of the balancer's boost, so it pokes out.
+        # Only the articulated rows are touched, so the instruments in the same section
+        # that kept their usual writing are left exactly as they were.
+        for section, (astart, aend) in _art_slices.items():
+            if aend <= astart:
+                continue
+            _seg = notes_features_15[astart:aend]
+            _is_accent = np.isin(_seg[:, 8].astype(int), _accent_envs)
+            _seg[_is_accent, 14] *= _accent_gain
+            _seg[~_is_accent, 14] *= _sus_gain
+            logging.info(f'{section}: articulated gain applied to {_seg.shape[0]} notes -- '
+                         f'{int(_is_accent.sum())} accent x{_accent_gain:.2f}, '
+                         f'{int((~_is_accent).sum())} sustained x{_sus_gain:.2f}')
+
         for section in available_sustained:
             start, end = section_slices[section]
-            sustained_sums[section] = _section_density_sum(notes_features_15[start:end])
-        nonzero = [v for v in sustained_sums.values() if v > 0]
-        if len(nonzero) < 2:
-            break
-        target_sum = float(np.median(nonzero))
-        logging.info(f'sustained auto-balance: {sustained_sums = }, {target_sum = }')
-        for section, current_sum in sustained_sums.items():
-            if current_sum <= 0:
-                continue
-            scale = float(np.clip(target_sum / current_sum, 0.25, 4.00))
-            start, end = section_slices[section]
-            notes_features_15[start:end, 14] = np.clip(
-                notes_features_15[start:end, 14].astype(float) * scale,
-                0,
-                14,
-            )
-
-    # Articulated notes sit back a little. This runs AFTER the auto-balance above,
-    # deliberately: that balancer equalises sections on hold*loudness, and trimming
-    # the holds lowers an articulated section's sum, so it answers by scaling the
-    # section's volume UP. Reducing before it would simply be undone.
-    #
-    # The accent-envelope notes get their own multiplier. Nothing here is
-    # intrinsically louder -- every envelope table peaks at 1.0 -- but e8 puts that
-    # peak right at the attack, on top of the balancer's boost, so it pokes out.
-    # Only the articulated rows are touched, so the instruments in the same section
-    # that kept their usual writing are left exactly as they were.
-    for section, (astart, aend) in _art_slices.items():
-        if aend <= astart:
-            continue
-        _seg = notes_features_15[astart:aend]
-        _is_accent = np.isin(_seg[:, 8].astype(int), _accent_envs)
-        _seg[_is_accent, 14] *= _accent_gain
-        _seg[~_is_accent, 14] *= _sus_gain
-        logging.info(f'{section}: articulated gain applied to {_seg.shape[0]} notes -- '
-                     f'{int(_is_accent.sum())} accent x{_accent_gain:.2f}, '
-                     f'{int((~_is_accent).sum())} sustained x{_sus_gain:.2f}')
-
-    for section in available_sustained:
-        start, end = section_slices[section]
-        _save_section_npy(section, notes_features_15[start:end])
+            _save_section_npy(section, notes_features_15[start:end])
+        return notes_features_15, volume_function
 
     # Rondo / leitmotif splice — must happen before fix_start_times so timing accumulates correctly.
     # Also: always compute chord_idx (col 15) so every note in the saved features array
@@ -2270,8 +2332,32 @@ def expand_chorale(repeats, chorale_in_cents_slides, glides, stored_gliss, voice
         _boundaries = np.concatenate(([0.0], np.cumsum(repeats, dtype=float)))
     _tpq = tpq if tpq != 0 else 0.25
 
+    # The density level of every chord: --density_level everywhere, except the
+    # chaconne copies --chaconne_density gives their own (-1 = no level, the
+    # explicit-knobs path).
+    _base_level = -1 if density_level is None else int(density_level)
+    chord_level = np.full(len(_boundaries) - 1, _base_level, dtype=int)
+    for c_start, c_end, c_level in chaconne_levels or []:
+        chord_level[c_start:c_end] = c_level
+
+    notes_features_15, volume_function = _render(density_level, bass_hold_scale, bass_hold_swing,
+                                                 fp_hold_scale, fp_density_starts, fatigue_thin_ratio)
     # Always attach chord_idx as column 15 (the 16th column).
     notes_16 = _chord_idx_from_boundaries(notes_features_15, _boundaries, _tpq)
+
+    # One more rendering per other level the chaconne copies use, from that level's
+    # DENSITY_LEVELS row as mainline would set it up; then each span of chords is
+    # taken from the rendering at its level. volume_function stays the base one.
+    _other_levels = sorted(set(chord_level.tolist()) - {_base_level})
+    if _other_levels:
+        _renders = {_base_level: notes_16}
+        for _lvl in _other_levels:
+            _bhs, _bhsw, _fhs, _fdi, _ = DENSITY_LEVELS[_lvl]
+            _rows, _ = _render(_lvl, _bhs, _bhsw, _fhs, FP_DENSITY_MAPS[_fdi], FATIGUE_THIN_RATIOS[_lvl])
+            _renders[_lvl] = _chord_idx_from_boundaries(_rows, _boundaries, _tpq)
+            logging.info(f'chaconne density: level {_lvl} rendered, {_rows.shape[0]} rows')
+        notes_16 = _splice_by_chord(_renders, chord_level, _boundaries, _tpq)
+        logging.info(f'chaconne density: spliced levels {sorted(_renders)} -> {notes_16.shape[0]} rows')
 
     if rondo_sections and rondo_insertions:
         # Reject insertions inside the last measure: voices commonly taper off
@@ -2314,20 +2400,30 @@ def expand_chorale(repeats, chorale_in_cents_slides, glides, stored_gliss, voice
     _SUSTAINED_CSOUND_VOICES = {12, 13, 14, 15, 16, 17, 18, 19, 25, 26, 27}  # wood_winds, bowed_strings, brass_section
     _SPARSE_KEEP_FRACTION = {0: 1 / 2.0, 1: 1 / 1.75, 2: 1 / 1.5}  # 2x/1.75x/1.5x fewer notes
     _SUSTAINED_BOOST_MULTIPLIER = {0: 2.0, 1: 2.0, 2: 1.5, 3: 1.15}  # relative to that level's base keep rate
-    _base_keep_fraction = _SPARSE_KEEP_FRACTION.get(density_level, 1.0)
-    _sustained_multiplier = _SUSTAINED_BOOST_MULTIPLIER.get(density_level)
-    if density_level in _SPARSE_KEEP_FRACTION or _sustained_multiplier is not None:
-        _n_before = notes_features_final.shape[0]
-        _keep_prob = np.full(_n_before, _base_keep_fraction)
+    # 13 Oct 2026: per row, at the level of the chord it belongs to (col 15), so a
+    # --chaconne_density copy is filtered at its own level.
+    _n_before = notes_features_final.shape[0]
+    _row_level = chord_level[np.clip(notes_features_final[:, 15].astype(int), 0, len(chord_level) - 1)]
+    _is_sustained = np.isin(notes_features_final[:, 6].astype(int), list(_SUSTAINED_CSOUND_VOICES))
+    _keep_prob = np.ones(_n_before)
+    _filtered_levels = []
+    for _lvl in np.unique(_row_level).tolist():
+        _base_keep_fraction = _SPARSE_KEEP_FRACTION.get(_lvl, 1.0)
+        _sustained_multiplier = _SUSTAINED_BOOST_MULTIPLIER.get(_lvl)
+        if _lvl not in _SPARSE_KEEP_FRACTION and _sustained_multiplier is None:
+            continue
+        _filtered_levels.append(_lvl)
+        _at = _row_level == _lvl
+        _keep_prob[_at] = _base_keep_fraction
         if _sustained_multiplier is not None:
-            _is_sustained = np.isin(notes_features_final[:, 6].astype(int), list(_SUSTAINED_CSOUND_VOICES))
             _sustained_keep_fraction = min(1.0, _base_keep_fraction * _sustained_multiplier)
-            _keep_prob[_is_sustained] = _sustained_keep_fraction
-            logging.info(f'sparse note-count filter: {int(np.sum(_is_sustained))} sustained-section rows at keep={_sustained_keep_fraction:.3f} (vs base {_base_keep_fraction:.3f})')
+            _keep_prob[_at & _is_sustained] = _sustained_keep_fraction
+            logging.info(f'sparse note-count filter, level {_lvl}: {int(np.sum(_at & _is_sustained))} sustained-section rows at keep={_sustained_keep_fraction:.3f} (vs base {_base_keep_fraction:.3f})')
+    if _filtered_levels:
         _keep_mask = rng.random(_n_before) < _keep_prob
         notes_features_final = notes_features_final[_keep_mask]
-        logging.info(f'sparse note-count filter (density_level={density_level}, base keep={_base_keep_fraction:.3f}): {_n_before} -> {notes_features_final.shape[0]} rows')
-        print(f'sparse note-count filter (density_level={density_level}, base keep={_base_keep_fraction:.3f}): {_n_before} -> {notes_features_final.shape[0]} rows')
+        logging.info(f'sparse note-count filter (levels {_filtered_levels}): {_n_before} -> {notes_features_final.shape[0]} rows')
+        print(f'sparse note-count filter (levels {_filtered_levels}): {_n_before} -> {notes_features_final.shape[0]} rows')
 
     # Filter inaudible notes: ampdb(velocity) * volume / 5 >= 1 matches Csound iamp = ampdb(iVel) * p15 / 5
     _velocity = notes_features_final[:, 3]
@@ -2370,6 +2466,8 @@ def expand_chorale(repeats, chorale_in_cents_slides, glides, stored_gliss, voice
     # I want to switch the mod string to include the ratio_factor instead of avg_probs
     # and I want to switch the round(1 - max_silence, 2) to tolerance.
     density_tag = f'_df{density_level}' if density_level is not None else f'_md{int(max_delta):02d}'
+    if chaconne_levels:   # _df3c1524: the chaconne copies' levels, in order
+        density_tag += 'c' + ''.join(str(lvl) for *_, lvl in chaconne_levels)
     # 9/24/26 name scheme: b<bwv3><letter>_df<n>_t<tol>_d<mm_ss>_t<tempo>_ap<n>_lm<n>_r<ratio>
     # The tail (_ap/_lm/_r) carries what varies least between runs, so the leading ~20
     # characters — all a phone or car display shows — hold the chorale, the variant, the
@@ -2482,7 +2580,8 @@ def create_repeat_array_pattern(chorale_array, pattern=None, axis=1, fresh_spans
         pattern: List of repeat counts. If None, uses default prime pattern.
         axis: The axis containing the chords/time steps (default 1).
         fresh_spans: (start, end) chord spans that get their own draw from the pattern —
-            the chaconne copies (apply_chaconne).
+            the chaconne copies (apply_chaconne); (start, end, pattern) draws from that
+            pattern instead (a --chaconne_density copy).
 
     Returns:
         Expanded array with repeated chords, and the repeat_values used (array length = number of chords).
@@ -2506,8 +2605,11 @@ def create_repeat_array_pattern(chorale_array, pattern=None, axis=1, fresh_spans
     # Chaconne copies: the cycle above repeats every len(pattern) chords, so a copy
     # whose offset from its source is a multiple of that would get the source's
     # rhythm exactly. Each copy draws its own pattern, cycled from its first chord.
-    for start, end in fresh_spans or []:
-        own = rng.choice(base, size=base.shape[0], replace=True)
+    # A span may carry its own pattern as a third item (a --chaconne_density copy).
+    for span in fresh_spans or []:
+        start, end = span[0], span[1]
+        src = np.array(span[2], dtype=int) if len(span) > 2 else base
+        own = rng.choice(src, size=src.shape[0], replace=True)
         repeat_values[start:end] = np.tile(own, int(np.ceil((end - start) / len(own))))[:end - start]
         logging.info(f'chaconne copy [{start}, {end}): own repeat pattern {own = }')
 
@@ -2532,7 +2634,7 @@ def chorale_to_wave_v4(version, album, include_sections, ratio_factor, limit_max
         fatigue_min_chain=2, fatigue_density_threshold=1, include_slice=None,
         deep_bass_backoff=1.0, back_off_clicks=0.0,
         rondo_sections=None, rondo_insertions=None, chaconne_section=None, chaconne_insertions=None,
-        chaconne_repeats=1):
+        chaconne_repeats=1, chaconne_density=None):
 
     print(f'In chorale_to_wave_v4. {version = }, {limit_max = }, {short_repeats = }, {ratio_factor = }')
     if short_repeats: # if you just want a straight woodwind/brass chorale, set short_repeats = True
@@ -2628,6 +2730,18 @@ def chorale_to_wave_v4(version, album, include_sections, ratio_factor, limit_max
         logging.info(f'chaconne: section {chaconne_section} inserted {chaconne_repeats}x after {chaconne_insertions}; '
                      f'copies at columns {chaconne_spans}, {chorale.shape[1]} chords in all')
 
+    # --chaconne_density: one level per copy, in order (cycled if fewer are given);
+    # everything else plays at --density_level.
+    chaconne_levels = []
+    if chaconne_density and chaconne_spans:
+        if len(chaconne_density) > len(chaconne_spans):
+            raise SystemExit(f'--chaconne_density gives {len(chaconne_density)} levels for '
+                             f'{len(chaconne_spans)} chaconne copies')
+        chaconne_levels = [(s, e, int(chaconne_density[i % len(chaconne_density)]))
+                           for i, (s, e) in enumerate(chaconne_spans)]
+        logging.info(f'chaconne density: copies at levels {[lvl for *_, lvl in chaconne_levels]}, '
+                     f'the rest at {density_level}')
+
     # we don't need to score the chords at this point.
     # print(f'About to score the chorale as loaded. {chorale_in_cents.shape = }')
     # new_scores = np.zeros(cent_value_chorale.shape[1],dtype=int)
@@ -2682,8 +2796,14 @@ def chorale_to_wave_v4(version, album, include_sections, ratio_factor, limit_max
         primes = all_primes[:int(np.clip(prime_count, 1, all_primes.shape[0]))]
         # the previous line is just a super-safe way to slice the all_primes array to the first prime_count elements of the all_primes array. 
         
+        # A copy with its own density level also takes that level's prime count
+        # (DENSITY_LEVELS column 4), as mainline does for the whole piece.
+        _fresh = chaconne_spans
+        if chaconne_levels:
+            _fresh = [(s, e, all_primes[:int(np.clip(DENSITY_LEVELS[lvl][4], 1, all_primes.shape[0]))])
+                      for s, e, lvl in chaconne_levels]
         choral_octaves_repeated, repeats = create_repeat_array_pattern(chorale_in_cents_octaves, pattern=primes,
-                                                                       fresh_spans=chaconne_spans)
+                                                                       fresh_spans=_fresh)
         logging.info(f'created repeats pattern using primes. {primes = }, {prime_count = }, {repeats[:primes.shape[0]] = }')
 
     logging.info(f'{repeats.shape = }, after merging octaves and cents {chorale_in_cents_octaves.shape = }, after repeats applied: {choral_octaves_repeated.shape = }')
@@ -2725,7 +2845,8 @@ def chorale_to_wave_v4(version, album, include_sections, ratio_factor, limit_max
         fp_density_starts=fp_density_starts, fp_hold_scale=fp_hold_scale, density_level=density_level,
         fatigue_thin_ratio=fatigue_thin_ratio, fatigue_min_chain=fatigue_min_chain, fatigue_density_threshold=fatigue_density_threshold, version=version,
         deep_bass_backoff=deep_bass_backoff, back_off_clicks=back_off_clicks,
-        rondo_sections=rondo_sections, rondo_insertions=rondo_insertions, primes_tag=primes_tag, lm_tag=lm_tag,
+        rondo_sections=rondo_sections, rondo_insertions=rondo_insertions, chaconne_levels=chaconne_levels,
+        primes_tag=primes_tag, lm_tag=lm_tag,
         articulated_sections=articulated_sections, articulate_cfg=articulate_cfg)
 
     if csound: # send the results to csound
@@ -2760,7 +2881,7 @@ def mainline(chorale_override=None, short_repeats=False, just_triangle=False, in
              fatigue_min_chain=2, fatigue_density_threshold=1, include_slice=None,
              deep_bass_backoff=1.0, back_off_clicks=0.0,
              rondo_sections=None, rondo_insertions=None, chaconne_section=None, chaconne_insertions=None,
-             chaconne_repeats=1):
+             chaconne_repeats=1, chaconne_density=None):
       if include_list is None:
             include_list = []
 
@@ -2919,7 +3040,7 @@ def mainline(chorale_override=None, short_repeats=False, just_triangle=False, in
                                     deep_bass_backoff=deep_bass_backoff, back_off_clicks=back_off_clicks,
                                     rondo_sections=rondo_sections, rondo_insertions=rondo_insertions,
                                     chaconne_section=chaconne_section, chaconne_insertions=chaconne_insertions,
-                                    chaconne_repeats=chaconne_repeats)
+                                    chaconne_repeats=chaconne_repeats, chaconne_density=chaconne_density)
 
       # Generate a playlist of all the pieces in this album. This never worked correctly in the pod.
       print(f' {UPLOADS_DIR = }')
@@ -3093,6 +3214,11 @@ if __name__ == "__main__":
                           metavar='N',
                           help="Copies of the chaconne section inserted back to back at each --chaconne_insert_after, "
                                "each one its own variation, e.g. --chaconne_repeats 26 (default: 1)")
+      parser.add_argument("--chaconne_density", "--chaconne-density", dest="chaconne_density", type=int, nargs='+',
+                          default=None, metavar='LEVEL', choices=range(len(DENSITY_LEVELS)),
+                          help="Density level 0-5 for each chaconne copy in order, e.g. --chaconne_density 1 5 2 4 "
+                               "with --chaconne_repeats 4 (cycled if fewer are given). The first time through and the "
+                               "ending stay at --density_level. Each level used costs one more note-generation pass.")
       args = parser.parse_args()
 
       # --articulate's default depends on --short_repeats: a straight chorale has no
@@ -3164,6 +3290,8 @@ if __name__ == "__main__":
           raise SystemExit(f'--chaconne_section: END ({args.chaconne_section[1]}) must be > START ({args.chaconne_section[0]})')
       if args.chaconne_repeats < 1:
           raise SystemExit(f'--chaconne_repeats must be at least 1, got {args.chaconne_repeats}')
+      if args.chaconne_density is not None and args.chaconne_section is None:
+          raise SystemExit('--chaconne_density needs --chaconne_section and --chaconne_insert_after')
 
       mainline(chorale_override=args.chorale_name, short_repeats=args.short_repeats,
                just_triangle=args.just_triangle, include_list=include_list, csound=args.csound, convolve=args.convolve,
@@ -3184,6 +3312,6 @@ if __name__ == "__main__":
                deep_bass_backoff=args.deep_bass_backoff, back_off_clicks=args.back_off_clicks,
                rondo_sections=rondo_sections, rondo_insertions=rondo_insertions,
                chaconne_section=args.chaconne_section, chaconne_insertions=args.chaconne_insert_after,
-               chaconne_repeats=args.chaconne_repeats)
+               chaconne_repeats=args.chaconne_repeats, chaconne_density=args.chaconne_density)
 
 
