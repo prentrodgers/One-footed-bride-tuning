@@ -23865,4 +23865,14 @@ _______________________________
             python chorale_pdf.py bwv{403..414}          
             python chorale_pdf.py bwv{391..402}
             python chorale_pdf.py bwv{379..390}
-      Now I have them all.
+      Now I have them all. Preserve this:
+            git commit -m "Update the session notes" WreckingCrew.txt
+                  [main f42023a] Update the session notes
+                  1 file changed, 7 insertions(+), 1 deletion(-)
+            eval $(op signin)
+                  Enter the password for prent@ripnread.com at my.1password.com:
+            git push    
+                  Total 3 (delta 2), reused 0 (delta 0), pack-reused 0 (from 0)
+                  remote: Resolving deltas: 100% (2/2), completed with 2 local objects.
+                  To https://github.com/prentrodgers/One-footed-bride-tuning.git
+                  3e0baa1..f42023a  main -> main
