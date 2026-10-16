@@ -23860,3 +23860,9 @@ _______________________________
       For example:
             python WreckingCrew.py --chorale_list bwv411 --include_slice 0 64 --include_slice 184 208 --chaconne_section 0 64 --chaconne_insert_after 63 --chaconne_repeats 4 --ap 3 --chaconne_density 1 2 3 4 --density_level 5
       But I need to see the chorale score to choose the sections correctly.
+            python chorale_pdf.py bwv{427..438}
+            python chorale_pdf.py bwv{415..426}
+            python chorale_pdf.py bwv{403..414}          
+            python chorale_pdf.py bwv{391..402}
+            python chorale_pdf.py bwv{379..390}
+      Now I have them all.
