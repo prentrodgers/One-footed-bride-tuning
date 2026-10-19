@@ -15,9 +15,10 @@ set -u
 VERIFY_ONLY=0
 [ "${1:-}" = "--verify" ] && { VERIFY_ONLY=1; shift; }
 HOSTS=("$@")
-# fs6/fs9 (Ryzen + B580) added 13 Sep 2026.  fs2 out for memtest86+ (Oct 2026).
+# fs6/fs9 (Ryzen + B580) added 13 Sep 2026.  fs2 was out for memtest86+ in
+# Oct 2026 and is back (with a B580) since 19 Oct.
 # fs1 is not here: it is always on balanced and power-save-all.sh leaves it alone.
-[ ${#HOSTS[@]} -eq 0 ] && HOSTS=(fs3 fs4 fs5 fs6 fs7 fs8 fs9)
+[ ${#HOSTS[@]} -eq 0 ] && HOSTS=(fs2 fs3 fs4 fs5 fs6 fs7 fs8 fs9)
 SSH="ssh -o BatchMode=yes -o ConnectTimeout=5"
 
 SSHN="$SSH -n"      # never swallow the caller's stdin

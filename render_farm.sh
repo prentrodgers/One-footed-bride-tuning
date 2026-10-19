@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # render_farm.sh — one stage render, split across every Battlemage GPU in the
-# cluster: two B70s on fs5, a B580 each on fs6 and fs9, a B50 on fs3.
+# cluster: two B70s on fs5, a B580 each on fs2, fs3, fs6 and fs9, a B50 on fs4.
 #
 # It works because blender_stage.py's animation is procedural, not keyframed:
 # frame N is at t = N/FPS whoever renders it, so the slices need no merge step.
@@ -136,12 +136,17 @@ RES_Y=720
 # most of the farm, and the B50 was fastest. All six land within 20%, so the
 # Concert Stage on Cycles is paced by the nodes' CPUs, not the cards (fs5
 # runs six Blender processes for its two B70s).
+# 19 Oct 2026: a fourth B580 on fs2 (renderD129; renderD128 is its Arrow Lake
+# iGPU). Not measured yet: its rates are the other three B580s' averages.
+# fs2 has 15Gi and now also holds the Prometheus server, so watch its memory
+# with PER_CARD above 2.
 WORKERS=(
   "b70a   fs5  8086:e223  0           1.701  3.68"
   "b70b   fs5  8086:e223  1           1.751  3.82"
   "b580f6 fs6  8086:e20b  -           1.651  3.52"
   "b580f9 fs9  8086:e20b  -           1.829  3.89"
   "b580f3 fs3  8086:e20b  -           1.740  3.61"
+  "b580f2 fs2  8086:e20b  -           1.740  3.67"
   "b50f4  fs4  8086:e212  -           2.129  3.22"
 )
 # The Core Ultra iGPUs (Xe-LPG, PCI 0x7d67), opt-in with IGPU=1. fs4 now
