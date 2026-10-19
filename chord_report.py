@@ -13,6 +13,20 @@ carries them (bwv262_t3_r1.500_lm19-opt.npy) and otherwise from the directory
 name (t3_r1.50_lm19).  --tolerance / --limit_max override, and are the only way
 to report on a file whose path encodes neither.
 
+--input_numpy_file may also be a directory of tunings, one or more per chorale,
+such as best-tunings; --chorale then picks the chorale, and the most recently
+written of its arrays is the one reported on:
+
+    python chord_report.py --chorale bwv411 --input_numpy_file Archive/straw-man/best-tunings
+
+--include_slice reports on an excerpt: raw chord columns [START, END), as
+WreckingCrew.py takes them, repeatable to join several.  Chords keep their raw
+numbers, and the slices are read as they play joined, so the first chord of a
+slice is compared against the last chord of the one before it:
+
+    python chord_report.py --chorale bwv411 --input_numpy_file Archive/straw-man/best-tunings \
+        --include_slice 0 64 --include_slice 184 208
+
 In the listing a ratio built on 11 or higher is marked *, and a cent value
 that moved more than a cent from the same pitch class in the previous chord
 is printed in red, since those moves are what the ear catches between chords.
@@ -33,7 +47,7 @@ import argparse
 import os
 import re
 import sys
-from itertools import combinations, count
+from itertools import combinations
 
 import numpy as np
 
@@ -73,6 +87,28 @@ def chorale_for(path):
     """The chorale name leading the filename, or None."""
     m = FILE_CHORALE.match(os.path.basename(path))
     return m.group(1) if m else None
+
+
+def newest_for(directory, chorale):
+    """The most recently written .npy in directory for this chorale, and how many there were."""
+    found = [os.path.join(directory, f) for f in os.listdir(directory)
+             if f.endswith('.npy') and chorale_for(f) == chorale]
+    return (max(found, key=os.path.getmtime) if found else None), len(found)
+
+
+def slice_columns(include_slice, n_chords):
+    """The raw columns the --include_slice pairs select, in order, or None for all of them."""
+    if not include_slice:
+        return None
+    cols = []
+    for start, end in include_slice:
+        if end <= start:
+            raise SystemExit(f'--include_slice expects END > START, got START={start}, END={end}')
+        if start < 0 or end > n_chords:
+            raise SystemExit(f'--include_slice expects [START, END) within 0..{n_chords}, '
+                             f'got START={start}, END={end}')
+        cols.extend(range(start, end))
+    return sorted(set(cols))
 
 
 def params_for(path, tolerance, limit_max):
@@ -248,11 +284,12 @@ def high_prime_share(cents, limit_max, tolerance):
 
 def print_chords(version, input_file, numpy_dir, measure, tolerance,
                  chord_scorer, tonal_diamond, keys, root, mode,
-                 cents, listing=True, color=False):
+                 cents, listing=True, color=False, columns=None):
     """Print the chords, and return (intervals, chord count) for the histogram.
 
     The ratios are worked out whether or not they are printed, so
-    --histogram_only counts exactly what the listing would have shown."""
+    --histogram_only counts exactly what the listing would have shown.
+    `columns` limits the report to those raw columns, read as one excerpt."""
     if listing:
         # score_video.py puts this line on the video's opening card.
         print(f'Key: {keys[root]} {mode}')
@@ -274,7 +311,10 @@ def print_chords(version, input_file, numpy_dir, measure, tolerance,
     else:
         first_col, end_col = 0, cents.shape[1]
     all_intervals, n_chords = [], 0
-    gaps = gap_voices(cents)
+    columns = list(range(cents.shape[1])) if columns is None else list(columns)
+    excerpt = cents[:, columns]
+    # Moves are counted along the excerpt as it plays, then given raw chord numbers.
+    gaps = {(columns[i], v): g for (i, v), g in gap_voices(excerpt).items()}
     if listing and gaps:
         moved = sorted({i for i, _v in gaps})
         shown = [i for i in moved if first_col <= i < end_col]
@@ -283,7 +323,7 @@ def print_chords(version, input_file, numpy_dir, measure, tolerance,
               + (f' ({len(shown)} of them in this measure)' if measure > 0 else '')
               + (': shown in red' if color else '; --color always shows them in red'))
     prev_chord = np.zeros(4, dtype=int)
-    for inx, chord_in_cents in zip(count(0, 1), cents.T):
+    for inx, chord_in_cents in zip(columns, excerpt.T):
         if not np.array_equal(prev_chord, chord_in_cents):
             if first_col <= inx < end_col:
                 n_chords += 1
@@ -324,9 +364,14 @@ def main():
     p.add_argument('--chorale', help='Chorale name, e.g. bwv262. Defaults to the '
                                      'leading bwvNNN of the filename')
     p.add_argument('--input_numpy_file', required=True,
-                   help='The tuned (4, N) cent array to report on')
+                   help='The tuned (4, N) cent array to report on, or a directory of them '
+                        '(with --chorale: its most recent array there)')
     p.add_argument('--measure', type=int, default=MEASURE,
                    help='Print only this measure; 0 prints all (default: 0)')
+    p.add_argument('--include_slice', nargs=2, type=int, metavar=('START', 'END'),
+                   action='append', default=None,
+                   help='Raw chord slice [START, END) to report on, as WreckingCrew.py takes it; '
+                        'repeat it to join several, e.g. --include_slice 0 64 --include_slice 184 208')
     p.add_argument('--histogram_only', action='store_true',
                    help='print only the prime histogram, not the chords')
     p.add_argument('--color', choices=('auto', 'always', 'never'), default='auto',
@@ -342,6 +387,19 @@ def main():
     if not os.path.exists(path):
         print(f'No such file: {path}', file=sys.stderr)
         return 1
+    if os.path.isdir(path):
+        if not args.chorale:
+            print(f'{path} is a directory: pass --chorale to say whose array to report on.',
+                  file=sys.stderr)
+            return 1
+        found, n_found = newest_for(path, args.chorale)
+        if found is None:
+            print(f'No {args.chorale} array in {path}', file=sys.stderr)
+            return 1
+        if n_found > 1:
+            print(f'{n_found} {args.chorale} arrays in {path}; using the newest, '
+                  f'{os.path.basename(found)}')
+        path = found
     chorale = args.chorale or chorale_for(path)
     if not chorale:
         print(f'Cannot tell the chorale from {os.path.basename(path)} — '
@@ -365,7 +423,9 @@ def main():
               f'It was tuned from the pre-14 Sep 2026 reading of the score (voices dealt into '
               f'rows, rests ignored), so the chords below are not the ones in the measures; '
               f're-tune {chorale} before trusting it.')
-    scores = np.array([chord_scorer.score_chord(c, tolerance=tolerance) for c in cents.T])
+    columns = slice_columns(args.include_slice, cents.shape[1])
+    shown = np.arange(cents.shape[1]) if columns is None else np.array(columns)
+    scores = np.array([chord_scorer.score_chord(c, tolerance=tolerance) for c in cents[:, shown].T])
 
     if not args.histogram_only:
         print('_' * 40)
@@ -373,14 +433,17 @@ def main():
     print(f'{numpy_dir}')
     print(f'tolerance: {tolerance}, limit_max: {limit_max}, '
           f'tonal diamond: {tonal_diamond.shape}, chords: {cents.shape[1]}')
+    if columns is not None:
+        spans = ', '.join(f'[{a}, {b})' for a, b in args.include_slice)
+        print(f'excerpt: {spans}, {len(columns)} of {cents.shape[1]} columns')
     print(f'Average score: {round(np.average(scores), 1)}, max score: {np.max(scores)}, '
-          f'max chord: {np.argmax(scores)}')
+          f'max chord: {shown[np.argmax(scores)]}')
 
     color = args.color == 'always' or (args.color == 'auto' and sys.stdout.isatty())
     intervals, n_chords = print_chords(
         chorale, path, numpy_dir, args.measure, tolerance, chord_scorer,
         tonal_diamond, keys, root, mode, cents,
-        listing=not args.histogram_only, color=color)
+        listing=not args.histogram_only, color=color, columns=columns)
     print_prime_histogram(intervals, n_chords, chorale)
 
     if PRINT_HITS_MISSES:

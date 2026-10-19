@@ -3151,12 +3151,12 @@ if __name__ == "__main__":
                                "the end of the note, which reads as sustain on a decaying bar "
                                "and as a crescendo on anything that sustains by itself. "
                                "Default: 1,5")
-      parser.add_argument("--articulate_accent", dest="articulate_accent", type=str, default="8@0.25",
+      parser.add_argument("--articulate_accent", dest="articulate_accent", type=str, default="none",
                           help="Accent envelope shapes mixed in with the sustained ones, and how "
                                "often they are drawn, as '<envelopes>@<probability>'. e8 is the "
                                "bass's 'hit and drop most': a full-level attack that falls to half "
-                               "by mid-note and to zero at the end. 'none' turns accents off. "
-                               "Default: 8@0.25")
+                               "by mid-note and to zero at the end, e.g. 8@0.25. 'none' turns "
+                               "accents off. Default: none")
       parser.add_argument("--articulate_hold", dest="articulate_hold", type=str, default="on",
                           choices=["on", "off"],
                           help="Whether articulated notes ALSO get their sounding length trimmed "

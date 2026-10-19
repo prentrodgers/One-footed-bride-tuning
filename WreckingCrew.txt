@@ -23827,7 +23827,7 @@ ____________________
             What's missing, needs to be run, and posted to file-service? 
             427-438 - posted Sept to dropbox d9-09-13-26 and microtonalnotes.net
             415-426 - posted Sept to dropbox Dc-09-25-26 and microtonalnotes.net
-            403-414 - posted to Dropbox as Dg-403-414 but not yet microtonalnotes.net # <-- this is next
+            403-414 - posted to Dropbox as Dg-403-414 but not yet microtonalnotes.net # <-- Posted 10/18/26
             391-402 - posted Oct to dropbox Df-10-06-26 and microtonalnotes.net
             379-390 - posted to Dropbox as Dh-379-390 posted today to microtonalnotes.net
 
@@ -23876,3 +23876,132 @@ _______________________________
                   remote: Resolving deltas: 100% (2/2), completed with 2 local objects.
                   To https://github.com/prentrodgers/One-footed-bride-tuning.git
                   3e0baa1..f42023a  main -> main
+            Turn off the articulate_accents with none.
+            python WreckingCrew.py --chorale_list bwv411 --include_slice 0 64 --include_slice 184 208 --chaconne_section 0 64 --chaconne_insert_after 63 --chaconne_repeats 4 --ap 3 --chaconne_density 4 0 3 5 --density_level 5  --articulate_accent none
+            python WreckingCrew.py --chorale_list bwv411 --include_slice 0 64 --include_slice 184 208 --chaconne_section 0 64 --chaconne_insert_after 63 --chaconne_repeats 4 --ap 3 --chaconne_density 3 0 2 5 --density_level 5  --articulate_accent none
+      For the Chaccone, let’s do 4035 or 3025
+      Three requests:
+      1. Make --articulate_accent none the default
+      2. Modify chord_report.py so it can accept --include_slice values like WreckingCrew.py now accepts. I want to know the ratios in the excerpt. For example:
+            python chord_report.py --chorale bwv411 --input_numpy_file Archive/straw-man/best-tunings --include_slice 0 64 --include_slice 184 208
+      3. Make it possible for chord_report.py accept either a numpy file or a directory with many numpy files, but only one for each chorale. For example:
+            python chord_report.py --chorale bwv411 --input_numpy_file Archive/straw-man/best-tunings
+      best_tunings contains one array for every tuned chorale, so it should be sufficient to specify the directory and the chorale name. Pick the most recent one for the chorale if there are multiples of tuning arrays for a chorale name.
+
+      411 
+      I asked claude to do these. Test the results of 2 & 3:
+            python chord_report.py --chorale bwv411 --input_numpy_file Archive/straw-man/best-tunings --include_slice 0 64 --include_slice 184 208
+            python WreckingCrew.py --chorale_list bwv411 --include_slice 0 64 --include_slice 184 208 --chaconne_section 0 64 --chaconne_insert_after 63 --chaconne_repeats 4 --ap 3 --chaconne_density 3 1 2 4 --density_level 5  --articulate_accent none
+      410
+            python chord_report.py --chorale bwv410 --input_numpy_file Archive/straw-man/best-tunings --include_slice 0 32 --include_slice 176 224
+            python WreckingCrew.py --chorale_list bwv410 --include_slice 0 32 --include_slice 176 224 --chaconne_section 0 32 --chaconne_insert_after 31 --chaconne_repeats 5 --ap 3 --density_level 5 --chaconne_density 3 0 1 2 4
+      403: 252 chords
+            python chord_report.py --chorale bwv403 --input_numpy_file Archive/straw-man/best-tunings --include_slice 0 44 --include_slice 212 252
+      This one is great:
+            python WreckingCrew.py --chorale_list bwv403 --include_slice 0 44 --include_slice 212 252 --chaconne_section 0 44 --chaconne_insert_after 43 --chaconne_repeats 4 --ap 1 --density_level 5 --chaconne_density 3 1 2 4
+      But so is this one. 
+            python WreckingCrew.py --chorale_list bwv403 --include_slice 0 44 --include_slice 212 252 --chaconne_section 0 44 --chaconne_insert_after 43 --chaconne_repeats 4 --ap 1 --density_level 4 --chaconne_density 3 2 1 4
+
+________________________
+10/18/26 Create some more chaconne examples. 
+      What I have so far are in C:\Users\Windows\Dropbox\Uploads\Chaconne_Test
+            ls -lth ~/Dropbox/Uploads/Chaconne_Test/
+                  total 110M
+                  -rwxrwxrwx 1 prent prent  394 Oct 17 14:59 Playlist.m3u
+                  -rwxrwxrwx 1 prent prent  15M Oct 17 06:18 b403a_df5c3124_t2_d06_26_t106_ap1_lm19_r1.25.mp3
+                  -rwxrwxrwx 1 prent prent  14M Oct 17 06:18 b403a_df4c3214_t2_d06_02_t100_ap1_lm19_r1.25.mp3
+                  -rwxrwxrwx 1 prent prent  11M Oct 17 06:18 b410a_df5c40123_t3_d04_41_t084_ap3_lm19_r1.50.mp3
+                  -rwxrwxrwx 1 prent prent 9.2M Oct 17 06:18 b410a_df5c30124_t3_d04_03_t088_ap3_lm19_r1.50.mp3
+                  -rwxrwxrwx 1 prent prent  14M Oct 16 15:14 b411a_df5c4035_t3_d06_08_t088_ap3_lm19_r1.62.mp3
+                  -rwxrwxrwx 1 prent prent  18M Oct 16 15:14 b411a_df5c3214_t3_d07_47_t084_ap3_lm19_r1.62.mp3
+                  -rwxrwxrwx 1 prent prent  16M Oct 16 15:14 b411a_df5c3124_t3_d06_41_t084_ap3_lm19_r1.62.mp3
+                  -rwxrwxrwx 1 prent prent  15M Oct 16 15:14 b411a_df5c3025_t3_d06_28_t092_ap3_lm19_r1.62.mp3
+      404
+            python chord_report.py --chorale bwv404 --input_numpy_file Archive/straw-man/best-tunings --include_slice 0 32 --include_slice 100 132
+            python WreckingCrew.py --chorale_list bwv404 --include_slice 0 32 --include_slice 100 132 --chaconne_section 0 32 --chaconne_insert_after 31 --chaconne_repeats 4 --ap 1 --density_level 3 --chaconne_density 2 1 3 5
+      405
+            python chord_report.py --chorale bwv405 --input_numpy_file Archive/straw-man/best-tunings --include_slice 0 48 --include_slice 128 176
+            python WreckingCrew.py --chorale_list bwv405 --include_slice 0 48 --include_slice 128 176 --chaconne_section 0 48 --chaconne_insert_after 47 --chaconne_repeats 4 --ap 1 --density_level 2 --chaconne_density 3 4 1 2
+      406
+            python chord_report.py --chorale bwv406 --input_numpy_file Archive/straw-man/best-tunings --include_slice 0 48 --include_slice 120 176
+            python WreckingCrew.py --chorale_list bwv406 --include_slice 0 48 --include_slice 120 176 --chaconne_section 0 48 --chaconne_insert_after 47 --chaconne_repeats 4 --ap 4 --density_level 2 --chaconne_density 3 4 1 2
+      407 
+            python chord_report.py --chorale bwv407 --input_numpy_file Archive/straw-man/best-tunings --include_slice 0 32 --include_slice 400 432
+            python WreckingCrew.py --chorale_list bwv407 --include_slice 0 32 --include_slice 400 432 --chaconne_section 0 32 --chaconne_insert_after 31 --chaconne_repeats 4 --ap 4 --density_level 2 --chaconne_density 3 4 1 2
+      408
+            python chord_report.py --chorale bwv408 --input_numpy_file Archive/straw-man/best-tunings --include_slice 0 48 --include_slice 144 192
+            python WreckingCrew.py --chorale_list bwv408 --include_slice 0 48 --include_slice 144 192 --chaconne_section 0 48 --chaconne_insert_after 47 --chaconne_repeats 4 --ap 3 --density_level 5 --chaconne_density 2 1 3 5
+      409
+            python chord_report.py --chorale bwv409 --input_numpy_file Archive/straw-man/best-tunings --include_slice 0 48 --include_slice 128 176
+            python WreckingCrew.py --chorale_list bwv409 --include_slice 0 48 --include_slice 128 176 --chaconne_section 0 48 --chaconne_insert_after 47 --chaconne_repeats 4 --ap 4 --density_level 4 --chaconne_density 3 2 1 5
+      412
+            python chord_report.py --chorale bwv412 --input_numpy_file Archive/straw-man/best-tunings --include_slice 0 48 --include_slice 192 240
+            python WreckingCrew.py --chorale_list bwv412 --include_slice 0 48 --include_slice 192 240 --chaconne_section 0 48 --chaconne_insert_after 47 --chaconne_repeats 4 --ap 1 --density_level 3 --chaconne_density 4 1 3 5
+      413
+            python chord_report.py --chorale bwv413 --input_numpy_file Archive/straw-man/best-tunings --include_slice 0 48 --include_slice 336 384
+            python WreckingCrew.py --chorale_list bwv413 --include_slice 0 48 --include_slice 336 384 --chaconne_section 0 48 --chaconne_insert_after 47 --chaconne_repeats 4 --ap 3 --density_level 2 --chaconne_density 3 4 1 2
+      414
+            python chord_report.py --chorale bwv414 --input_numpy_file Archive/straw-man/best-tunings --include_slice 0 80 --include_slice 80 160
+            python WreckingCrew.py --chorale_list bwv414 --include_slice 0 80 --include_slice 80 160 --chaconne_section 0 80 --chaconne_insert_after 79 --chaconne_repeats 3 --ap 1 --density_level 3 --chaconne_density 4 2 1
+
+___________________________
+10/19/26 We now have a complete Album of 12 Chaconne pieces in Dropbox Chaconne_Test.            
+      Here, complete with a playlist:
+            ls -1h ~/Dropbox/Uploads/Chaconne_Test/
+               bwv403 Key: G♮ minor b403a_df4c3214_t2_d06_02_t100_ap1_lm19_r1.25.mp3 # good melody
+               bwv404 Key: A♮ minor b404a_df3c2135_t1_d04_52_t118_ap1_lm19_r1.62.mp3 # 
+               bwv405 Key: D♮ minor b405a_df2c3412_t3_d08_06_t080_ap1_lm19_r1.38.mp3 #  good 
+               bwv406 Key: D♮ minor b406a_df2c3412_t3_d07_48_t088_ap4_lm19_r1.38.mp3 # nice false cadence in the melody
+               bwv407 Key: D♮ major b407a_df2c3412_t1_d03_56_t122_ap4_lm19_r1.62.mp3 # major key - grows quickly
+               bwv408 Key: G♮ minor b408a_df5c2135_t1_d05_51_t080_ap3_lm17_r1.25.mp3 #
+               bwv409 Key: A♮ major b409a_df4c3215_t1_d04_59_t104_ap4_lm17_r1.25.mp3 # good
+               bwv410 Key: G♮ minor b410a_df5c40123_t3_d04_41_t084_ap3_lm19_r1.50.mp3 # short theme
+               bwv411 Key: G♮ major b411a_df5c3214_t3_d07_47_t084_ap3_lm19_r1.62.mp3 # start with this one.
+               bwv412 Key: G♮ minor b412a_df3c4135_t3_d07_11_t088_ap1_lm19_r1.50.mp3
+               bwv413 Key: F♮ major b413a_df2c3412_t3_d05_55_t092_ap3_lm19_r1.38.mp3 # major key that sounds minor
+               bwv414 Key: G♮ major b414a_df3c421_t3_d07_49_t104_ap1_lm19_r1.38.mp3
+                  Playlist.m3u
+      So far they are all nice. I like major keys today.
+            for n in bwv{403..414} ; do echo $n;  python chord_report.py --chorale $n --input_numpy_file Archive/straw-man/best-tunings | grep Key ; done
+                  bwv403 Key: G♮ minor
+                  ...
+                  bwv414 Key: G♮ major
+      Make videos of 411, 406, 407. Decide on one of the last two. 
+
+      Fill out this template. I'm going to make a new one based on the Chaconne version of bwv411. These files should all be in one-footed-bride-pod. That's where I ran them.
+            ls -lth Uploads/b411a*.mp3 
+                  Oct 16 12:37 Uploads/b411a_df5c3214_t3_d07_47_t084_ap3_lm19_r1.62.mp3 # <-- this one
+                  Oct 16 12:35 Uploads/b411a_df5c3124_t3_d06_41_t084_ap3_lm19_r1.62.mp3
+                  Oct 16 10:08 Uploads/b411a_df5c3025_t3_d06_28_t092_ap3_lm19_r1.62.mp3
+                  Oct 16 10:07 Uploads/b411a_df5c4035_t3_d06_08_t088_ap3_lm19_r1.62.mp3
+
+      Render bwv411: 
+            stub: b411a_df5c3214_t3_d07_47_t084_ap3_lm19_r1.62
+            ssh one-footed-bride-pod
+            cd ~/Repos/One-footed-bride-tuning 
+            ffprobe -v error -show_entries format=duration -of csv=p=0 Uploads/b411a_df5c3214_t3_d07_47_t084_ap3_lm19_r1.62.mp3
+                  463.7
+      Create the title page:
+            ssh one-footed-bride-pod "cd Repos/One-footed-bride-tuning && python concert_title.py Uploads/b411a_df5c3214_t3_d07_47_t084_ap3_lm19_r1.62"
+      Copy it to fs2            
+            scp one-footed-bride-pod:Repos/One-footed-bride-tuning/Uploads/b411a_df5c3214_t3_d07_47_t084_ap3_lm19_r1.62.title.txt Uploads/
+      Then from fs1 
+            scp one-footed-bride-pod:Repos/One-footed-bride-tuning/Uploads/b411a_df5c3214_t3_d07_47_t084_ap3_lm19_r1.62.title.txt ~/Repos/One-footed-bride-tuning/Uploads/
+      Then run the render:
+            ssh fs2
+            cd ~/Repos/One-footed-bride-tuning 
+            ./render_farm.sh --stop && PER_CARD=2 SCRIPT=concert_stage.py BLEND=Concert_Stage.blend ./render_farm.sh --npy Uploads/b411a_df5c3214_t3_d07_47_t084_ap3_lm19_r1.62.npy --tempo 84 --duration 463.7 --out frames_concert_b411a_v1
+      Monitor
+            watch -n 20 "./render_farm.sh --progress ; ./render_farm.sh --status"
+      mux 
+            ssh one-footed-bride-pod 
+            
+            cd ~/Repos/One-footed-bride-tuning
+            ./concert_mux.sh frames_concert_b411h_v2 Uploads/b411h_df4_t3_d07_04_t084_ap3_lm19_r1.62.mp3 concert_b411h_v2.mp4
+      Copy them to fs2 and fs1:
+            ssh one-footed-bride-pod ls Repos/One-footed-bride-tuning/concert_b411h_v2.mp4
+            scp one-footed-bride-pod:Repos/One-footed-bride-tuning/concert_b411h_v2.mp4 .
+      Title: Chorale Prelude based on Bach's BWV411 "Singt dem Herrn ein neues Lied"
+      Description: These chorale preludes are fantasies based on the notes in Bach's chorale, as if performed by an orchestra of AI musicians. 
+      This one is created based on the modes of BWV411, tuned using my One Footed Bride Tuning. The audio is created using a density_factor 4, a relatively dense orchestration, 7:04 in length, at a tempo of 84 beats per minute. Tuning is done to the 19 limit, with ratio_factor 1.625, and tolerance of 3, meaning the cent values of intervals are allowed to differ from the cent value of the actual ratio by up to plus or minus 3 cents. The video was created using Claude Code Opus 5 who wrote the python code to be run by Blender. Each action is created to imitate the appearance and movements of real instruments. Fake but almost accurate. I call it Animicrotonal Music Videos. 
+      Link: https://youtu.be/RIxgmHy0ZMA
