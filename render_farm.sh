@@ -135,7 +135,11 @@ RES_Y=720
 # hold: fs9's B580, rated fastest, was slowest and finished ~25 min after
 # most of the farm, and the B50 was fastest. All six land within 20%, so the
 # Concert Stage on Cycles is paced by the nodes' CPUs, not the cards (fs5
-# runs six Blender processes for its two B70s).
+# runs six Blender processes for its two B70s). Those were 64-sample frames;
+# concert_stage.py renders 256 by default since 20 Oct 2026 (the brass
+# shimmer), which took a B70 from 2.4 to 4.8 s/frame on the 9 Oct test, so
+# expect the eta printed at launch to come in up to twice as long. The
+# slices stay in proportion as long as every card slows alike.
 # 19 Oct 2026: a fourth B580 on fs2 (renderD129; renderD128 is its Arrow Lake
 # iGPU). Not measured yet: its rates are the other three B580s' averages.
 # fs2 has 15Gi and now also holds the Prometheus server, so watch its memory

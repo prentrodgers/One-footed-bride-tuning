@@ -23954,7 +23954,7 @@ ___________________________
                bwv406 Key: D♮ minor b406a_df2c3412_t3_d07_48_t088_ap4_lm19_r1.38.mp3 # nice false cadence in the melody
                bwv407 Key: D♮ major b407a_df2c3412_t1_d03_56_t122_ap4_lm19_r1.62.mp3 # major key - grows quickly
                bwv408 Key: G♮ minor b408a_df5c2135_t1_d05_51_t080_ap3_lm17_r1.25.mp3 #
-               bwv409 Key: A♮ major b409a_df4c3215_t1_d04_59_t104_ap4_lm17_r1.25.mp3 # good
+               bwv409 Key: A♮ major b409a_df4c3215_t1_d04_59_t104_ap4_lm17_r1.25.mp3 # good - Great transition from den 1 to 5
                bwv410 Key: G♮ minor b410a_df5c40123_t3_d04_41_t084_ap3_lm19_r1.50.mp3 # short theme
                bwv411 Key: G♮ major b411a_df5c3214_t3_d07_47_t084_ap3_lm19_r1.62.mp3 # start with this one.
                bwv412 Key: G♮ minor b412a_df3c4135_t3_d07_11_t088_ap1_lm19_r1.50.mp3
@@ -23990,18 +23990,97 @@ ___________________________
       Then run the render:
             ssh fs2
             cd ~/Repos/One-footed-bride-tuning 
-            ./render_farm.sh --stop && PER_CARD=2 SCRIPT=concert_stage.py BLEND=Concert_Stage.blend ./render_farm.sh --npy Uploads/b411a_df5c3214_t3_d07_47_t084_ap3_lm19_r1.62.npy --tempo 84 --duration 463.7 --out frames_concert_b411a_v1
+            ./render_farm.sh --stop && PER_CARD=3 SCRIPT=concert_stage.py BLEND=Concert_Stage.blend ./render_farm.sh --npy Uploads/b411a_df5c3214_t3_d07_47_t084_ap3_lm19_r1.62.npy --tempo 84 --duration 463.7 --out frames_concert_b411a_v1
+            ./concert_mux.sh frames_concert_b411a_v1 Uploads/b411a_df5c3214_t3_d07_47_t084_ap3_lm19_r1.62.mp3 concert_b411a_v3.mp4
+      Or the cycles render for a nicer look, just twice as long to render:
+            PER_CARD=3 SCRIPT=concert_stage.py BLEND=Concert_Stage.blend ./render_farm.sh --npy Uploads/b411a_df5c3214_t3_d07_47_t084_ap3_lm19_r1.62.npy --tempo 84 --duration 463.6 --out frames_concert_b411_cyc_v1 --engine cycles --cycles-hw-rt
+            ./concert_mux.sh frames_concert_b411_cyc_v1 Uploads/b411a_df5c3214_t3_d07_47_t084_ap3_lm19_r1.62.mp3 concert_b411a_v4.mp4
       Monitor
             watch -n 20 "./render_farm.sh --progress ; ./render_farm.sh --status"
       mux 
             ssh one-footed-bride-pod 
-            
             cd ~/Repos/One-footed-bride-tuning
-            ./concert_mux.sh frames_concert_b411h_v2 Uploads/b411h_df4_t3_d07_04_t084_ap3_lm19_r1.62.mp3 concert_b411h_v2.mp4
+            
       Copy them to fs2 and fs1:
-            ssh one-footed-bride-pod ls Repos/One-footed-bride-tuning/concert_b411h_v2.mp4
-            scp one-footed-bride-pod:Repos/One-footed-bride-tuning/concert_b411h_v2.mp4 .
-      Title: Chorale Prelude based on Bach's BWV411 "Singt dem Herrn ein neues Lied"
-      Description: These chorale preludes are fantasies based on the notes in Bach's chorale, as if performed by an orchestra of AI musicians. 
-      This one is created based on the modes of BWV411, tuned using my One Footed Bride Tuning. The audio is created using a density_factor 4, a relatively dense orchestration, 7:04 in length, at a tempo of 84 beats per minute. Tuning is done to the 19 limit, with ratio_factor 1.625, and tolerance of 3, meaning the cent values of intervals are allowed to differ from the cent value of the actual ratio by up to plus or minus 3 cents. The video was created using Claude Code Opus 5 who wrote the python code to be run by Blender. Each action is created to imitate the appearance and movements of real instruments. Fake but almost accurate. I call it Animicrotonal Music Videos. 
-      Link: https://youtu.be/RIxgmHy0ZMA
+            ssh one-footed-bride-pod ls -lth Repos/One-footed-bride-tuning/concert_b411a_v3.mp4
+            scp one-footed-bride-pod:Repos/One-footed-bride-tuning/concert_b411a_v3.mp4 .
+      Title: Chaconne based on Bach's BWV406 "O wie selig seid ihr doch, ihr Frommen"
+      Description: A chaconne is a musical form where the same ground bass phrase is repeated over and over several times, while the other instruments play with the melody and variations of it. In this case the theme is taken from the first four measures of bwv411. It is repeated 4 more times, then the final 2 and 1/2 measures complete the piece. The audio is created using several different density factors. It starts out very dense in the first few measures, then the first repeat is scaled back to density 3, then 2, then 1, then up to density_factor 4, a relatively dense orchestration. The whole piece worked out to 7:43 in length, at a tempo of 84 beats per minute. Tuning is done with my One Footed Bride Tuning to the 19 limit, with ratio_factor 1.625, and tolerance of 3, meaning the cent values of intervals are allowed to differ from the cent value of the actual ratio by up to plus or minus 3 cents. The video was created using Claude Code Opus 5 who wrote the python code to be run by Blender. Each action is created to imitate the appearance and movements of real musicians on real instruments. Fake but almost accurate. I call it Animicrotonal Music Videos. 
+      Link: 
+
+      bwv409 Key: A♮ major b409a_df4c3215_t1_d04_59_t104_ap4_lm17_r1.25.mp3
+      Render bwv409: 
+            stub: b409a_df4c3215_t1_d04_59_t104_ap4_lm17_r1.25
+            ssh one-footed-bride-pod
+            cd ~/Repos/One-footed-bride-tuning 
+            ffprobe -v error -show_entries format=duration -of csv=p=0 Uploads/b409a_df4c3215_t1_d04_59_t104_ap4_lm17_r1.25.mp3
+                 294.9
+      Create the title page:
+            python concert_title.py Uploads/b409a_df4c3215_t1_d04_59_t104_ap4_lm17_r1.25
+      Edit the results to say Chaconne instead of Choral Prelude
+      Copy it to M70q          
+            scp one-footed-bride-pod:Repos/One-footed-bride-tuning/Uploads/b409a_df4c3215_t1_d04_59_t104_ap4_lm17_r1.25.title.txt Uploads/
+      
+      Then run the render:
+           
+      For quick EEVEE render:
+            ./render_farm.sh --stop && PER_CARD=3 SCRIPT=concert_stage.py BLEND=Concert_Stage.blend ./render_farm.sh --npy Uploads/b406a_df2c3412_t3_d07_48_t088_ap4_lm19_r1.38.npy --tempo 84 --duration 463.7 --out frames_concert_b411a_v1
+            ./concert_mux.sh frames_concert_b411a_v1 Uploads/b406a_df2c3412_t3_d07_48_t088_ap4_lm19_r1.38.mp3 concert_b411a_v3.mp4
+      Or the cycles render for a nicer look, just twice as long to render:
+            ./render_farm.sh --stop
+            PER_CARD=3 SCRIPT=concert_stage.py BLEND=Concert_Stage.blend ./render_farm.sh --npy Uploads/b406a_df2c3412_t3_d07_48_t088_ap4_lm19_r1.38.npy --tempo 88 --duration 464.1 --out frames_concert_b06_cyc_v1 --engine cycles --cycles-hw-rt
+            
+      Monitor
+            watch -n 20 "./render_farm.sh --progress ; ./render_farm.sh --status"
+      mux 
+            ssh one-footed-bride-pod 
+            cd ~/Repos/One-footed-bride-tuning
+            ./concert_mux.sh frames_concert_b06_cyc_v1 Uploads//b406a_df2c3412_t3_d07_48_t088_ap4_lm19_r1.38.mp3 concert_b406a_v1.mp4
+
+      Copy them to fs2 and fs1:
+            ssh one-footed-bride-pod ls -lth Repos/One-footed-bride-tuning/concert_b406a_v1.mp4
+            scp one-footed-bride-pod:Repos/One-footed-bride-tuning/concert_b406a_v1.mp4 .
+      Stop the pods and return to balanced:
+            ./render_farm.sh --stop
+      Title: Chaconne based on Bach's BWV411 "Singt dem Herrn ein neues Lied"
+      Description: A chaconne is a musical form where the same ground bass phrase is repeated over and over several times, while the other instruments play with the melody and variations of it. In this case the theme is taken from the first four measures of bwv411. It is repeated 4 more times, then the final 2 and 1/2 measures complete the piece. The audio is created using several different density factors. It starts out very dense in the first few measures, then the first repeat is scaled back to density 3, then 2, then 1, then up to density_factor 4, a relatively dense orchestration. The whole piece worked out to 7:43 in length, at a tempo of 84 beats per minute. Tuning is done with my One Footed Bride Tuning to the 19 limit, with ratio_factor 1.625, and tolerance of 3, meaning the cent values of intervals are allowed to differ from the cent value of the actual ratio by up to plus or minus 3 cents. The video was created using Claude Code Opus 5 who wrote the python code to be run by Blender. Each action is created to imitate the appearance and movements of real musicians on real instruments. Fake but almost accurate. I call it Animicrotonal Music Videos. 
+      Link: 
+
+      bwv406 Key: D♮ minor b406a_df2c3412_t3_d07_48_t088_ap4_lm19_r1.38.mp3
+      Render bwv411: 
+            stub: b406a_df2c3412_t3_d07_48_t088_ap4_lm19_r1.38
+            ssh one-footed-bride-pod
+            cd ~/Repos/One-footed-bride-tuning 
+            ffprobe -v error -show_entries format=duration -of csv=p=0 Uploads/b406a_df2c3412_t3_d07_48_t088_ap4_lm19_r1.38.mp3
+                 464.1
+      Create the title page:
+            ssh one-footed-bride-pod "cd Repos/One-footed-bride-tuning && python concert_title.py Uploads/b406a_df2c3412_t3_d07_48_t088_ap4_lm19_r1.38"
+      Copy it to fs2            
+            scp one-footed-bride-pod:Repos/One-footed-bride-tuning/Uploads/b406a_df2c3412_t3_d07_48_t088_ap4_lm19_r1.38.title.txt Uploads/
+      Then from fs1 
+            scp one-footed-bride-pod:Repos/One-footed-bride-tuning/Uploads/b406a_df2c3412_t3_d07_48_t088_ap4_lm19_r1.38.title.txt ~/Repos/One-footed-bride-tuning/Uploads/
+      Then run the render:
+            ssh fs2
+            cd ~/Repos/One-footed-bride-tuning 
+      For quick EEVEE render:
+            ./render_farm.sh --stop && PER_CARD=3 SCRIPT=concert_stage.py BLEND=Concert_Stage.blend ./render_farm.sh --npy Uploads/b406a_df2c3412_t3_d07_48_t088_ap4_lm19_r1.38.npy --tempo 84 --duration 463.7 --out frames_concert_b411a_v1
+            ./concert_mux.sh frames_concert_b411a_v1 Uploads/b406a_df2c3412_t3_d07_48_t088_ap4_lm19_r1.38.mp3 concert_b411a_v3.mp4
+      Or the cycles render for a nicer look, just twice as long to render:
+            ./render_farm.sh --stop
+            PER_CARD=3 SCRIPT=concert_stage.py BLEND=Concert_Stage.blend ./render_farm.sh --npy Uploads/b406a_df2c3412_t3_d07_48_t088_ap4_lm19_r1.38.npy --tempo 88 --duration 464.1 --out frames_concert_b06_cyc_v1 --engine cycles --cycles-hw-rt
+            
+      Monitor
+            watch -n 20 "./render_farm.sh --progress ; ./render_farm.sh --status"
+      mux 
+            ssh one-footed-bride-pod 
+            cd ~/Repos/One-footed-bride-tuning
+            ./concert_mux.sh frames_concert_b06_cyc_v1 Uploads//b406a_df2c3412_t3_d07_48_t088_ap4_lm19_r1.38.mp3 concert_b406a_v1.mp4
+
+      Copy them to fs2 and fs1:
+            ssh one-footed-bride-pod ls -lth Repos/One-footed-bride-tuning/concert_b406a_v1.mp4
+            scp one-footed-bride-pod:Repos/One-footed-bride-tuning/concert_b406a_v1.mp4 .
+      Stop the pods and return to balanced:
+            ./render_farm.sh --stop
+      Title: Chaconne based on Bach's BWV411 "Singt dem Herrn ein neues Lied"
+      Description: A chaconne is a musical form where the same ground bass phrase is repeated over and over several times, while the other instruments play with the melody and variations of it. In this case the theme is taken from the first four measures of bwv411. It is repeated 4 more times, then the final 2 and 1/2 measures complete the piece. The audio is created using several different density factors. It starts out very dense in the first few measures, then the first repeat is scaled back to density 3, then 2, then 1, then up to density_factor 4, a relatively dense orchestration. The whole piece worked out to 7:43 in length, at a tempo of 84 beats per minute. Tuning is done with my One Footed Bride Tuning to the 19 limit, with ratio_factor 1.625, and tolerance of 3, meaning the cent values of intervals are allowed to differ from the cent value of the actual ratio by up to plus or minus 3 cents. The video was created using Claude Code Opus 5 who wrote the python code to be run by Blender. Each action is created to imitate the appearance and movements of real musicians on real instruments. Fake but almost accurate. I call it Animicrotonal Music Videos. 
+      Link: 

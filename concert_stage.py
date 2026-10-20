@@ -1434,7 +1434,9 @@ def parse_args():
     p.add_argument("--res-x", type=int, default=1280)
     p.add_argument("--res-y", type=int, default=720)
     p.add_argument("--engine", choices=("eevee", "cycles"), default="eevee")
-    p.add_argument("--samples", type=int, default=64)
+    p.add_argument("--samples", type=int, default=256,
+                   help="Cycles samples per pixel (default 256: at 64 the denoiser re-guesses the brass "
+                        "highlights every frame and they shimmer when the camera moves; see tame_cycles)")
     p.add_argument("--cycles-hw-rt", action="store_true")
     p.add_argument("--emitters-light", action="store_true",
                    help="Cycles: let the backdrop, fixture lenses and tines light the stage (the 8 Oct look)")
@@ -1526,7 +1528,10 @@ def tame_cycles(scene, args):
         print(f"[concert] {len(objs)} glowing meshes light nothing under Cycles")
     # The highlights on the brass jumped about once the camera moved: at 64 samples the denoiser guesses
     # them afresh on every frame. No caustics and a low clamp on indirect light remove the rare bright
-    # paths behind that; blur_glossy (1.0 in the .blend) softens what is left.
+    # paths behind that; blur_glossy (1.0 in the .blend) softens what is left. The real cure is samples:
+    # the brightest brass pixels' frame-to-frame wobble measured 2.3-3.0 at 64, 1.5-1.9 at 128, 1.3 at
+    # 256 (EEVEE ~1.0; b394g, 9 Oct 2026). --samples 256 was a flag to remember until b406 (20 Oct)
+    # went out at 64 and shimmered again; it has been the default since.
     cy.caustics_reflective = cy.caustics_refractive = False
     cy.sample_clamp_indirect = args.clamp_indirect
     cy.blur_glossy = max(cy.blur_glossy, args.blur_glossy)
