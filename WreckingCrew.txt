@@ -23831,6 +23831,7 @@ ____________________
             391-402 - posted Oct to dropbox Df-10-06-26 and microtonalnotes.net
             379-390 - posted to Dropbox as Dh-379-390 posted today to microtonalnotes.net
 
+
       Render 403-414 and 379-390
             python WreckingCrew.py --chorale_list bwv{379..390} --deep_bass_backoff 0.25 --back_off_clicks 0.25 --album 9 --mod h --rondo_section_a 0 32 --rondo_insert_a_after 63 127 --auto_density --shuffle_density --articulate wood_winds:4 --articulate_gain 0.1,0.9 --articulate_accent 8@0.25 
       
@@ -23981,17 +23982,22 @@ ___________________________
             cd ~/Repos/One-footed-bride-tuning 
             ffprobe -v error -show_entries format=duration -of csv=p=0 Uploads/b411a_df5c3214_t3_d07_47_t084_ap3_lm19_r1.62.mp3
                   463.7
-      Create the title page:
+      Create the title page on the one-footed-bride-pod:
             ssh one-footed-bride-pod "cd Repos/One-footed-bride-tuning && python concert_title.py Uploads/b411a_df5c3214_t3_d07_47_t084_ap3_lm19_r1.62"
-      Copy it to fs2            
+      Copy it to M70q           
             scp one-footed-bride-pod:Repos/One-footed-bride-tuning/Uploads/b411a_df5c3214_t3_d07_47_t084_ap3_lm19_r1.62.title.txt Uploads/
-      Then from fs1 
-            scp one-footed-bride-pod:Repos/One-footed-bride-tuning/Uploads/b411a_df5c3214_t3_d07_47_t084_ap3_lm19_r1.62.title.txt ~/Repos/One-footed-bride-tuning/Uploads/
-      Then run the render:
+      
+      Then run the render on one of the hosts:
             ssh fs2
             cd ~/Repos/One-footed-bride-tuning 
             ./render_farm.sh --stop && PER_CARD=3 SCRIPT=concert_stage.py BLEND=Concert_Stage.blend ./render_farm.sh --npy Uploads/b411a_df5c3214_t3_d07_47_t084_ap3_lm19_r1.62.npy --tempo 84 --duration 463.7 --out frames_concert_b411a_v1
-            ./concert_mux.sh frames_concert_b411a_v1 Uploads/b411a_df5c3214_t3_d07_47_t084_ap3_lm19_r1.62.mp3 concert_b411a_v3.mp4
+
+            ./render_farm.sh --stop
+            # frames_concert_b411_cyc_v2
+            PER_CARD=3 SCRIPT=concert_stage.py BLEND=Concert_Stage.blend ./render_farm.sh --npy Uploads/b411a_df5c3214_t3_d07_47_t084_ap3_lm19_r1.62.npy --tempo 84 --duration 263.7 --out frames_concert_b411_cyc_v2 --engine cycles --cycles-hw-rt 
+      
+            
+            
       Or the cycles render for a nicer look, just twice as long to render:
             PER_CARD=3 SCRIPT=concert_stage.py BLEND=Concert_Stage.blend ./render_farm.sh --npy Uploads/b411a_df5c3214_t3_d07_47_t084_ap3_lm19_r1.62.npy --tempo 84 --duration 463.6 --out frames_concert_b411_cyc_v1 --engine cycles --cycles-hw-rt
             ./concert_mux.sh frames_concert_b411_cyc_v1 Uploads/b411a_df5c3214_t3_d07_47_t084_ap3_lm19_r1.62.mp3 concert_b411a_v4.mp4
@@ -24000,13 +24006,14 @@ ___________________________
       mux 
             ssh one-footed-bride-pod 
             cd ~/Repos/One-footed-bride-tuning
-            
+            ./concert_mux.sh frames_concert_b411_cyc_v2 Uploads/b411a_df5c3214_t3_d07_47_t084_ap3_lm19_r1.62.mp3 concert_b411a_v4.mp4
+
       Copy them to fs2 and fs1:
-            ssh one-footed-bride-pod ls -lth Repos/One-footed-bride-tuning/concert_b411a_v3.mp4
-            scp one-footed-bride-pod:Repos/One-footed-bride-tuning/concert_b411a_v3.mp4 .
-      Title: Chaconne based on Bach's BWV406 "O wie selig seid ihr doch, ihr Frommen"
+            ssh one-footed-bride-pod ls -lth Repos/One-footed-bride-tuning/concert_b411a_v4.mp4
+            scp one-footed-bride-pod:Repos/One-footed-bride-tuning/concert_b411a_v4.mp4 .
+      Title: Chaconne based on Bach's BWV411 "Singt dem Herrn ein neues Lied"
       Description: A chaconne is a musical form where the same ground bass phrase is repeated over and over several times, while the other instruments play with the melody and variations of it. In this case the theme is taken from the first four measures of bwv411. It is repeated 4 more times, then the final 2 and 1/2 measures complete the piece. The audio is created using several different density factors. It starts out very dense in the first few measures, then the first repeat is scaled back to density 3, then 2, then 1, then up to density_factor 4, a relatively dense orchestration. The whole piece worked out to 7:43 in length, at a tempo of 84 beats per minute. Tuning is done with my One Footed Bride Tuning to the 19 limit, with ratio_factor 1.625, and tolerance of 3, meaning the cent values of intervals are allowed to differ from the cent value of the actual ratio by up to plus or minus 3 cents. The video was created using Claude Code Opus 5 who wrote the python code to be run by Blender. Each action is created to imitate the appearance and movements of real musicians on real instruments. Fake but almost accurate. I call it Animicrotonal Music Videos. 
-      Link: 
+      Link: https://youtu.be/uFHP4UlfV-M
 
       bwv409 Key: A♮ major b409a_df4c3215_t1_d04_59_t104_ap4_lm17_r1.25.mp3
       Render bwv409: 
@@ -24024,27 +24031,29 @@ ___________________________
       Then run the render:
            
       For quick EEVEE render:
-            ./render_farm.sh --stop && PER_CARD=3 SCRIPT=concert_stage.py BLEND=Concert_Stage.blend ./render_farm.sh --npy Uploads/b406a_df2c3412_t3_d07_48_t088_ap4_lm19_r1.38.npy --tempo 84 --duration 463.7 --out frames_concert_b411a_v1
-            ./concert_mux.sh frames_concert_b411a_v1 Uploads/b406a_df2c3412_t3_d07_48_t088_ap4_lm19_r1.38.mp3 concert_b411a_v3.mp4
+            #     ./render_farm.sh --stop && PER_CARD=3 SCRIPT=concert_stage.py BLEND=Concert_Stage.blend ./render_farm.sh --npy Uploads/b409a_df4c3215_t1_d04_59_t104_ap4_lm17_r1.25.npy --tempo 84 --duration 463.7 --out frames_concert_b411a_v1
+
+            ./concert_mux.sh frames_concert_b411a_v1 Uploads/b409a_df4c3215_t1_d04_59_t104_ap4_lm17_r1.25.mp3 concert_b411a_v3.mp4
       Or the cycles render for a nicer look, just twice as long to render:
             ./render_farm.sh --stop
-            PER_CARD=3 SCRIPT=concert_stage.py BLEND=Concert_Stage.blend ./render_farm.sh --npy Uploads/b406a_df2c3412_t3_d07_48_t088_ap4_lm19_r1.38.npy --tempo 88 --duration 464.1 --out frames_concert_b06_cyc_v1 --engine cycles --cycles-hw-rt
+            PER_CARD=3 SCRIPT=concert_stage.py BLEND=Concert_Stage.blend ./render_farm.sh --npy Uploads/b409a_df4c3215_t1_d04_59_t104_ap4_lm17_r1.25.npy --tempo 104 --duration 294.9 --out frames_concert_b409_cyc_v1 --engine cycles --cycles-hw-rt 
             
       Monitor
             watch -n 20 "./render_farm.sh --progress ; ./render_farm.sh --status"
+            http://192.168.68.8:30013/d/ofb-render/one-footed-bride3a-render-farm?orgId=1&from=now-6h&to=now&timezone=browser&refresh=30s
       mux 
             ssh one-footed-bride-pod 
             cd ~/Repos/One-footed-bride-tuning
-            ./concert_mux.sh frames_concert_b06_cyc_v1 Uploads//b406a_df2c3412_t3_d07_48_t088_ap4_lm19_r1.38.mp3 concert_b406a_v1.mp4
+            ./concert_mux.sh frames_concert_b409_cyc_v1 Uploads/b409a_df4c3215_t1_d04_59_t104_ap4_lm17_r1.25.mp3 concert_b409a_v1.mp4
 
-      Copy them to fs2 and fs1:
-            ssh one-footed-bride-pod ls -lth Repos/One-footed-bride-tuning/concert_b406a_v1.mp4
-            scp one-footed-bride-pod:Repos/One-footed-bride-tuning/concert_b406a_v1.mp4 .
+      Copy them to M70q:
+            ssh one-footed-bride-pod ls -lth Repos/One-footed-bride-tuning/concert_b409a_v1.mp4
+            scp one-footed-bride-pod:Repos/One-footed-bride-tuning/concert_b409a_v1.mp4 .
       Stop the pods and return to balanced:
             ./render_farm.sh --stop
-      Title: Chaconne based on Bach's BWV411 "Singt dem Herrn ein neues Lied"
-      Description: A chaconne is a musical form where the same ground bass phrase is repeated over and over several times, while the other instruments play with the melody and variations of it. In this case the theme is taken from the first four measures of bwv411. It is repeated 4 more times, then the final 2 and 1/2 measures complete the piece. The audio is created using several different density factors. It starts out very dense in the first few measures, then the first repeat is scaled back to density 3, then 2, then 1, then up to density_factor 4, a relatively dense orchestration. The whole piece worked out to 7:43 in length, at a tempo of 84 beats per minute. Tuning is done with my One Footed Bride Tuning to the 19 limit, with ratio_factor 1.625, and tolerance of 3, meaning the cent values of intervals are allowed to differ from the cent value of the actual ratio by up to plus or minus 3 cents. The video was created using Claude Code Opus 5 who wrote the python code to be run by Blender. Each action is created to imitate the appearance and movements of real musicians on real instruments. Fake but almost accurate. I call it Animicrotonal Music Videos. 
-      Link: 
+      Title: Chaconne based on Bach's BWV409 "Seelenbräutigam, Jesu, Gottes Lamm"
+      Description: A chaconne is a musical form where the same ground bass phrase is repeated over and over several times, while the other instruments play with the melody and variations of it. In this case the theme is taken from the first four measures of the chorale. It is repeated 4 more times, then the final 2,3, or 4 measures complete the piece. The audio is created using several different density factors. It starts out very dense in the first few measures, then the first repeat is scaled back to density 3, then 2, then 1, then up to density_factor 5, the most dense orchestration. The whole piece worked out to 4:54 in length, at a tempo of 104 beats per minute. Tuning is done with my One Footed Bride Tuning to the 17 limit, with ratio_factor 1.25, and tolerance of 1, meaning the cent values of intervals are allowed to differ from the cent value of the actual ratio by up to plus or minus 1 cent. The video was created with help from Claude Code Opus 5.5 who wrote the python code to be run by Blender. Each action is created to imitate the appearance and movements of real musicians on real instruments. Fake but almost accurate. I call it Animicrotonal Music Videos. 
+      Link: https://youtu.be/dm1peB9KzU8
 
       bwv406 Key: D♮ minor b406a_df2c3412_t3_d07_48_t088_ap4_lm19_r1.38.mp3
       Render bwv411: 
@@ -24063,24 +24072,171 @@ ___________________________
             ssh fs2
             cd ~/Repos/One-footed-bride-tuning 
       For quick EEVEE render:
-            ./render_farm.sh --stop && PER_CARD=3 SCRIPT=concert_stage.py BLEND=Concert_Stage.blend ./render_farm.sh --npy Uploads/b406a_df2c3412_t3_d07_48_t088_ap4_lm19_r1.38.npy --tempo 84 --duration 463.7 --out frames_concert_b411a_v1
-            ./concert_mux.sh frames_concert_b411a_v1 Uploads/b406a_df2c3412_t3_d07_48_t088_ap4_lm19_r1.38.mp3 concert_b411a_v3.mp4
+            # ./render_farm.sh --stop && PER_CARD=3 SCRIPT=concert_stage.py BLEND=Concert_Stage.blend ./render_farm.sh --npy Uploads/b406a_df2c3412_t3_d07_48_t088_ap4_lm19_r1.38.npy --tempo 84 --duration 463.7 --out frames_concert_b411a_v1
+            #./concert_mux.sh frames_concert_b411a_v1 Uploads/b406a_df2c3412_t3_d07_48_t088_ap4_lm19_r1.38.mp3 concert_b411a_v3.mp4
+
       Or the cycles render for a nicer look, just twice as long to render:
             ./render_farm.sh --stop
-            PER_CARD=3 SCRIPT=concert_stage.py BLEND=Concert_Stage.blend ./render_farm.sh --npy Uploads/b406a_df2c3412_t3_d07_48_t088_ap4_lm19_r1.38.npy --tempo 88 --duration 464.1 --out frames_concert_b06_cyc_v1 --engine cycles --cycles-hw-rt
+            PER_CARD=3 SCRIPT=concert_stage.py BLEND=Concert_Stage.blend ./render_farm.sh --npy Uploads/b406a_df2c3412_t3_d07_48_t088_ap4_lm19_r1.38.npy --tempo 88 --duration 464.1 --out frames_concert_b406_cyc_v1 --engine cycles --cycles-hw-rt --look studio --autogen 10:287:7
             
       Monitor
             watch -n 20 "./render_farm.sh --progress ; ./render_farm.sh --status"
       mux 
             ssh one-footed-bride-pod 
             cd ~/Repos/One-footed-bride-tuning
-            ./concert_mux.sh frames_concert_b06_cyc_v1 Uploads//b406a_df2c3412_t3_d07_48_t088_ap4_lm19_r1.38.mp3 concert_b406a_v1.mp4
+            ./concert_mux.sh frames_concert_b406_cyc_v1 Uploads/b406a_df2c3412_t3_d07_48_t088_ap4_lm19_r1.38.mp3 concert_b406a_v1.mp4
 
       Copy them to fs2 and fs1:
             ssh one-footed-bride-pod ls -lth Repos/One-footed-bride-tuning/concert_b406a_v1.mp4
             scp one-footed-bride-pod:Repos/One-footed-bride-tuning/concert_b406a_v1.mp4 .
       Stop the pods and return to balanced:
             ./render_farm.sh --stop
-      Title: Chaconne based on Bach's BWV411 "Singt dem Herrn ein neues Lied"
-      Description: A chaconne is a musical form where the same ground bass phrase is repeated over and over several times, while the other instruments play with the melody and variations of it. In this case the theme is taken from the first four measures of bwv411. It is repeated 4 more times, then the final 2 and 1/2 measures complete the piece. The audio is created using several different density factors. It starts out very dense in the first few measures, then the first repeat is scaled back to density 3, then 2, then 1, then up to density_factor 4, a relatively dense orchestration. The whole piece worked out to 7:43 in length, at a tempo of 84 beats per minute. Tuning is done with my One Footed Bride Tuning to the 19 limit, with ratio_factor 1.625, and tolerance of 3, meaning the cent values of intervals are allowed to differ from the cent value of the actual ratio by up to plus or minus 3 cents. The video was created using Claude Code Opus 5 who wrote the python code to be run by Blender. Each action is created to imitate the appearance and movements of real musicians on real instruments. Fake but almost accurate. I call it Animicrotonal Music Videos. 
-      Link: 
+      Title: Chaconne based on Bach's BWV406 "O wie selig seid ihr doch, ihr Frommen"
+      Description: A chaconne is a musical form where the same ground bass phrase is repeated over and over several times, while the other instruments play with the melody and variations of it. In this case the theme is taken from the first 3 or four measures of the chorale. It is repeated 3 to 5 more times, then the final few measures of the chorale finish the piece. The audio is created using several different density factors. It starts out relatively sparse, density level 2 in the first few measures, then the first repeat is increased density 4, then 1, then 2. The whole piece worked out to 7:43 in length, at a tempo of 84 beats per minute. Tuning is done with my One Footed Bride Tuning to the 19 limit, with ratio_factor 1.375, and tolerance of 3, meaning the cent values of intervals are allowed to differ from the cent value of the actual ratio by up to plus or minus 3 cents. The video was created with the assistance of Claude Code Opus 5.5 who wrote the python code to be run by Blender. Each action is created to imitate the appearance and movements of real musicians on real instruments. Fake but almost accurate. I call it Animicrotonal Music Videos. 
+      Link: https://youtu.be/jS7lwJdZkmU
+
+__________________
+10/20/26 Create the rest of the videos and post them to YouTube and create a Substack post of all three.
+      Done. 
+
+__________________
+10/21/26 Measure the performance per watt of the current fleet using Claude's method.
+      What is completed:
+      427-438 - posted Sept to dropbox d9-09-13-26 and microtonalnotes.net
+      415-426 - posted Sept to dropbox Dc-09-25-26 and microtonalnotes.net
+      403-414 - posted to Dropbox as Dg-403-414 but not yet microtonalnotes.net # <-- Posted 10/18/26
+      391-402 - posted Oct to dropbox Df-10-06-26 and microtonalnotes.net
+      379-390 - posted to Dropbox as Dh-379-390 posted today to microtonalnotes.net      
+      367-378 yet to be done. 
+      Finished in about three hours, with lots of telemetry on performance per watt. 
+      Next step is this:
+            python select_best_and_render.py --numpy_dir_root Archive/straw-man --chorale_list bwv{367..378} --suffix="-opt.npy" --sort-by p90 --copy_npy_to Archive/straw-man/best-tunings
+      I like the p90 better this time. It focusses on the gaps more. 
+
+       My goal is to lower the performance per watt, so that means more laptops with 32GB memory and recent chips. And with memory prices stuck in the $450-500 per 32GB kit, used laptops and Mini PC's with recent chips may be the best choice to replace my power hungry fleet.
+      
+      Cruise ebay for i7 8th gen windows 10 32gb
+      Examples: 
+      - Intel BOXNUC8i7BEH1 Bean Canyon NUC 8th Generation Intel Core i7-8559U processor 500GB SSD $379 3T Global.
+      1534 Single-Core Score 4764 Multi-Core Score -- too slow. 
+      - The M70q has 2185 Single-Core Score 8337 Multi-Core Score at only 35 watts. Newer has better perf/watt. This is Intel Core i5-12500T. 
+      - HP Mini Desktop PC Tiny Micro Computer 8-Core i7-9700T | 32GB RAM | 2TB SSD WIFI
+      i7-9700T 1522 Single-Core Score 5520 Multi-Core Score
+
+      I need to set a benchmark for my current fleet when it's in powersave-gpu mode. I asked claude's help, and he has a better idea. Run my real workload on ray and measure throughput (passes per hour) and power. If he is going to measure a run, pick a set of chorales that you plan to tune next. Chorales to run next: 367-378 yet to be done
+
+      I can answer this better than Geekbench would, by measuring your actual workload node by node. Geekbench is a mixed suite, while a tuning pass is four Viterbi threads of NumPy, so Geekbench scores won't predict it well. Here's the plan before I run anything.
+
+      What to compare. The tuner's real throughput is passes per hour from a whole node, not single-core speed. A Ray worker gives each task 4 CPUs, so a node runs several at once, sharing one power limit and one cooler:
+
+      The 285K and 270K Plus hold 4 tasks each.
+      The 250K Plus and 265K hold 3 each (the 265K has room for 4).
+      fs1 holds 3.
+      So for each node I'd measure:
+
+      Passes per hour with the node full (as many simultaneous passes as its Ray worker holds): fs2–fs9 under powersave-gpu, fs1 under balanced. This is the number a replacement has to match.
+      CPU package watts during the run, from the RAPL counter every node has. That gives passes per kWh, i.e. performance per watt.
+      The same on balanced, to see what powersave-gpu costs each node.
+      How, safely. Each node would get one pod with the same image the Ray workers use, running the same grid_search.sh pass as a Ray task: one fixed cell of bwv433 with VITERBI_WORKERS=4. It would run on a scratch copy of the code and of that cell's saved tuning, so nothing in Archive/straw-man changes. All nodes run at once. That's about 8–10 minutes per round (a bwv433 pass takes ~470 s on 4 CPUs), two rounds plus setup, so roughly 30 minutes. The power switching would use power-save-all.sh and power-balanced.sh. Those already leave fs1 alone, so it stays on balanced throughout.
+
+      One limit: RAPL measures the CPU package only, not the whole machine. Your desktop nodes also have motherboards, more RAM, bigger power supplies, and dGPUs idling at roughly 10–30 W each, all of which a mini PC mostly doesn't have. So wall-socket watts per pass will favour the mini PCs even more than the package numbers suggest. A plug-in power meter on a couple of nodes would capture that.
+
+      What you'd get: a table of passes per hour, package watts and passes per kWh for each node and profile. From it, the target any replacement must beat for each node it replaces, with fs1 as the measured example of a Panther Lake mini PC.
+
+      Should I go ahead? It occupies the whole cluster for about half an hour, so not during a render or a tuning run, and it switches fs2–fs9 to powersave-gpu for one round, then back to balanced.
+
+      The run is going and the measuring is in place. The run started at 10:43, 288 tasks over 12 chorales. The last 12-chorale estimate was 4–6 hours, so expect it to finish in the afternoon. All 28 task slots are busy, in the layout intended:
+
+      Node	Passes at once	Profile
+      fs5, fs7, fs9	4 each	powersave-gpu
+      fs2, fs3, fs8	3 each	powersave-gpu
+      fs1	3	balanced (also hosts the Ray head)
+      fs4, fs6	2 each	powersave-gpu
+      What's being recorded, in ~/bench-367-378 in WSL:
+
+      Ray task history every 15 minutes: which node ran each pass, and when it started and finished. Pass length depends on the chorale, so I'll compare nodes on the same chorales.
+      CPU package energy on all nine nodes every 30 seconds.
+      The launcher's output. You can follow the run with 
+            ./ray-ratchet.sh --attach
+      
+      What I need from you:
+      Under load, any time in the next couple of hours, while all slots are still busy: note the wall watts on fs1, fs5, fs6, fs7 and fs8. Two or three readings spread out, with the times, would be ideal. Near the end, slots empty out as cells finish, so readings then are less useful.
+ 
+      Node Time  Watts Time  Watts Time  Watts Time  Watts Time  Watts Time  Watts Time Watts Time Watts
+      fs1  10:53  59   11:00  59   11:15   59  11:30   59  12:30  59   1:15   59   1:45   57  3:52   10
+      fs5  10:53 230   11:00 206   11:15  212  11:30  212  12:30 210   1:15  212   1:45  207  3:52  170
+      fs7  10:53  70   11:00  76   11:15   70  11:30   96  12:30  75   1:15   89   1:45   61  3:52   65
+      fs8  10:53  82   11:00  83   11:15   73  11:30   74  12:30  74   1:15   70   1:45   45  3:52   37
+      fs6  10:53 128   11:00 143   11:15  109  11:30  107  12:30  91   1:15   96   1:45   89  3:52   45
+
+      After the run finishes, once the fleet is back on balanced and idle: one reading from each meter. Subtracting idle from load shows what the tuning itself costs, and idle alone shows what the always-on machines (dGPUs, big power supplies) cost you.
+      When the run finishes, send me the readings. You'll get the comparison table:
+
+      Passes per hour for each node.
+      Package watts and wall watts.
+      Passes per kWh.
+      How fs1 compares with each node.
+      The throughput a mini PC needs, at balanced, to replace each one.
+      One loose end: I changed k8s-ray-cluster.yaml for this run (fs2 back in, fs6 moved to the 8-CPU group), and that change isn't committed yet. I'll commit it when the run is done.
+
+      The load on UPS in the closet are not even. Claude recommended a better split:
+      Here's a split that evens out both workloads, the tuning runs (CPU) and the renders (GPU). Two assumptions:
+      I can redistribute the load more evenly if needed. The closet has fs3, fs4, fs5, fs6, fs7. fs8. and fs9 and network switches. How should I distribute that load to make it more even?
+      
+      The control-plane nodes (bee, bee2, gmk), rpi5 and fs0 are in the closet too, since you'd said they're on UPS B.
+      Proposed split:
+
+      UPS	Nodes	GPUs for renders	Tuning-run load
+      A	fs5, fs6, fs7, fs8	2 × B70, 1 × B580	~470 W (212 + 108 + 76 + 73, all metered)
+      B	fs3, fs4, fs9, bee, bee2, gmk, rpi5, fs0, switches	2 × B580, 1 × B50	~430 W (estimated)
+      Why this way:
+
+      The heaviest nodes are split up. fs5 (212 W) and the two Ryzens (fs6 about 108 W, fs9 about 120 W) are the biggest tuning-run loads. fs5 and fs9 end up on opposite UPSs. fs6 goes with fs5 to keep the rest of B's load balanced.
+      GPUs are spread for renders. Each UPS gets three discrete cards. A has the two biggest (the B70s), and B carries the always-on control plane and switches to make up for it.
+      Capped nodes are split. Each UPS gets two of the Intel nodes that would carry the CPU power cap (fs7 and fs8 on A, fs3 and fs4 on B), so loosening powersave-gpu later raises both UPSs about equally.
+      Network switches stay with the control plane on B, so a short UPS-A problem doesn't take down the network or the cluster's control plane.
+      Each UPS would sit near 50% during tuning, against about 36% and 70% now.
+
+      Two things I can't estimate from here:
+
+      Render load. I haven't measured the GPUs under render load; under 256-sample Cycles they could each draw well over 100 W. After moving things, a reading of each UPS's load display during a render will show whether the split holds.
+      The wall circuit. If both closet UPSs plug into the same 15 A circuit, about 1,440 W continuous is the real ceiling for the closet, whatever the UPSs can supply. Tuning is about 900 W total. A full render with every card busy is the case to check.
+
+      The run finished cleanly: 3 h 26 min, 954 passes, job SUCCEEDED. The fleet went back to balanced and every metered node was idle when you took the 3:52 readings. Here's the comparison, using the 849 passes that ran while all 28 slots were busy (10:50–13:45):
+                                    node  CPU    Wall idle  Throughput per 100 W (wall)
+      Node	CPU	     Speed	Passesperf  Watt	Watt Watt
+      fs1	358H, bal	0.83	3	3.62	45	59	10	6.2
+      fs7	270K Plus	1.10	4	3.62	47	77	65	4.7
+      fs8	250K Plus	1.11	3	2.70	34	72	37	3.8
+      fs6	7800X3D	0.76	2	2.63	55	109	45	2.4
+      fs5	285K  	1.12	4	3.57	48	213	170	1.7
+      fs9	Ryzen 7900	1.00	4	4.00	58	—	—	—
+      fs3	250KF Plus	1.10	3	2.73	37	—	—	—
+      fs2	250K Plus	1.16	3	2.60	38	—	—	—
+      fs4	265K	      0.86	2	2.32	34	—	—	—
+      Relative time per pass is a pass's duration over the median for the same chorale, so lower is faster. Node throughput is passes at once divided by relative time per pass.
+
+      Your question: fs1, an Ultra X7 358H mini PC on balanced, already does what your Core Ultra 200S nodes do under powersave-gpu:
+
+      Per pass, it's faster than every Intel desktop except fs4: 0.83 against 1.10–1.16. With turbo off, the desktops lose their clock advantage, and fs1 keeps its turbo inside its 45 W limit.
+      As a whole node, it matches fs7 (3.62) and fs5 (3.57), with one fewer slot. It beats fs2, fs3, fs4, fs6 and fs8 by 30–55%. Only fs9 (4.00) does more work.
+      Per watt at the wall, it's the most efficient: 1.3× fs7, 1.6× fs8, 2.6× fs6 and 3.6× fs5.
+      At idle, it draws 10 W, against 37–170 W for the desktops.
+      So any replacement at least as fast as fs1 clears the bar. Your Geekbench of 2,578 single-core and 17,795 multi-core on balanced is a usable target. The things to check on a mini PC are a sustained package limit of at least 45 W (many run at 28–35 W), and 32 GB of RAM for three 12 GiB slots.
+
+      fs5 is the biggest saving, even idle. It draws 170 W with nothing running: the two B70s take 52 W, its CPU 9 W, and the remaining ~110 W goes to motherboard, drives and power supply. That's about 1,500 kWh a year, idle. Its B70s are your farm's biggest render cards, though, so retiring fs5 means finding them another host.
+
+      Best candidates to replace with fs1-class boxes:
+
+      fs6: it's slow as a node (2 slots) and draws 109 W under load.
+      fs8, fs2 and fs3: each does 2.6–2.7 units at about 72 W, so each replacement would gain about a third more work at about 15 W less.
+      These all carry B580s for the render farm, so the cards' new homes are part of the plan.
+      Caveats:
+
+      fs7's idle reading is odd. It read 65 W idle against 77 W under load, while its CPU package went from 12 to 46 W. The wall should have risen by more like 34 W. fs7 also runs the monitoring stack, so it may not have been fully idle at 3:52, or the meter is coarse at low loads. Its efficiency figure may be a little low.
+      The 1:45 drops weren't the CPU. fs7's and fs8's package draw was flat around 1:45, so those wall readings were noise or timing.
+      Passes at once is today's Ray layout. A dedicated mini PC might hold 4 slots. Testing that on fs1 would show whether it gains throughput or just hits its 45 W limit sooner.
+      Two loose ends:
+
+      The raw data is in ~/bench-367-378 in WSL.
+      The k8s-ray-cluster.yaml change from this morning (fs2 in, fs6 in the 8-CPU group) worked and is still uncommitted. Want me to commit it?

@@ -287,7 +287,7 @@ spec:
               - matchExpressions:
                 - key: kubernetes.io/hostname
                   operator: In
-                  values: [fs1, fs3, fs6, fs8]
+                  values: [fs1, fs2, fs3, fs8]   # fs2 back, fs6 to w8 (21 Oct 2026)
           podAntiAffinity: *one-per-node
         containers:
         - name: ray-worker
@@ -307,12 +307,13 @@ spec:
         imagePullSecrets:
         - name: regcred
 
-  # fs4 alone: the Ceph toolbox moved there when fs2 went down and left it
-  # 10.9 CPU free.  Back to w12 when the toolbox moves off (or is scaled to 0).
+  # fs4: the Ceph toolbox moved there when fs2 went down and left it 10.9 CPU
+  # free.  fs6 joined it on 21 Oct 2026 with 11.8 free, just short of 12.
+  # Back to w12 when they have room again.
   - groupName: w8
-    replicas: 1
-    minReplicas: 1
-    maxReplicas: 1
+    replicas: 2
+    minReplicas: 2
+    maxReplicas: 2
     rayStartParams:
       num-cpus: "8"
       object-store-memory: "500000000"
@@ -331,7 +332,7 @@ spec:
               - matchExpressions:
                 - key: kubernetes.io/hostname
                   operator: In
-                  values: [fs4]
+                  values: [fs4, fs6]
           podAntiAffinity: *one-per-node
         containers:
         - name: ray-worker
