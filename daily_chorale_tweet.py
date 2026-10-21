@@ -88,6 +88,47 @@ BWV_TITLES = {
     "264": "Als der gütige Gott",
     # 267 and 415-438, checked against bach-chorales.com on 19 Sep 2026
     "267": "An Wasserflüssen Babylon",
+    # 379-414 added 21 Oct 2026 (BWV 413 was tweeting as "Bach Chorale"), from the
+    # rows of Wikipedia's "List of chorale harmonisations by J. S. Bach" that link
+    # bach-chorales.com/BWV0NNN.htm; the same parse matched 33 of the entries above
+    # exactly and the other 4 up to spelling, so the numbering is not shifted.
+    # 379 and 380 are two melodies to one hymn; the last word tells them apart.
+    "379": "Meinen Jesum laß ich nicht, Jesus",
+    "380": "Meinen Jesum laß ich nicht, weil",
+    "381": "Meines Lebens letzte Zeit",
+    "382": "Mit Fried und Freud ich fahr dahin",
+    "383": "Mitten wir im Leben sind",
+    "384": "Nicht so traurig, nicht so sehr",
+    "385": "Nun bitten wir den Heiligen Geist",
+    "386": "Nun danket alle Gott",
+    "387": "Nun freut euch, Gottes Kinder all",
+    "388": "Nun freut euch, lieben Christen g'mein",
+    "389": "Nun lob, mein Seel, den Herren",
+    "390": "Nun lob, mein Seel, den Herren",
+    "391": "Nun preiset alle Gottes Barmherzigkeit",
+    "392": "Nun ruhen alle Wälder",
+    "393": "O Welt, sieh hier dein Leben",
+    "394": "O Welt, sieh hier dein Leben",
+    "395": "O Welt, sieh hier dein Leben",
+    "396": "Nun sich der Tag geendet hat",
+    "397": "O Ewigkeit, du Donnerwort",
+    "398": "O Gott, du frommer Gott",
+    "399": "O Gott, du frommer Gott",
+    "400": "O Herzensangst, o Bangigkeit",
+    "401": "O Lamm Gottes, unschuldig",
+    "402": "O Mensch, bewein dein Sünde groß",
+    "403": "O Mensch, schau Jesum Christum an",
+    "404": "O Traurigkeit, o Herzeleid",
+    "405": "O wie selig seid ihr doch, ihr Frommen",
+    "406": "O wie selig seid ihr doch, ihr Frommen",
+    "407": "O wir armen Sünder",
+    "408": "Schaut, ihr Sünder",
+    "409": "Seelenbräutigam",
+    "410": "Sei gegrüßet, Jesu gütig",
+    "411": "Singt dem Herrn ein neues Lied",
+    "412": "So gibst du nun, mein Jesu, gute Nacht",
+    "413": "Sollt ich meinem Gott nicht singen",
+    "414": "Uns ist ein Kindlein heut geborn",
     "415": "Valet will ich dir geben",
     "416": "Vater unser im Himmelreich",
     "417": "Von Gott will ich nicht lassen",
@@ -187,7 +228,7 @@ def parse_filename(fname, url):
     desc = (
         f"Bach BWV {bwv} – \"{title}\"\n"
         f"{limit}-limit just intonation (tonality diamond).\n"
-        f"{int(dur_m)}:{dur_s} at {tempo} BPM.\n"
+        f"{int(dur_m)}:{dur_s} at {int(tempo)} BPM.\n"   # t092 in the name, 92 in the tweet
         f"Composed by Prent Rodgers, with the help of Claude Code Opus 5.\n"
         f"{url}"
     )
