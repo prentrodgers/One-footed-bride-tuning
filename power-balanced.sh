@@ -44,6 +44,11 @@ read -r -d '' VERIFY <<'EOS'
     fi
     [ "$nt" = 0 ] || ok=0
     printf "%-4s profile=%-14s no_turbo=%s" "$(hostname)" "$prof" "${nt:-?}"
+    # capped-gpu (CAP_W in power-save-all.sh) lowers PL1; tuned restores the
+    # board's own value on the switch back. Shown, not checked: boards differ.
+    z=/sys/class/powercap/intel-rapl:0
+    [ -e $z/constraint_0_power_limit_uw ] && grep -q GenuineIntel /proc/cpuinfo &&
+      printf "  PL1=%s W" "$(( $(sudo -n cat $z/constraint_0_power_limit_uw) / 1000000 ))"
     for d in /sys/class/drm/card[0-9]; do
       if [ -d $d/gt/gt0 ]; then
         g=$d/gt/gt0; mx=$(cat $g/rps_max_freq_mhz); rp0=$(cat $g/rps_RP0_freq_mhz)

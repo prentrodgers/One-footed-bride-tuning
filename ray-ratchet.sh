@@ -12,6 +12,7 @@
 #     SKIP_SYNC=1    ./ray-ratchet.sh ...                    # the PVC checkout is already current
 #     KEEP_CLUSTER=1 ./ray-ratchet.sh ...                    # leave the cluster up afterwards
 #     POWER=0        ./ray-ratchet.sh ...                    # don't touch the tuned profiles
+#     CAP_W=55       ./ray-ratchet.sh ...                    # Intel nodes capped at 55 W (default 40; 0 = turbo off, as before 22 Oct 2026)
 #
 # Chorale names take the bwv prefix (bwv428, not 428), space-separated after
 # one --chorales.  Every cell x chorale becomes a task, so one run over many
@@ -23,7 +24,11 @@
 #      commit that is not pushed does not run.  Same job the Job-based deploy
 #      used, same reason.
 #   2. fleet to powersave-gpu (power-save-all.sh), back to balanced at the end
-#      or on interrupt.
+#      or on interrupt. The Intel nodes go to capped-gpu instead, turbo on with
+#      the package held at CAP_W (40 W): the closet and the desk share one
+#      15 A circuit (1,440 W continuous), tuning on powersave-gpu drew ~1,120 W,
+#      and 40 W adds ~15 W at the wall per Intel node for ~25% more clock
+#      (fs8, 22 Oct 2026). See power-save-all.sh.
 #   3. kubectl apply k8s-ray-cluster.yaml and wait for head and workers.
 #   4. submit ray_ratchet.py as a Ray job on the head and follow its log.  The
 #      job runs on the head, not in this shell: if the ssh session drops, the
@@ -37,7 +42,7 @@
 set -euo pipefail
 CLUSTER=tuning
 REPO=/home/prent/Repos/One-footed-bride-tuning
-SKIP_SYNC="${SKIP_SYNC:-0}"; KEEP_CLUSTER="${KEEP_CLUSTER:-0}"; POWER="${POWER:-1}"
+SKIP_SYNC="${SKIP_SYNC:-0}"; KEEP_CLUSTER="${KEEP_CLUSTER:-0}"; POWER="${POWER:-1}"; CAP_W="${CAP_W:-40}"
 log(){ echo "$(date +%T) $*"; }
 
 # --help: this header, then the driver's own options.
@@ -128,7 +133,7 @@ cleanup(){
 }
 trap cleanup EXIT
 if [ "$POWER" = 1 ]; then
-    ./power-save-all.sh | grep -E "all hosts|problems|FAILED|MISMATCH"
+    CAP_W=$CAP_W ./power-save-all.sh | grep -E "all hosts|problems|FAILED|MISMATCH"
 fi
 
 # 3. the cluster
