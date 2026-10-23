@@ -24269,4 +24269,5 @@ ______________________________
                   b374h_df3_t1_d03_27_t023_lm17_r1.25.mp3 # <-- 3:27
                   b368h_df3_t2_d04_57_t020_lm19_r1.50.mp3 # <-- 4:57
                   b371h_df3_t2_d06_46_t024_lm19_r1.25.mp3 # <-- 6:40!
-      These scream for a new all_primes with lower repeat numbers. All of the --short_repeats above had repeat values of 2. So it wouldn't be much of a stretch to have an all_primes values like 2,3,4,2,3,2,3,4,2,3
+      These scream for a new all_primes with lower repeat numbers. All of the --short_repeats above had repeat values of 2. So it wouldn't be much of a stretch to have an all_primes values like 2,3,4,2,3,2,3,4,2,3. Note that this array has a prime_count caps at 8, so the last two values are ignored. It might as well be set to 2,3,4,2,3,2,3,4
+      I had Claude commit the latest tunings that we stuck on the PVC: for example Archive\straw-man\best-tunings\bwv378_t1_r1.375_lm19-opt.npy
