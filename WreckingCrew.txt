@@ -24204,17 +24204,19 @@ __________________
       Most important fact: The wall circuit. If both closet UPSs plug into the same 15 A circuit, about 1,440 W continuous is the real ceiling for the closet, whatever the UPSs can supply. Tuning is about 900 W total. A full render with every card busy is the case to check.
 
       The run finished cleanly: 3 h 26 min, 954 passes, job SUCCEEDED. The fleet went back to balanced and every metered node was idle when you took the 3:52 readings. Here's the comparison, using the 849 passes that ran while all 28 slots were busy (10:50–13:45):
-                                    node  CPU    Wall idle  Throughput per 100 W (wall)
-      Node	CPU	     Speed	Passesperf  Watt	Watt Watt
-      fs1	358H, bal	0.83	3	3.62	45	59	10	6.2
-      fs7	270K Plus	1.10	4	3.62	47	77	65	4.7
-      fs8	250K Plus	1.11	3	2.70	34	72	37	3.8
-      fs6	7800X3D	0.76	2	2.63	55   109	45	2.4
-      fs5	285K  	1.12	4	3.57	48   213   170	1.7
-      fs9	Ryzen 7900	1.00	4	4.00	58	—	—	—
-      fs3	250KF Plus	1.10	3	2.73	37	—	—	—
-      fs2	250K Plus	1.16	3	2.60	38	—	—	—
-      fs4	265K	      0.86	2	2.32	34	—	—	—
+
+                                      node  CPU  Wall Idle  Throughput 
+      Node	CPU	     Speed	Passes  perf  Watt Watt Watt  per 100 W (wall)
+      fs1	358H, bal	0.83	3	  3.62   45	  59	 10	6.2
+      fs7	270K Plus	1.10	4	  3.62   47	  77	 65	4.7
+      fs8	250K Plus	1.11	3	  2.70   34	  72	 37	3.8
+      fs6	7800X3D	0.76	2	  2.63   55  109   45	2.4
+      fs5	285K  	1.12	4	  3.57   48  213  170	1.7
+      fs9	Ryzen 7900	1.00	4	  4.00   58	 —	—	—
+      fs3	250KF Plus	1.10	3	  2.73   37	 —	—	—
+      fs2	250K Plus	1.16	3	  2.60   38	 —	—	—
+      fs4	265K	      0.86	2	  2.32   34	 —	—	—
+      
       Relative time per pass is a pass's duration over the median for the same chorale, so lower is faster. Node throughput is passes at once divided by relative time per pass.
 
       Your question: fs1, an Ultra X7 358H mini PC on balanced, already does what your Core Ultra 200S nodes do under powersave-gpu:
@@ -24229,8 +24231,9 @@ __________________
 
       Best candidates to replace with fs1-class boxes:
 
-      fs6: it's slow as a node (2 slots) and draws 109 W under load.
+      fs6: it's slow as a node (2 slots) and draws 109 W under load. - But it is running one of the b580's that I need for blender renders.
       fs8, fs2 and fs3: each does 2.6–2.7 units at about 72 W, so each replacement would gain about a third more work at about 15 W less.
+      
       These all carry B580s for the render farm, so the cards' new homes are part of the plan.
       Caveats:
 
@@ -24248,3 +24251,22 @@ __________________
             mkdir ~/Dropbox/Uploads/Dh-367-378-short-repeats
             cd ~/Dropbox/Uploads/Dh-367-378-short-repeats
             for n in b{367..378} ; do echo $n ; scp one-footed-bride-pod:Repos/One-footed-bride-tuning/Uploads/$n*.mp3 . ; done
+
+______________________________
+10/23/26 This latest set of 367-378 chorales have some real gems.
+      Lots of very long pieces.             
+            ls -1Sr ~/Dropbox/Uploads/Dh-367-378-short-repeats/
+                  Playlist.m3u
+                  b377h_df3_t2_d01_26_t024_lm19_r1.25.mp3
+                  b370h_df3_t1_d01_37_t021_lm19_r1.25.mp3
+                  b376h_df3_t1_d01_50_t023_lm17_r1.25.mp3
+                  b375h_df3_t3_d02_06_t020_lm19_r1.38.mp3
+                  b373h_df3_t1_d02_06_t020_lm19_r1.25.mp3
+                  b369h_df3_t1_d02_06_t024_lm19_r1.62.mp3
+                  b367h_df3_t1_d02_17_t022_lm19_r1.38.mp3
+                  b372h_df3_t3_d02_41_t024_lm19_r1.25.mp3
+                  b378h_df3_t1_d03_09_t021_lm19_r1.38.mp3 # <-- 3:09
+                  b374h_df3_t1_d03_27_t023_lm17_r1.25.mp3 # <-- 3:27
+                  b368h_df3_t2_d04_57_t020_lm19_r1.50.mp3 # <-- 4:57
+                  b371h_df3_t2_d06_46_t024_lm19_r1.25.mp3 # <-- 6:40!
+      These scream for a new all_primes with lower repeat numbers. All of the --short_repeats above had repeat values of 2. So it wouldn't be much of a stretch to have an all_primes values like 2,3,4,2,3,2,3,4,2,3
