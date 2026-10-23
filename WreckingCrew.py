@@ -77,11 +77,19 @@ numpy_dir = os.path.join(local_dir, 'Archive', 'opt')
 #   _ap4  mean  9.33  floor 4   duration 1.00x   shortest note 1.00x   (baseline)
 #   _ap1  mean 11.33  floor 1   duration 1.15x   shortest note 0.43x   (fastest onsets)
 #   _ap3  mean  9.00  floor 3   duration 0.97x   shortest note 0.76x
+#   _ap2  mean  2.88  floor 2   duration 0.54x   shortest note 0.80x   (long chorales)
 # Patterns may differ in length: prime_count slices each to at most its own length.
+# _ap2 (10/23/26) is for the long chorales -- bwv371 has 640 chords, bwv368 388, bwv374 308
+# (the median is 192) -- which run 15-20 min on the others. Its mean of ~3 lands in the slowest
+# tempo band (56-60 BPM), so it halves the length rather than cutting it by the ratio of the
+# means: bwv371 ~9 min instead of ~17, bwv368 ~5:30 instead of ~10:30. Every density level uses
+# at most the first 8 values (DENSITY_LEVELS num_primes); the last two count only with
+# --prime_count 9 or 10.
 PRIME_PATTERNS = {
     4: np.array([4, 4, 8, 8, 16, 16]),
     1: np.array([1, 3, 5, 11, 17, 31]),
     3: np.array([3, 3, 6, 6, 9, 9, 18, 18]),
+    2: np.array([2, 3, 4, 2, 3, 2, 3, 4, 2, 3]),
 }
 
 # Density levels 0 (sparsest) to 5 (densest).
@@ -2061,7 +2069,11 @@ def expand_chorale(repeats, chorale_in_cents_slides, glides, stored_gliss, voice
     # choose the tempo based on how many times the notes are repeated
     repeats_average = int(round(np.average(repeats)))
     logging.info(f'{repeats.shape = }, {repeats_average = }, {quantization = }')
-    if repeats_average == 2:
+    # The 20-24 BPM band is for --short_repeats, whose repeats is the single value [2]. It used
+    # to be chosen by repeats_average == 2, which a real repeat pattern also reaches: _ap2's
+    # draws average 2.4-2.6 often enough that 10-41% of runs (by density level) landed at
+    # 20-24 BPM and ran ~2.5x long. Those now fall through to the slowest regular band.
+    if len(repeats) == 1:
         tempo = rng.choice(np.arange(20, 25, 1))
     elif repeats_average * quantization > 65:
         tempo = rng.choice(np.arange(106, 124, 4)) 
@@ -2789,7 +2801,7 @@ def chorale_to_wave_v4(version, album, include_sections, ratio_factor, limit_max
             if _ap_key not in PRIME_PATTERNS:
                 raise ValueError(f'ap={ap} is not a known repeat pattern; choose from {sorted(PRIME_PATTERNS)}')
         all_primes = PRIME_PATTERNS[_ap_key]
-        primes_tag = f'_ap{int(all_primes[0])}'   # _ap4, _ap1 or _ap3, named by the pattern's first value
+        primes_tag = f'_ap{int(all_primes[0])}'   # _ap4, _ap1, _ap3 or _ap2, named by the pattern's first value
         logging.info(f'repeat pattern {primes_tag} = {all_primes.tolist()} '
                      f'({"pinned by --ap" if ap is not None else "chosen at random"})')
         
@@ -3179,7 +3191,9 @@ if __name__ == "__main__":
                                "drawing one at random. Relative to ap4: "
                                "4 = [4,4,8,8,16,16], the baseline; "
                                "1 = [1,3,5,11,17,31], 1.15x duration and shortest note 0.43x (quickest onsets); "
-                               "3 = [3,3,6,6,9,9,18,18], 0.97x duration and shortest note 0.76x. "
+                               "3 = [3,3,6,6,9,9,18,18], 0.97x duration and shortest note 0.76x; "
+                               "2 = [2,3,4,2,3,2,3,4,2,3], 0.54x duration and shortest note 0.80x, at a "
+                               "slow 56-60 BPM -- for the long chorales (bwv371, 368, 374). "
                                "Ignored when --short_repeats is set. Default: random.")
       parser.add_argument("--fatigue_min_chain", dest="fatigue_min_chain", type=int, default=2,
                           help="Minimum consecutive 0.25-duration notes/bins before staccato thinning is applied (default: 2)")
