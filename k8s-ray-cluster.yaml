@@ -21,28 +21,35 @@
 # emptyDir home around it (the image's /home/prent is root's), seLinux level
 # s0, uid 1000, node affinity to the nodes that can mount dropbox-pvc.
 #
-# ── Sizing (11 Oct 2026) ──────────────────────────────────────────────────
+# ── Sizing (24 Oct 2026) ──────────────────────────────────────────────────
 # One worker pod per node, sized to what the node has FREE after its resident
 # pods (Ceph, monitoring, the jupyter deployment), not to its allocatable
 # total.  A task takes 4 CPU (matching VITERBI_WORKERS=4; more workers than
 # that only contend, see the Job template) so each pod's CPU is a multiple
-# of 4:
+# of 4.  Memory is 2.5Gi per task (what a task declares to Ray) plus ~1Gi for
+# the raylet and the 0.5GB object store -- 11/9/6Gi, down from a flat 12Gi
+# that left fs2 and fs5 unable to fit a worker at all.
 #
-#            allocatable   committed     pod        tasks   left
-#   fs5       24 / 46Gi    5.9 / 34Gi    16 / 12Gi    4     2.1 / 0.7Gi  (jupyter + 4 OSDs)
-#   fs7       24 / 30Gi    6.4 / 17Gi    16 / 12Gi    4     1.6 / 1.7Gi
-#   fs9       24 / 30Gi    5.2 / 15Gi    16 / 12Gi    4     2.8 / 3.1Gi
-#   fs1       16 / 31Gi    0.9 / 2.2Gi   12 / 12Gi    3     3.1 / 16Gi   (358H, low power, stays on balanced)
-#   fs3       18 / 31Gi    4.7 / 11Gi    12 / 12Gi    3     1.3 / 7.3Gi  (Ceph mds-a, mgr-a, rgw, operator)
-#   fs6       16 / 30Gi    2.7 / 9.5Gi   12 / 12Gi    3     1.3 / 8.6Gi
-#   fs8       18 / 31Gi    4.9 / 15Gi    12 / 12Gi    3     1.1 / 4.0Gi
-#   fs4       20 / 62Gi    9.1 / 28Gi     8 / 12Gi    2     2.9 / 22Gi   (mds-b, mgr-b, 3 OSDs, toolbox: 2 CPU)
+#            free before the run    pod         tasks   left
+#   fs7         17.4 / 14.6Gi       16 / 11Gi     4     1.4 / 3.6Gi
+#   fs9         19.1 / 15.6Gi       16 / 11Gi     4     3.1 / 4.6Gi
+#   fs1         14.3 / 25.0Gi       12 /  9Gi     3     2.3 / 16Gi   (358H, low power, stays on balanced)
+#   fs2         15.6 /  9.8Gi       12 /  9Gi     3     3.6 / 0.8Gi  (immich-server, immich-postgres)
+#   fs6         12.1 / 18.7Gi       12 /  9Gi     3     0.1 / 9.7Gi  (3rd slot: 8 cores/16 threads, see below)
+#   fs8         14.2 / 17.1Gi       12 /  9Gi     3     2.2 / 8.1Gi
+#   fs3          9.7 / 16.9Gi        8 /  6Gi     2     1.7 / 11Gi   (lost ~4.5 CPU since 10/21)
+#   fs4         11.4 / 34.8Gi        8 /  6Gi     2     3.4 / 29Gi   (mds-b, mgr-b, 3 OSDs, toolbox: 2 CPU)
+#   fs5         16.1 /  8.7Gi        8 /  6Gi     2     8.1 / 2.7Gi  (ONLY with the llama.cpp server at 0:
+#                                                              jupyter 16Gi + 4 OSDs 16.4 + immich-ml 4)
 #                                                    26 concurrent tasks
-#   plus the head (0.5 CPU / 1.5Gi requested) on fs1, fs4, fs6 or fs9 — see
-#   the headGroupSpec comment.
+#   plus the head (0.5 CPU / 1.5Gi requested) on fs1, fs4 or fs9 -- see the
+#   headGroupSpec comment.  ray-ratchet.sh scales vllm/llama-qwen3-coder-next
+#   to 0 for the run (it holds 4 CPU / 8Gi on fs5) and back afterwards.
 #
-# fs2 is out (memtest86+, Oct 2026) and fs1 has its place: a 32GB Linux
-# server, left on the balanced profile — power-save-all.sh does not touch it.
+# fs6 vs fs9 (10/21 run): per physical core the two Ryzens tuned identically
+# (2.63 / 8 cores = 4.00 / 12 cores = 0.33); fs6's faster passes came from
+# each of its 2 tasks having whole cores while fs9's 4 shared SMT. A 3rd task
+# on fs6 shares cores too, so its passes slow a little, but the node does more.
 #
 # The Ceph daemons that are Deployments (mds, mgr, rgw, operator, toolbox)
 # move when a node goes down: fs2's memory upgrade (16 -> 32GB, 5 Oct) put
@@ -88,8 +95,9 @@ spec:
             level: s0
         # The head shares a node with one of the workers, so it can only go
         # where the table's arithmetic leaves room for it after that worker:
-        # fs1 (3.1 CPU, 16Gi left), fs4 (2.9, 22Gi), fs6 (1.3, 8.6Gi) and
-        # fs9 (2.8, 3.1Gi).  Not fs7 (1.7Gi) or fs5/fs3/fs8 (too little).
+        # fs1 (2.3 CPU, 16Gi left), fs4 (3.4, 29Gi) and fs9 (3.1, 4.6Gi).
+        # Not fs6 (0.1 CPU left since its 3rd slot, 10/24/26), fs2 (0.8Gi),
+        # fs7, fs8, fs3 or fs5.
         # Anywhere else it takes the CPU the node's worker needed and that
         # worker sits Pending — which is what happened on fs3 the first time.
         affinity:
@@ -99,7 +107,7 @@ spec:
               - matchExpressions:
                 - key: kubernetes.io/hostname
                   operator: In
-                  values: [fs1, fs4, fs6, fs9]
+                  values: [fs1, fs4, fs9]
         containers:
         - name: ray-head
           image: quay.io/prentrodgers/python-music:0.11
@@ -194,9 +202,9 @@ spec:
   # Three groups differing only in size and node list — see the table above.
   # The group name is in the pod name (tuning-w16-worker-xxxxx).
   - groupName: w16
-    replicas: 3
-    minReplicas: 3
-    maxReplicas: 3
+    replicas: 2
+    minReplicas: 2
+    maxReplicas: 2
     rayStartParams:
       num-cpus: "16"
       object-store-memory: "500000000"
@@ -215,7 +223,7 @@ spec:
               - matchExpressions:
                 - key: kubernetes.io/hostname
                   operator: In
-                  values: [fs5, fs7, fs9]
+                  values: [fs7, fs9]             # fs5 to w8 (10/24/26)
           # One pod per node: a second on the same node would not fit anyway,
           # and this makes the failure a clear Pending instead of a surprise.
           podAntiAffinity: &one-per-node
@@ -240,8 +248,8 @@ spec:
             failureThreshold: 12
           readinessProbe: *worker-probe
           resources:
-            requests: {cpu: "16", memory: "12Gi"}
-            limits:   {cpu: "16", memory: "12Gi"}
+            requests: {cpu: "16", memory: "11Gi"}
+            limits:   {cpu: "16", memory: "11Gi"}
           volumeMounts: *mounts
           env: &env
           # The tuner's environment, as in the Job template.  Ray worker
@@ -287,7 +295,7 @@ spec:
               - matchExpressions:
                 - key: kubernetes.io/hostname
                   operator: In
-                  values: [fs1, fs2, fs3, fs8]   # fs2 back, fs6 to w8 (21 Oct 2026)
+                  values: [fs1, fs2, fs6, fs8]   # fs6 back with a 3rd slot, fs3 to w8 (24 Oct 2026)
           podAntiAffinity: *one-per-node
         containers:
         - name: ray-worker
@@ -299,21 +307,22 @@ spec:
           livenessProbe: *worker-probe
           readinessProbe: *worker-probe
           resources:
-            requests: {cpu: "12", memory: "12Gi"}
-            limits:   {cpu: "12", memory: "12Gi"}
+            requests: {cpu: "12", memory: "9Gi"}
+            limits:   {cpu: "12", memory: "9Gi"}
           volumeMounts: *mounts
           env: *env
         volumes: *volumes
         imagePullSecrets:
         - name: regcred
 
-  # fs4: the Ceph toolbox moved there when fs2 went down and left it 10.9 CPU
-  # free.  fs6 joined it on 21 Oct 2026 with 11.8 free, just short of 12.
-  # Back to w12 when they have room again.
+  # The nodes with room for 2 tasks, not 3 (10/24/26): fs4 (Ceph toolbox, mds-b,
+  # mgr-b, 3 OSDs: 11.4 CPU free), fs3 (9.7 free) and fs5 (jupyter, 4 OSDs and
+  # immich's machine learning leave it 8.7Gi -- and only once ray-ratchet.sh has
+  # scaled the llama.cpp server off it). Back to w12 when they have room again.
   - groupName: w8
-    replicas: 2
-    minReplicas: 2
-    maxReplicas: 2
+    replicas: 3
+    minReplicas: 3
+    maxReplicas: 3
     rayStartParams:
       num-cpus: "8"
       object-store-memory: "500000000"
@@ -332,7 +341,7 @@ spec:
               - matchExpressions:
                 - key: kubernetes.io/hostname
                   operator: In
-                  values: [fs4, fs6]
+                  values: [fs3, fs4, fs5]
           podAntiAffinity: *one-per-node
         containers:
         - name: ray-worker
@@ -344,8 +353,8 @@ spec:
           livenessProbe: *worker-probe
           readinessProbe: *worker-probe
           resources:
-            requests: {cpu: "8", memory: "12Gi"}
-            limits:   {cpu: "8", memory: "12Gi"}
+            requests: {cpu: "8", memory: "6Gi"}
+            limits:   {cpu: "8", memory: "6Gi"}
           volumeMounts: *mounts
           env: *env
         volumes: *volumes

@@ -32,6 +32,10 @@
 #   PER_CARD=2      two Blender processes per card instead of one (see below)
 #   IGPU=1          add the Core Ultra iGPUs (IGPU_RATE_EEVEE / IGPU_RATE_CYC)
 #   POWER=0         leave the tuned profiles alone
+#   CAP_W=40        Intel nodes on capped-gpu (turbo on, CPU package held at 40 W)
+#                   instead of powersave-gpu; the Ryzens stay on powersave-gpu.
+#                   Default 0 = powersave-gpu everywhere, until a render's wall
+#                   power has been measured (see the Power block below)
 #   STAGGER=45      seconds between pod launches
 #   IMAGE=...       another image tag
 #   SCRIPT=concert_stage.py BLEND=Concert_Stage.blend
@@ -318,9 +322,21 @@ start=0
 # powersave-gpu (power-save-all.sh) — the office circuit cannot take the
 # farm at full clocks. Switched here at launch and back by the detached
 # waiter once every pod is done. POWER=0 leaves the profiles alone.
+#
+# CAP_W (10/24/26): the Concert Stage is partly paced by each frame's Python on
+# the CPU, which turbo-off slows -- fs8 ran 2.66 GHz on powersave-gpu and 3.53
+# at a 40 W cap (+33%) for ~15 W more at the wall per Intel node. The GPU
+# settings are the same either way. But a render also has every card busy, and
+# the closet and desk share one 15 A circuit (1,440 W continuous; tuning on
+# powersave-gpu was already ~1,120 W), so the cap stays opt-in until the UPS
+# displays and the meters have been read during a powersave-gpu render.
 if [ "$DRYRUN" -eq 0 ] && [ "${POWER:-1}" = 1 ] && [ -z "$ONLY" ]; then
-  echo "== fleet to powersave-gpu for the render"
-  ./power-save-all.sh | tail -n +2 | grep -vE "^$|^== verify"
+  if [ "${CAP_W:-0}" -gt 0 ]; then
+    echo "== fleet to capped-gpu at ${CAP_W} W (Intel) / powersave-gpu (Ryzen) for the render"
+  else
+    echo "== fleet to powersave-gpu for the render"
+  fi
+  CAP_W=${CAP_W:-0} ./power-save-all.sh | tail -n +2 | grep -vE "^$|^== verify"
   echo
 fi
 

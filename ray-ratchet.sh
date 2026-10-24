@@ -13,6 +13,7 @@
 #     KEEP_CLUSTER=1 ./ray-ratchet.sh ...                    # leave the cluster up afterwards
 #     POWER=0        ./ray-ratchet.sh ...                    # don't touch the tuned profiles
 #     CAP_W=55       ./ray-ratchet.sh ...                    # Intel nodes capped at 55 W (default 40; 0 = turbo off, as before 22 Oct 2026)
+#     LLM_DEPLOY=none ./ray-ratchet.sh ...                   # don't scale the llama.cpp server off fs5 for the run
 #
 # Chorale names take the bwv prefix (bwv428, not 428), space-separated after
 # one --chorales.  Every cell x chorale becomes a task, so one run over many
@@ -127,6 +128,12 @@ cleanup(){
     else
         log "deleting the RayCluster (and the dashboard NodePort)"
         kubectl delete -f k8s-ray-cluster.yaml --ignore-not-found --wait=false >/dev/null
+        # The LLM goes back only once fs5's worker is going away; while the cluster
+        # is kept up it still needs the room.
+        if [ -n "${LLM_REPLICAS:-}" ] && [ "$LLM_REPLICAS" != 0 ]; then
+            log "scaling $LLM_DEPLOY back to $LLM_REPLICAS"
+            kubectl -n "${LLM_DEPLOY%%/*}" scale deploy "${LLM_DEPLOY#*/}" --replicas="$LLM_REPLICAS" >/dev/null || true
+        fi
     fi
     [ "$POWER" = 1 ] && ./power-balanced.sh | grep -E "all hosts|problems" || true
     exit $rc
@@ -134,6 +141,19 @@ cleanup(){
 trap cleanup EXIT
 if [ "$POWER" = 1 ]; then
     CAP_W=$CAP_W ./power-save-all.sh | grep -E "all hosts|problems|FAILED|MISMATCH"
+fi
+
+# The llama.cpp server on fs5 (OpenClaw's model) holds 4 CPU and 8Gi there; with
+# it up, fs5's worker cannot fit and sits Pending (10/24/26). Scaled to 0 for the
+# run -- OpenClaw falls back to its next model -- and back up by cleanup().
+# LLM_DEPLOY=none to leave it alone.
+LLM_DEPLOY="${LLM_DEPLOY:-vllm/llama-qwen3-coder-next}"
+if [ "$LLM_DEPLOY" != none ] &&
+   LLM_REPLICAS=$(kubectl -n "${LLM_DEPLOY%%/*}" get deploy "${LLM_DEPLOY#*/}" -o jsonpath='{.spec.replicas}' 2>/dev/null) &&
+   [ "${LLM_REPLICAS:-0}" != 0 ]; then
+    log "scaling $LLM_DEPLOY to 0 for the run (was $LLM_REPLICAS) -- fs5's worker needs the room"
+    kubectl -n "${LLM_DEPLOY%%/*}" scale deploy "${LLM_DEPLOY#*/}" --replicas=0 >/dev/null
+    kubectl -n "${LLM_DEPLOY%%/*}" wait --for=delete pod -l "app=${LLM_DEPLOY#*/}" --timeout=120s >/dev/null 2>&1 || true
 fi
 
 # 3. the cluster
