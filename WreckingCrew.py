@@ -719,6 +719,29 @@ def thin_staccato_chains(
     return out
 
 
+def stretch_volume(volume_array, counts, n_steps, hi):
+    """np.repeat(volume_array, counts), clipped to [0, hi] and cut to n_steps --
+    stretched first if it would come up short.
+
+    The xxx_part functions stretch each point of their volume curve by
+    repeats_average * sustain, and piano_roll_to_notes_features zips the notes
+    against the result, so a section ENDS where its volume curve ends. The curve
+    has time_slots * k points (k drawn 1-4 per section) and time_slots is about
+    sum(repeats) / 52, so it covers the piece only if k * repeats_average * sustain
+    comes to 52 or more. With the big primes it always did; --ap 2's
+    repeats_average of 3 (2 or 3 with fewer primes) does not, and every section
+    that drew a small k stopped early -- the mallets before the winds, the bass
+    (sustain ramp averaging ~8) first of all (24 Oct 2026). Scaling the counts up
+    keeps the curve's shape and leaves any curve that was already long enough
+    exactly as it was.
+    """
+    counts = np.broadcast_to(np.asarray(counts, dtype=int), volume_array.shape)
+    total = int(counts.sum())
+    if 0 < total < n_steps:
+        counts = np.ceil(counts * n_steps / total).astype(int)
+    return np.clip(np.repeat(volume_array, counts, axis=0), 0, hi)[:n_steps]
+
+
 # define the functions for the bass instruments, much like the finger_piano_part, except it only includes tenor and bass voices
 # chorale is already had repeats applied to it when it arrives here.
 def bass_part(chorale, glides, repeats, voice_names, voice_time, tpq, volume_function, probs = None, fp_volume = 1, bass_sustain=15,
@@ -752,8 +775,7 @@ def bass_part(chorale, glides, repeats, voice_names, voice_time, tpq, volume_fun
     n_cycles = rng.choice([3, 4])
     t = np.linspace(0, n_cycles, volume_array.shape[0])
     sustain_ramp = np.round(1 + (sustain - 1) * (1 - np.abs(2 * (t % 1) - 1))).astype(int)
-    volume_array = np.clip(np.repeat(volume_array, repeats * sustain_ramp, axis=0), 0, 14)
-    volume_array = volume_array[:chorale.shape[1]] # truncate to the length of the chorale
+    volume_array = stretch_volume(volume_array, repeats * sustain_ramp, chorale.shape[1], 14) # the length of the chorale
     volume_array = volume_array[:-24] # truncate so percussion ends before sustained instruments
     logging.debug(f'after repeat & clip: {volume_array.shape = }, {repeats = }, {sustain = }')
     # revised 3/22/23 - 3/28/23
@@ -1063,8 +1085,7 @@ def finger_piano_part(chorale, glides, repeats, voice_names, voice_time, tpq, vo
     volume_array = dmu.build_density_function(volume_function, vol_arr_size) 
     logging.info(f'{volume_array.shape = }')
     logging.info(f'Percentage of zeros:  {(np.sum(volume_array < 0.1) / volume_array.shape[0]) * 100:.1f}%')
-    volume_array = np.clip(np.repeat(volume_array, repeats * sustain, axis=0), 0, 10)
-    volume_array = volume_array[:chorale.shape[1]] # truncate to the length of the chorale
+    volume_array = stretch_volume(volume_array, repeats * sustain, chorale.shape[1], 10) # the length of the chorale
     volume_array = volume_array[:-24] # truncate so percussion ends before sustained instruments
     logging.info(f'{volume_array.shape = }') # 4288
     logging.info(f'Percentage of zeros:  {(np.sum(volume_array < 0.1) / volume_array.shape[0]) * 100:.1f}%') # 8% to 25% zeros
@@ -1434,13 +1455,12 @@ def woodwinds_part(chorale_in_cents_slides, glides, repeats, voice_names, voice_
     logging.info(f'{volume_function = }')
     volume_array = dmu.build_density_function(volume_function, vol_arr_size) 
     logging.debug(f'{volume_array.shape = }')
-    volume_array = np.clip(np.repeat(volume_array, repeats * sustain, axis=0), 0, 10)
-    volume_array = volume_array[:chorale_in_cents_slides.shape[1]] # truncate to the length of the chorale
+    volume_array = stretch_volume(volume_array, repeats * sustain, chorale_in_cents_slides.shape[1], 10) # the length of the chorale
     logging.debug(f'after repeat and clip. {volume_array.shape = }') # volume_array.shape = (1656,), repeats = 12, sustain = 15
     # revised 3/22/23 revised again 5/21/23 to give more control over relative volume of each instrument
     # revised 4/6/23 to move midi_to_notes_octaves earlier in the stack
 
-    gls = np.array([[0, 0], [0, 0], [0, 0], [0, 0]]) # this needs to be replaced with one slide for every note in every chord in the piece.
+    gls =np.array([[0, 0], [0, 0], [0, 0], [0, 0]]) # this needs to be replaced with one slide for every note in every chord in the piece.
     gls_p = np.array([[.5, .5], [.5, .5], [.5, .5], [.5, .5]])
     ups = np.array([[2, 1],[2, 1],[1, 0],[0, 1]])
     ups_p = np.array([[.5, .5], [.5, .5], [.5, .5], [.5, .5]])
@@ -1587,8 +1607,7 @@ def melody_part(chorale_in_cents_slides, glides, repeats, voice_names, voice_tim
     logging.info(f'About to call build_density_function: passing in {volume_function.shape = }, {vol_arr_size = }, {repeats = }, {sustain = }')
     volume_array = dmu.build_density_function(volume_function, vol_arr_size)
     logging.debug(f'{volume_array.shape = }')
-    volume_array = np.clip(np.repeat(volume_array, repeats * sustain, axis=0), 0, 10)
-    volume_array = volume_array[:chorale_in_cents_slides.shape[1]] # truncate to the length of the chorale
+    volume_array = stretch_volume(volume_array, repeats * sustain, chorale_in_cents_slides.shape[1], 10) # the length of the chorale
     logging.debug(f'after repeat and clip. {volume_array.shape = }') # volume_array.shape = (1656,), repeats = 12, sustain = 15
     # revised 3/22/23 revised again 5/21/23 to give more control over relative volume of each instrument
     # revised 4/6/23 to move midi_to_notes_octaves earlier in the stack
