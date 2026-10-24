@@ -36,6 +36,8 @@
 #                   instead of powersave-gpu; the Ryzens stay on powersave-gpu.
 #                   Default 0 = powersave-gpu everywhere, until a render's wall
 #                   power has been measured (see the Power block below)
+#   LLM_DEPLOY=none leave the llama.cpp server on fs5 running (by default it is
+#                   scaled to 0 for the render and back when the farm finishes)
 #   STAGGER=45      seconds between pod launches
 #   IMAGE=...       another image tag
 #   SCRIPT=concert_stage.py BLEND=Concert_Stage.blend
@@ -181,7 +183,35 @@ if [ "${IGPU:-0}" = 1 ]; then WORKERS+=(
 STAGGER=${STAGGER:-45}
 PER_CARD=${PER_CARD:-1}
 case "$PER_CARD" in 1|2|3|4) ;; *) echo "PER_CARD must be 1-4, got '$PER_CARD'" >&2; exit 2;; esac
-NPY=""; TEMPO=""; DURATION=""; OUT=""; DRYRUN=0; ONLY=""; EXTRA=()
+
+# The llama.cpp server for OpenClaw / Open WebUI holds ~45 GiB across both fs5
+# B70s, which the b70a/b70b slices need. A launch scales it to 0 and notes the
+# old replica count on the Deployment itself, so the waiter or --stop (from any
+# shell, any time later) can put it back. LLM_DEPLOY=none leaves it alone.
+LLM_DEPLOY=${LLM_DEPLOY:-vllm/llama-qwen3-coder-next}
+LLM_NOTE=render-farm-replicas
+llm_off() {
+  [ "$LLM_DEPLOY" != none ] || return 0
+  local n
+  n=$(kubectl -n "${LLM_DEPLOY%%/*}" get deploy "${LLM_DEPLOY#*/}" -o jsonpath='{.spec.replicas}' 2>/dev/null) || return 0
+  [ "${n:-0}" != 0 ] || return 0
+  echo "== $LLM_DEPLOY to 0 for the render (was $n) -- the B70s need its memory"
+  kubectl -n "${LLM_DEPLOY%%/*}" annotate deploy "${LLM_DEPLOY#*/}" --overwrite "$LLM_NOTE=$n" >/dev/null
+  kubectl -n "${LLM_DEPLOY%%/*}" scale deploy "${LLM_DEPLOY#*/}" --replicas=0 >/dev/null
+  kubectl -n "${LLM_DEPLOY%%/*}" wait --for=delete pod -l "app=${LLM_DEPLOY#*/}" --timeout=120s >/dev/null 2>&1 || true
+  echo
+}
+llm_back() {
+  [ "$LLM_DEPLOY" != none ] || return 0
+  local n
+  n=$(kubectl -n "${LLM_DEPLOY%%/*}" get deploy "${LLM_DEPLOY#*/}" -o jsonpath="{.metadata.annotations.$LLM_NOTE}" 2>/dev/null) || return 0
+  [ -n "$n" ] || return 0
+  echo "$(date +%T) $LLM_DEPLOY back to $n"
+  kubectl -n "${LLM_DEPLOY%%/*}" scale deploy "${LLM_DEPLOY#*/}" --replicas="$n" >/dev/null || true
+  kubectl -n "${LLM_DEPLOY%%/*}" annotate deploy "${LLM_DEPLOY#*/}" "$LLM_NOTE-" >/dev/null || true
+}
+
+NPY="";TEMPO=""; DURATION=""; OUT=""; DRYRUN=0; ONLY=""; EXTRA=()
 while [ $# -gt 0 ]; do
   case "$1" in
     # The header, comment markers stripped: usage, the environment knobs, and
@@ -237,11 +267,15 @@ while [ $# -gt 0 ]; do
           done
       exit 0;;
     # Stopping ends the load, so the fleet goes back to balanced here too
-    # (the waiter spawned at launch would do it, but not if POWER=0).
+    # (the waiter spawned at launch would do it, but not if POWER=0), and the
+    # llama.cpp server comes back once the B70 pods have let go of the cards.
     --stop) kubectl -n "$NS" delete po -l job=blender-farm --wait=false
-            [ "${POWER:-1}" = 1 ] && ./power-balanced.sh; exit 0;;
+            [ "${POWER:-1}" = 1 ] && ./power-balanced.sh
+            kubectl -n "$NS" wait --for=delete po -l job=blender-farm --timeout=120s >/dev/null 2>&1 || true
+            llm_back; exit 0;;
     # Spawned detached by a launch: waits for every farm pod to finish, prints
-    # each slice's timing, and returns the fleet to balanced.
+    # each slice's timing, returns the fleet to balanced (unless POWER=0) and
+    # brings back the llama.cpp server if the launch scaled it down.
     --wait-then-balanced)
       while kubectl -n "$NS" get po -l job=blender-farm --no-headers 2>/dev/null \
               | awk '{print $3}' | grep -qE "Running|Pending|ContainerCreating|Init"; do
@@ -253,7 +287,8 @@ while [ $# -gt 0 ]; do
                "$(kubectl -n "$NS" get po "$pod" --no-headers | awk '{print $3}')" \
                "$(kubectl -n "$NS" logs "$pod" 2>/dev/null | grep -a '\[stage\] done' | sed 's/.*done: //' | cut -c1-50)"
       done
-      ./power-balanced.sh
+      [ "${POWER:-1}" = 1 ] && ./power-balanced.sh
+      llm_back
       exit 0;;
     # Pass-through for blender_stage.py: the flag, plus its value if the next
     # token is not itself a flag (--engine cycles, --samples 96, --cycles-hw-rt).
@@ -340,6 +375,17 @@ if [ "$DRYRUN" -eq 0 ] && [ "${POWER:-1}" = 1 ] && [ -z "$ONLY" ]; then
   echo
 fi
 
+# Free the B70s when any slice going out is on fs5 (an --only relaunch of
+# b70a included; a no-op when the launch already did it).
+if [ "$DRYRUN" -eq 0 ]; then
+  for w in "${WORKERS[@]}"; do
+    read -r label node _ <<<"$w"
+    if [ "$node" = fs5 ] && { [ -z "$ONLY" ] || [[ "$ONLY" == "$label"* ]]; }; then
+      llm_off; break
+    fi
+  done
+fi
+
 launched=0
 for i in "${!WORKERS[@]}"; do
   read -r label node select ordinal _ _ <<<"${WORKERS[$i]}"
@@ -418,11 +464,12 @@ YAML
 done
 
 [ "$DRYRUN" -eq 1 ] && exit 0
-if [ "${POWER:-1}" = 1 ] && [ -z "$ONLY" ]; then
+if [ -z "$ONLY" ]; then
   WAITLOG=${TMPDIR:-/tmp}/render_farm_wait_${OUT##*/}.log
   setsid nohup "$0" --wait-then-balanced > "$WAITLOG" 2>&1 < /dev/null &
   echo
-  echo "power:  back to balanced when the farm finishes (log: $WAITLOG)"
+  [ "${POWER:-1}" = 1 ] && echo "power:  back to balanced when the farm finishes (log: $WAITLOG)"
+  echo "llm:    $LLM_DEPLOY back up when the farm finishes, if it was scaled down"
 fi
 echo
 echo "watch:  ./render_farm.sh --status"
