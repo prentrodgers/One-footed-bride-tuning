@@ -2079,7 +2079,7 @@ def expand_chorale(repeats, chorale_in_cents_slides, glides, stored_gliss, voice
     fatigue_thin_ratio=0.0, fatigue_min_chain=2, fatigue_density_threshold=1, version='',
     deep_bass_backoff=1.0, back_off_clicks=0.0,
     rondo_sections=None, rondo_insertions=None, chaconne_levels=None, tempo_band=None, primes_tag='', lm_tag='', articulated_sections=None,
-    articulate_cfg=None):
+    articulate_cfg=None, speed=1.0):
     # As of 1/10/26 the chorale_in_cents_slides has already been repeated according to the repeats array. (no longer an integer)
     # send the arrays to the file new_output.csd which csound will convert to a wave file to make music
     # duration, volume_function = expand_chorale(repeats, chorale_in_cents, chorale_in_cents_slides, glides, stored_gliss, voice_time, \
@@ -2111,6 +2111,11 @@ def expand_chorale(repeats, chorale_in_cents_slides, glides, stored_gliss, voice
     elif repeats_average * quantization > 30:
         tempo = rng.choice(np.arange(60, 80, 4)) 
     else: tempo = rng.choice(np.arange(56, 63, 4))
+    # 10/25/26 --speed: a quicker audition of the same piece, e.g. --short_repeats --speed 2
+    # plays at 40-48 BPM to hear what a rondo or chaconne splice does to the cents sooner.
+    # Applied after the draw so the random sequence, and so the piece, is unchanged.
+    if speed != 1.0:
+        tempo = int(round(tempo * speed))
 
     logging.info(f'{repeats_average * quantization = }, {tempo = }')  
     # set the probabilities that notes will sound using subtractive synthesis
@@ -2675,7 +2680,7 @@ def chorale_to_wave_v4(version, album, include_sections, ratio_factor, limit_max
         fatigue_min_chain=2, fatigue_density_threshold=1, include_slice=None,
         deep_bass_backoff=1.0, back_off_clicks=0.0,
         rondo_sections=None, rondo_insertions=None, chaconne_section=None, chaconne_insertions=None,
-        chaconne_repeats=1, chaconne_density=None):
+        chaconne_repeats=1, chaconne_density=None, speed=1.0):
 
     print(f'In chorale_to_wave_v4. {version = }, {limit_max = }, {short_repeats = }, {ratio_factor = }')
     if short_repeats: # if you just want a straight woodwind/brass chorale, set short_repeats = True
@@ -2890,7 +2895,7 @@ def chorale_to_wave_v4(version, album, include_sections, ratio_factor, limit_max
         deep_bass_backoff=deep_bass_backoff, back_off_clicks=back_off_clicks,
         rondo_sections=rondo_sections, rondo_insertions=rondo_insertions, chaconne_levels=chaconne_levels,
         tempo_band=tempo_band, primes_tag=primes_tag, lm_tag=lm_tag,
-        articulated_sections=articulated_sections, articulate_cfg=articulate_cfg)
+        articulated_sections=articulated_sections, articulate_cfg=articulate_cfg, speed=speed)
 
     if csound: # send the results to csound
         result_of_call = play_csound(csound = True, play = False)
@@ -2924,7 +2929,7 @@ def mainline(chorale_override=None, short_repeats=False, just_triangle=False, in
              fatigue_min_chain=2, fatigue_density_threshold=1, include_slice=None,
              deep_bass_backoff=1.0, back_off_clicks=0.0,
              rondo_sections=None, rondo_insertions=None, chaconne_section=None, chaconne_insertions=None,
-             chaconne_repeats=1, chaconne_density=None):
+             chaconne_repeats=1, chaconne_density=None, speed=1.0):
       if include_list is None:
             include_list = []
 
@@ -3083,7 +3088,8 @@ def mainline(chorale_override=None, short_repeats=False, just_triangle=False, in
                                     deep_bass_backoff=deep_bass_backoff, back_off_clicks=back_off_clicks,
                                     rondo_sections=rondo_sections, rondo_insertions=rondo_insertions,
                                     chaconne_section=chaconne_section, chaconne_insertions=chaconne_insertions,
-                                    chaconne_repeats=chaconne_repeats, chaconne_density=chaconne_density)
+                                    chaconne_repeats=chaconne_repeats, chaconne_density=chaconne_density,
+                                    speed=speed)
 
       # Generate a playlist of all the pieces in this album. This never worked correctly in the pod.
       print(f' {UPLOADS_DIR = }')
@@ -3264,6 +3270,10 @@ if __name__ == "__main__":
                           help="Density level 0-5 for each chaconne copy in order, e.g. --chaconne_density 1 5 2 4 "
                                "with --chaconne_repeats 4 (cycled if fewer are given). The first time through and the "
                                "ending stay at --density_level. Each level used costs one more note-generation pass.")
+      parser.add_argument("--speed", dest="speed", type=float, default=1.0, metavar='X',
+                          help="Multiply the tempo after it is chosen, e.g. --short_repeats --speed 2 plays at 40-48 BPM "
+                               "instead of 20-24: a quicker audition of a --rondo_* or --chaconne_* splice. The _t tag in "
+                               "the filename shows the resulting tempo (default: 1.0)")
       args = parser.parse_args()
 
       # --articulate's default depends on --short_repeats: a straight chorale has no
@@ -3337,6 +3347,8 @@ if __name__ == "__main__":
           raise SystemExit(f'--chaconne_repeats must be at least 1, got {args.chaconne_repeats}')
       if args.chaconne_density is not None and args.chaconne_section is None:
           raise SystemExit('--chaconne_density needs --chaconne_section and --chaconne_insert_after')
+      if args.speed <= 0:
+          raise SystemExit(f'--speed must be positive, got {args.speed}')
 
       mainline(chorale_override=args.chorale_name, short_repeats=args.short_repeats,
                just_triangle=args.just_triangle, include_list=include_list, csound=args.csound, convolve=args.convolve,
@@ -3357,6 +3369,7 @@ if __name__ == "__main__":
                deep_bass_backoff=args.deep_bass_backoff, back_off_clicks=args.back_off_clicks,
                rondo_sections=rondo_sections, rondo_insertions=rondo_insertions,
                chaconne_section=args.chaconne_section, chaconne_insertions=args.chaconne_insert_after,
-               chaconne_repeats=args.chaconne_repeats, chaconne_density=args.chaconne_density)
+               chaconne_repeats=args.chaconne_repeats, chaconne_density=args.chaconne_density,
+               speed=args.speed)
 
 
