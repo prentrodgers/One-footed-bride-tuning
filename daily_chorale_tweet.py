@@ -88,6 +88,21 @@ BWV_TITLES = {
     "264": "Als der gütige Gott",
     # 267 and 415-438, checked against bach-chorales.com on 19 Sep 2026
     "267": "An Wasserflüssen Babylon",
+    # 367-378 added 25 Oct 2026, each checked against bach-chorales.com/BWV0NNN.htm.
+    # Wikipedia's list read one row off here (it put 378's title on 379), so these
+    # came from the per-BWV pages, worded as Wikipedia words them.
+    "367": "In allen meinen Taten",
+    "368": "In dulci jubilo",
+    "369": "Keinen hat Gott verlassen",
+    "370": "Komm, Gott Schöpfer, Heiliger Geist",
+    "371": "Kyrie, Gott Vater in Ewigkeit",
+    "372": "Lass, o Herr, dein Ohr sich neigen",
+    "373": "Liebster Jesu, wir sind hier",
+    "374": "Lobet den Herren, denn er ist sehr freundlich",
+    "375": "Lobt Gott, ihr Christen, allzugleich",
+    "376": "Lobt Gott, ihr Christen, allzugleich",
+    "377": "Machs mit mir, Gott, nach deiner Güt",
+    "378": "Mein Augen schließ ich jetzt",
     # 379-414 added 21 Oct 2026 (BWV 413 was tweeting as "Bach Chorale"), from the
     # rows of Wikipedia's "List of chorale harmonisations by J. S. Bach" that link
     # bach-chorales.com/BWV0NNN.htm; the same parse matched 33 of the entries above
