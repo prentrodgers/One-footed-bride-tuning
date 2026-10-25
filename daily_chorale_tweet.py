@@ -163,6 +163,7 @@ BWV_TITLES = {
 #   b        = the rendered chorale (Csound orchestra ball9.csd)
 #   424f     = BWV 424, variant f — always 3 digits, so 433 and 233 cannot collide
 #   df0      = density level: higher is denser (4-5), lower is sparser (0-1)
+#   df4c3214 = a chaconne render: density 4, then c + each chaconne copy's level
 #   md33     = legacy max delta, written instead of df when density_level is None
 #   t3       = tolerance: ±3 cents from the ideal just-intonation ratio
 #   d04_08   = duration: 4 minutes 8 seconds
@@ -179,7 +180,8 @@ BWV_TITLES = {
 
 FILENAME_RE = re.compile(
     r"b(\d{3})(\w?)_"                 # BWV number + variant letter
-    r"(?:md|df)(\d+)_"                # detail value (legacy md max-delta / newer df density-level)
+    r"(?:md|df)(\d+)"                 # detail value (legacy md max-delta / newer df density-level)
+    r"(?:c\d+)?_"                     # chaconne copies' density levels, one digit each (df4c3214)
     r"t(\d+)_"                        # tolerance
     r"d(\d+)_(\d+)_"                  # duration mm_ss
     r"t(\d+)"                         # tempo
