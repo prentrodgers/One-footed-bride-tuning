@@ -24147,11 +24147,12 @@ __________________
 
       The run is going and the measuring is in place. The run started at 10:43, 288 tasks over 12 chorales. The last 12-chorale estimate was 4–6 hours, so expect it to finish in the afternoon. All 28 task slots are busy, in the layout intended:
 
-      Node	Passes at once	Profile
-      fs5, fs7, fs9	4 each	powersave-gpu
-      fs2, fs3, fs8	3 each	powersave-gpu
-      fs1	3	balanced (also hosts the Ray head)
-      fs4, fs6	2 each	powersave-gpu
+      Node	            Passes at once	Profile
+      fs5, fs7, fs9	4 each	      powersave-gpu
+      fs2, fs3, fs8	3 each	      powersave-gpu
+      fs1	            3	            balanced (also hosts the Ray head)
+      fs4, fs6	      2 each	      powersave-gpu
+      
       What's being recorded, in ~/bench-367-378 in WSL:
 
       Ray task history every 15 minutes: which node ran each pass, and when it started and finished. Pass length depends on the chorale, so I'll compare nodes on the same chorales.
@@ -24271,3 +24272,105 @@ ______________________________
                   b371h_df3_t2_d06_46_t024_lm19_r1.25.mp3 # <-- 6:40!
       These scream for a new all_primes with lower repeat numbers. All of the --short_repeats above had repeat values of 2. So it wouldn't be much of a stretch to have an all_primes values like 2,3,4,2,3,2,3,4,2,3. Note that this array has a prime_count caps at 8, so the last two values are ignored. It might as well be set to 2,3,4,2,3,2,3,4
       I had Claude commit the latest tunings that we stuck on the PVC: for example Archive\straw-man\best-tunings\bwv378_t1_r1.375_lm19-opt.npy
+      Then on the pod, delete the ones that are there, let git put them back.
+            rm Archive/straw-man/best-tunings/bwv3{67..78}_*-opt.npy
+            python WreckingCrew.py --chorale_list bwv{367..378} --auto_density --ap 2
+      Then on M70q:
+            cd Dropbox/Uploads
+            mkdir Di-367-378-ap-2
+            cd Di-367-378-ap-2
+            ssh one-footed-bride-pod ls -lth Repos/One-footed-bride-tuning/Uploads/b3{67..78}i*ap2*.mp3
+            scp one-footed-bride-pod:Repos/One-footed-bride-tuning/Uploads/b3{67..78}i*ap2*.mp3 .
+            ls -1 *.mp3 > Playlist.m3u
+      Lots of charming very short pieces in this collection. I suspect a problem: all the chorales seem to end prematurely. Look at the scores:
+            python chorale_pdf.py bwv{367..378}
+
+      But the woodwinds articulated is way too loud. 
+      --articulate_gain	Change to the articulated woodwinds
+      0.1,0.9 (default)	about −1 dB
+      0.1,0.7	about −3 dB
+      0.1,0.5	about −6 dB, a clearly audible step down
+      0.1,0.35	about −9 dB
+      0.1,0.25	about −12 dB, close to background
+      For example:
+            python WreckingCrew.py --chorale_list bwv3{68..78} --auto_density --ap 2 --articulate_gain 0.1,0.6 --rondo_section_a 0 32 --rondo_insert_a_after 128 159
+
+      
+      Something has gone wrong with WreckingCrew.py in Repos/One-footed-bride-tuning with --ap2. The pieces are all ending at different times. The mallet instruments end earlier than the woodwinds. I need to determine if that's real or just my imagination. Claude found it. It was a bug in my code, where I didn't repeat the rhythm enough times, and got caught with the short pieces stopping the bass and percussion early. Claude fixed it. Pushed.
+
+__________________________
+10/25/26 I should really check the --rondo and --chaconne insertion points, but --short_repeats is too slow 
+      Claude added a --speed argument to double the tempo after it is chosen, so 20 becomes 40 and 24 becomes 48.
+
+      First get the number of chords in every chorale you are working on:
+            for n in {67..78} ; do echo 3$n; python chord_report.py --chorale bwv3$n --input_numpy_file \
+ Archive/straw-man/best-tunings | grep chords: ; done
+      Choose density_levels based on # of chords. few chords low density, many chords high density 
+                  Chorale     Chords      density_level
+                  367         192         3
+                  368         388         5
+                  369         192         3
+                  370         128         0
+                  371         640         5
+                  372         248         4
+                  373         160         2
+                  374         308         4
+                  375         160         2
+                  376         160         2
+                  377         128         1
+                  378         256         4
+      Then figure out where you should insert the initial phrase. With the chorale starting on the final beat of the measure (pickup note), ignore that fact, and insert after a measure that ends a phrase. In 367 that is measure 6. 6*16=96. Subtract one and use 95. Second insertion should end in the same note as the initial rondo phrase. For example in measure 8. (8*16)-2=127. Use 127.
+      367: 
+            python chord_report.py --chorale bwv367 --input_numpy_file Archive/straw-man/best-tunings | head
+                  367 chords: 192 # 16 beat measures with a pickup note
+            python WreckingCrew.py --chorale_list bwv367 --density_level 3 --ap 2 --articulate_gain 0.1,0.6 --rondo_section_a 0 32 --rondo_insert_a_after 95 127 --short_repeats --speed 3 # try 63 127 instead of 159
+      368: 
+                  368 chords: 388 # long so will support multiple insertions. in 3/4 so each measure is 12 1/16th notes with 48 beat phrases
+            python WreckingCrew.py --chorale_list bwv368 --density_level 3 --ap 2 --articulate_gain 0.1,0.6 --rondo_section_a 0 48 --rondo_insert_a_after 95 143 336 --short_repeats --speed 3 #  (8*12)-1=95 (12*12)-1=143 (28*12)-1=336
+      369: 
+                  369 chords: 192 # 16 beat measures with a pickup note insert in measures 6 and 10 
+            python WreckingCrew.py --chorale_list bwv369 --density_level 3 --ap 2 --articulate_gain 0.1,0.6 --rondo_section_a 0 32 --rondo_insert_a_after 95 159 --short_repeats --speed 3 #  (6*16)-1=95 (10*16)-1=159
+      370: 
+                  370 chords: 128 # very short 128 chords. 16 beat measures with a pickup note insert in measures 4. Funny ending.
+            python WreckingCrew.py --chorale_list bwv370 --density_level 3 --ap 2 --articulate_gain 0.1,0.6 --rondo_section_a 0 32 --rondo_insert_a_after 95 --short_repeats --speed 3 #  (4*16)-1=95
+      371: 
+                  371 chords: 640 # very long. 16 beat measures. 
+      This one is complicated. Have two insertion phrases? Or none? It's already a rondo, so none works for me. 
+            python WreckingCrew.py --chorale_list bwv371 --density_level 3 --ap 2 --articulate_gain 0.1,0.6 --short_repeats --speed 3 
+      372: 
+                  372 chords: 248 # 16 beat measures without a pickup note. Initial phrase 0 40. Insert in middle of measure 7 at 103
+      Calculate insertion point in the middle of measure 7: (6*16)+8-1=103 middle of measure 12: (11*16)+7=183
+            python WreckingCrew.py --chorale_list bwv372 --density_level 3 --ap 2 --articulate_gain 0.1,0.6 --rondo_section_a 0 40 --rondo_insert_a_after 103 183 --short_repeats --speed 3 
+      373: 
+                  373 chords: 160 # 16 beat measures without a pickup note. Initial phrase: 0 32 insert after: 79 111
+            python WreckingCrew.py --chorale_list bwv373 --density_level 3 --ap 2 --articulate_gain 0.1,0.6 --rondo_section_a 0 32 --rondo_insert_a_after 79 111 --short_repeats --speed 3
+      374: 
+                  374 chords: 308 # 16 beat measures with a pickup note. Initial phrase: 0 32  
+      Calculate insertion point in the middle of measure 6: (5*16)+7=87 end of measure 9: (9*16)-1=143
+            python WreckingCrew.py --chorale_list bwv374 --density_level 3 --ap 2 --articulate_gain 0.1,0.6 --rondo_section_a 0 32 --rondo_insert_a_after 95 143 --short_repeats --speed 3
+      375: 
+                  375 chords: 160 # 16 beat measures with a pickup note. Initial phrase: 0 32 insert 3/4 through measure 6 
+            python WreckingCrew.py --chorale_list bwv375 --density_level 3 --ap 2 --articulate_gain 0.1,0.6 --rondo_section_a 0 32 --rondo_insert_a_after 95 127 --short_repeats --speed 3
+      376: 
+                  376 chords: 160 # 16 beat measures with a pickup note. Initial phrase: 0 32 insert 3/4 through measure 6 and 8
+            python WreckingCrew.py --chorale_list bwv376 --density_level 3 --ap 2 --articulate_gain 0.1,0.6 --rondo_section_a 0 32 --rondo_insert_a_after 95 127 --short_repeats --speed 3
+      377: 
+                  377 chords: 128 # 16 beat measures with a pickup note. Initial phrase: 0 32 insert 3/4 through measure 6 
+            python WreckingCrew.py --chorale_list bwv377 --density_level 3 --ap 2 --articulate_gain 0.1,0.6 --rondo_section_a 0 32 --rondo_insert_a_after 95 --short_repeats --speed 3
+      378: 
+                  378 chords: 256 # 16 beat measures with a pickup note. Long enough and enough repeated phrases already. No rondo insertions
+            python WreckingCrew.py --chorale_list bwv378 --density_level 3 --ap 2 --articulate_gain 0.1,0.6 --short_repeats --speed 3
+      
+      Now do those without the speed or short_repeats, but with the density_level varying.
+            python WreckingCrew.py --chorale_list bwv367 --density_level 3 --ap 2 --articulate_gain 0.1,0.6 --rondo_section_a 0 32 --rondo_insert_a_after 95 127 
+            python WreckingCrew.py --chorale_list bwv368 --density_level 5 --ap 2 --articulate_gain 0.1,0.6 --rondo_section_a 0 48 --rondo_insert_a_after 95 143 336
+            python WreckingCrew.py --chorale_list bwv369 --density_level 3 --ap 2 --articulate_gain 0.1,0.6 --rondo_section_a 0 32 --rondo_insert_a_after 95 159
+            python WreckingCrew.py --chorale_list bwv370 --density_level 0 --ap 2 --articulate_gain 0.1,0.6 --rondo_section_a 0 32 --rondo_insert_a_after 95 
+            python WreckingCrew.py --chorale_list bwv371 --density_level 5 --ap 2 --articulate_gain 0.1,0.6 
+            python WreckingCrew.py --chorale_list bwv372 --density_level 4 --ap 2 --articulate_gain 0.1,0.6 --rondo_section_a 0 40 --rondo_insert_a_after 103 183 
+            python WreckingCrew.py --chorale_list bwv373 --density_level 2 --ap 2 --articulate_gain 0.1,0.6 --rondo_section_a 0 32 --rondo_insert_a_after 79 111 
+            python WreckingCrew.py --chorale_list bwv374 --density_level 4 --ap 2 --articulate_gain 0.1,0.6 --rondo_section_a 0 32 --rondo_insert_a_after 95 143 
+            python WreckingCrew.py --chorale_list bwv375 --density_level 2 --ap 2 --articulate_gain 0.1,0.6 --rondo_section_a 0 32 --rondo_insert_a_after 95 127 
+            python WreckingCrew.py --chorale_list bwv376 --density_level 2 --ap 2 --articulate_gain 0.1,0.6 --rondo_section_a 0 32 --rondo_insert_a_after 95 127 
+            python WreckingCrew.py --chorale_list bwv377 --density_level 1 --ap 2 --articulate_gain 0.1,0.6 --rondo_section_a 0 32 --rondo_insert_a_after 95 
+            python WreckingCrew.py --chorale_list bwv378 --density_level 4 --ap 2 --articulate_gain 0.1,0.6 
