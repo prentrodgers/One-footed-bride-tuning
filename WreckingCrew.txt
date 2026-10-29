@@ -24374,3 +24374,20 @@ __________________________
             python WreckingCrew.py --chorale_list bwv376 --density_level 2 --ap 2 --articulate_gain 0.1,0.6 --rondo_section_a 0 32 --rondo_insert_a_after 95 127 
             python WreckingCrew.py --chorale_list bwv377 --density_level 1 --ap 2 --articulate_gain 0.1,0.6 --rondo_section_a 0 32 --rondo_insert_a_after 95 
             python WreckingCrew.py --chorale_list bwv378 --density_level 4 --ap 2 --articulate_gain 0.1,0.6 
+
+________________
+10/28/26 Trying to run WreckingCrew.py in the wsl inside Windows 11 inside Kubevirt inside Kubernetes. 
+      It ran but pretty slowly. But it completed successfully. The audio through vscode is a little choppy. And it's hitting 15.9GB memory for a long time. The audio runs fine if I'm not running the WreckingCrew.py calling csound at the time.
+            time python WreckingCrew.py --chorale_list bwv371 --density_level 3 --ap 2 --articulate_gain 0.1,0.6 
+                  real    2m9.441s
+                  user    1m9.298s
+                  sys     0m50.261s
+      Increase the density and reduce the articulated woodwinds volume from 0.6 to 0.5
+            time python WreckingCrew.py --chorale_list bwv371 --density_level 4 --ap 2 --articulate_gain 0.1,0.5
+                  real    1m56.062s
+                  user    1m5.447s
+                  sys     0m36.268s
+      The more I run, the faster it gets:
+                  real    1m26.129s
+                  user    0m44.967s
+                  sys     0m29.862s
