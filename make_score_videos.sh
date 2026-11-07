@@ -35,6 +35,8 @@ WORK=${WORK:-score_videos}
 DRY_RUN=${DRY_RUN:-0}
 SUFFIX=${SUFFIX:-}
 MP3=${MP3:-}
+# The repo's venv has numpy and music21; the system python may not.
+PY=python; [ -x .venv/bin/python ] && PY=.venv/bin/python
 [ $# -gt 0 ] || { sed -n '2,12p' "$0"; exit 2; }
 mkdir -p "$WORK"
 
@@ -75,16 +77,17 @@ for chorale in "$@"; do
     report=$WORK/chord_report_${chorale}.txt
     echo "== $chorale  tempo $tempo  $(basename "$tuning")"
     if [ "$DRY_RUN" = 1 ]; then
-        echo "+ python chord_report.py --input_numpy_file $tuning > $report"
+        echo "+ $PY chord_report.py --input_numpy_file $tuning > $report"
     else
         # chord_report warns on stdout if the tuning does not play the score;
         # surface that rather than burying it in the report file.
-        python chord_report.py --input_numpy_file "$tuning" > "$report" 2>/dev/null || { echo "$chorale: chord_report failed" >&2; fail=1; continue; }
+        $PY chord_report.py --input_numpy_file "$tuning" > "$report" 2>"$report.err" \
+            || { tail -3 "$report.err" >&2; echo "$chorale: chord_report failed" >&2; fail=1; continue; }
         grep -m1 '^WARNING' "$report" && { echo "$chorale: stale tuning — skipping" >&2; fail=1; continue; }
     fi
 
     out=score_${chorale}${SUFFIX}.mp4
-    run python score_video.py --chorale "$chorale" --tempo "$tempo" \
+    run $PY score_video.py --chorale "$chorale" --tempo "$tempo" \
         --mp3 "$WORK/$base" --report "$report" --out "$out" --work "$WORK/${chorale}_work" \
         || { echo "$chorale: score_video.py failed" >&2; fail=1; continue; }
     run scp -q "$out" "$POD:$REPO/$out"

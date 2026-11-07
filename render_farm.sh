@@ -150,14 +150,24 @@ RES_Y=720
 # iGPU). Not measured yet: its rates are the other three B580s' averages.
 # fs2 has 15Gi and now also holds the Prometheus server, so watch its memory
 # with PER_CARD above 2.
+# 30 Oct 2026: Cycles column re-measured on the Concert Stage at 256 samples,
+# the 10821-frame b371 render (--cycles-hw-rt, PER_CARD=3, powersave-gpu), per
+# card as the combined rate of its three processes over the whole run. At 256
+# samples the cards pace it again, not the CPUs, and the 8 Oct order reversed:
+# the B50 is now the slowest by far (9.4 s/frame against ~6.5 for a B580) and
+# the B70s the fastest. On the old column the B50 drew the largest slices and
+# finished two hours after the farm. fs6 and fs2 were relaunched mid-run (a
+# crash, a power-off), so theirs come from the spacing of their last 30 frames.
+# These are per card with three processes, so the eta printed at launch now
+# holds for PER_CARD=3.
 WORKERS=(
-  "b70a   fs5  8086:e223  0           1.701  3.68"
-  "b70b   fs5  8086:e223  1           1.751  3.82"
-  "b580f6 fs6  8086:e20b  -           1.651  3.52"
-  "b580f9 fs9  8086:e20b  -           1.829  3.89"
-  "b580f3 fs3  8086:e20b  -           1.740  3.61"
-  "b580f2 fs2  8086:e20b  -           1.740  3.67"
-  "b50f4  fs4  8086:e212  -           2.129  3.22"
+  "b70a   fs5  8086:e223  0           1.701  4.44"
+  "b70b   fs5  8086:e223  1           1.751  5.62"
+  "b580f6 fs6  8086:e20b  -           1.651  6.74"
+  "b580f9 fs9  8086:e20b  -           1.829  6.44"
+  "b580f3 fs3  8086:e20b  -           1.740  6.66"
+  "b580f2 fs2  8086:e20b  -           1.740  6.03"
+  "b50f4  fs4  8086:e212  -           2.129  9.42"
 )
 # The Core Ultra iGPUs (Xe-LPG, PCI 0x7d67), opt-in with IGPU=1. fs4 now
 # also carries the B50, so it fields two workers; each pod keeps only the
@@ -437,7 +447,7 @@ spec:
   restartPolicy: Never
   nodeSelector: {kubernetes.io/hostname: $node}
   imagePullSecrets: [{name: $PULL_SECRET}]
-  securityContext: {supplementalGroups: [991]}
+  securityContext: {supplementalGroups: [991], seLinuxOptions: {level: s0}}
   containers:
   - name: blender
     image: $IMAGE
