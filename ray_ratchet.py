@@ -108,13 +108,14 @@ def run_cell(k, fresh, task_id):
         raise RuntimeError(f'grid_search.sh exited {proc.returncode} after {seconds:.0f}s\n{tail}')
 
     after = read_sidecar(sidecar)
-    arr = np.load(npy)                                     # (4, N)
+    arr = np.load(npy)                                     # (voices, N)
     diamond = atu.build_tonal_diamond(k.lm)[:-1]
-    mean_sc, max_sc, _ = sbr.score_array(arr, diamond, k.t)
-    g = sbr.summarize_gaps(sbr.collect_gaps(arr), 33.0)
+    sounding = atu.sounding_for_tuning(npy, k.chorale, arr.shape)   # rests as the tuner scored them
+    mean_sc, max_sc, _ = sbr.score_array(arr, diamond, k.t, sounding)
+    g = sbr.summarize_gaps(sbr.collect_gaps(arr, sounding), 33.0)
     return dict(accepted=after.get('last_improved') != before, seconds=seconds,
                 chordavg=mean_sc, chordmax=max_sc,
-                high=chord_report.high_prime_share(arr, k.lm, k.t)[0],
+                high=chord_report.high_prime_share(arr, k.lm, k.t, sounding=sounding)[0],
                 n=g['n'], gapsum=g['total'], p90=g['p90'], mx=g['mx'])
 
 

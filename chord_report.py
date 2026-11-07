@@ -168,11 +168,12 @@ def is_high(text):
     return any(p >= min(HIGH_PRIMES) for p in num + den)
 
 
-def gap_voices(cents):
+def gap_voices(cents, sounding=None):
     """{(chord index, voice): cents moved} for every voice whose pitch class was
     in the previous chord more than GAP_CENTS away.  Held chords (identical
-    columns) are skipped, so 'previous' means the previous distinct chord."""
-    return {(i, v): gap for gap, i, v, _pc, _prev, _curr in collect_gaps(cents)
+    columns) are skipped, so 'previous' means the previous distinct chord.
+    Resting voices (`sounding` False) neither move nor are moved from."""
+    return {(i, v): gap for gap, i, v, _pc, _prev, _curr in collect_gaps(cents, sounding)
             if gap > GAP_CENTS}
 
 
@@ -254,23 +255,42 @@ def print_prime_histogram(intervals, n_chords, chorale=''):
           f'{counts}  chords {len(high_chords)}/{n_chords}  intervals {total}')
 
 
-def high_prime_share(cents, limit_max, tolerance):
-    """The SUMMARY line's numbers for a tuned (4, N) cent array, without the listing or the score:
+def voice_pairs(chord_in_cents, unique_pitch_classes, sounding=None):
+    """The pairs of rows whose intervals a chord is scored on.
+
+    Every pair of voices for a four-voice chorale; past four rows, one voice per
+    pitch class (the first that holds it), as ChordScorer scores them.  With a
+    `sounding` mask for the column, resting voices take no part."""
+    rows = np.arange(len(chord_in_cents))
+    if sounding is not None:
+        rows = rows[np.asarray(sounding, dtype=bool)]
+    if unique_pitch_classes and len(rows):
+        inverse = atu.unique_pitch_class_chord(np.asarray(chord_in_cents)[rows])[1]
+        rows = rows[np.unique(inverse, return_index=True)[1]]
+    return combinations(rows, 2)
+
+
+def high_prime_share(cents, limit_max, tolerance, sounding=None):
+    """The SUMMARY line's numbers for a tuned (voices, N) cent array, without the listing or the score:
     (percent of intervals whose ratio uses a high prime, high intervals, intervals, chords using one,
-    chords). Counted exactly as print_chords counts them: six intervals per chord, each matched to its
+    chords). Counted exactly as print_chords counts them: the pairs voice_pairs gives, each matched to its
     tonal-diamond ratio, a repeated chord counted once. For select_best_and_render.py and
     ray_ratchet.py, which rank tunings by it."""
     tonal_diamond = atu.build_tonal_diamond(limit_max)
     scorer = atu.ChordScorer(tonal_diamond)
     scorer.reset_cache()
     cents = np.rint(cents).astype(int)
+    unique = atu.unique_pitch_classes_for(cents.shape[0])
     total = high = high_chords = n_chords = 0
-    prev = np.zeros(4, dtype=int)
-    for chord in cents.T:
-        if not np.array_equal(prev, chord):
+    prev = np.zeros(cents.shape[0], dtype=int)
+    prev_mask = None
+    for i, chord in enumerate(cents.T):
+        mask = None if sounding is None else sounding[:, i]
+        # A chord is new when its notes change or a voice starts or stops resting.
+        if not np.array_equal(prev, chord) or (mask is not None and not np.array_equal(prev_mask, mask)):
             n_chords += 1
             any_high = False
-            for i1, i2 in combinations(range(4), 2):
+            for i1, i2 in voice_pairs(chord, unique, mask):
                 delta, _moves, _target = atu.cent_value_interval(np.array([chord[i1], chord[i2]]))
                 idx = scorer.find_best_interval(delta, tolerance)[0]
                 total += 1
@@ -279,17 +299,20 @@ def high_prime_share(cents, limit_max, tolerance):
                     any_high = True
             high_chords += any_high
         prev = chord.copy()
+        prev_mask = mask
     return (100.0 * high / total if total else 0.0), high, total, high_chords, n_chords
 
 
 def print_chords(version, input_file, numpy_dir, measure, tolerance,
                  chord_scorer, tonal_diamond, keys, root, mode,
-                 cents, listing=True, color=False, columns=None):
+                 cents, listing=True, color=False, columns=None, sounding=None):
     """Print the chords, and return (intervals, chord count) for the histogram.
 
     The ratios are worked out whether or not they are printed, so
     --histogram_only counts exactly what the listing would have shown.
-    `columns` limits the report to those raw columns, read as one excerpt."""
+    `columns` limits the report to those raw columns, read as one excerpt.
+    `sounding` (voices, N) leaves resting voices out of a chord's score and
+    intervals; their cent value is still listed, as the placeholder it is."""
     if listing:
         # score_video.py puts this line on the video's opening card.
         print(f'Key: {keys[root]} {mode}')
@@ -314,7 +337,8 @@ def print_chords(version, input_file, numpy_dir, measure, tolerance,
     columns = list(range(cents.shape[1])) if columns is None else list(columns)
     excerpt = cents[:, columns]
     # Moves are counted along the excerpt as it plays, then given raw chord numbers.
-    gaps = {(columns[i], v): g for (i, v), g in gap_voices(excerpt).items()}
+    gaps = {(columns[i], v): g for (i, v), g in gap_voices(
+        excerpt, None if sounding is None else sounding[:, columns]).items()}
     if listing and gaps:
         moved = sorted({i for i, _v in gaps})
         shown = [i for i in moved if first_col <= i < end_col]
@@ -322,19 +346,26 @@ def print_chords(version, input_file, numpy_dir, measure, tolerance,
               f'class in the previous chord, in {len(moved)} chords'
               + (f' ({len(shown)} of them in this measure)' if measure > 0 else '')
               + (': shown in red' if color else '; --color always shows them in red'))
-    prev_chord = np.zeros(4, dtype=int)
+    prev_chord = np.zeros(cents.shape[0], dtype=int)
+    prev_mask = None
     for inx, chord_in_cents in zip(columns, excerpt.T):
-        if not np.array_equal(prev_chord, chord_in_cents):
+        mask = None if sounding is None else sounding[:, inx]
+        if not np.array_equal(prev_chord, chord_in_cents) or (
+                mask is not None and not np.array_equal(prev_mask, mask)):
             if first_col <= inx < end_col:
                 n_chords += 1
                 tuned_pcs = np.array(atu.pitch_class_from_cents(chord_in_cents), dtype=int) % 12
                 if PRINT_INDIVIDUAL_CHORDS and listing:
-                    # Tuned note names (from cents), not original MIDI pitch classes.
-                    pitches = ' '.join(map(str, keys[tuned_pcs]))
-                    print(f'{inx}: {format_chord_cents(chord_in_cents, inx, gaps, color)}\t{pitches}\t'
-                          f'{chord_scorer.score_chord(chord_in_cents, tolerance=tolerance)}')
+                    # Tuned note names (from cents), not original MIDI pitch classes;
+                    # a resting voice's name is shown in parentheses.
+                    names = [str(keys[pc]) if mask is None or mask[v] else f'({keys[pc]})'
+                             for v, pc in enumerate(tuned_pcs)]
+                    chord = atu.sounding_chord(chord_in_cents, mask)
+                    score = chord_scorer.score_chord(chord, tolerance=tolerance) if len(chord) else 0.0
+                    print(f'{inx}: {format_chord_cents(chord_in_cents, inx, gaps, color)}\t{" ".join(names)}\t'
+                          f'{score}')
                 intervals = []
-                for inx1, inx2 in combinations(np.arange(4), 2):
+                for inx1, inx2 in voice_pairs(chord_in_cents, chord_scorer.unique_pitch_classes, mask):
                     pair = np.array([chord_in_cents[inx1], chord_in_cents[inx2]])
                     cent_value_delta, _moves, _target = atu.cent_value_interval(pair)
                     best_idx = chord_scorer.find_best_interval(cent_value_delta, tolerance)[0]
@@ -355,6 +386,7 @@ def print_chords(version, input_file, numpy_dir, measure, tolerance,
                     print('  '.join(fmt(iv, i + 1) for i, iv in enumerate(intervals[:3])))
                     print('  '.join(fmt(iv, i + 4) for i, iv in enumerate(intervals[3:])))
         prev_chord = chord_in_cents.copy()
+        prev_mask = mask
     return all_intervals, n_chords
 
 
@@ -408,14 +440,16 @@ def main():
     tolerance, limit_max = params_for(path, args.tolerance, args.limit_max)
 
     tonal_diamond = atu.build_tonal_diamond(limit_max)
-    chord_scorer = atu.ChordScorer(tonal_diamond)
-    chord_scorer.reset_cache()
 
     numpy_dir = os.path.dirname(os.path.abspath(path))
     _, _, _chorale, root, mode, keys = atu.load_chorale_in_cents(
         chorale, numpy_dir)
 
     cents = np.rint(np.load(path, allow_pickle=True)).astype(int)
+    # Scored as the tuner scored it: one note per pitch class past four voices.
+    chord_scorer = atu.ChordScorer(
+        tonal_diamond, unique_pitch_classes=atu.unique_pitch_classes_for(cents.shape[0]))
+    chord_scorer.reset_cache()
     match = atu.tuning_matches_score(cents, _chorale)
     if match < 1.0:
         print(f'WARNING: {os.path.basename(path)} plays {100 * match:.1f}% of the chords in '
@@ -423,9 +457,12 @@ def main():
               f'It was tuned from the pre-14 Sep 2026 reading of the score (voices dealt into '
               f'rows, rests ignored), so the chords below are not the ones in the measures; '
               f're-tune {chorale} before trusting it.')
+    # Rests as the tuner treated them (the sidecar's 'rests:' line; older tunings held them).
+    sounding = atu.sounding_for_tuning(path, chorale, cents.shape)
     columns = slice_columns(args.include_slice, cents.shape[1])
     shown = np.arange(cents.shape[1]) if columns is None else np.array(columns)
-    scores = np.array([chord_scorer.score_chord(c, tolerance=tolerance) for c in cents[:, shown].T])
+    scores = atu.score_columns(chord_scorer, cents[:, shown],
+                               None if sounding is None else sounding[:, shown], tolerance)
 
     if not args.histogram_only:
         print('_' * 40)
@@ -443,7 +480,7 @@ def main():
     intervals, n_chords = print_chords(
         chorale, path, numpy_dir, args.measure, tolerance, chord_scorer,
         tonal_diamond, keys, root, mode, cents,
-        listing=not args.histogram_only, color=color, columns=columns)
+        listing=not args.histogram_only, color=color, columns=columns, sounding=sounding)
     print_prime_histogram(intervals, n_chords, chorale)
 
     if PRINT_HITS_MISSES:

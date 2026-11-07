@@ -13,6 +13,7 @@ and horizontal (pitch-class consistency) costs.
 import logging
 import multiprocessing
 import multiprocessing.pool
+import time
 import numpy as np
 from collections import defaultdict
 import adaptive_tuning_util as atu
@@ -49,10 +50,12 @@ def _worker_log_reinit():
 def _parallel_candidate_worker(args):
     """Module-level worker: picklable, reads complex objects from _WORKER_STATE."""
     i, cent_col, seed, incumbent = args
+    if len(cent_col) == 0:                      # every voice rests in this chord
+        return i, [(np.array([], dtype=float), 0.0)]
     s = _WORKER_STATE
     rng = np.random.default_rng(seed)
     candidates = generate_k_candidates(
-        cent_col, np.zeros(4, dtype=int), i,
+        cent_col, np.zeros(len(cent_col), dtype=int), i,
         s['chord_scorer'], s['low_number_ratios'], s['tonal_diamond'],
         tolerance=s['tolerance'], K=s['K'], rolls=s['rolls'],
         sa_iterations=s['sa_iterations'],
@@ -277,6 +280,22 @@ def _pc_preserving_shifts(cents, octave=1200.0, max_shift=50.0):
     return variants
 
 
+def _sounding_shifts(cents):
+    """_pc_preserving_shifts over the sounding voices; NaN (resting) voices stay NaN."""
+    cents = np.asarray(cents)
+    ok = ~np.isnan(cents)
+    if ok.all():
+        return _pc_preserving_shifts(cents)
+    if not ok.any():
+        return []
+    variants = []
+    for shifted in _pc_preserving_shifts(cents[ok]):
+        full = cents.astype(float).copy()
+        full[ok] = shifted
+        variants.append(full)
+    return variants
+
+
 # A gap costs its size, plus a quadratic surcharge on whatever part of it sits
 # above GAP_HINGE.  The linear term alone minimises the SUM of gaps, but the
 # ratchet in Straw_man_tuning_v2 keeps a run on its WORST single gap, and
@@ -291,16 +310,36 @@ GAP_HINGE_WEIGHT = 0.25
 
 
 def compute_transition_cost(prev_cents, curr_cents, prev_midi, curr_midi,
-                           penalty_type='pitch_class_jump'):
+                           penalty_type='pitch_class_jump', unique_pitch_classes=False):
     """
     Compute horizontal penalty for transitioning between two chords.
 
     Penalizes pitch-class jumps for shared notes between adjacent chords, with a
     quadratic surcharge above GAP_HINGE so that large jumps cannot be paid for by
     shaving small ones.
+
+    With unique_pitch_classes the pitch-class jump is counted once per pitch class
+    of the current chord, matching the vertical rule (doubled notes are tied, so
+    the copies would only repeat the same jump).
+
+    NaN marks a voice that is resting in that chord: it takes no part in either
+    chord's pitch classes, and voice-leading compares only voices sounding in both.
     """
+    full_prev = prev_cents = np.asarray(prev_cents)
+    full_curr = curr_cents = np.asarray(curr_cents)
+    prev_ok = ~np.isnan(prev_cents)
+    curr_ok = ~np.isnan(curr_cents)
+    if prev_ok.all() and curr_ok.all():
+        voice_rows = range(len(curr_midi))
+    else:
+        voice_rows = np.flatnonzero(prev_ok & curr_ok)
+        prev_cents, curr_cents = prev_cents[prev_ok], curr_cents[curr_ok]
     prev_pcs = atu.pitch_class_from_cents(prev_cents)
     curr_pcs = atu.pitch_class_from_cents(curr_cents)
+    pc_cents_pairs = list(zip(curr_pcs, curr_cents))
+    if unique_pitch_classes:
+        reduced, _ = atu.unique_pitch_class_chord(curr_cents)
+        pc_cents_pairs = list(zip(atu.pitch_class_from_cents(reduced), reduced))
     
     # Build pitch-class to cent mapping for previous chord
     prev_pc_map = defaultdict(list)
@@ -311,7 +350,7 @@ def compute_transition_cost(prev_cents, curr_cents, prev_midi, curr_midi,
     
     if penalty_type in ['pitch_class_jump', 'combined']:
         # Penalize cent distance for shared pitch classes
-        for pc, c in zip(curr_pcs, curr_cents):
+        for pc, c in pc_cents_pairs:
             pc = int(pc)
             if pc in prev_pc_map:
                 # Find minimum distance to any occurrence of this PC in prev chord
@@ -325,10 +364,10 @@ def compute_transition_cost(prev_cents, curr_cents, prev_midi, curr_midi,
     if penalty_type in ['voice_leading', 'combined']:
         # Additional penalty for voice leading (MIDI note movement)
         # This encourages smooth voice leading even when pitch classes differ
-        for i in range(len(curr_midi)):
+        for i in voice_rows:
             if curr_midi[i] == prev_midi[i]:
                 # Same MIDI note: penalize cent difference
-                dist = atu.cent_distance_mod_1200(curr_cents[i], prev_cents[i])
+                dist = atu.cent_distance_mod_1200(full_curr[i], full_prev[i])
                 if penalty_type == 'combined':
                     total_penalty += dist * 0.5  # Weight less than PC jumps
                 else:
@@ -340,7 +379,8 @@ def compute_transition_cost(prev_cents, curr_cents, prev_midi, curr_midi,
 def viterbi_select_path(all_candidates, chorale_midi, vertical_weight=1.0,
                        horizontal_weight=0.5, penalty_type='pitch_class_jump',
                        mad_weight=0.0, verbose=False, verbose_threshold=None,
-                       prev_chord_cents=None, prev_chord_midi=None):
+                       prev_chord_cents=None, prev_chord_midi=None,
+                       unique_pitch_classes=False):
     """
     Select optimal path through candidate trellis using dynamic programming.
 
@@ -354,10 +394,19 @@ def viterbi_select_path(all_candidates, chorale_midi, vertical_weight=1.0,
     how far its notes deviate from the running circular mean for their pitch
     class — catching global tuning drift that the adjacent-only horizontal cost
     cannot see.
+
+    unique_pitch_classes counts each pitch class once in the horizontal and MAD
+    terms, as ChordScorer does vertically for pieces with more than four rows.
     """
     n_chords = len(all_candidates)
     if n_chords == 0:
         return np.array([]), [], 0.0
+
+    def pcs_once(cents):
+        cents = np.asarray(cents)
+        if np.isnan(cents).any():                     # resting voices take no part
+            cents = cents[~np.isnan(cents)]
+        return atu.unique_pitch_class_chord(cents)[0] if unique_pitch_classes else cents
 
     # DP state: (min_cost, prev_candidate_idx, pc_accum, used_cents)
     # used_cents is the actual chord cents committed to at this state — may differ
@@ -374,7 +423,7 @@ def viterbi_select_path(all_candidates, chorale_midi, vertical_weight=1.0,
         cent_vals, v_score = all_candidates[0][k]
         variants = [cent_vals]
         if prev_chord_cents is not None:
-            variants += _pc_preserving_shifts(cent_vals)
+            variants += _sounding_shifts(cent_vals)
 
         best_cost, best_cents = float('inf'), cent_vals
         for used_cents in variants:
@@ -382,12 +431,13 @@ def viterbi_select_path(all_candidates, chorale_midi, vertical_weight=1.0,
             if prev_chord_cents is not None:
                 h_cost = compute_transition_cost(
                     prev_chord_cents, used_cents, prev_chord_midi,
-                    chorale_midi[:, 0], penalty_type=penalty_type)
+                    chorale_midi[:, 0], penalty_type=penalty_type,
+                    unique_pitch_classes=unique_pitch_classes)
             cost = vertical_weight * v_score + horizontal_weight * h_cost
             if cost < best_cost:
                 best_cost, best_cents = cost, used_cents
 
-        dp[0][k] = (best_cost, -1, _update_pc_accum(empty_accum, best_cents), best_cents)
+        dp[0][k] = (best_cost, -1, _update_pc_accum(empty_accum, pcs_once(best_cents)), best_cents)
 
     # Fill DP table left to right
     for i in range(1, n_chords):
@@ -405,7 +455,7 @@ def viterbi_select_path(all_candidates, chorale_midi, vertical_weight=1.0,
             # Transposition costs nothing vertically, so it is a free knob for the
             # horizontal and MAD terms.  These depend only on the candidate, so
             # build them once here instead of once per predecessor.
-            variants = [curr_cents] + _pc_preserving_shifts(curr_cents)
+            variants = [curr_cents] + _sounding_shifts(curr_cents)
 
             for k_prev in range(K_prev):
                 prev_cost, _, prev_accum, prev_used = dp[i-1][k_prev]
@@ -414,9 +464,10 @@ def viterbi_select_path(all_candidates, chorale_midi, vertical_weight=1.0,
                     h_cost = compute_transition_cost(
                         prev_used, used_cents,
                         chorale_midi[:, i-1], chorale_midi[:, i],
-                        penalty_type=penalty_type)
+                        penalty_type=penalty_type,
+                        unique_pitch_classes=unique_pitch_classes)
 
-                    m_cost = (_accum_mad_cost(prev_accum, used_cents)
+                    m_cost = (_accum_mad_cost(prev_accum, pcs_once(used_cents))
                               if mad_weight > 0 else 0.0)
 
                     total_cost = (prev_cost
@@ -427,7 +478,7 @@ def viterbi_select_path(all_candidates, chorale_midi, vertical_weight=1.0,
                     if total_cost < min_cost:
                         min_cost = total_cost
                         best_prev = k_prev
-                        best_accum = _update_pc_accum(prev_accum, used_cents)
+                        best_accum = _update_pc_accum(prev_accum, pcs_once(used_cents))
                         best_used_cents = used_cents
 
             dp[i][k_curr] = (min_cost, best_prev, best_accum, best_used_cents)
@@ -497,7 +548,8 @@ def hierarchical_viterbi_optimization(chorale, cent_value_chorale,
                                      candidate_max_no_improve=None,
                                      n_workers=1,
                                      build_chord_sa_func=None,
-                                     incumbent=None):
+                                     incumbent=None,
+                                     sounding=None):
     """
     Apply Viterbi optimization hierarchically at phrase and piece levels.
 
@@ -520,6 +572,70 @@ def hierarchical_viterbi_optimization(chorale, cent_value_chorale,
     logging.info(f'Hierarchical Viterbi: {len(phrase_boundaries)} phrase(s), '
                 f'{n_chords} chords, K={K}')
     
+    # With unique_pitch_classes (more than four rows) each chord is tuned as its
+    # distinct pitch classes only, then copied back to every row that plays them.
+    # That ties doubled notes to one value, keeps the SA search the size of the
+    # harmony rather than the number of rows, and makes the chord's score the
+    # score of exactly what was searched.  Four-voice chorales skip this and run
+    # as before.
+    #
+    # `sounding` (voices, N, bool) marks the cells that are notes; a resting voice
+    # is left out of its chord's search and comes back as NaN, for the caller to
+    # fill (atu.fill_rests).  None means every cell sounds, as before Nov 2026.
+    unique = getattr(chord_scorer, 'unique_pitch_classes', False)
+    n_rows = cent_value_chorale.shape[0]
+    plain = not unique and (sounding is None or np.asarray(sounding).all())
+    if plain:
+        search_cols = [cent_value_chorale[:, i].copy() for i in range(n_chords)]
+        search_inc = None if incumbent is None else [incumbent[i] for i in range(n_chords)]
+    else:
+        mask = (np.ones(cent_value_chorale.shape, dtype=bool) if sounding is None
+                else np.asarray(sounding, dtype=bool))
+        voices, inverses, firsts = [], [], []
+        for i in range(n_chords):
+            rows = np.flatnonzero(mask[:, i])
+            if unique and len(rows):
+                inv = atu.unique_pitch_class_chord(cent_value_chorale[rows, i])[1]
+                first = rows[np.unique(inv, return_index=True)[1]]
+            else:
+                inv, first = np.arange(len(rows)), rows
+            voices.append(rows)
+            inverses.append(inv)
+            firsts.append(first)
+        search_cols = [cent_value_chorale[firsts[i], i].copy() for i in range(n_chords)]
+        search_inc = (None if incumbent is None
+                      else [np.asarray(incumbent[i])[firsts[i]] for i in range(n_chords)])
+        sizes = [len(c) for c in search_cols]
+        logging.info(f'Tuning the sounding notes only{" (one per pitch class)" if unique else ""}: '
+                     f'{n_rows} rows, {np.mean(sizes):.1f} notes per chord on average, '
+                     f'max {max(sizes)}, {sum(s == 0 for s in sizes)} chords where all rest')
+
+    def expand(i, candidates):
+        if plain:
+            return candidates
+        out = []
+        for c, s in candidates:
+            full = np.full(n_rows, np.nan)
+            full[voices[i]] = np.asarray(c, dtype=float)[inverses[i]]
+            out.append((full, s))
+        return out
+
+    def candidates_for(i, cents, prev_cents, chord_rng, inc):
+        """generate_k_candidates, or the one empty chord where every voice rests."""
+        if len(cents) == 0:
+            return [(np.array([], dtype=float), 0.0)]
+        return generate_k_candidates(
+            cents, prev_cents, i,
+            chord_scorer, low_number_ratios, tonal_diamond,
+            tolerance=tolerance, K=K, rolls=rolls,
+            sa_iterations=sa_iterations,
+            initial_temperature=initial_temperature,
+            cooling_rate=cooling_rate, ratio_factor=ratio_factor,
+            stability_factor=stability_factor, spread=spread,
+            rng=chord_rng, build_chord_sa_func=build_chord_sa_func,
+            candidate_max_no_improve=candidate_max_no_improve,
+            incumbent=inc)
+
     # Candidate generation is independent per chord, so with workers do the whole
     # piece in a single pool.  Creating a pool inside the phrase loop capped
     # parallelism at the phrase length — chorales average well under ten chords
@@ -546,14 +662,28 @@ def hierarchical_viterbi_optimization(chorale, cent_value_chorale,
         })
 
         base_seed = int(rng.integers(0, 2**31))
-        tasks = [(i, cent_value_chorale[:, i].copy(), base_seed + i,
-                  None if incumbent is None else incumbent[i].copy())
+        tasks = [(i, search_cols[i], base_seed + i,
+                  None if search_inc is None else np.array(search_inc[i], copy=True))
                  for i in range(n_chords)]
+        # imap_unordered, one chord per task, so the parent can report progress
+        # (the workers' logging is switched off after fork) and a slow chord does
+        # not hold a whole chunk of others behind it.  Each chord's seed is fixed
+        # by its index, so the result does not depend on which worker ran it.
         ctx = multiprocessing.get_context('fork')
+        results_list = []
+        t0 = time.time()
+        step = max(1, n_chords // 10)
         with multiprocessing.pool.Pool(processes=n_workers, context=ctx,
                                        initializer=_worker_log_reinit) as pool:
-            results_list = pool.map(_parallel_candidate_worker, tasks)
-        all_candidates = [cands for _, cands in sorted(results_list)]
+            for result in pool.imap_unordered(_parallel_candidate_worker, tasks):
+                results_list.append(result)
+                done = len(results_list)
+                if done % step == 0 or done == n_chords:
+                    msg = (f'  candidates: {done}/{n_chords} chords, '
+                           f'{time.time() - t0:.0f}s')
+                    print(msg, flush=True)
+                    logging.info(msg)
+        all_candidates = [expand(i, cands) for i, cands in sorted(results_list, key=lambda r: r[0])]
         logging.info(f'Generated candidates for {n_chords} chords on {n_workers} workers')
 
     # Level 1: Optimize within phrases
@@ -572,22 +702,18 @@ def hierarchical_viterbi_optimization(chorale, cent_value_chorale,
             phrase_candidates = all_candidates[start:end]
         else:
             phrase_candidates = []
-            prev_cents = np.zeros(4, dtype=int)
+            prev_cents = np.zeros(cent_value_chorale.shape[0], dtype=int)
             for i in phrase_indices:
-                candidates = generate_k_candidates(
-                    cent_value_chorale[:, i], prev_cents, i,
-                    chord_scorer, low_number_ratios, tonal_diamond,
-                    tolerance=tolerance, K=K, rolls=rolls,
-                    sa_iterations=sa_iterations,
-                    initial_temperature=initial_temperature,
-                    cooling_rate=cooling_rate, ratio_factor=ratio_factor,
-                    stability_factor=stability_factor, spread=spread,
-                    rng=rng, build_chord_sa_func=build_chord_sa_func,
-                    candidate_max_no_improve=candidate_max_no_improve,
-                    incumbent=None if incumbent is None else incumbent[i])
+                candidates = expand(i, candidates_for(
+                    i, search_cols[i], prev_cents, rng,
+                    None if search_inc is None else search_inc[i]))
                 phrase_candidates.append(candidates)
-                if candidates:
-                    prev_cents = candidates[0][0].copy()
+                if candidates and len(candidates[0][0]):
+                    best = np.asarray(candidates[0][0])
+                    if np.isnan(best).any():        # SA wants sounding notes only
+                        best = best[~np.isnan(best)]
+                    if len(best):
+                        prev_cents = best.copy()
         
         # High horizontal weight within phrases for consistency
         phrase_tuning, path, cost = viterbi_select_path(
@@ -596,7 +722,8 @@ def hierarchical_viterbi_optimization(chorale, cent_value_chorale,
             horizontal_weight=horizontal_weight_phrase,
             mad_weight=mad_weight,
             verbose=verbose, verbose_threshold=verbose_threshold,
-            prev_chord_cents=prev_tail_cents, prev_chord_midi=prev_tail_midi)
+            prev_chord_cents=prev_tail_cents, prev_chord_midi=prev_tail_midi,
+            unique_pitch_classes=unique)
 
         phrase_solutions.append(phrase_tuning)
         phrase_paths.append(path)

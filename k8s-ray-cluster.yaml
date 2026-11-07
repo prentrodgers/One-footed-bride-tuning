@@ -12,7 +12,7 @@
 #
 # Applied by ray-ratchet.sh at the start of a run and deleted at the end.  It
 # is not meant to sit resident: its worker pods hold their CPU and memory
-# whether or not a task is running, and that is most of what fs1, fs3-fs9
+# whether or not a task is running, and that is most of what fs1-fs11
 # have free.  KubeRay (install-kuberay.sh) turns this manifest into pods.
 #
 # Everything mount- and security-related is copied from the Job template,
@@ -35,13 +35,16 @@
 #   fs9         19.1 / 15.6Gi       16 / 11Gi     4     3.1 / 4.6Gi
 #   fs1         14.3 / 25.0Gi       12 /  9Gi     3     2.3 / 16Gi   (358H, low power, stays on balanced)
 #   fs2         15.6 /  9.8Gi       12 /  9Gi     3     3.6 / 0.8Gi  (immich-server, immich-postgres)
-#   fs6         12.1 / 18.7Gi       12 /  9Gi     3     0.1 / 9.7Gi  (3rd slot: 8 cores/16 threads, see below)
+#   fs6         11.4 / 15.5Gi        8 /  6Gi     2     3.4 / 9.5Gi  (w12 until 3 Nov: Ceph's mds-b and mgr-a took 0.7 CPU)
 #   fs8         14.2 / 17.1Gi       12 /  9Gi     3     2.2 / 8.1Gi
 #   fs3          9.7 / 16.9Gi        8 /  6Gi     2     1.7 / 11Gi   (lost ~4.5 CPU since 10/21)
 #   fs4         11.4 / 34.8Gi        8 /  6Gi     2     3.4 / 29Gi   (mds-b, mgr-b, 3 OSDs, toolbox: 2 CPU)
 #   fs5         16.1 /  8.7Gi        8 /  6Gi     2     8.1 / 2.7Gi  (ONLY with the llama.cpp server at 0:
 #                                                              jupyter 16Gi + 4 OSDs 16.4 + immich-ml 4)
-#                                                    26 concurrent tasks
+#   fs10        11.5 / 29.0Gi        8 /  6Gi     2     3.5 / 23Gi   (added 7 Nov 2026: Prometheus, zot, open-webui)
+#   fs11        11.5 / 29.3Gi        8 /  6Gi     2     3.5 / 23Gi   (added 7 Nov 2026)
+#                                                    29 concurrent tasks
+#   (w16 2 x 4 + w12 3 x 3 + w8 6 x 2; 25 before fs10/fs11, after fs6 moved to w8)
 #   plus the head (0.5 CPU / 1.5Gi requested) on fs1, fs4 or fs9 -- see the
 #   headGroupSpec comment.  ray-ratchet.sh scales vllm/llama-qwen3-coder-next
 #   to 0 for the run (it holds 4 CPU / 8Gi on fs5) and back afterwards.
@@ -274,9 +277,9 @@ spec:
         - name: regcred
 
   - groupName: w12
-    replicas: 4
-    minReplicas: 4
-    maxReplicas: 4
+    replicas: 3
+    minReplicas: 3
+    maxReplicas: 3
     rayStartParams:
       num-cpus: "12"
       object-store-memory: "500000000"
@@ -295,7 +298,7 @@ spec:
               - matchExpressions:
                 - key: kubernetes.io/hostname
                   operator: In
-                  values: [fs1, fs2, fs6, fs8]   # fs6 back with a 3rd slot, fs3 to w8 (24 Oct 2026)
+                  values: [fs1, fs2, fs8]   # fs6 to w8: 11.4 CPU free since Ceph's mds-b and mgr-a landed there (3 Nov 2026)
           podAntiAffinity: *one-per-node
         containers:
         - name: ray-worker
@@ -319,10 +322,13 @@ spec:
   # mgr-b, 3 OSDs: 11.4 CPU free), fs3 (9.7 free) and fs5 (jupyter, 4 OSDs and
   # immich's machine learning leave it 8.7Gi -- and only once ray-ratchet.sh has
   # scaled the llama.cpp server off it). Back to w12 when they have room again.
+  # fs10 and fs11 (7 Nov 2026): 12-CPU nodes with ~0.5 CPU resident, so 11.5
+  # free -- short of w12's 12.  fs10 holds Prometheus, Alertmanager, the zot
+  # registry and open-webui; fedora-d may land on either (100m / 100Mi now).
   - groupName: w8
-    replicas: 3
-    minReplicas: 3
-    maxReplicas: 3
+    replicas: 6
+    minReplicas: 6
+    maxReplicas: 6
     rayStartParams:
       num-cpus: "8"
       object-store-memory: "500000000"
@@ -341,7 +347,7 @@ spec:
               - matchExpressions:
                 - key: kubernetes.io/hostname
                   operator: In
-                  values: [fs3, fs4, fs5]
+                  values: [fs3, fs4, fs5, fs6, fs10, fs11]
           podAntiAffinity: *one-per-node
         containers:
         - name: ray-worker

@@ -79,6 +79,11 @@ VITERBI_WORKERS="${VITERBI_WORKERS:-16}"
 # what came before.
 FRESH="${FRESH:-0}"
 
+# HOLD_RESTS=1 scores a voice as holding its last note through a rest, the
+# rule before Nov 2026.  The default (0) honors rests: a resting voice is left
+# out of the chord it rests in.  See Straw_man_tuning_v2.py --hold_rests.
+HOLD_RESTS="${HOLD_RESTS:-0}"
+
 # ── Arguments ───────────────────────────────────────────────────────────────
 LIMIT_MAX=""; TOLERANCE=""; RATIO=""; JOB_ID=""; DRY_RUN=0
 while [ $# -gt 0 ]; do
@@ -134,6 +139,8 @@ run_cell() {
     else
         keep_flag="--keep_previous"
     fi
+    local rests_flag="--no-hold_rests"
+    [ "$HOLD_RESTS" = "1" ] && rests_flag="--hold_rests"
 
     # Step 1: tune with SA and viterbi optimization
     echo "Step 1: Running Straw_man_tuning_v2.py..."
@@ -147,7 +154,7 @@ run_cell() {
         --max_delta "$MAX_DELTA" \
         --numpy_dir "$dir" \
         --max_gap "$MAX_GAP" --retune_on_gaps 5 \
-        "$keep_flag" \
+        "$keep_flag" "$rests_flag" \
         --stability_factor "$STABILITY_FACTOR" \
         --sa_iterations 1000 \
         --cooling_rate 0.999 \

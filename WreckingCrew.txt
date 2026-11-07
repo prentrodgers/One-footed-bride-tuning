@@ -24391,3 +24391,235 @@ ________________
                   real    1m26.129s
                   user    0m44.967s
                   sys     0m29.862s
+            
+______________
+10/29/26 Get the latest mp3 results from win11-vm into Dropbox so you can listen on your walk. 
+      In wsl:
+            cd /mnt/c/Users/prent/Dropbox/Uploads/Di-367-378-ap-2
+            ls -lth ~/Repos/One-footed-bride-tuning/Uploads/*.mp3
+                  -rw-r--r-- 1 prent prent 11M Oct 28 11:59 /home/prent/Repos/One-footed-bride-tuning/Uploads/b371a_df5_t2_d04_45_t086_ap2_lm19_r1.25.mp3
+                  -rw-r--r-- 1 prent prent 12M Oct 28 11:05 /home/prent/Repos/One-footed-bride-tuning/Uploads/b371a_df2_t2_d05_09_t086_ap2_lm19_r1.25.mp3
+                  -rw-r--r-- 1 prent prent 16M Oct 28 10:56 /home/prent/Repos/One-footed-bride-tuning/Uploads/b371a_df4_t2_d06_43_t069_ap2_lm19_r1.25.mp3
+                  -rw-r--r-- 1 prent prent 17M Oct 28 10:53 /home/prent/Repos/One-footed-bride-tuning/Uploads/b371a_df3_t2_d07_30_t073_ap2_lm19_r1.25.mp3
+                  -rw-r--r-- 1 prent prent 18M Oct 28 10:49 /home/prent/Repos/One-footed-bride-tuning/Uploads/b371a_df3_t2_d07_36_t064_ap2_lm19_r1.25.mp3
+            cp ~/Repos/One-footed-bride-tuning/Uploads/*.mp3 .
+      Make sure the bluetooth headphones are connected to the client host fedora fs1 desktop machine. Don't try to change the audio on the win11-vm.
+      Bring up the fedora host machine with ctrl-alt-enter. Repeat to make it go away. 
+      I like the density_level 3 version, but 2 is also good. I like them all, but not the 4:45 df5, too ticky-tacky. When in doubt, pick the shorter one. This one: b371a_df3_t2_d07_30_t073_ap2_lm19_r1.25.mp3
+      ___________________
+      Pulcinella from Wikipedia:
+      Diaghilev wanted a ballet based on an early 18th-century commedia dell'arte libretto and music then believed to have been composed by Giovanni Battista Pergolesi. This attribution has since been proved to be spurious.[1] Some of the music may have been by Domenico Gallo,[2] Unico Wilhelm van Wassenaer, Carlo Ignazio Monza and Alessandro Parisotti.[3] Interesting. I wonder what Robert Greenberg would say?
+
+_____________________
+10/30/26 Time for another video pair based on the best bwv371.       
+      Copy these files to one-footed-bride-pod:
+            ls -lth Uploads/b371a_df3_t2_d07_30_t073_ap2_lm19_r1.25.*
+                  -rw-r--r-- 1 prent prent  17M Oct 28 10:53 Uploads/b371a_df3_t2_d07_30_t073_ap2_lm19_r1.25.mp3
+                  -rw-r--r-- 1 prent prent 3.3M Oct 28 10:51 Uploads/b371a_df3_t2_d07_30_t073_ap2_lm19_r1.25.npy
+            ssh one-footed-bride-pod ls -lth Repos/One-footed-bride-tuning/Uploads | head
+                  -rw-rw-r--. 1 prent prent 5.3M Oct 25 08:43 b378a_df4_t1_d02_21_t073_ap2_lm19_r1.38.mp3
+                  -rw-rw-r--. 1 prent prent 1.2M Oct 25 08:42 b378a_df4_t1_d02_21_t073_ap2_lm19_r1.38.npy
+                  ...
+            scp Uploads/b371a_df3_t2_d07_30_t073_ap2_lm19_r1.25.* one-footed-bride-pod:Repos/One-footed-bride-tuning/Uploads/
+                  b371a_df3_t2_d07_30_t073_ap2_lm19_r1.25.mp3  100%   17MB  46.2MB/s   00:00
+                  b371a_df3_t2_d07_30_t073_ap2_lm19_r1.25.npy  100% 3343KB  43.8MB/s   00:00
+      Hang on. I thought I liked the one that was around 5:09. Which one is that? This: b371a_df2_t2_d05_09_t086_ap2_lm19_r1.25.MP3
+      Of this one I just created in one-footed-bride-pod: b371a_df3_t2_d04_48_t034_lm19_r1.25.mp3
+      Then use this one for the score video: 
+            python WreckingCrew.py --chorale_list bwv371 --short_repeats --speed 1.5
+      By the way, this proves that floating point --speed is accepted, then result rouned to integer for tempo. Neat.
+      Then assemble the commands needed to build the videos. 
+
+      Render bwv371: 
+            command line: python WreckingCrew.py --chorale_list bwv371 --density_level 3 --ap 2 --articulate_gain 0.1,0.6
+            stub: b371a_df3_t2_d05_49_t077_ap2_lm19_r1.25
+            ssh one-footed-bride-pod
+            cd ~/Repos/One-footed-bride-tuning 
+            ffprobe -v error -show_entries format=duration -of csv=p=0 Uploads/b371a_df3_t2_d05_49_t077_ap2_lm19_r1.25.mp3
+                 344.7
+      Create the title page (no longer necessary unless you want a custom title):
+            ssh one-footed-bride-pod "cd Repos/One-footed-bride-tuning && python concert_title.py Uploads/b371a_df3_t2_d05_49_t077_ap2_lm19_r1.25"
+      Then from on win11-vn: 
+            scp one-footed-bride-pod:Repos/One-footed-bride-tuning/Uploads/b371a_df3_t2_d05_49_t077_ap2_lm19_r1.25.title.txt ~/Repos/One-footed-bride-tuning/Uploads/
+      Then run the render:
+            ssh win11-vm
+            cd ~/Repos/One-footed-bride-tuning 
+                  ######################## this is not very quick, and marginally worse than the cycles render. 
+                  For quick EEVEE render:
+                        # ./render_farm.sh --stop && PER_CARD=3 SCRIPT=concert_stage.py BLEND=Concert_Stage.blend ./render_farm.sh --npy Uploads/b371a_df3_t2_d05_49_t077_ap2_lm19_r1.25.npy --tempo 84 --duration 463.7 --out frames_concert_b411a_v1
+                        #./concert_mux.sh frames_concert_b411a_v1 Uploads/b371a_df3_t2_d05_49_t077_ap2_lm19_r1.25.mp3 concert_b411a_v3.mp4
+                  ############################
+      Or the cycles render for a nicer look, just twice as long to render:
+            ./render_farm.sh --stop
+            PER_CARD=3 SCRIPT=concert_stage.py BLEND=Concert_Stage.blend ./render_farm.sh --npy Uploads/b371a_df3_t2_d05_49_t077_ap2_lm19_r1.25.npy --tempo 77 --duration 344.7 --out frames_concert_b371_cyc_v1 --engine cycles --cycles-hw-rt --look studio --autogen 10:338:7
+            
+      Monitor
+            watch -n 20 "./render_farm.sh --progress ; ./render_farm.sh --status"
+      mux 
+            ssh one-footed-bride-pod 
+            cd ~/Repos/One-footed-bride-tuning
+            ./concert_mux.sh frames_concert_b371_cyc_v1 Uploads/b371a_df3_t2_d05_49_t077_ap2_lm19_r1.25.mp3 concert_b371a_v1.mp4
+
+      Copy them to fs2 and fs1:
+            ssh one-footed-bride-pod ls -lth Repos/One-footed-bride-tuning/concert_b371a_v1.mp4
+            scp one-footed-bride-pod:Repos/One-footed-bride-tuning/concert_b371a_v1.mp4 .
+      Stop the pods and return to balanced:
+            ./render_farm.sh --stop
+      Title: Chorale Perlude based on Bach's BWV371 "Kyrie! Gott Vater in Ewigkeit" (Lord! God the Father forever)
+      Description: Chorale Preludes were a favorite of JS Bach, who wrote 48, and probably improvised hundreds more.  Bach’s chorale preludes are short, polyphonic organ works based on Lutheran hymn tunes, often used before congregational singing. They are most famously grouped in the Orgelbüchlein (BWV 599–644), which contains 46 complete pieces. 
+      
+      This particular chorale is upon which my Prelude is based is one of the longest I've found so far. It has 39 measures, when some are as short as 4 measures. There is a lot repetition throughout. 
+      
+      I took that description and wrote software to write my own Chroale Preludes. Tuning is done with my One Footed Bride Tuning to the 19 limit, with ratio_factor 1.25, and tolerance of 2, meaning the cent values of intervals are allowed to differ from the cent value of the actual ratio by up to plus or minus 2 cents. The video was created with the assistance of Claude Code Opus 5.5 who wrote the python code to be run by Blender. Each action is created to imitate the appearance and movements of real musicians on real instruments. 
+      
+      Fake but almost accurate. I call it Animicrotonal Music Videos. 
+      Link: https://youtu.be/FZ1RUlzidvY
+
+___________________
+10/31/26 Make a score video of bwv371 to go with the Blender render.
+            ./make_score_videos.sh bwv371
+      Then make a score video and a blender render of bwv374. Uploads/b374a_df4_t1_d02_44_t086_ap2_lm17_r1.25.mp3
+            command line: python WreckingCrew.py --chorale_list bwv374 --density_level 4 --ap 2 --articulate_gain 0.1,0.6 --rondo_section_a 0 32 --rondo_insert_a_after 95 143
+            ssh one-footed-bride-pod
+            cd ~/Repos/One-footed-bride-tuning 
+            ffprobe -v error -show_entries format=duration -of csv=p=0 Uploads//b374a_df4_t1_d02_44_t086_ap2_lm17_r1.25.mp3
+                 159.5
+      Create the title page (no longer necessary unless you want a custom title):
+            ssh one-footed-bride-pod "cd Repos/One-footed-bride-tuning && python concert_title.py Uploads//b374a_df4_t1_d02_44_t086_ap2_lm17_r1.25"
+      Then from on win11-vn: 
+            scp one-footed-bride-pod:Repos/One-footed-bride-tuning/Uploads//b374a_df4_t1_d02_44_t086_ap2_lm17_r1.25.title.txt ~/Repos/One-footed-bride-tuning/Uploads/
+      Then run the render:
+      On win11-vm
+            cd ~/Repos/One-footed-bride-tuning 
+                  ######################## this is not very quick, and marginally worse than the cycles render. 
+                  For quick EEVEE render:
+                        # ./render_farm.sh --stop && PER_CARD=3 SCRIPT=concert_stage.py BLEND=Concert_Stage.blend ./render_farm.sh --npy Uploads/b371a_df3_t2_d05_49_t077_ap2_lm19_r1.25.npy --tempo 84 --duration 463.7 --out frames_concert_b411a_v1
+                        #./concert_mux.sh frames_concert_b411a_v1 Uploads/b371a_df3_t2_d05_49_t077_ap2_lm19_r1.25.mp3 concert_b411a_v3.mp4
+                  ############################
+      Or the cycles render for a nicer look, just twice as long to render:
+            ./render_farm.sh --stop
+      Back off to just 2 per card, to try to avoid the power meltdown we had yesterday. 
+            PER_CARD 2 SCRIPT=concert_stage.py BLEND=Concert_Stage.blend ./render_farm.sh --npy Uploads//b374a_df4_t1_d02_44_t086_ap2_lm17_r1.25.npy --tempo 86 --duration 159.5 --out frames_concert_b374_cyc_v1 --engine cycles --cycles-hw-rt --look studio --autogen 10:154:7
+            
+      Monitor
+            watch -n 20 "./render_farm.sh --progress ; ./render_farm.sh --status"
+      mux 
+            ssh one-footed-bride-pod 
+            cd ~/Repos/One-footed-bride-tuning
+            ./concert_mux.sh frames_concert_b374_cyc_v1 Uploads//b374a_df4_t1_d02_44_t086_ap2_lm17_r1.25.mp3 concert_b374a_v1.mp4
+
+      Copy them to fs1 and win11-vm:
+            ssh one-footed-bride-pod ls -lth Repos/One-footed-bride-tuning/concert_b374a_v1.mp4
+            scp one-footed-bride-pod:Repos/One-footed-bride-tuning/concert_b374a_v1.mp4 .
+      Stop the pods and return to balanced:
+            ./render_farm.sh --stop
+      Title: Chorale Perlude based on Bach's BWV374 "Lobet den Herren, denn er ist sehr freundlich" ()
+      Description: Chorale Preludes were a favorite of JS Bach, who wrote 48, and probably improvised hundreds more.  Bach’s chorale preludes are short, polyphonic organ works based on Lutheran hymn tunes, often used before congregational singing. They are most famously grouped in the Orgelbüchlein (BWV 599–644), which contains 46 complete pieces. 
+
+      The chorale preludes I've created based on in the 12 Bach chorales from BVW367 through BWV378 were made with an asymetric rhythmic pattern, where the algorithm randomly chooses how many times to repeat each sixteenth note slice either 2,3, or 4 times. Each measure can take from 16 to 64 sixteenth notes to complete, but usually around 40 sixteenth notes. This keeps the rhythm unpredictable. Each chord has a duration, and that's all you can predict. The rest is up to chance, within a limited number of choices. In other preludes the choices were much more wide to select from, but this one offers only a small range from which to choose. 
+      
+      I took that description (short, polyphonic works based on Lutheran hymn tunes) and wrote software to write my own Chroale Preludes. 
+      
+      Tuning is done with my One Footed Bride Tuning to the 17 limit, with ratio_factor 1.25, and tolerance of 1, meaning the cent values of intervals are allowed to differ from the cent value of the actual ratio by up to plus or minus 1 cent. The video was created with the assistance of Claude Code Opus 5.5 who wrote the python code to be run by Blender. Each action is created to imitate the appearance and movements of real musicians on real instruments. 
+      
+      Fake but almost accurate. I call it Animicrotonal Music Videos. 
+      Link: https://youtu.be/3RLYbRxb_Q0
+
+________________________
+11/6/26 Time to start tuning things other than chorales. Start with Well Tempered Clavier Prelude #1 bwv846 
+      To start off, see if you can create a pdf of the chorale.
+            python chorale_pdf.py bwv846
+                  bwv846: Chorale-pdf/bwv846.pdf  (Piano, Piano)
+      It looks good. Now tune it.
+      There are two: grid-search.sh and grid_search.sh both with recent dates (probably git pull dates)
+            ./ray-ratchet.sh --chorales bwv846
+      This has to run in one-footed-bride-pod
+            python select_best_and_render.py --numpy_dir_root Archive/straw-man --chorale_list bwv846 --suffix="-opt.npy" --sort_by p90 # or best
+                  No directories under /home/prent/Repos/One-footed-bride-tuning/Archive/straw-man contain ['bwv846'] files with suffix ['-opt.npy']
+      Nothin was produced. It's because the tuner can't handle piano midi files.
+      Where results go
+      Output	      Location
+      Tunings	      Archive/straw-man/t{t}_r{r}_lm{lm}/bwv846-opt.npy and .txt, on the PVC (visible from the pod)
+      Per-pass log	Archive/straw-man/ray-ratchet-<start>.tsv, also on the PVC
+      Driver log	      ratchet-<timestamp>.log, in the WSL folder where you ran the script
+
+      The driver log is only created once the job is submitted. The pod has no bwv846 tunings and no .tsv from today, so your select_best_and_render.py message is correct.
+
+      Why nothing was produced
+      1. The cluster never fully came up due to inability to handle more than 4 voices. 
+
+_______________________
+11/7/26 Claude is working on implementing a solution to the 5+ voice problem. 
+      If more than 4 voices, switch to removing octave duplicates during tuning, and replace them after the tuning is completed to their original position.
+      - Scoring: past four voices, each pitch class in a chord is scored once.
+      - Tuning: doubled notes are tied to one value. The same note in two voices are combined into one pitch class across octaves.
+      He found One old failure: test_viterbi.py fails 3 of 4 on HEAD too. Its fake SA function doesn't accept the newer max_no_improve argument, so this change didn't cause it.
+      He's testing now: Four-voice chorales are confirmed unchanged: HEAD and the new code saved byte-identical tunings for bwv262 and bwv437 over two passes each. With the same seed, the scores and the ratchet decisions matched too.
+
+      The 5+ voice test has started in the background, at 2 workers and lowest priority. It runs:
+      1. bwv846 from the corpus, two passes, to check the ratchet;
+      2. bwv846 from a .mid file;
+      3. the 15-voice bwv190.7-inst from a .mid file.
+      After that it checks whether doubled notes stayed tied and whether each tuning plays the score, and runs chord_report and select_best. Expect an hour or more, mostly for the 15-voice piece. I'll report when it finishes.
+
+      The 5+ voice solution has uncovered a problem that I need to face now: rests hold the previous note. I suspect this was done to preserve the correct location in time of notes that follow rests. I kind of used octave 0 to mask notes, but that caused other problems.
+      
+      Prompt to Claude: I'd like to stop holding notes over rests in general. That's always concerned me in 4 note chorales, but I kind of liked it. I suggest we create a flag to keep the old pattern where notes are held through a rest, with an argument that defaults to honoring rests by stopping. We need to preserve the rest without making the following notes start early. Always include WreckingCrew.txt in every commit. Those notes are critical and I sometimes work in the pod, and sometimes on other nodes in the cluster.
+
+      He completed the work:
+      I've written rests-honored-by-default, with the --hold_rests flag to keep the old held notes, and the regression tests pass. The production-settings run of bwv846 and the 15-voice MIDI piece is still going in the background (about 25 minutes, 2 workers, lowest priority).
+
+      What it does:
+
+      Tuning: a resting voice is left out of the chord it rests in. That covers scoring, simulated annealing, Viterbi, the gap and spread metrics, continuity fixes and the ratchet comparison.
+      Timing: nothing moves in time. The array keeps its shape and every note still starts in its own column. A new sounding mask records which cells are real notes.
+      Rest cells: each one still holds a placeholder (the voice's last tuned pitch), so the saved file still plays the score, but placeholders are never scored.
+      The flag: --hold_rests on the tuner, or HOLD_RESTS=1 for grid_search.sh, restores the old behaviour exactly.
+      Reports: each tuning's -opt.txt now records rests: held or rests: honored. chord_report, select_best_and_render and the cluster's per-pass metrics read that line and score each tuning the way it was made. Older tunings have no such line, so they're treated as held.
+      Tests:
+
+      Same seed as HEAD: with --hold_rests, bwv437 (rests in the middle) and bwv424 (a silent first beat) come out byte-identical to HEAD over two passes. bwv262, which has no rests, is identical even with the new default.
+      Honored rests: bwv437 leaves its 56 resting cells out and still plays the score.
+      Unit tests: all pass, including a new test_rests.py.
+      Effect on your chorales: only chorales that contain rests change, and only in the chords around their rests. The ratchet re-scores your saved tunings under the new rule automatically, so they can still be compared with new runs.
+
+      Not done yet: silence in the audio. WreckingCrew still plays the placeholder, so a voice sounds as if it holds its note through a rest, as it always has. The fix should be small, because the renderer already treats octave 0 as silence and merges identical neighbouring cells into one note. Setting a resting cell's octave to 0 would end the held note at the rest and keep the next note's start exactly where it is. The zero has to go in after WreckingCrew's octave and repeat transformations, or it can come back non-zero. I'll trace that if you want rests silent in the renders.
+
+      WreckingCrew.txt will be in every commit from now on; I've saved that as a standing rule. Nothing is committed yet.
+
+      Rests are now silent by default in both the tuning and the audio, and --hold_rests (or the default --no-hold_rests) on either program brings back the old held notes. Every test passes. Nothing is committed yet.
+
+      Tuner
+      Silent voices are left out: a voice that is resting isn't part of the chord it rests in, and the next note still starts in its own column.
+      Same file shape: the saved tuning is the same size as before. Rest cells hold a placeholder that is never scored.
+      The old rule is exact: with --hold_rests, bwv437 and bwv424 come out byte-identical to the old code over two passes. bwv262, which has no rests, is identical even with the new default.
+      Results: counting only notes that actually sound, every doubled note stayed tied and no gap exceeds 33¢.
+      Piece	Mean chord score (held → honored)	Worst chord	High primes	Largest gap	Time
+      bwv846 (6 voices)	26.6 → 19.7	85 → 59	2.7% → 2.0%	27¢ → 25¢	409s
+      bwv190.7-inst (15 voices, MIDI)	516 → 54	4,559 → 1,172	33% → 8.8%	30¢	591s
+      The 15-voice piece improved most, because silent instruments no longer pull the tuning toward notes they aren't playing. That was the main obstacle for the Brandenburgs.
+
+      Audio (WreckingCrew.py)
+      Silence at rests: a voice is now silent wherever the score has a rest.
+      Checked on bwv437: the honored render sounds for 0.9727 of the held render's time, exactly the share left once its 56 resting sixteenths are taken out. Every note starts where it did before.
+      Older tunings: these also get silent rests, because the rest positions come from the score, not the tuning file.
+      Reports
+      Rest rule recorded: each tuning's -opt.txt now has a rests: honored or rests: held line. Older tunings without the line are read as held.
+      Who reads it: chord_report, select_best_and_render and the cluster's per-pass metrics score each tuning by its own rule. Gap figures count only sounding notes.
+      On the cluster: HOLD_RESTS=1 makes grid_search.sh use the old rule.
+      Your existing chorales
+      Chorales without rests are unaffected. For chorales with rests, the ratchet re-scores the saved tuning under the new rule, so it compares fairly with new runs.
+
+      Not covered
+      score_video.py: its gap highlighting still counts rest placeholders.
+      Many-voice renders: WreckingCrew still assumes 4 voices, so 5+ voice pieces can be tuned but not yet rendered.
+      Commit and push?
+      The cluster runs only what's on origin/main, so this needs pushing before your ./ray-ratchet.sh --chorales bwv846 rerun. The commit would include:
+
+      - WreckingCrew.txt, as you asked;
+      - tuner code: the 5+ voice loader, one-note-per-pitch-class scoring, the MIDI overlap fix, rests and --hold_rests, progress lines, the missing-file warning;
+      - WreckingCrew.py changes for silent rests;
+      - cluster changes: fs10/fs11 in the Ray group and both power scripts;
+      - the three new test files.
+      
+      One detail: grid_search.sh has a permission change (644 → 755) from before my work, and it would go into the commit along with my edits to that file. I'd leave out Chorale-pdf/bwv846.pdf, make_score_videos.sh, render_farm.sh, grid-search.sh, Uploads/ and plots/bwv371.jpg. Shall I commit and push?

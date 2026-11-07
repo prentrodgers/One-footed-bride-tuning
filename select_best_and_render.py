@@ -115,7 +115,7 @@ def find_tuning_files(d, version, suffix, fallback):
     return found
 
 
-def collect_gaps(cent_4n):
+def collect_gaps(cent_4n, sounding=None):
     """Every shared-pitch-class cent gap between adjacent chords.
 
     For each voice of each chord whose pitch class also appears in the previous
@@ -123,16 +123,23 @@ def collect_gaps(cent_4n):
     Returns a list of (gap, chord_idx, voice_idx, pitch_class, prev_cent, curr_cent).
     Gaps of 1¢ or less are dropped as rounding noise, matching what
     WreckingCrew's build_glides_array() treats as no movement.
+    With `sounding`, a resting voice's placeholder is neither a gap nor the note
+    a gap is measured from.
     """
     out = []
+    every = np.ones(cent_4n.shape[0], dtype=bool)
     for i in range(1, cent_4n.shape[1]):
         prev_col, curr_col = cent_4n[:, i - 1], cent_4n[:, i]
-        if np.array_equal(prev_col, curr_col):
+        prev_ok = every if sounding is None else sounding[:, i - 1]
+        curr_ok = every if sounding is None else sounding[:, i]
+        if np.array_equal(prev_col, curr_col) and np.array_equal(prev_ok, curr_ok):
             continue                      # held chord: same cents, no transition
         prev_pcs = atu.pitch_class_from_cents(prev_col)
         curr_pcs = atu.pitch_class_from_cents(curr_col)
         for v, (pc, cv) in enumerate(zip(curr_pcs, curr_col)):
-            same_pc = [float(p) for p, ppc in zip(prev_col, prev_pcs) if ppc == pc]
+            if not curr_ok[v]:
+                continue
+            same_pc = [float(p) for p, ppc, ok in zip(prev_col, prev_pcs, prev_ok) if ppc == pc and ok]
             if not same_pc:
                 continue
             prev_cent = min(same_pc, key=lambda p: atu.cent_distance_mod_1200(float(cv), p))
@@ -155,24 +162,31 @@ def summarize_gaps(gaps, max_cents_slide):
         over30=int((g > 30).sum()), at_slide=int((g >= max_cents_slide).sum()))
 
 
-def score_array(cent_4n, tonal_diamond, tolerance):
-    """Return (mean_score, max_score, max_chord_idx) for a (4, N) array."""
-    chord_scorer = atu.ChordScorer(tonal_diamond)
-    scores = np.array([
-        chord_scorer.score_chord(cent_4n[:, i], tolerance=tolerance)
-        for i in range(cent_4n.shape[1])
-    ])
+def score_array(cent_4n, tonal_diamond, tolerance, sounding=None):
+    """Return (mean_score, max_score, max_chord_idx) for a (voices, N) array.
+
+    Scored as the tuner scores it: one note per pitch class past four voices,
+    and with `sounding` (atu.sounding_for_tuning) resting voices left out."""
+    chord_scorer = atu.ChordScorer(
+        tonal_diamond, unique_pitch_classes=atu.unique_pitch_classes_for(cent_4n.shape[0]))
+    if sounding is not None:
+        scores = atu.score_columns(chord_scorer, cent_4n, sounding, tolerance)
+    else:
+        scores = np.array([
+            chord_scorer.score_chord(cent_4n[:, i], tolerance=tolerance)
+            for i in range(cent_4n.shape[1])
+        ])
     return float(np.mean(scores)), float(np.max(scores)), int(np.argmax(scores))
 
 
 GOOD_GAPSUM = 10.0          # --good_gapsum: under this, the gaps are not heard
 
 
-def high_share(arr, limit_max, tolerance):
+def high_share(arr, limit_max, tolerance, sounding=None):
     """Percent of the tuning's intervals built on a high prime (chord_report's SUMMARY figure).
     Imported here, not at the top: chord_report imports this module."""
     import chord_report
-    return chord_report.high_prime_share(arr, limit_max, tolerance)[0]
+    return chord_report.high_prime_share(arr, limit_max, tolerance, sounding=sounding)[0]
 
 
 SORT_KEYS = {
@@ -307,12 +321,13 @@ def main():
                         print(f'  {os.path.basename(d)}: could not load '
                               f'{os.path.basename(path)} — {e}')
                         continue
-                    mean_sc, max_sc, max_ch = score_array(arr, tonal_diamond_cache[lm], tol)
-                    gaps = collect_gaps(arr)
+                    sounding = atu.sounding_for_tuning(path, version, arr.shape)
+                    mean_sc, max_sc, max_ch = score_array(arr, tonal_diamond_cache[lm], tol, sounding)
+                    gaps = collect_gaps(arr, sounding)
                     rows.append({
                         'dir': d, 'suffix': sfx, 'path': path, 'params': fparams,
                         'mean_score': mean_sc, 'max_score': max_sc, 'max_chord': max_ch,
-                        'high': high_share(arr, lm, tol),
+                        'high': high_share(arr, lm, tol, sounding),
                         'gaps': gaps, 'g': summarize_gaps(gaps, args.max_cents_slide),
                     })
 

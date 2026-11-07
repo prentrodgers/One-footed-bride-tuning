@@ -2680,7 +2680,7 @@ def chorale_to_wave_v4(version, album, include_sections, ratio_factor, limit_max
         fatigue_min_chain=2, fatigue_density_threshold=1, include_slice=None,
         deep_bass_backoff=1.0, back_off_clicks=0.0,
         rondo_sections=None, rondo_insertions=None, chaconne_section=None, chaconne_insertions=None,
-        chaconne_repeats=1, chaconne_density=None, speed=1.0):
+        chaconne_repeats=1, chaconne_density=None, speed=1.0, hold_rests=False):
 
     print(f'In chorale_to_wave_v4. {version = }, {limit_max = }, {short_repeats = }, {ratio_factor = }')
     if short_repeats: # if you just want a straight woodwind/brass chorale, set short_repeats = True
@@ -2740,6 +2740,22 @@ def chorale_to_wave_v4(version, album, include_sections, ratio_factor, limit_max
             f're-tune {version} first.')
     print(f'root key: {keys[root]}, {mode = }')
 
+    # Rests (Nov 2026): the arrays fill a rest with the voice's previous note, so
+    # without this a voice holds through every rest.  sounding_mask marks the
+    # filler cells; they are given octave 0 below, which every part already
+    # treats as silence (alterations only touch octaves > 0, send_to_csound_file
+    # drops octave-0 notes after start times are set), so the held note ends at
+    # the rest and the next note still starts in its own column.  --hold_rests
+    # plays them as before.
+    sounding = None if hold_rests else atu.rest_map(version)
+    if sounding is not None and sounding.shape != chorale.shape:
+        print(f'WARNING: rest mask {sounding.shape} does not fit {chorale.shape}; holding rests')
+        sounding = None
+    if sounding is not None and sounding.all():
+        sounding = None
+    if sounding is not None:
+        print(f'rests: {int((~sounding).sum())} resting cells will be silent (--hold_rests to hold them)')
+
     n_chords_raw = cent_value_chorale.shape[1]
     effective_include = list(include_list) if include_list is not None else []
     # --include_slice can be given more than once: a list of [START, END) pairs.
@@ -2762,6 +2778,8 @@ def chorale_to_wave_v4(version, album, include_sections, ratio_factor, limit_max
     if len(effective_include) > 0:
         cent_value_chorale = cent_value_chorale[:, effective_include]
         chorale = chorale[:, effective_include]
+        if sounding is not None:
+            sounding = sounding[:, effective_include]
     if len(effective_include) < chorale.shape[1]:
         print(f'{effective_include = }')
 
@@ -2771,6 +2789,9 @@ def chorale_to_wave_v4(version, album, include_sections, ratio_factor, limit_max
     chaconne_spans = []
     if chaconne_section is not None and chaconne_insertions:
         kept = effective_include if effective_include else list(range(n_chords_raw))
+        if sounding is not None:     # the same column copies, so the rests travel with their chords
+            sounding = apply_chaconne(sounding, sounding, kept, chaconne_section,
+                                      chaconne_insertions, chaconne_repeats)[0]
         cent_value_chorale, chorale, chaconne_spans = apply_chaconne(
             cent_value_chorale, chorale, kept, chaconne_section, chaconne_insertions, chaconne_repeats)
         logging.info(f'chaconne: section {chaconne_section} inserted {chaconne_repeats}x after {chaconne_insertions}; '
@@ -2810,6 +2831,8 @@ def chorale_to_wave_v4(version, album, include_sections, ratio_factor, limit_max
     # initialize some values based on other values
     # if you are just playing a chorale straight as Bach wrote it, only repeats=2, otherwise many more repeats
     octave = chorale // 12
+    if sounding is not None:
+        octave[~sounding] = 0          # a resting voice is silent there
     print(f'{cent_value_chorale.shape = }, {octave.shape = }')
     chorale_in_cents_octaves = np.stack((cent_value_chorale, octave), axis=2)  # shape (time_steps, 2)
     primes_tag = ''   # goes on the end of the filename: which repeat pattern this run drew
@@ -2929,7 +2952,7 @@ def mainline(chorale_override=None, short_repeats=False, just_triangle=False, in
              fatigue_min_chain=2, fatigue_density_threshold=1, include_slice=None,
              deep_bass_backoff=1.0, back_off_clicks=0.0,
              rondo_sections=None, rondo_insertions=None, chaconne_section=None, chaconne_insertions=None,
-             chaconne_repeats=1, chaconne_density=None, speed=1.0):
+             chaconne_repeats=1, chaconne_density=None, speed=1.0, hold_rests=False):
       if include_list is None:
             include_list = []
 
@@ -3089,7 +3112,7 @@ def mainline(chorale_override=None, short_repeats=False, just_triangle=False, in
                                     rondo_sections=rondo_sections, rondo_insertions=rondo_insertions,
                                     chaconne_section=chaconne_section, chaconne_insertions=chaconne_insertions,
                                     chaconne_repeats=chaconne_repeats, chaconne_density=chaconne_density,
-                                    speed=speed)
+                                    speed=speed, hold_rests=hold_rests)
 
       # Generate a playlist of all the pieces in this album. This never worked correctly in the pod.
       print(f' {UPLOADS_DIR = }')
@@ -3274,6 +3297,10 @@ if __name__ == "__main__":
                           help="Multiply the tempo after it is chosen, e.g. --short_repeats --speed 2 plays at 40-48 BPM "
                                "instead of 20-24: a quicker audition of a --rondo_* or --chaconne_* splice. The _t tag in "
                                "the filename shows the resulting tempo (default: 1.0)")
+      parser.add_argument("--hold_rests", action=argparse.BooleanOptionalAction, default=False,
+                          help="Hold each voice's last note through its rests, as every rendering did "
+                               "before Nov 2026. By default a resting voice is silent (its notes are given "
+                               "octave 0), and the note after the rest starts in its own column (default: False)")
       args = parser.parse_args()
 
       # --articulate's default depends on --short_repeats: a straight chorale has no
@@ -3370,6 +3397,6 @@ if __name__ == "__main__":
                rondo_sections=rondo_sections, rondo_insertions=rondo_insertions,
                chaconne_section=args.chaconne_section, chaconne_insertions=args.chaconne_insert_after,
                chaconne_repeats=args.chaconne_repeats, chaconne_density=args.chaconne_density,
-               speed=args.speed)
+               speed=args.speed, hold_rests=args.hold_rests)
 
 

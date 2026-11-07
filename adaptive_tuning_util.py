@@ -4,6 +4,7 @@ import numpy as np
 from fractions import Fraction
 rng = np.random.default_rng()
 import os
+import functools
 import threading
 import math
 import multiprocessing as mp
@@ -713,16 +714,15 @@ def mismatch_check(chorale_in_cents, chorale):
     """Check if pitch classes derived from cent values match original MIDI pitch classes."""
     logging.debug(f'In mismatch_check. {chorale_in_cents.shape = }, {chorale.shape = }')
     mismatch = False
-    prev_chord = np.zeros(4, dtype=int)
+    prev_chord = np.zeros(chorale.shape[0], dtype=int)
     for chord_num, chord_in_cents, chord_in_midi in zip(count(0,1), chorale_in_cents.T, chorale.T):
         if not np.array_equal(prev_chord, chord_in_midi):
                 final_12 = np.array([int(round(note / 100,0) % 12) for note in chord_in_cents])
                 original_12 = np.array([note % 12 for note in chord_in_midi])
-                best_voicing = np.array([np.array_equal(original_12, voicing) for voicing in np.array(list(permutations(final_12)))])
-                final_result = np.array(list(permutations(chord_in_cents)))[np.argmax(best_voicing)]
-                final_12 = np.array([int(round(note / 100,0) % 12) for note in final_result])
                 logging.debug(f'in mismatch_check in adaptive_tuing_util {chord_num= }, {final_12 = }, {original_12 = }')
-                if not np.array_equal(final_12, original_12):
+                # Any voicing of the right notes passes.  Sorting asks that without
+                # enumerating permutations, which is hopeless beyond about ten voices.
+                if not np.array_equal(np.sort(final_12), np.sort(original_12)):
                     logging.debug(f'mismatch between the original MIDI notes {chord_num = }, {original_12 = }, {final_12 =  }')
                     logging.info(f'mismatch between the original MIDI notes {chord_num = }, {original_12  = }, {final_12 =  }')
                     logging.info(f'Original scale degrees: {original_12 % 12 = }\nScale degrees derived from the cent values: {final_12 = }')
@@ -792,7 +792,7 @@ def note_to_1200_edo(midi_numbers, original_12 = np.arange(0, 1200, 100)):
     # Convert a midi_number value of zero to -1. 0 indicates no number in this midi time_step format.
     if np.sum(midi_numbers) == 0: # watch out for a chord of all zeros. That's not right.
         logging.debug(f'{midi_numbers = }')
-        return np.zeros(4, dtype = int)
+        return np.zeros(len(midi_numbers), dtype = int)
     # convert all the midi_numbers to steps in cents unless 0
     ifzero = lambda num: -1 if num == 0 else original_12[num % 12] # do I still need this? Yes because otherwise you end up with zeros in notes.
     step_in_1200_edo = np.array([ifzero(note) for note in midi_numbers]) # execute the lambda function in a list comprehension
@@ -1375,18 +1375,137 @@ def build_glides_report(chorale_in_cents_slides, glides,  stored_gliss): # chora
 
 # This function converts a corpus into a numpy array of 4-part chords, one column per sixteenth note.
 # It only uses music21 (the previous version required a conversion to the mido library).
+# Your own scores: Scores/{name}.mid (or any suffix below) is tuned by that name.
+# A name with no file there comes from the music21 corpus.  Keep them under git:
+# the Ray workers see only what k8s-git-sync-job.yaml pulls from origin/main.
+# OFB_SCORES_DIR points elsewhere, e.g. at a scratch folder of test files.
+SCORES_DIR = os.environ.get('OFB_SCORES_DIR') or os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), 'Scores')
+SCORE_SUFFIXES = ('.mxl', '.musicxml', '.xml', '.mid', '.midi', '.krn', '.abc')
+
+
+def score_file(name):
+    """The file in SCORES_DIR holding this score, or None if the corpus should supply it."""
+    for suffix in SCORE_SUFFIXES:
+        path = os.path.join(SCORES_DIR, name + suffix)
+        if os.path.isfile(path):
+            return path
+    return None
+
+
+def parse_score(name):
+    """A music21 score by name: from SCORES_DIR if it is there, otherwise the corpus."""
+    path = score_file(name)
+    return m21.converter.parse(path) if path else m21.corpus.parse(name)
+
+
+def score_rows(stream):
+    """
+    The rows a score needs, as a list of (spans, parent), one per row.
+
+    spans is [(first_slot, last_slot_exclusive, midi), ...] on the sixteenth grid.
+    The score decides how many rows there are:
+
+      * each part is a line, or one line per Voice if it has them: a keyboard
+        staff can hold several independent lines (bwv846's left hand has two);
+      * a chord in a line takes as many rows as it has notes, highest first, so
+        a line that divides at the final bar gains a row for it.  parent is the
+        index of the row such a divisi row belongs to, and None for a line's
+        main row.
+
+    Unpitched notes and notes too short to reach a slot make no row.
+    """
+    def slot(t):
+        # Slot k covers score time [k/4, (k+1)/4) in quarter notes.  A note that
+        # sounds over [onset, end) therefore covers slots ceil(4*onset) .. ceil(4*end)-1,
+        # which also copes with triplets and other durations that are not a whole
+        # number of sixteenths (each slot takes whatever is sounding at its start).
+        return math.ceil(Fraction(t).limit_denominator(64) * 4)
+
+    rows = []
+    for p in stream.parts:
+        lines = {}  # voice id, None outside any voice -> spans per chord note, highest first
+        for n in p.recurse().notes:
+            if isinstance(n, m21.chord.Chord):
+                midis = sorted((pitch.midi for pitch in n.pitches), reverse=True)
+            elif isinstance(n, m21.note.Note):
+                midis = [n.pitch.midi]
+            else:
+                continue
+            onset = n.getOffsetInHierarchy(p)
+            a, b = slot(onset), slot(onset + n.duration.quarterLength)
+            if b <= a:
+                continue
+            site = n.activeSite
+            line = lines.setdefault(site.id if isinstance(site, m21.stream.Voice) else None, [])
+            for k, midi in enumerate(midis):
+                if k == len(line):
+                    line.append([])
+                line[k].append((a, b, midi))
+        # A bar written without voices in a part that uses them elsewhere (bwv846's
+        # last) continues the part's first voice rather than becoming a line of its own.
+        if None in lines and len(lines) > 1:
+            direct = lines.pop(None)
+            first = next(iter(lines.values()))
+            for k, spans in enumerate(direct):
+                if k == len(first):
+                    first.append([])
+                first[k].extend(spans)
+        for line in lines.values():
+            main = len(rows)
+            k = 0
+            for spans in line:
+                for packed in _unoverlap(spans):
+                    rows.append((packed, None if k == 0 else main))
+                    k += 1
+    return rows
+
+
+def _unoverlap(spans):
+    """Split one row's spans into rows in which no two notes sound at once.
+
+    A MIDI track carries no voices, so a held note and the notes played over it
+    (bwv846's left hand: C held for two beats while E is struck a sixteenth
+    later) arrive in one line, and in one row the later note would overwrite the
+    held one.  Each note goes to the first row free at its onset, the higher
+    note first when two start together.  A row with no overlaps comes back
+    unchanged, so scores whose parts or voices are single lines read as before.
+    """
+    packed = []                               # [ends_at, spans]
+    for a, b, midi in sorted(spans, key=lambda s: (s[0], -s[2])):
+        for row in packed:
+            if row[0] <= a:
+                row[0] = b
+                row[1].append((a, b, midi))
+                break
+        else:
+            packed.append([b, [(a, b, midi)]])
+    return [row_spans for _end, row_spans in packed]
+
+
 def stream_to_midi_array(corpus, save_midi_file = False):
     """
-    Convert a music21 corpus work to a (4, n_sixteenths) array of MIDI numbers.
+    Convert a score to a (voices, n_sixteenths) array of MIDI numbers.
 
-    Row v is part v of the score (soprano, alto, tenor, bass) sampled on the
-    sixteenth-note grid: column k holds the MIDI number of the note that part
-    is sounding at sixteenth k, so every column is a chord that actually
-    sounds in the piece and a held note repeats its MIDI number for as many
-    columns as it lasts.  The array has no way to say "silence", so a rest is
-    filled with the note that part played before it (a leading rest with the
-    first note it will play), and sixteenths where all four parts rest are
+    `corpus` names a file in SCORES_DIR or a music21 corpus work.  The score sets
+    the number of rows (score_rows): a chorale in four plain parts has four, in
+    soprano, alto, tenor, bass order.
+
+    Row v is sampled on the sixteenth-note grid: column k holds the MIDI number
+    of the note that line is sounding at sixteenth k, so every column is a chord
+    that actually sounds in the piece and a held note repeats its MIDI number
+    for as many columns as it lasts.  An int array cannot say "silence", so a
+    rest is filled with the note that line played before it (a leading rest
+    with the first note it will play), and sixteenths where every line rests are
     dropped at the start and end of the piece and held through in the middle.
+    The fill moves nothing: every note still starts in its own column.  A divisi
+    row doubles its line wherever the line is not divided.
+
+    Which cells are filler is sounding_mask's job (same shape).  Since Nov 2026
+    the tuner and the reports leave those cells out of their chords, so a voice
+    resting for many bars (a concerto's tutti parts) no longer constrains chords
+    it does not play in; --hold_rests restores the old reading, where every cell
+    counted as a note.
 
     (Until 14 Sep 2026 this dealt the flattened notes of the whole score into
     whichever row had the fewest sixteenths so far, ignoring parts, rests and
@@ -1394,7 +1513,7 @@ def stream_to_midi_array(corpus, save_midi_file = False):
     with columns stitched from neighbouring beats.  Chorales whose voices do
     move in lockstep produce exactly the same array either way.)
     """
-    stream = m21.corpus.parse(corpus) # Create the stream from the corpus
+    stream = parse_score(corpus) # Create the stream from the file or the corpus
     key = stream.analyze('key')
     root = key.tonic.midi % 12
     mode = key.mode
@@ -1404,44 +1523,25 @@ def stream_to_midi_array(corpus, save_midi_file = False):
     time_sig = time_sig[1:]
     logging.debug(f'{time_sig =}')
 
-    parts = list(stream.parts)
-    if len(parts) < 4:
-        raise ValueError(f'{corpus}: expected 4 parts, found {len(parts)}')
-    if len(parts) > 4:
-        logging.warning(f'{corpus}: {len(parts)} parts, using the first four')
-        parts = parts[:4]
+    rows = score_rows(stream)
+    if not rows:
+        raise ValueError(f'{corpus}: the score has no pitched notes')
+    logging.info(f'{corpus}: {len(rows)} voices')
+    n_slots = max(b for spans, _ in rows for _, b, _ in spans)
 
-    # Slot k covers score time [k/4, (k+1)/4) in quarter notes.  A note that
-    # sounds over [onset, end) therefore covers slots ceil(4*onset) .. ceil(4*end)-1,
-    # which also copes with triplets and other durations that are not a whole
-    # number of sixteenths (each slot takes whatever is sounding at its start).
-    def slot(t):
-        return math.ceil(Fraction(t).limit_denominator(64) * 4)
-
-    part_notes = []  # per part: list of (first_slot, last_slot_exclusive, midi)
-    for p in parts:
-        spans = []
-        for n in p.flatten().notes:
-            if isinstance(n, m21.chord.Chord):
-                logging.warning(f'{corpus}: chord {n} in part {p.partName}, keeping its highest note')
-                midi = n.pitches[-1].midi
-            else:
-                midi = n.pitch.midi
-            a, b = slot(n.offset), slot(n.offset + n.duration.quarterLength)
-            if b > a:
-                spans.append((a, b, midi))
-        part_notes.append(spans)
-    n_slots = max(b for spans in part_notes for _, b, _ in spans)
-
-    chorale = np.zeros([4, n_slots], dtype = int)
-    for v, spans in enumerate(part_notes):
+    chorale = np.zeros([len(rows), n_slots], dtype = int)
+    for v, (spans, parent) in enumerate(rows):
         row = chorale[v]
         for a, b, midi in spans:
             row[a:b] = midi
+        if parent is not None:
+            # A divisi row: double its line wherever the line is not divided.  The
+            # line's own row comes first in `rows`, so its rests are already filled.
+            silent = row == 0
+            row[silent] = chorale[parent][silent]
+            continue
         # Fill rests: hold the previous note, and give a leading rest the first note.
         sounding = np.flatnonzero(row)
-        if len(sounding) == 0:
-            raise ValueError(f'{corpus}: part {v} has no notes')
         row[:sounding[0]] = row[sounding[0]]
         for k in range(sounding[0], n_slots):
             if row[k] == 0:
@@ -1449,7 +1549,7 @@ def stream_to_midi_array(corpus, save_midi_file = False):
 
     # Drop sixteenths at the start and end where nobody sounds.
     anyone = np.zeros(n_slots, dtype = bool)
-    for spans in part_notes:
+    for spans, _ in rows:
         for a, b, _ in spans:
             anyone[a:b] = True
     first, last = np.flatnonzero(anyone)[[0, -1]]
@@ -1463,11 +1563,144 @@ def stream_to_midi_array(corpus, save_midi_file = False):
         logging.info(f'Wrote out a midi file named {result = }')
     return chorale, root, mode, time_sig, stream
 
+def sounding_mask(corpus, hold_rests=False):
+    """Which cells of stream_to_midi_array's array are notes actually sounding.
+
+    A (voices, N) bool array, aligned column for column with the MIDI array.
+    False marks a cell that only fills a rest: the held previous note, the
+    first note given to a leading rest, or a divisi row doubling its undivided
+    line (the line's own row already carries that note).  Nothing in the MIDI
+    array moves: a note after a rest still starts in its own column.
+
+    hold_rests=True gives all True, the reading used until Nov 2026, when every
+    cell counted as a note and a voice was scored as holding its last note
+    through a rest.
+    """
+    stream = parse_score(corpus)
+    rows = score_rows(stream)
+    n_slots = max(b for spans, _ in rows for _, b, _ in spans)
+    sounding = np.zeros([len(rows), n_slots], dtype=bool)
+    for v, (spans, _parent) in enumerate(rows):
+        for a, b, _midi in spans:
+            sounding[v, a:b] = True
+    anyone = sounding.any(axis=0)
+    first, last = np.flatnonzero(anyone)[[0, -1]]
+    sounding = sounding[:, first:last + 1]
+    if hold_rests:
+        sounding[:] = True
+    return sounding
+
+
+def rest_map(version, hold_rests=False):
+    """sounding_mask for a name as load_chorale_in_cents reads it (same truncation).
+
+    Cached per name: reports score many tunings of one piece."""
+    if len(version) > 8 and score_file(version) is None:
+        version = version[:6]
+    return _cached_sounding_mask(version, bool(hold_rests), SCORES_DIR).copy()
+
+
+@functools.lru_cache(maxsize=64)
+def _cached_sounding_mask(version, hold_rests, _scores_dir):
+    return sounding_mask(version, hold_rests=hold_rests)
+
+
+def fill_rests(cents, chorale, sounding):
+    """Give every non-sounding cell of a (voices, N) tuning a placeholder value.
+
+    The tuner only sets the cells that sound; a rest's cells still need a
+    number so the array keeps its shape and plays the score note for note
+    (tuning_matches_score), and so a renderer that does not yet silence rests
+    holds the voice's last tuned pitch as it always did.  Each placeholder is
+    the tuned value of a sounding cell holding the same MIDI note: the row's
+    nearest earlier one, else one in the same column (a divisi row's line),
+    else the row's next one (a leading rest), else any note of that pitch
+    class in the column, else 12-TET.  Placeholders are never scored.
+    """
+    out = np.array(cents, dtype=float, copy=True)
+    midi = np.asarray(chorale)
+    n_rows, n = out.shape
+    for v in range(n_rows):
+        for k in np.flatnonzero(~sounding[v]):
+            m = midi[v, k]
+            j = next((j for j in range(k - 1, -1, -1) if sounding[v, j] and midi[v, j] == m), None)
+            if j is not None:
+                out[v, k] = out[v, j]
+                continue
+            u = next((u for u in range(n_rows) if sounding[u, k] and midi[u, k] == m), None)
+            if u is not None:
+                out[v, k] = out[u, k]
+                continue
+            j = next((j for j in range(k + 1, n) if sounding[v, j] and midi[v, j] == m), None)
+            if j is not None:
+                out[v, k] = out[v, j]
+                continue
+            u = next((u for u in range(n_rows) if sounding[u, k] and midi[u, k] % 12 == m % 12), None)
+            out[v, k] = out[u, k] if u is not None else (m % 12) * 100.0
+    return out
+
+
+def sounding_chord(cents_column, sounding_column=None):
+    """The notes of one column that actually sound (all of them when no mask)."""
+    col = np.asarray(cents_column)
+    return col if sounding_column is None else col[np.asarray(sounding_column, dtype=bool)]
+
+
+def score_columns(chord_scorer, cents, sounding=None, tolerance=1):
+    """Each column's chord score over its sounding notes, for a (voices, N) array.
+
+    A column where nothing sounds (a general pause inside the piece) scores 0.
+    """
+    cents = np.asarray(cents)
+    scores = np.zeros(cents.shape[1])
+    for i in range(cents.shape[1]):
+        chord = sounding_chord(cents[:, i], None if sounding is None else sounding[:, i])
+        scores[i] = chord_scorer.score_chord(chord, tolerance=tolerance) if len(chord) else 0.0
+    return scores
+
+
+def rests_mode_from_sidecar(npy_path):
+    """'held' or 'honored', as the tuner recorded it beside a -opt.npy.
+
+    Tunings written before Nov 2026 have no 'rests:' line; they were made with
+    notes held through rests, so that is what they are scored with.
+    """
+    txt = os.path.splitext(npy_path)[0] + '.txt'
+    try:
+        with open(txt) as f:
+            for line in f:
+                if line.startswith('rests:'):
+                    return line.split(':', 1)[1].strip()
+    except OSError:
+        pass
+    return 'held'
+
+
+def sounding_for_tuning(npy_path, chorale_name, shape=None):
+    """The sounding mask a saved tuning was scored with, or None if every cell counts.
+
+    Reads the rest rule from the tuning's sidecar (rests_mode_from_sidecar), so
+    a report scores each tuning the way the tuner did.  None also when the score
+    cannot be read or the mask does not fit `shape` (a tuning from an older
+    reading of the score).
+    """
+    if rests_mode_from_sidecar(npy_path) == 'held':
+        return None
+    try:
+        mask = rest_map(chorale_name)
+    except Exception as e:                      # a name the corpus does not know
+        logging.warning(f'no sounding mask for {chorale_name}: {e}')
+        return None
+    if (shape is not None and mask.shape != tuple(shape)) or mask.all():
+        return None
+    return mask
+
+
 def tuning_matches_score(cents, chorale):
     """What fraction of a tuning's chords are the chords the score asks for.
 
-    `cents` is a saved (4, N) tuning, `chorale` the (4, N) MIDI array from
-    stream_to_midi_array.  A voice is counted right when its cent value is
+    `cents` is a saved (voices, N) tuning, `chorale` the (voices, N) MIDI array
+    from stream_to_midi_array.  A voice is counted right when its cent value is
     within half a semitone of the scale degree the score gives it, so a chord
     tuned as much as 50 cents from 12-TET still counts (the tuner does that,
     and pitch_class_from_cents rounds up at exactly 50).  1.0 means the tuning
@@ -1497,13 +1730,13 @@ def measure_columns(corpus):
     shifted or shortened accordingly; a bar that has ended before the first
     note is left out.
     """
-    stream = m21.corpus.parse(corpus)
-    parts = list(stream.parts)[:4]
+    stream = parse_score(corpus)
+    parts = list(stream.parts)
 
     def slot(t):
         return math.ceil(Fraction(t).limit_denominator(64) * 4)
 
-    first = min(slot(n.offset) for p in parts for n in p.flatten().notes)
+    first = min(a for spans, _ in score_rows(stream) for a, _, _ in spans)
     result = []
     for m in parts[0].getElementsByClass(m21.stream.Measure):
         a, b = slot(m.offset), slot(m.offset + m.duration.quarterLength)
@@ -1556,7 +1789,11 @@ def assign_chorale(version, save_midi_file = False):        #, quantization = 4)
     root, mode, time signature, and key information.
     """
 # this is the new version that doesn't require mido, only music21. 
-    if len(version) > 8:
+    if len(version) > 8 and score_file(version) is None:
+        # Said out loud: a misspelt file name in SCORES_DIR lands here and would
+        # otherwise tune whatever corpus work the first six characters find.
+        print(f'WARNING: no {version}.* in {SCORES_DIR}; reading corpus work {version[:6]} instead')
+        logging.warning(f'no score file for {version}; using corpus work {version[:6]}')
         version = version[:6]
     chorale, root, mode, time_sig, s = stream_to_midi_array(version, save_midi_file = save_midi_file)
     scale = _get_scale(root, mode.lower())
@@ -1735,16 +1972,51 @@ class LowNumberRatioIntervals():
         """Get cache statistics."""
         return self.hits, self.misses
 
+def unique_pitch_classes_for(n_voices):
+    """Whether a piece with n_voices rows is scored one value per pitch class.
+
+    A four-voice chorale keeps the original rule (every pair of voices, doubled
+    notes included), so its saved tunings and ratchet history stay comparable.
+    Past four rows the doubles are mostly divisi copies of one line, and counting
+    each copy's intervals again over-weighted that line (bwv846: mean chord score
+    110 counting every row, 26 counting each pitch class once).
+    """
+    return n_voices > 4
+
+
+def unique_pitch_class_chord(cent_values_chord):
+    """One cent value per pitch class, in order of first appearance.
+
+    Returns (reduced, inverse) with reduced[inverse] the same length as the
+    input: each voice maps to the first voice holding its pitch class.
+    """
+    cents = np.asarray(cent_values_chord)
+    pcs = pitch_class_from_cents(cents)
+    slot_of, first_voice = {}, []
+    inverse = np.empty(len(cents), dtype=int)
+    for v, pc in enumerate(pcs):
+        if int(pc) not in slot_of:
+            slot_of[int(pc)] = len(first_voice)
+            first_voice.append(v)
+        inverse[v] = slot_of[int(pc)]
+    return cents[first_voice], inverse
+
+
 class ChordScorer():
     """
     Class for scoring chords based on interval consonance.
-    
+
     Scores chords by finding intervals between all note pairs and summing
     their limit scores from the tonal diamond. Uses caching for performance.
+
+    With unique_pitch_classes=True a chord is first reduced to one note per pitch
+    class, so C E G C scores C-E, C-G and E-G once each.  See
+    unique_pitch_classes_for for when that rule applies.
     """
-    def __init__(self, tonal_diamond):
+    def __init__(self, tonal_diamond, unique_pitch_classes=False):
         """Initialize with a tonal diamond."""
         self.tonal_diamond = tonal_diamond
+        self.unique_pitch_classes = unique_pitch_classes
         self.cache = {}
         self.hits = 0
         self.misses = 0
@@ -1811,6 +2083,8 @@ class ChordScorer():
         Wrapper around _score_chord that caches results based on chord values,
         tolerance, and method.
         """
+        if self.unique_pitch_classes:
+            cent_values_chord = unique_pitch_class_chord(cent_values_chord)[0]
         key = (tuple(cent_values_chord), tolerance, method)
         # logging.info(f'In score_chord function. {tolerance = }, {cent_values_chord = }')
         if key in self.cache:
@@ -1892,7 +2166,7 @@ def print_simple_report(best_results, best_scores, keys, chord_scorer, tonal_dia
     Prints chord information and lists the worst-scoring chords.
     """
       
-    prev_chord = np.zeros(4, dtype=int)
+    prev_chord = None
     total_score = 0
     chord_num = 0
     max_measured_score = 0
