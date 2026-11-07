@@ -99,6 +99,9 @@ spec:
       nodeSelector:
         kubernetes.io/hostname: fs5          # Arc Pro B70 node (GPU render)
       securityContext:
+        # Fixed level, so CRI-O does not relabel all of dropbox-pvc for each new pod.
+        seLinuxOptions:
+          level: s0
         supplementalGroups:
           - 992                              # 'render' group on fs5 (getent group
                                              # render -> render:x:992) — access to the
