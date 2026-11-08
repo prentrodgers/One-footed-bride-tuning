@@ -171,6 +171,27 @@ class TestNoteForNote(unittest.TestCase):
         quartet = wc2.plan_parts(Piece.get('bwv262').stream, {}, {}, pedal=True)
         self.assertFalse(any(x['pedal'] for x in quartet))       # strings: no pedal to press
 
+    def test_doubled_parts_have_a_seat_each(self):
+        """ensembles/bwv262-octet.yaml: winds in front, brass behind, each player panned by its own seat."""
+        stream = Piece.get('bwv262').stream
+        ens = wc2.load_ensemble('bwv262', os.path.join(wc2.ENSEMBLE_DIR, 'bwv262-octet.yaml'))
+        parts = wc2.plan_parts(stream, ens, {})
+        self.assertEqual([x['instruments'] for x in parts],
+                         [['flute', 'bach trumpet'], ['oboe', 'trumpet in c'], ['clarinet', 'trombone'],
+                          ['bassoon', 'tuba']])
+        for x in parts:
+            self.assertEqual(len(x['seats']), 2)
+            self.assertLess(x['seats'][0][1], x['seats'][1][1])            # brass behind
+            self.assertEqual(x['pans'], [8 + 8 * s[0] for s in x['seats']])
+        self.assertEqual(wc2.INSTRUMENTS['bach trumpet'], wc2.INSTRUMENTS['trumpet'])
+        rows = Piece.get('bwv262').rows
+        notes = wc2.build_notes(rows, Piece.get('bwv262').tuning, Piece.get('bwv262').first, parts, ARGS,
+                                wc2.GlideTables(), dict(glides=0, max_glide=0.0, wide_glides=0, out_of_range={}))
+        self.assertEqual(len(notes), 2 * sum(len(s) for s, _p, _i in rows))
+        self.assertEqual(sorted(set(notes[:, 6].astype(int))), [12, 13, 14, 15, 25, 26, 27, 39])
+        with self.assertRaises(ValueError):
+            wc2.plan_parts(stream, {'parts': {'Soprano': {'instrument': ['flute', 'tuba'], 'seat': [[0, 0]]}}}, {})
+
     def test_merge_adjacent(self):
         """Touching same-pitch notes in a voice become one note, struck once, gliding at the join."""
         for name in PIECES:
@@ -196,7 +217,7 @@ class TestNoteForNote(unittest.TestCase):
 
     def test_cents_to_the_hundredth(self):
         rows = [([(0, 4, 60)], None, 0)]
-        parts = [dict(name='Soprano', instruments=['flute'], seat=[0.0, 0.0], velocity=70, volume=5,
+        parts = [dict(name='Soprano', instruments=['flute'], seat=[0.0, 0.0], pans=[8.0], velocity=70, volume=5,
                       octave=0, pedal=False)]
         notes = wc2.build_notes(rows, np.array([[1199.996] * 4]), 0, parts, ARGS, wc2.GlideTables(),
                                 dict(glides=0, max_glide=0.0, wide_glides=0, out_of_range={}))
@@ -267,7 +288,7 @@ class TestNoteForNote(unittest.TestCase):
         """ball9.csd's Bosendorfer table calls A0 (MIDI 21) note 9, so middle C (60) is p6 4."""
         rows = [([(0, 4, 60), (4, 8, 21)], None, 0)]
         tuning = np.array([[0.0] * 4 + [900.0] * 4])
-        parts = [dict(name='Piano', instruments=['piano'], seat=[0.0, 0.0], velocity=70, volume=5, octave=0,
+        parts = [dict(name='Piano', instruments=['piano'], seat=[0.0, 0.0], pans=[8.0], velocity=70, volume=5, octave=0,
                       pedal=False)]
         report = dict(glides=0, max_glide=0.0, wide_glides=0, out_of_range={})
         notes = wc2.build_notes(rows, tuning, 0, parts, ARGS, wc2.GlideTables(), report)

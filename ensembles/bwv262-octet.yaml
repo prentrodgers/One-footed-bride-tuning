@@ -1,0 +1,29 @@
+# BWV 262 as a wind octet: the woodwind quartet of bwv262.yaml in front, a brass
+# quartet behind it, each voice played by one woodwind and one brass player.
+#
+#     .venv/bin/python WreckingCrew_v2.py --chorale bwv262 --ensemble ensembles/bwv262-octet.yaml --letter o
+#
+# instrument: a list gives the part one player per entry, all playing every note.
+# seat: one [x, y] per player, in the same order -- x from -1 (the audience's left)
+# to +1 (their right), y the depth from the front of the stage.  Pan comes from x;
+# the Blender stage reads both.  The brass sits at the same x as its woodwind, so
+# each voice comes from one place in the stereo field.
+#
+# Sample ranges (MIDI): Bach trumpet 61-89, trumpet in C 54-86, trombone 40-70,
+# tuba 36-67 (woodwinds: see bwv262.yaml).  A note outside its range still plays,
+# from the nearest sample; the render reports how many.
+
+tempo: 60
+parts:
+  Soprano:
+    instrument: [flute, bach trumpet]
+    seat: [[-0.6, 0.0], [-0.6, 0.5]]
+  Alto:
+    instrument: [oboe, trumpet in c]
+    seat: [[-0.2, 0.0], [-0.2, 0.5]]
+  Tenor:
+    instrument: [clarinet, trombone]
+    seat: [[0.2, 0.0], [0.2, 0.5]]
+  Bass:
+    instrument: [bassoon, tuba]
+    seat: [[0.6, 0.0], [0.6, 0.5]]

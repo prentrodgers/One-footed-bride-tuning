@@ -24668,3 +24668,6 @@ _______________________
       - Add a sustain pedal for the piano that's pressed at each barline and let up just before the next one. # <-- this needs to be set as an option, not an always on feature. Some way to tell the WreckingCrew.py and not necessarily the tuning regimen. Watch this. He's calling in pedal, which means he understands the piano. 
       - Pass cents through to Csound as decimals instead of whole cents.
       - First I'll read the parts of v2 involved and how ball9.csd turns cents into a pitch.
+
+___________________
+11/8/26 Test out the new bwv262 and bwv846 renders using WreckingCrew_v2.py

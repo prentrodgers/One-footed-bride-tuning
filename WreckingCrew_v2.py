@@ -127,7 +127,8 @@ INSTRUMENTS = {
     'clarinet': (13, 5, 0, None),
     'bassoon': (12, 5, 0, None),
     'horn': (16, 5, 0, None),
-    'trumpet': (39, 5, 0, None),
+    'trumpet': (39, 5, 0, None),            # the Bach trumpet samples
+    'bach trumpet': (39, 5, 0, None),
     'trumpet in c': (25, 5, 0, None),
     'trombone': (26, 5, 0, None),
     'tuba': (27, 5, 0, None),
@@ -288,6 +289,7 @@ def load_ensemble(version, path=None):
           Piano:                       # part name as the score gives it, or its number from 1
             instrument: harpsichord    # or a list: [harpsichord, gamba]
             seat: [-0.4, 0.3]          # x: -1 the audience's left .. +1 their right; y: depth
+                                       # or one per player: [[-0.4, 0.0], [-0.4, 0.5]]
             velocity: 70
             volume: 1.0                # balance against the other parts
             octave: 0                  # shift, for a part written an octave from where it sounds
@@ -336,11 +338,21 @@ def plan_parts(stream, ensemble, overrides, pedal=None):
         n, j = len(distinct), distinct.index(name)
         x = -0.8 + 1.6 * j / (n - 1) if n > 1 else 0.0
         seat = c.get('seat') or [x, 0.0]
+        if seat and isinstance(seat[0], (list, tuple)):
+            # One seat per player: [[x, y], [x, y], ...], in the order of `instrument:`.
+            if len(seat) != len(insts):
+                raise ValueError(f'part {name!r}: {len(seat)} seats for {len(insts)} instruments')
+            seats = [[float(s[0]), float(s[1])] for s in seat]
+            pans = [pan_for(s[0], 0, 1) for s in seats]
+        else:
+            # One seat for the part: its players sit side by side there.
+            seats = [[float(seat[0]), float(seat[1])]] * len(insts)
+            pans = [pan_for(seats[0][0], k, len(insts)) for k in range(len(insts))]
         if pedal is None:
             down = bool(c.get('pedal', False))
         else:
             down = pedal and 'piano' in insts
-        parts.append(dict(name=name, instruments=insts, seat=[float(seat[0]), float(seat[1])],
+        parts.append(dict(name=name, instruments=insts, seat=seats[0], seats=seats, pans=pans,
                           velocity=int(c.get('velocity', VELOCITY)), volume=float(c.get('volume', 1.0)),
                           octave=int(c.get('octave', 0)), pedal=down))
     return parts
@@ -440,7 +452,7 @@ def build_notes(rows, tuning, first, parts, args, glides, report, tempo=DEFAULT_
         for k, inst in enumerate(part['instruments']):
             voice, env, inst_oct, _note = INSTRUMENTS[inst]
             lo, hi = VOICES[voice][1:]
-            pan = pan_for(part['seat'][0], k, len(part['instruments']))
+            pan = part['pans'][k]
             shift = 1200 * (part['octave'] + inst_oct)
             for a, b, midi in spans:
                 c0, c1 = a - first, b - first
@@ -550,7 +562,7 @@ def print_plan(parts, rows):
         for k, inst in enumerate(part['instruments']):
             voice, _env, _oct, note = INSTRUMENTS[inst]
             print(f'{part["name"] if k == 0 else "":24} {counts.get(i, 0) if k == 0 else "":>4}  {inst:22} '
-                  f'{voice:>5} {pan_for(part["seat"][0], k, len(part["instruments"])):5.1f}  {note or ""}')
+                  f'{voice:>5} {part["pans"][k]:5.1f}  {note or ""}')
 
 
 def render(args):
