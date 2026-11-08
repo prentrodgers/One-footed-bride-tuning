@@ -26,7 +26,9 @@ note, numbered from 5000 as in WreckingCrew.py.
 Legato: ball9.csd's envelopes scale with the note (p3) and fade over its last
 part (f293, e5, the last 12.5%), so a note played at its written length fades
 out before the next one starts.  Each note is lengthened so that the fade
-begins --overlap_ms after the written end, and the notes cross-fade.
+begins --overlap_ms after the written end, and the notes cross-fade.  Piano,
+harpsichord and harp (f298, which fades over only its last 3%) instead get a
+damper release of --release_ms (100) after that point, from a table of their own.
 
 Sustain pedal (off unless asked for: --pedal for every piano part, or a part's
 `pedal: true` in the ensemble file; --no-pedal overrides the file): the pedal goes
@@ -170,6 +172,15 @@ TAIL_SECONDS = 4.0              # room for the last note's release and the rever
 # f298 (e0) is 1 1 496 496 of 1024, then the release; f293 (e5) is 1 1 447 447.
 RELEASE_AT = {0: 994 / 1024, 5: 896 / 1024}
 OVERLAP_MS = 30.0               # a note sustains this far past the next note's start
+# Struck instruments (envelope 0: piano, harpsichord, harp) fade like a damper falling:
+# full level to the fade point, then down over RELEASE_MS, whatever the note's length.
+# f298 itself fades over its last 3% of p3, 8 ms for a sixteenth at 66 BPM, while the
+# Bosendorfer samples take 13-30 ms to speak, so the old note was cut off as the new one
+# was still arriving.  Each such note gets its own table, numbered from ENV_TABLE_START
+# by its fade point in 1024ths of p3; p9 = 298 - table, as ball9.csd reads p9.
+RELEASE_MS = 100.0
+ENV_TABLE_START = 9000
+ENV_TABLE_SIZE = 1024
 PEDAL_LIFT_MS = 1.0             # the pedal comes up this long before the barline
 CENT_PLACES = 2                 # p5 precision: hundredths of a cent
 
@@ -420,6 +431,36 @@ class GlideTables:
         return [f'f{num} 0 {GLIDE_TABLE_SIZE + 1} -7 {args}' for num, args in self.tables.values()]
 
 
+def damper_p9(index):
+    """p9 for the damper envelope that holds to index/1024 of p3, then releases."""
+    return 298 - (ENV_TABLE_START + index)
+
+
+def fade_fraction(p9):
+    """Where a note's envelope starts to fade, as a fraction of p3 (any p9 v2 writes)."""
+    p9 = int(round(p9))
+    if p9 in RELEASE_AT:
+        return RELEASE_AT[p9]
+    return (298 - p9 - ENV_TABLE_START) / ENV_TABLE_SIZE
+
+
+def damper_tables(indexes):
+    """f-statements for the damper envelopes in use: a 2-point attack as f298 has, full
+    level to the fade point, then a falling curve (to .35, .1, 0) over the rest of p3."""
+    lines = []
+    for idx in sorted(indexes):
+        rel = ENV_TABLE_SIZE - idx
+        a = max(1, round(0.30 * rel))
+        b = max(1, round(0.35 * rel))
+        c = rel - a - b
+        if c >= 1:
+            fall = f'{a} 0.35 {b} 0.1 {c} 0'
+        else:
+            fall = f'{rel} 0'
+        lines.append(f'f{ENV_TABLE_START + idx} 0 {ENV_TABLE_SIZE + 1} -7 0 2 1 {idx - 2} 1 {fall}')
+    return lines
+
+
 def sounding_end(start, written_end, part, midi, args, ms, bars, strikes):
     """Beat at which a note's envelope starts to fade (the dampers fall, or the player lets go).
 
@@ -472,7 +513,17 @@ def build_notes(rows, tuning, first, parts, args, glides, report, tempo=DEFAULT_
                 pitch = absolute_cents(tuning[v, c0:c1], midi) + shift
                 start = c0 / 4.0
                 end = sounding_end(start, c1 / 4.0, part, midi, args, ms, bars, strikes)
-                dur = (end - start) / RELEASE_AT.get(env, 1.0)
+                p9 = env
+                release_ms = getattr(args, 'release_ms', RELEASE_MS)
+                if env == 0 and release_ms > 0:
+                    # Fade point on the 1024ths grid, p3 chosen so it falls exactly at `end`.
+                    held = end - start
+                    idx = int(round(ENV_TABLE_SIZE * held / (held + release_ms * ms)))
+                    idx = min(max(idx, 3), ENV_TABLE_SIZE - 1)
+                    dur = held * ENV_TABLE_SIZE / idx
+                    p9 = damper_p9(idx)
+                else:
+                    dur = (end - start) / RELEASE_AT.get(env, 1.0)
                 p0 = round(float(pitch[0]), CENT_PLACES)
                 octave, cents = divmod(p0, 1200.0)
                 octave, cents = int(octave) - CSD_OCTAVE_OFFSET, round(cents, CENT_PLACES)
@@ -496,8 +547,8 @@ def build_notes(rows, tuning, first, parts, args, glides, report, tempo=DEFAULT_
                 written = (midi * 100 + shift) / 100 - 12 * CSD_OCTAVE_OFFSET   # in ball9.csd's numbering
                 if not lo - 2 <= written <= hi + 2:
                     report['out_of_range'].setdefault(f"{part['name']} ({inst})", [lo, hi, 0])[2] += 1
-                notes.append([1, start, dur, part['velocity'], cents, octave, voice, pan, env, table,
-                              0, env, 0, 0, part['volume'] * level])
+                notes.append([1, start, dur, part['velocity'], cents, octave, voice, pan, p9, table,
+                              0, p9, 0, 0, part['volume'] * level])
     notes.sort(key=lambda r: (r[1], r[6], -r[5], -r[4]))
     return np.array(notes, dtype=float)
 
@@ -521,6 +572,11 @@ def write_csd(notes, glides, tempo, path):
         f.write('\n; WreckingCrew_v2: glide tables\n')
         for line in glides.lines():
             f.write(line + '\n')
+        dampers = {298 - int(round(p)) - ENV_TABLE_START for p in notes[:, 8] if int(round(p)) not in RELEASE_AT}
+        if dampers:
+            f.write('; WreckingCrew_v2: damper envelopes (p9 = 298 - table)\n')
+            for line in damper_tables(dampers):
+                f.write(line + '\n')
         f.write(f't0 {tempo}\n')
         f.write(';Inst\tSta\tHold\tVel\tTon\tOct\tVoi\tSte\tEn1\tGls\tUps\tRen\t2gl\t3gl\tVol\n')
         for r in notes:
@@ -566,6 +622,15 @@ def render_name(version, letter, params, seconds, tempo):
 
 # --------------------------------------------------------------------------- main
 
+BOSENDORFER_LAYERS = [25, 31, 39, 47, 63, 78, 85, 99, 113, 127]   # recorded velocity of voices 29-38
+
+
+def bosendorfer_layer(p4):
+    """The recorded velocity of the Bosendorfer layer ball9.csd plays for p4 (its lines 43-47)."""
+    vel = min(max(p4, 50), 90)
+    return BOSENDORFER_LAYERS[min(int(29 + max(vel - 60, 0) / 2 + 0.5), 38) - 29]
+
+
 def print_plan(parts, rows):
     counts = {}
     for _s, _par, p in rows:
@@ -574,6 +639,9 @@ def print_plan(parts, rows):
     for i, part in enumerate(parts):
         for k, inst in enumerate(part['instruments']):
             voice, _env, _oct, note = INSTRUMENTS[inst]
+            if voice == 29:
+                layer = f'p4 {part["velocity"]}: the velocity-{bosendorfer_layer(part["velocity"])} recordings'
+                note = f'{note}; {layer}' if note else layer
             print(f'{part["name"] if k == 0 else "":24} {counts.get(i, 0) if k == 0 else "":>4}  {inst:22} '
                   f'{voice:>5} {part["pans"][k]:5.1f}  {note or ""}')
 
@@ -588,6 +656,9 @@ def render(args):
     ensemble = load_ensemble(version, args.ensemble)
     overrides = dict(o.split('=', 1) for o in args.instrument)
     parts = plan_parts(stream, ensemble, overrides, pedal=args.pedal)
+    if getattr(args, 'velocity', None) is not None:
+        for part in parts:
+            part['velocity'] = args.velocity
     print(f'{version}: {len(stream.parts)} parts, {len(rows)} rows')
     print_plan(parts, rows)
     if args.list:
@@ -673,6 +744,13 @@ def main(argv=None):
     ap.add_argument('--pedal_last_bars', type=int, default=None,
                     help='the final N measures share one pedal (default: the ensemble file\'s '
                          'pedal_last_bars, else 1: a change at every barline)')
+    ap.add_argument('--release_ms', type=float, default=RELEASE_MS,
+                    help='piano, harpsichord, harp: the damper falls over this long after the overlap '
+                         '(default %(default)g; 0 = ball9.csd\'s f298, which fades over the last 3%% of the note)')
+    ap.add_argument('--velocity', type=int, default=None,
+                    help='p4 for every part, over the ensemble file (default %d). The Bosendorfer picks its '
+                         'recording from it: 60 or less -> the velocity-25 layer, 64 -> 39, 66 -> 47, 68 -> 63, '
+                         '70 -> 78, 72 -> 85, 74 -> 99, 76 -> 113, 78+ -> 127' % VELOCITY)
     ap.add_argument('--merge_adjacent', action='store_true',
                     help='join a note to the one before it in its voice when they are the same pitch and '
                          'touch, tied or not (as WreckingCrew.py); the joined note glides to the new tuning')

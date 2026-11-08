@@ -26,7 +26,7 @@ MS = TEMPO / 60000.0                    # beats per millisecond
 
 def held_end(r):
     """Beat at which a note's envelope starts to fade."""
-    return r[1] + r[2] * wc2.RELEASE_AT[int(r[8])]
+    return r[1] + r[2] * wc2.fade_fraction(r[8])
 PIECES = ('bwv262', 'bwv846', 'bwv190.7-inst')   # 4 voices; keyboard in 6 rows; 15 rows with continuo
 
 
@@ -176,6 +176,29 @@ class TestNoteForNote(unittest.TestCase):
         self.assertTrue(ringing)
         for r in ringing:
             self.assertAlmostEqual(held_end(r), lift)
+
+    def test_piano_damper_release(self):
+        """bwv846 without pedal: each piano note is at full level 30 ms past the next onset in
+        its row, then falls over ~100 ms (not f298's last 3%: 8 ms for a sixteenth)."""
+        p = Piece.get('bwv846')
+        self.assertTrue(all(r[8] < 0 for r in p.notes))          # every note has a damper table
+        for r in p.notes:
+            release_ms = (r[1] + r[2] - held_end(r)) / MS
+            self.assertGreater(release_ms, 90, r)
+            self.assertLess(release_ms, 110 if r[2] < 2 else 200, r)   # 1024ths grid: coarser on long notes
+        off = types.SimpleNamespace(**dict(vars(ARGS), release_ms=0))
+        old = wc2.build_notes(p.rows, p.tuning, p.first, p.parts, off, wc2.GlideTables(),
+                              dict(glides=0, max_glide=0.0, wide_glides=0, out_of_range={}), tempo=TEMPO, bars=p.bars)
+        self.assertTrue(all(r[8] == 0 for r in old))
+        # Same fade points either way: the release only adds to the end.
+        self.assertTrue(np.allclose(sorted(map(held_end, old)), sorted(map(held_end, p.notes))))
+        # The tables written to the .csd: one per fade point, each 1024 points long.
+        idxs = {298 - int(r[8]) - wc2.ENV_TABLE_START for r in p.notes}
+        for line in wc2.damper_tables(idxs):
+            nums = line.split()
+            self.assertEqual(sum(int(x) for x in nums[5::2]), wc2.ENV_TABLE_SIZE, line)
+        self.assertEqual([wc2.bosendorfer_layer(v) for v in (55, 64, 66, 68, 70, 78, 90)],
+                         [25, 39, 47, 63, 78, 127, 127])
 
     def test_pedal_is_an_option(self):
         """Off unless asked for; --pedal only reaches piano parts; --no-pedal beats the ensemble file."""
