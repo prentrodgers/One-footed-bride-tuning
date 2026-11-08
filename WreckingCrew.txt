@@ -24671,3 +24671,37 @@ _______________________
 
 ___________________
 11/8/26 Test out the new bwv262 and bwv846 renders using WreckingCrew_v2.py
+      bwv262 sounds great after a few tweeks to add brass and fix the legato, also added an option to merge adjacent notes that retain the same pitch class. Make sure you have moved the numpy tuning file into Archive/straw-man/best-tunings first.
+            python WreckingCrew_v2.py --chorale bwv262 --ensemble ensembles/bwv262-octet.yaml 
+                  bwv262: 4 parts, 4 rows
+                  part                     rows  instrument             voice  pan   note
+                  Soprano                     1  flute                     14   3.2  
+                                                bach trumpet              39   3.2  
+                  Alto                        1  oboe                      15   6.4  
+                                                trumpet in c              25   6.4  
+                  Tenor                       1  clarinet                  13   9.6  
+                                                trombone                  26   9.6  
+                  Bass                        1  bassoon                   12  12.8  
+                                                tuba                      27  12.8  
+                  tuning Archive/straw-man/best-tunings/bwv262_t3_r1.500_lm19-opt.npy (held rests in the tuner)
+                  193 score notes -> 386 Csound notes (193 by continuo and other parts with two players), 48.32 beats at 60 BPM = 00:48
+                  glides: 8 at chord changes in held notes, widest 10.0 cents, 0 over 45; 3 tables
+                  wrote /home/prent/Repos/One-footed-bride-tuning/new_output_v2.csd: b262a_t3_d00_52_t060_lm19_r1.50
+                  end of score.              overall amps:   5662.2   5006.1
+      Then got decent results on bwv846, Prelude #1 from WTC. Had to fix the fermata at the end, which Claude found in the score, but I had asked him to ignore for now. 
+            python WreckingCrew_v2.py --chorale bwv846 --pedal --velocity 64 --velocity_random 3 --letter f
+                  bwv846: 2 parts, 6 rows
+                  part                     rows  instrument             voice  pan   note
+                  Piano                       3  piano                     29   8.0  p4 64: the velocity-39 recordings
+                  Piano                       3  piano                     29   8.0  p4 64: the velocity-39 recordings
+                  tuning Archive/straw-man/best-tunings/bwv846_t2_r1.500_lm19-opt.npy (honored rests in the tuner)
+                  ending: the last chord has a fermata, held 1.5x, sounds to beat 138, then dies away over 1500 ms
+                  velocity: +-3 (seed 0), downbeats at the top: 61x83 (vel-31), 62x71 (vel-31), 63x70 (vel-39), 64x86 (vel-39), 65x91 (vel-47), 66x94 (vel-47), 67x38 (vel-63)
+                  sustain pedal: Piano, changed at 33 barlines; the last 2 measures under one pedal
+                  533 score notes -> 533 Csound notes (0 by continuo and other parts with two players), 139.652 beats at 66 BPM = 02:07
+                  glides: 90 at chord changes in held notes, widest 25.0 cents, 0 over 45; 24 tables
+                  wrote /home/prent/Repos/One-footed-bride-tuning/new_output_v2.csd: b846f_t2_d02_11_t066_lm19_r1.50
+
+            Experiment with different velocity values. 
+
+            Measure 20 sounds a little spicy. We need a thorough tuning run using ray-ratchet.sh, now including fs10 and fs11.

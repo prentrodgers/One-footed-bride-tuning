@@ -310,7 +310,11 @@ spec:
           livenessProbe: *worker-probe
           readinessProbe: *worker-probe
           resources:
-            requests: {cpu: "12", memory: "9Gi"}
+            # Requests 11, not 12 (8 Nov 2026): fs1 has 16 allocatable and its other pods
+            # (Ceph CSI plugins, kserve, cdi, kubevirt...) request 4.41, so 12 left this
+            # worker Pending and ray-ratchet.sh gave up.  The limit and num-cpus stay 12,
+            # so it still runs three 4-CPU tasks; QoS becomes Burstable.
+            requests: {cpu: "11", memory: "9Gi"}
             limits:   {cpu: "12", memory: "9Gi"}
           volumeMounts: *mounts
           env: *env
