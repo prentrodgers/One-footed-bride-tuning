@@ -200,6 +200,34 @@ class TestNoteForNote(unittest.TestCase):
         self.assertEqual([wc2.bosendorfer_layer(v) for v in (55, 64, 66, 68, 70, 78, 90)],
                          [25, 39, 47, 63, 78, 127, 127])
 
+    def test_final_fermata(self):
+        """bwv846's last chord has a fermata: with the pedal, everything sounding at the end holds
+        to 136 + 0.5 x 4 = 138 beats, then dies away over 1.5 s; nothing earlier changes."""
+        p = Piece.get('bwv846', pedal=True)
+        a = types.SimpleNamespace(**dict(vars(ARGS), fermata=1.5, final_release_ms=1500.0))
+        ending = wc2.ending_for(p.stream, p.rows, p.first, a)
+        self.assertEqual((ending['end'], ending['fermata']), (136.0, True))
+        self.assertAlmostEqual(ending['extra'], 2.0)
+        bars = wc2.pedal_changes(p.bars, 2)
+
+        def build(e):
+            return wc2.build_notes(p.rows, p.tuning, p.first, p.parts, a, wc2.GlideTables(),
+                                   dict(glides=0, max_glide=0.0, wide_glides=0, out_of_range={}),
+                                   tempo=TEMPO, bars=bars, ending=e)
+        plain, held = build(None), build(ending)
+        last = [i for i, r in enumerate(plain) if held_end(r) >= 136.0 - 2 * MS]
+        self.assertTrue(len(last) >= 5)                     # the C major chord, and what rings into it
+        for i, (r0, r1) in enumerate(zip(plain, held)):
+            if i in last:
+                self.assertAlmostEqual(held_end(r1), 138.0, places=6)
+                self.assertAlmostEqual((r1[1] + r1[2] - held_end(r1)) / MS, 1500, delta=15)
+            else:
+                self.assertTrue(np.array_equal(r0, r1))
+        # --fermata 1: as written, but still the long release.
+        one = build(wc2.ending_for(p.stream, p.rows, p.first, types.SimpleNamespace(**dict(vars(a), fermata=1.0))))
+        for i in last:
+            self.assertAlmostEqual(held_end(one[i]), 136.0, places=6)
+
     def test_velocity_random(self):
         """--velocity 64 --velocity_random 3: downbeats at 67, every other note 61-66, repeatable by seed."""
         p = Piece.get('bwv846')

@@ -179,6 +179,8 @@ OVERLAP_MS = 30.0               # a note sustains this far past the next note's 
 # was still arriving.  Each such note gets its own table, numbered from ENV_TABLE_START
 # by its fade point in 1024ths of p3; p9 = 298 - table, as ball9.csd reads p9.
 RELEASE_MS = 100.0
+FERMATA = 1.5                   # a final chord under a fermata is held this many times its written length
+FINAL_RELEASE_MS = 1500.0       # the last notes die away over this, not the damper's RELEASE_MS
 ENV_TABLE_START = 9000
 ENV_TABLE_SIZE = 1024
 PEDAL_LIFT_MS = 1.0             # the pedal comes up this long before the barline
@@ -390,6 +392,30 @@ def pedal_changes(bars, last_bars=1):
     return bars[:max(len(bars) - n, 1)] + [bars[-1]]
 
 
+def final_chord(stream, rows, first):
+    """(start, end) in beats of the piece's last chord, and whether the score marks it with
+    a fermata (bwv846's last C major chord, a chorale's last chord)."""
+    end = max(b for spans, _p, _i in rows for _a, b, _m in spans)
+    start = max(a for spans, _p, _i in rows for a, b, _m in spans if b == end)
+    fermata = False
+    for part in stream.parts:
+        for n in part.recurse().notes:
+            on = _slot(n.getOffsetInHierarchy(part))
+            if on == start and any(type(e).__name__ == 'Fermata' for e in n.expressions):
+                fermata = True
+    return (start - first) / 4.0, (end - first) / 4.0, fermata
+
+
+def ending_for(stream, rows, first, args):
+    """build_notes' `ending`: notes still sounding at the piece's end hold to the end of the
+    final chord, lengthened by --fermata when the score marks one, then die away over
+    --final_release_ms instead of the damper."""
+    start, end, fermata = final_chord(stream, rows, first)
+    factor = getattr(args, 'fermata', FERMATA) if fermata else 1.0
+    return dict(end=end, extra=(factor - 1.0) * (end - start), fermata=fermata,
+                release_ms=getattr(args, 'final_release_ms', FINAL_RELEASE_MS))
+
+
 def pan_for(seat_x, k, of):
     """ball9.csd p8 (0 = left, 16 = right) for a seat; players sharing a seat sit side by side."""
     x = seat_x + (k - (of - 1) / 2) * 0.06
@@ -490,7 +516,7 @@ def note_velocity(base, slot, downbeats, spread, rng):
 
 
 def build_notes(rows, tuning, first, parts, args, glides, report, tempo=DEFAULT_TEMPO, bars=None,
-                downbeats=None):
+                downbeats=None, ending=None):
     """The (n, 15) p-field array, one row per note per player, sorted by start time.
 
     Columns as in WreckingCrew.py's features array (ball9.csd p1..p15):
@@ -529,6 +555,10 @@ def build_notes(rows, tuning, first, parts, args, glides, report, tempo=DEFAULT_
                 end = sounding_end(start, c1 / 4.0, part, midi, args, ms, bars, strikes)
                 p9 = env
                 release_ms = getattr(args, 'release_ms', RELEASE_MS)
+                if ending and end >= ending['end'] - 2 * PEDAL_LIFT_MS * ms:
+                    # Still sounding at the end of the piece: hold through the fermata, then die away.
+                    end = max(end, ending['end']) + ending['extra']
+                    release_ms = ending['release_ms']
                 if env == 0 and release_ms > 0:
                     # Fade point on the 1024ths grid, p3 chosen so it falls exactly at `end`.
                     held = end - start
@@ -703,8 +733,13 @@ def render(args):
         merged = score_notes - sum(len(spans) for spans, _p, _i in rows)
         print(f'merge_adjacent: {merged} of {score_notes} score notes joined to the note before them')
         score_notes -= merged
+    ending = ending_for(stream, rows, first, args)
     notes = build_notes(rows, tuning, first, parts, args, glides, report, tempo=tempo, bars=bars,
-                        downbeats=downbeats)
+                        downbeats=downbeats, ending=ending)
+    struck = any(INSTRUMENTS[i][1] == 0 for x in parts for i in x['instruments'])
+    print(f'ending: the last chord {"has a fermata, held %gx, " % args.fermata if ending["fermata"] else ""}'
+          f'sounds to beat {ending["end"] + ending["extra"]:g}'
+          + (f', then dies away over {ending["release_ms"]:g} ms' if struck else ''))
     if args.velocity_random:
         vels, counts = np.unique(notes[:, 3].astype(int), return_counts=True)
         piano = any(INSTRUMENTS[i][0] == 29 for x in parts for i in x['instruments'])
@@ -769,6 +804,11 @@ def main(argv=None):
     ap.add_argument('--release_ms', type=float, default=RELEASE_MS,
                     help='piano, harpsichord, harp: the damper falls over this long after the overlap '
                          '(default %(default)g; 0 = ball9.csd\'s f298, which fades over the last 3%% of the note)')
+    ap.add_argument('--fermata', type=float, default=FERMATA,
+                    help='hold a final chord marked with a fermata this many times its written length; the '
+                         'pedal stays down through it (default %(default)g; 1 = as written)')
+    ap.add_argument('--final_release_ms', type=float, default=FINAL_RELEASE_MS,
+                    help='the notes sounding at the end die away over this long (default %(default)g)')
     ap.add_argument('--velocity', type=int, default=None,
                     help='p4 for every part, over the ensemble file (default %d). The Bosendorfer picks its '
                          'recording from it: 60 or less -> the velocity-25 layer, 64 -> 39, 66 -> 47, 68 -> 63, '
