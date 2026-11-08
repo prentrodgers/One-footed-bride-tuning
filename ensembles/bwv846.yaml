@@ -1,0 +1,12 @@
+# WTC I Prelude in C (BWV 846) on the Bosendorfer.
+#
+#     .venv/bin/python WreckingCrew_v2.py --chorale bwv846 --numpy_dir Archive/straw-man/<cell> --pedal
+#
+# The pedal stays opt-in (--pedal); this file only says how it is used when it is on:
+# changed at every barline, except that the last two measures ring under one pedal
+# over the held C.  --pedal_last_bars on the command line overrides it.
+
+tempo: 66
+pedal_last_bars: 2
+# Both staves are named Piano, which plays the Bosendorfer by default;
+# --instrument "Piano=harpsichord" swaps it (and the pedal goes with it).

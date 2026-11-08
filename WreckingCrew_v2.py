@@ -285,6 +285,7 @@ def load_ensemble(version, path=None):
     """The piece's ensemble file (ensembles/<version>.yaml), or {} when there is none.
 
         tempo: 66
+        pedal_last_bars: 2             # when the pedal is on, the final 2 measures share one pedal
         parts:
           Piano:                       # part name as the score gives it, or its number from 1
             instrument: harpsichord    # or a list: [harpsichord, gamba]
@@ -364,6 +365,18 @@ def barlines(stream, first):
         return []
     return sorted({_slot(m.getOffsetInHierarchy(stream.parts[0])) - first
                    for m in stream.parts[0].getElementsByClass('Measure')})
+
+
+def pedal_changes(bars, last_bars=1):
+    """Where the pedal is changed: every barline, except that the final last_bars
+    measures share one pedal (bwv846: the last two ring together over the held C).
+
+    bars: barline slots with the piece's end appended, as build_notes takes them.
+    """
+    n = int(last_bars or 1)
+    if n <= 1 or len(bars) < 2:
+        return list(bars)
+    return bars[:max(len(bars) - n, 1)] + [bars[-1]]
 
 
 def pan_for(seat_x, k, of):
@@ -595,6 +608,8 @@ def render(args):
     report = dict(glides=0, max_glide=0.0, wide_glides=0, out_of_range={})
     last = max(b for spans, _p, _i in rows for _a, b, _m in spans) - first
     bars = barlines(stream, first) + [last]
+    last_bars = args.pedal_last_bars or ensemble.get('pedal_last_bars') or 1
+    bars = pedal_changes(bars, last_bars)
     score_notes = sum(len(spans) for spans, _p, _i in rows)
     if args.merge_adjacent:
         rows = merge_adjacent(rows)
@@ -604,7 +619,8 @@ def render(args):
     notes = build_notes(rows, tuning, first, parts, args, glides, report, tempo=tempo, bars=bars)
     pedalled = [x['name'] for x in parts if x['pedal']]
     if pedalled:
-        print(f'sustain pedal: {", ".join(dict.fromkeys(pedalled))}, down at each of {len(bars) - 1} barlines')
+        held = f'; the last {last_bars} measures under one pedal' if int(last_bars) > 1 else ''
+        print(f'sustain pedal: {", ".join(dict.fromkeys(pedalled))}, changed at {len(bars) - 1} barlines{held}')
     beats = float((notes[:, 1] + notes[:, 2]).max())
     seconds = beats * 60.0 / tempo
     print(f'{score_notes} score notes -> {len(notes)} Csound notes ({len(notes) - score_notes} by continuo '
@@ -654,6 +670,9 @@ def main(argv=None):
     ap.add_argument('--pedal', action=argparse.BooleanOptionalAction, default=None,
                     help='sustain pedal for piano parts, down at each barline; --no-pedal overrides the '
                          'ensemble file. Default: off, unless the ensemble file gives a part pedal: true')
+    ap.add_argument('--pedal_last_bars', type=int, default=None,
+                    help='the final N measures share one pedal (default: the ensemble file\'s '
+                         'pedal_last_bars, else 1: a change at every barline)')
     ap.add_argument('--merge_adjacent', action='store_true',
                     help='join a note to the one before it in its voice when they are the same pitch and '
                          'touch, tied or not (as WreckingCrew.py); the joined note glides to the new tuning')

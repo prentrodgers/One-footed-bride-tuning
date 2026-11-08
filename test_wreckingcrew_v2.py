@@ -157,6 +157,26 @@ class TestNoteForNote(unittest.TestCase):
         # stop there; the second half's (and the held bass) ring to the barline.
         self.assertGreater(at_bar, len(p.notes) // 4)
 
+    def test_last_two_bars_share_a_pedal(self):
+        """ensembles/bwv846.yaml: no pedal change at the last measure's barline; what the
+        second-last measure strikes (and is not struck again) rings to the end."""
+        self.assertEqual(wc2.pedal_changes([0, 16, 32, 48], 1), [0, 16, 32, 48])
+        self.assertEqual(wc2.pedal_changes([0, 16, 32, 48], 2), [0, 16, 48])
+        self.assertEqual(wc2.pedal_changes([0, 16, 32, 48], 9), [0, 48])
+        self.assertEqual(wc2.load_ensemble('bwv846')['pedal_last_bars'], 2)
+        p = Piece.get('bwv846', pedal=True)
+        bars = wc2.pedal_changes(p.bars, 2)
+        notes = wc2.build_notes(p.rows, p.tuning, p.first, p.parts, ARGS, wc2.GlideTables(),
+                                dict(glides=0, max_glide=0.0, wide_glides=0, out_of_range={}), tempo=TEMPO, bars=bars)
+        lift = p.bars[-1] / 4.0 - MS
+        second_last = [r for r in notes if p.bars[-3] / 4.0 <= r[1] < p.bars[-2] / 4.0]
+        self.assertTrue(second_last)
+        struck = collections.Counter(int(round(sounding_cents(r) / 100)) for r in notes if r[1] >= p.bars[-3] / 4.0)
+        ringing = [r for r in second_last if struck[int(round(sounding_cents(r) / 100))] == 1]
+        self.assertTrue(ringing)
+        for r in ringing:
+            self.assertAlmostEqual(held_end(r), lift)
+
     def test_pedal_is_an_option(self):
         """Off unless asked for; --pedal only reaches piano parts; --no-pedal beats the ensemble file."""
         stream = Piece.get('bwv846').stream
