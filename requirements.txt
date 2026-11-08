@@ -11,6 +11,7 @@ music21
 mido
 pandas
 sox
+pyyaml          # WreckingCrew_v2.py reads ensembles/*.yaml
 
 # librosa 0.11.0 requires numba, but its pinned version is incompatible with Python 3.14.
 # Override the pins explicitly:

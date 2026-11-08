@@ -1,0 +1,24 @@
+# BWV 262 as a woodwind quartet.  WreckingCrew_v2.py reads this file by default
+# for --chorale bwv262; --instrument PART=INST on the command line overrides it.
+#
+# seat: [x, y] -- x from -1 (the audience's left) to +1 (their right), y the depth
+# from the front of the stage.  Pan comes from x; the Blender stage reads both.
+#
+# Sample ranges (MIDI): flute 60-96, oboe 58-88, clarinet 50-86, bassoon 34-64.
+# A note outside its range still plays, from the nearest sample; the render
+# reports how many.
+
+tempo: 60
+parts:
+  Soprano:
+    instrument: flute
+    seat: [-0.6, 0.0]
+  Alto:
+    instrument: oboe
+    seat: [-0.2, 0.0]
+  Tenor:
+    instrument: clarinet
+    seat: [0.2, 0.0]
+  Bass:
+    instrument: bassoon
+    seat: [0.6, 0.0]

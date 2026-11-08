@@ -1393,6 +1393,28 @@ def score_file(name):
     return None
 
 
+def corpus_has(name):
+    """True when the music21 corpus holds exactly one work by this name (bwv244.10, bwv262)."""
+    try:
+        return isinstance(m21.corpus.getWork(name), (str, os.PathLike))
+    except Exception:
+        return False
+
+
+def score_name(version):
+    """The score a version name refers to.
+
+    A name longer than eight characters that is neither a file in SCORES_DIR nor
+    a corpus work is cut to its first six (bwv262_t3_r1.500_lm19 -> bwv262).
+    Until Nov 2026 the corpus check was missing, so every decimal-numbered
+    chorale of nine characters or more was cut too: bwv245.14 was read as
+    bwv245 (a different chorale) and bwv244.15 .. bwv244.62 all as bwv244.10.
+    """
+    if len(version) > 8 and score_file(version) is None and not corpus_has(version):
+        return version[:6]
+    return version
+
+
 def parse_score(name):
     """A music21 score by name: from SCORES_DIR if it is there, otherwise the corpus."""
     path = score_file(name)
@@ -1595,9 +1617,7 @@ def rest_map(version, hold_rests=False):
     """sounding_mask for a name as load_chorale_in_cents reads it (same truncation).
 
     Cached per name: reports score many tunings of one piece."""
-    if len(version) > 8 and score_file(version) is None:
-        version = version[:6]
-    return _cached_sounding_mask(version, bool(hold_rests), SCORES_DIR).copy()
+    return _cached_sounding_mask(score_name(version), bool(hold_rests), SCORES_DIR).copy()
 
 
 @functools.lru_cache(maxsize=64)
@@ -1789,10 +1809,10 @@ def assign_chorale(version, save_midi_file = False):        #, quantization = 4)
     root, mode, time signature, and key information.
     """
 # this is the new version that doesn't require mido, only music21. 
-    if len(version) > 8 and score_file(version) is None:
+    if score_name(version) != version:
         # Said out loud: a misspelt file name in SCORES_DIR lands here and would
         # otherwise tune whatever corpus work the first six characters find.
-        print(f'WARNING: no {version}.* in {SCORES_DIR}; reading corpus work {version[:6]} instead')
+        print(f'WARNING: no {version}.* in {SCORES_DIR} or the corpus; reading corpus work {version[:6]} instead')
         logging.warning(f'no score file for {version}; using corpus work {version[:6]}')
         version = version[:6]
     chorale, root, mode, time_sig, s = stream_to_midi_array(version, save_midi_file = save_midi_file)

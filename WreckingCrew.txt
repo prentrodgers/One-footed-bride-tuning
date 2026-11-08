@@ -24623,3 +24623,48 @@ _______________________
       - the three new test files.
       
       One detail: grid_search.sh has a permission change (644 → 755) from before my work, and it would go into the commit along with my edits to that file. I'd leave out Chorale-pdf/bwv846.pdf, make_score_videos.sh, render_farm.sh, grid-search.sh, Uploads/ and plots/bwv371.jpg. Shall I commit and push?
+
+      Next: My next request is then to make a plan for how we would change mapping of numpy file rows by instrument doubling. First thing to know is that I don't plan to use the same kind of note manipulation that is done by WreckingCrew.py to the input files from bwv846 or others in the Well Tempered Clavier or Brandenberg Concertos. Those have already been enhanced by Bach and I have nothing to add, except a different tuning. I think we might be better served by creating a new python module, call it WreckingCrew_v2.py, that strips out all doubling of instruments, or chords, or articulations, or just about anything that makes a change to the input. No more arpegios, masking of notes in chords to produce melodies out of chords. Those are not going to be used. I'm thinking of the most vanilla transformation of a numpy file of chords derived from the music21 corpus into cent values and octaves one-for-one. The features should be limited to cent values, octaves, volume, velocity, envelope, and any others you think would be appropriate. My goal is to reproduce Bach as he would have heard it, had Harry Partch lived in the same town and been to the same cafes as Bach, who liked the ideas of the tonality diamond and the One-footed-bride-tuning repo.
+
+      Stereo should place each instrument in the audio field according to where they stand in the orchestra. Claude noticed that repeated notes are merged in the current design. We need to turn that off. 
+
+      Step 1 is done: WreckingCrew_v2.py renders a tuned score one note per written note. I rendered four pieces in the pod, and each Csound log shows no errors and no samples out of range.
+
+      Piece	                        Notes	Glides on held notes	Length
+      bwv262 (string quartet)	      193	1 (11¢)	0:48
+      bwv244.10	                  221	7 (≤2¢)	0:48
+      bwv245.14	                  256	8 (≤19¢)	1:04
+      bwv846 (Bösendorfer, 66 BPM)	535	90 (≤25¢)	2:04
+      
+      The MP3s are in C:\Users\prent\AppData\Local\Temp\claude\c7742d810a62a451\8593a6cd-0a97-46a6-ac0b-ceb6566809c8\scratchpad\listen\. I rendered them in a separate /tmp folder in the pod, so your pod checkout, Music/sflib and Uploads/ weren't touched. 
+      What v2 does:
+
+      Notes: they come from the score, so a repeated note is played again, a rest is silent and a tie is one note.
+      Pitch: taken from the tuning at the note's start. A held note glides to its new value at a chord change, over one sixteenth by default. --no-glides keeps the starting value instead.
+      Instruments: each part gets one by its name, and chorales default to a string quartet. Continuo is played by harpsichord and gamba; with no samples for either, the Bösendorfer and the cello stand in. You can change any part with --instrument "Soprano=oboe" or a file ensembles/<piece>.yaml, which also sets each player's seat, and the pan comes from the seat.
+      Output: files are named with the full BWV number (b244.10a_…, b1048a_…). The 15-column .npy saved beside each MP3 is the same format as today's, so make_score_videos.sh and the Blender stage can read it.
+      Two bugs found along the way:
+
+      Decimal chorales loaded the wrong score. Any name of 9 or more characters was cut to 6. The tuner and both WreckingCrews read bwv245.14 as a different chorale, and bwv244.15 through bwv244.62 all as bwv244.10. Only bwv244.3 was safe. The fix in adaptive_tuning_util.score_name keeps the full name whenever music21 has that work. Any tunings or renders you already have for those chorales were made from the wrong score and should be redone.
+      music21's stripTies misreads bwv846's last bars. It ends the tied pedal C early. v2 reads each note's own tie marking instead.
+      
+      Things you may notice:
+      In bwv846 the tuner retunes some held bass notes at almost every sixteenth as the arpeggio moves over them, so with glides on they waver by a few cents. If you'd rather they didn't, --no-glides holds them still.
+      The d field in the file name includes the 4-second reverb tail, so bwv262 shows d00_52 although the music lasts 0:48.
+      Csound looks up cents in a table of whole cents, so pitches are rounded to the nearest cent unless the note has a glide.
+      Tests: I added test_wreckingcrew_v2.py with 14 tests, and all pass. They check that the rendered notes match the score exactly, that pitches equal the tuning, that rests are silent, that glides end where the tuning does, and the instruments, seats and file names. They cover the 4-, 6- and 15-row pieces. test_rests.py, test_unique_pitch_classes.py, test_stream_to_midi_array.py and test_chord_report.py still pass.
+
+      Nothing is committed yet. The commit would hold WreckingCrew_v2.py, test_wreckingcrew_v2.py, adaptive_tuning_util.py, the one-comment change to make_score_videos.sh, WreckingCrew.txt and the grid-search.sh deletion, leaving out Uploads/ and plots/. Shall I commit it? Also, the pod's checkout is still at f8af5ce, older than the dcf9e41 you pushed, so pull there before running v2 in the pod.
+       
+      My comments:
+      They are all an octave too high. And they need to be played more legato, with a small overlap from one note to the other instead of a gap between notes. The piano render of bwv846 should have a sustain pedal on every measure, except the last two sustain across two measures. Default instruments should be flute, oboe, clarinet, bassoon, not string quartet. The strings sound fake when played in isolation. If you want cents to a decimal place, you need to change the adaptive_tuning_util.py to support that. I never considered doing that, but we might as well at this point. 
+      
+      Claude:
+      Here's the plan:
+
+      - Write ensembles/bwv262.yaml with flute, oboe, clarinet and bassoon on the four voices.
+      see ensembles\bwv262.yaml # <-- what does the seat value do? e.g. "seat: [-0.6, 0.0]"
+      - Make each note run a little past the start of the next one, so there's no gap between notes.
+      - Add a sustain pedal for the piano that's pressed at each barline and let up just before the next one. # <-- this needs to be set as an option, not an always on feature. Some way to tell the WreckingCrew.py and not necessarily the tuning regimen. Watch this. He's calling in pedal, which means he understands the piano. 
+      - Pass cents through to Csound as decimals instead of whole cents.
+      - First I'll read the parts of v2 involved and how ball9.csd turns cents into a pitch.

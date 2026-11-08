@@ -45,7 +45,8 @@ fail=0
 
 for chorale in "$@"; do
     case "$chorale" in bwv*) ;; *) echo "chorale names need the bwv prefix: $chorale" >&2; fail=1; continue;; esac
-    # WreckingCrew names the track after the BWV number, always three digits (b433a).
+    # The track is named after the BWV number: WreckingCrew.py uses its last three
+    # characters (b433a), WreckingCrew_v2.py all of it (b244.10a, b1048a).
     track=${chorale#bwv}
 
     if [ -n "$MP3" ]; then

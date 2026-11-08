@@ -49,7 +49,7 @@
 ; table f1 has the start location of the sample tables control functions 
  iSampWaveTable table iVoice,1 ; find the location of the sample wave tables base on input p7 
 ; print(iSampWaveTable) 
- ipitch table p5, 3 ; look up the cent value in ftable 3 a table of 1200 values from 0.001 to 0.120 
+ ipitch tablei p5, 3 ; look up the cent value in ftable 3 a table of 1200 values from 0.001 to 0.120; tablei (11/7/26) so p5 may be fractional, 386.25; whole cents read as before
  ioct = p6 ; convert from my octave form to midi standard 
 ;  iRatioFromCent = cent(p5) ; convert cents to ratio to be multiplied by a base frequency 
  ; 
