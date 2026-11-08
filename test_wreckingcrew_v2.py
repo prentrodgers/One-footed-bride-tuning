@@ -200,6 +200,29 @@ class TestNoteForNote(unittest.TestCase):
         self.assertEqual([wc2.bosendorfer_layer(v) for v in (55, 64, 66, 68, 70, 78, 90)],
                          [25, 39, 47, 63, 78, 127, 127])
 
+    def test_velocity_random(self):
+        """--velocity 64 --velocity_random 3: downbeats at 67, every other note 61-66, repeatable by seed."""
+        p = Piece.get('bwv846')
+        parts = [dict(x, velocity=64) for x in p.parts]
+        downbeats = set(wc2.barlines(p.stream, p.first))
+
+        def build(**kw):
+            a = types.SimpleNamespace(**dict(vars(ARGS), **kw))
+            return wc2.build_notes(p.rows, p.tuning, p.first, parts, a, wc2.GlideTables(),
+                                   dict(glides=0, max_glide=0.0, wide_glides=0, out_of_range={}),
+                                   tempo=TEMPO, bars=p.bars, downbeats=downbeats)
+        plain = build()
+        self.assertEqual(set(plain[:, 3]), {64})
+        n = build(velocity_random=3, seed=0)
+        on_beat = np.array([int(round(r[1] * 4)) in downbeats for r in n])
+        self.assertTrue(on_beat.any())
+        self.assertEqual(set(n[on_beat, 3]), {67})
+        self.assertEqual(set(n[~on_beat, 3]), set(range(61, 67)))
+        self.assertTrue(np.array_equal(n, build(velocity_random=3, seed=0)))
+        self.assertFalse(np.array_equal(n[:, 3], build(velocity_random=3, seed=1)[:, 3]))
+        # Only p4 changes.
+        self.assertTrue(np.array_equal(np.delete(n, 3, axis=1), np.delete(plain, 3, axis=1)))
+
     def test_pedal_is_an_option(self):
         """Off unless asked for; --pedal only reaches piano parts; --no-pedal beats the ensemble file."""
         stream = Piece.get('bwv846').stream

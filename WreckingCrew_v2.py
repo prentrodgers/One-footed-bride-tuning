@@ -479,7 +479,18 @@ def sounding_end(start, written_end, part, midi, args, ms, bars, strikes):
     return end
 
 
-def build_notes(rows, tuning, first, parts, args, glides, report, tempo=DEFAULT_TEMPO, bars=None):
+def note_velocity(base, slot, downbeats, spread, rng):
+    """--velocity_random: base + spread on the first beat of a measure, otherwise a random
+    whole number from base - spread to base + spread - 1, so no note outranks a downbeat."""
+    if not spread:
+        return base
+    if slot in downbeats:
+        return base + spread
+    return int(rng.integers(base - spread, base + spread))
+
+
+def build_notes(rows, tuning, first, parts, args, glides, report, tempo=DEFAULT_TEMPO, bars=None,
+                downbeats=None):
     """The (n, 15) p-field array, one row per note per player, sorted by start time.
 
     Columns as in WreckingCrew.py's features array (ball9.csd p1..p15):
@@ -500,6 +511,9 @@ def build_notes(rows, tuning, first, parts, args, glides, report, tempo=DEFAULT_
             strikes.setdefault((parts[p]['name'], midi), []).append(a - first)
     for v in strikes.values():
         v.sort()
+    spread = int(getattr(args, 'velocity_random', 0) or 0)
+    rng = np.random.default_rng(getattr(args, 'seed', 0))
+    downbeats = set(downbeats if downbeats is not None else (bars or ()))
     notes = []
     for v, (spans, _parent, p) in enumerate(rows):
         part = parts[p]
@@ -547,7 +561,8 @@ def build_notes(rows, tuning, first, parts, args, glides, report, tempo=DEFAULT_
                 written = (midi * 100 + shift) / 100 - 12 * CSD_OCTAVE_OFFSET   # in ball9.csd's numbering
                 if not lo - 2 <= written <= hi + 2:
                     report['out_of_range'].setdefault(f"{part['name']} ({inst})", [lo, hi, 0])[2] += 1
-                notes.append([1, start, dur, part['velocity'], cents, octave, voice, pan, p9, table,
+                vel = note_velocity(part['velocity'], c0, downbeats, spread, rng)
+                notes.append([1, start, dur, vel, cents, octave, voice, pan, p9, table,
                               0, p9, 0, 0, part['volume'] * level])
     notes.sort(key=lambda r: (r[1], r[6], -r[5], -r[4]))
     return np.array(notes, dtype=float)
@@ -678,8 +693,9 @@ def render(args):
     glides = GlideTables()
     report = dict(glides=0, max_glide=0.0, wide_glides=0, out_of_range={})
     last = max(b for spans, _p, _i in rows for _a, b, _m in spans) - first
-    bars = barlines(stream, first) + [last]
-    last_bars = args.pedal_last_bars or ensemble.get('pedal_last_bars') or 1
+    downbeats = barlines(stream, first)
+    bars = downbeats + [last]
+    last_bars =args.pedal_last_bars or ensemble.get('pedal_last_bars') or 1
     bars = pedal_changes(bars, last_bars)
     score_notes = sum(len(spans) for spans, _p, _i in rows)
     if args.merge_adjacent:
@@ -687,7 +703,13 @@ def render(args):
         merged = score_notes - sum(len(spans) for spans, _p, _i in rows)
         print(f'merge_adjacent: {merged} of {score_notes} score notes joined to the note before them')
         score_notes -= merged
-    notes = build_notes(rows, tuning, first, parts, args, glides, report, tempo=tempo, bars=bars)
+    notes = build_notes(rows, tuning, first, parts, args, glides, report, tempo=tempo, bars=bars,
+                        downbeats=downbeats)
+    if args.velocity_random:
+        vels, counts = np.unique(notes[:, 3].astype(int), return_counts=True)
+        piano = any(INSTRUMENTS[i][0] == 29 for x in parts for i in x['instruments'])
+        print(f'velocity: +-{args.velocity_random} (seed {args.seed}), downbeats at the top: ' + ', '.join(
+            f'{v}x{n}' + (f' (vel-{bosendorfer_layer(v)})' if piano else '') for v, n in zip(vels, counts)))
     pedalled = [x['name'] for x in parts if x['pedal']]
     if pedalled:
         held = f'; the last {last_bars} measures under one pedal' if int(last_bars) > 1 else ''
@@ -751,6 +773,11 @@ def main(argv=None):
                     help='p4 for every part, over the ensemble file (default %d). The Bosendorfer picks its '
                          'recording from it: 60 or less -> the velocity-25 layer, 64 -> 39, 66 -> 47, 68 -> 63, '
                          '70 -> 78, 72 -> 85, 74 -> 99, 76 -> 113, 78+ -> 127' % VELOCITY)
+    ap.add_argument('--velocity_random', type=int, default=0, metavar='N',
+                    help='vary p4 around each part\'s velocity: base+N on the first beat of a measure, '
+                         'a random value from base-N to base+N-1 elsewhere (default 0: every note at base)')
+    ap.add_argument('--seed', type=int, default=0,
+                    help='random seed for --velocity_random, so a render can be repeated (default %(default)s)')
     ap.add_argument('--merge_adjacent', action='store_true',
                     help='join a note to the one before it in its voice when they are the same pitch and '
                          'touch, tied or not (as WreckingCrew.py); the joined note glides to the new tuning')
