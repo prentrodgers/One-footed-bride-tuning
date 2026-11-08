@@ -39,7 +39,10 @@
 # 55 W / 100 W - the same clock per wall watt, so a cap buys speed for peak
 # power, not efficiency. The whole closet and probably the desk share one
 # circuit, so CAP_W x the Intel nodes is what must fit under it (15 A: 1,440 W
-# continuous; tuning on powersave-gpu was ~1,120 W). The Ryzens (fs6, fs9)
+# continuous; tuning on powersave-gpu was ~1,120 W). Fleet test, 8 Nov 2026,
+# 12-chorale ratchet with all slots busy: UPS A + B drew 900 / 951 / 1043 W
+# at 40 / 50 / 60 W for +18% then +7% busy-core clock; ray-ratchet.sh now
+# defaults to 50 (render_farm.sh still opts in). The Ryzens (fs6, fs9)
 # expose no writable limit and keep powersave-gpu; each host decides by
 # being Intel with /sys/class/powercap/intel-rapl:0 limits present. Unset or 0:
 # powersave-gpu everywhere, as before (render_farm.sh). tuned puts the
@@ -50,7 +53,7 @@
 # Undo with ./power-balanced.sh. Requires passwordless sudo on the nodes.
 #
 # Usage:  ./power-save-all.sh [--verify] [host ...]
-#         CAP_W=40 ./power-save-all.sh [--verify] [host ...]
+#         CAP_W=50 ./power-save-all.sh [--verify] [host ...]
 #         (default: all render nodes; --verify only checks, changes nothing)
 
 set -u
