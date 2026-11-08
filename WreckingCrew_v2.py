@@ -34,6 +34,11 @@ down at each barline and comes up 1 ms before the next one, so a note sounds
 until the barline after its written end.  A key struck again in the same
 measure stops the earlier sound, as the hammer does on a real piano.
 
+--merge_adjacent puts back one thing WreckingCrew.py does: a note that starts
+where the one before it in its voice ends, at the same pitch, is joined to it,
+tied or not, and glides to its own tuned value at the chord change instead of
+being struck again.  Everything else stays note for note.
+
 Pitch is sent to Csound in hundredths of a cent (p5 1199.99 at most).
 ball9.csd reads p5 with tablei, which interpolates its line f3 exactly.
 
@@ -45,6 +50,7 @@ array make_score_videos.sh and the Blender stage read.
     .venv/bin/python WreckingCrew_v2.py --chorale bwv262 --numpy_dir Archive/straw-man/t2_r1.50_lm19
     .venv/bin/python WreckingCrew_v2.py --chorale bwv846 --tempo 66 --instrument "Piano=harpsichord"
     .venv/bin/python WreckingCrew_v2.py --chorale bwv846 --tempo 66 --pedal       # Bosendorfer, pedalled
+    .venv/bin/python WreckingCrew_v2.py --chorale bwv262 --merge_adjacent --letter m   # repeats held and glided
     .venv/bin/python WreckingCrew_v2.py --chorale bwv262 --list     # show the part -> instrument table only
 """
 import argparse
@@ -214,6 +220,26 @@ def rows_by_part(stream):
                 else:
                     joined.append((a, b, midi))
             out.append((joined, None if parent is None else parent + base, i))
+    return out
+
+
+def merge_adjacent(rows):
+    """--merge_adjacent: join a note to the one before it in its row when it starts where
+    that one ends at the same MIDI note, tied or not, as WreckingCrew.py does.
+
+    The joined note is struck once and glides to each new tuned value at the chord
+    change (build_notes reads the tuning across the whole span).  A different
+    octave or a rest between them keeps them apart.
+    """
+    out = []
+    for spans, parent, p in rows:
+        joined = []
+        for a, b, midi in spans:
+            if joined and joined[-1][1] == a and joined[-1][2] == midi:
+                joined[-1] = (joined[-1][0], b, midi)
+            else:
+                joined.append((a, b, midi))
+        out.append((joined, parent, p))
     return out
 
 
@@ -557,13 +583,18 @@ def render(args):
     report = dict(glides=0, max_glide=0.0, wide_glides=0, out_of_range={})
     last = max(b for spans, _p, _i in rows for _a, b, _m in spans) - first
     bars = barlines(stream, first) + [last]
+    score_notes = sum(len(spans) for spans, _p, _i in rows)
+    if args.merge_adjacent:
+        rows = merge_adjacent(rows)
+        merged = score_notes - sum(len(spans) for spans, _p, _i in rows)
+        print(f'merge_adjacent: {merged} of {score_notes} score notes joined to the note before them')
+        score_notes -= merged
     notes = build_notes(rows, tuning, first, parts, args, glides, report, tempo=tempo, bars=bars)
     pedalled = [x['name'] for x in parts if x['pedal']]
     if pedalled:
         print(f'sustain pedal: {", ".join(dict.fromkeys(pedalled))}, down at each of {len(bars) - 1} barlines')
     beats = float((notes[:, 1] + notes[:, 2]).max())
     seconds = beats * 60.0 / tempo
-    score_notes = sum(len(spans) for spans, _p, _i in rows)
     print(f'{score_notes} score notes -> {len(notes)} Csound notes ({len(notes) - score_notes} by continuo '
           f'and other parts with two players), {beats:g} beats at {tempo} BPM = {mm_ss(seconds).replace("_", ":")}')
     print(f'glides: {report["glides"]} at chord changes in held notes, widest {report["max_glide"]:.1f} cents, '
@@ -611,6 +642,9 @@ def main(argv=None):
     ap.add_argument('--pedal', action=argparse.BooleanOptionalAction, default=None,
                     help='sustain pedal for piano parts, down at each barline; --no-pedal overrides the '
                          'ensemble file. Default: off, unless the ensemble file gives a part pedal: true')
+    ap.add_argument('--merge_adjacent', action='store_true',
+                    help='join a note to the one before it in its voice when they are the same pitch and '
+                         'touch, tied or not (as WreckingCrew.py); the joined note glides to the new tuning')
     ap.add_argument('--glides', action=argparse.BooleanOptionalAction, default=True,
                     help='glide a held note to its new value at a chord change (--no-glides holds the first)')
     ap.add_argument('--glide_slots', type=int, default=1, help='glide length in sixteenths')

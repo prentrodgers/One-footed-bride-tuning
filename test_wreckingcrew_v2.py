@@ -171,6 +171,29 @@ class TestNoteForNote(unittest.TestCase):
         quartet = wc2.plan_parts(Piece.get('bwv262').stream, {}, {}, pedal=True)
         self.assertFalse(any(x['pedal'] for x in quartet))       # strings: no pedal to press
 
+    def test_merge_adjacent(self):
+        """Touching same-pitch notes in a voice become one note, struck once, gliding at the join."""
+        for name in PIECES:
+            p = Piece.get(name)
+            merged = wc2.merge_adjacent(p.rows)
+            self.assertEqual(len(merged), len(p.rows))
+            joins = 0
+            for (before, _a, i), (after, _b, j) in zip(p.rows, merged):
+                self.assertEqual(i, j)
+                cover = lambda spans: sorted((s, m) for a, b, m in spans for s in range(a, b))
+                self.assertEqual(cover(before), cover(after), name)        # same slots sound, same pitches
+                for (a0, b0, m0), (a1, _b1, m1) in zip(after, after[1:]):
+                    self.assertFalse(b0 == a1 and m0 == m1, (name, a0, m0))
+                joins += len(before) - len(after)
+            self.assertGreater(joins, 0, name)
+        # bwv262: build with the merged rows; each joined note glides where the second one began.
+        p = Piece.get('bwv262')
+        merged = wc2.merge_adjacent(p.rows)
+        report = dict(glides=0, max_glide=0.0, wide_glides=0, out_of_range={})
+        notes = wc2.build_notes(merged, p.tuning, p.first, p.parts, ARGS, wc2.GlideTables(), report)
+        self.assertEqual(len(notes), sum(len(s) for s, _p, _i in merged))
+        self.assertGreater(report['glides'], p.report['glides'])
+
     def test_cents_to_the_hundredth(self):
         rows = [([(0, 4, 60)], None, 0)]
         parts = [dict(name='Soprano', instruments=['flute'], seat=[0.0, 0.0], velocity=70, volume=5,
