@@ -9,6 +9,7 @@
 #     ./ray-ratchet.sh --chorales bwv415 --patience 3        # anything ray_ratchet.py takes (--help lists it)
 #     ./ray-ratchet.sh --dry_run                             # the plan only; no cluster
 #     ./ray-ratchet.sh --attach                              # follow a run this shell lost
+#     ./ray-ratchet.sh --stop                                # tear down a cluster a run left up
 #     SKIP_SYNC=1    ./ray-ratchet.sh ...                    # the PVC checkout is already current
 #     KEEP_CLUSTER=1 ./ray-ratchet.sh ...                    # leave the cluster up afterwards
 #     POWER=0        ./ray-ratchet.sh ...                    # don't touch the tuned profiles
@@ -40,6 +41,8 @@
 #      job runs on the head, not in this shell: if the ssh session drops, the
 #      run continues and `./ray-ratchet.sh --attach` picks the log back up.
 #   5. delete the RayCluster — its pods hold most of what fs1, fs3-fs9 have free.
+#      A job that does not succeed leaves it up for a look; --stop takes it
+#      down, scales the LLM back and returns the fleet to balanced.
 #
 # Dashboard while it runs: http://192.168.68.14:30265 (a NodePort, the
 # Service at the end of k8s-ray-cluster.yaml) — per-task CPU and memory,
@@ -95,6 +98,38 @@ fi
 kubectl get --raw /readyz --request-timeout=10s >/dev/null 2>&1 \
     || { echo "kubectl cannot reach the cluster (kubectl get nodes to see why)" >&2; exit 2; }
 
+# The llama.cpp server on fs5 (OpenClaw's model) holds 4 CPU and 8Gi there; with
+# it up, fs5's worker cannot fit and sits Pending (10/24/26). Scaled to 0 for the
+# run -- OpenClaw falls back to its next model -- and back up by teardown().
+# LLM_DEPLOY=none to leave it alone.
+LLM_DEPLOY="${LLM_DEPLOY:-vllm/llama-qwen3-coder-next}"
+LLM_NS=${LLM_DEPLOY%%/*}; LLM_NAME=${LLM_DEPLOY#*/}
+
+# The RayCluster goes, and the LLM comes back to the replica count the run noted
+# on its Deployment (annotation ray-ratchet-replicas) when it scaled it to 0 --
+# noted there, not in this shell, so --stop from another shell can restore it.
+# Deleting the pods instead does nothing: KubeRay recreates them (9 Nov 2026).
+teardown(){
+    log "deleting the RayCluster (and the dashboard NodePort)"
+    kubectl delete -f k8s-ray-cluster.yaml --ignore-not-found --wait=false >/dev/null
+    [ "$LLM_DEPLOY" != none ] || return 0
+    n=$(kubectl -n "$LLM_NS" get deploy "$LLM_NAME" -o jsonpath='{.metadata.annotations.ray-ratchet-replicas}' 2>/dev/null || true)
+    n=${n:-${LLM_REPLICAS:-}}
+    if [ -n "$n" ] && [ "$n" != 0 ]; then
+        log "scaling $LLM_DEPLOY back to $n"
+        kubectl -n "$LLM_NS" scale deploy "$LLM_NAME" --replicas="$n" >/dev/null || true
+        kubectl -n "$LLM_NS" annotate deploy "$LLM_NAME" ray-ratchet-replicas- >/dev/null 2>&1 || true
+    fi
+}
+
+# --stop: the end of a successful run, for a cluster a run left up (a job that
+# did not succeed, KEEP_CLUSTER=1).  Like render_farm.sh --stop.
+if [ "${1:-}" = "--stop" ]; then
+    teardown
+    [ "$POWER" = 1 ] && ./power-balanced.sh | grep -E "all hosts|problems" || true
+    exit 0
+fi
+
 # Pre-flight: parse the arguments and print the plan HERE, before the sync,
 # the power switch and the cluster.  A typo (--chorale, a name without its
 # bwv prefix) used to surface only after all that, from the job on the head.
@@ -129,16 +164,11 @@ fi
 cleanup(){
     rc=$?
     if [ "$KEEP_CLUSTER" = 1 ]; then
-        log "KEEP_CLUSTER=1 — cluster left up:  kubectl delete -f k8s-ray-cluster.yaml"
+        log "KEEP_CLUSTER=1 — cluster left up:  ./ray-ratchet.sh --stop"
     else
-        log "deleting the RayCluster (and the dashboard NodePort)"
-        kubectl delete -f k8s-ray-cluster.yaml --ignore-not-found --wait=false >/dev/null
         # The LLM goes back only once fs5's worker is going away; while the cluster
         # is kept up it still needs the room.
-        if [ -n "${LLM_REPLICAS:-}" ] && [ "$LLM_REPLICAS" != 0 ]; then
-            log "scaling $LLM_DEPLOY back to $LLM_REPLICAS"
-            kubectl -n "${LLM_DEPLOY%%/*}" scale deploy "${LLM_DEPLOY#*/}" --replicas="$LLM_REPLICAS" >/dev/null || true
-        fi
+        teardown
     fi
     [ "$POWER" = 1 ] && ./power-balanced.sh | grep -E "all hosts|problems" || true
     exit $rc
@@ -148,17 +178,13 @@ if [ "$POWER" = 1 ]; then
     CAP_W=$CAP_W ./power-save-all.sh | grep -E "all hosts|problems|FAILED|MISMATCH"
 fi
 
-# The llama.cpp server on fs5 (OpenClaw's model) holds 4 CPU and 8Gi there; with
-# it up, fs5's worker cannot fit and sits Pending (10/24/26). Scaled to 0 for the
-# run -- OpenClaw falls back to its next model -- and back up by cleanup().
-# LLM_DEPLOY=none to leave it alone.
-LLM_DEPLOY="${LLM_DEPLOY:-vllm/llama-qwen3-coder-next}"
 if [ "$LLM_DEPLOY" != none ] &&
-   LLM_REPLICAS=$(kubectl -n "${LLM_DEPLOY%%/*}" get deploy "${LLM_DEPLOY#*/}" -o jsonpath='{.spec.replicas}' 2>/dev/null) &&
+   LLM_REPLICAS=$(kubectl -n "$LLM_NS" get deploy "$LLM_NAME" -o jsonpath='{.spec.replicas}' 2>/dev/null) &&
    [ "${LLM_REPLICAS:-0}" != 0 ]; then
     log "scaling $LLM_DEPLOY to 0 for the run (was $LLM_REPLICAS) -- fs5's worker needs the room"
-    kubectl -n "${LLM_DEPLOY%%/*}" scale deploy "${LLM_DEPLOY#*/}" --replicas=0 >/dev/null
-    kubectl -n "${LLM_DEPLOY%%/*}" wait --for=delete pod -l "app=${LLM_DEPLOY#*/}" --timeout=120s >/dev/null 2>&1 || true
+    kubectl -n "$LLM_NS" annotate deploy "$LLM_NAME" ray-ratchet-replicas="$LLM_REPLICAS" --overwrite >/dev/null
+    kubectl -n "$LLM_NS" scale deploy "$LLM_NAME" --replicas=0 >/dev/null
+    kubectl -n "$LLM_NS" wait --for=delete pod -l "app=$LLM_NAME" --timeout=120s >/dev/null 2>&1 || true
 fi
 
 # 3. the cluster
