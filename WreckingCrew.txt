@@ -24705,3 +24705,5 @@ ___________________
             Experiment with different velocity values. 
 
             Measure 20 sounds a little spicy. We need a thorough tuning run using ray-ratchet.sh, now including fs10 and fs11.
+________________
+11/9/26 Lots of things have happened since the last post. I suspect that the WreckingCrew.txt in wsl on win11-vm has the most current copy. Check it.
