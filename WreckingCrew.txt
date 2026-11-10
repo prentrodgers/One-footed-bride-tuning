@@ -24808,3 +24808,10 @@ __________________
             python WreckingCrew.py --chorale_list bwv365 --mod_letter b --include_slice 0 32 --include_slice 128 144 --chaconne_section 0 32 --chaconne_insert_after 31 --chaconne_repeats 5 --chaconne_density 4 0 2 3 5 --density_level 2
 
             python WreckingCrew.py --chorale_list bwv357 --mod_letter b --include_slice 0 32 --include_slice 224 256 --chaconne_section 0 32 --chaconne_insert_after 31 --chaconne_repeats 5 --chaconne_density 0 2 1 3 5 --density_level 3
+
+      Try to get the bwv846 played on the finger piano.
+            python WreckingCrew_v2.py --chorale bwv846 --ensemble ensembles/bwv846-fingerpiano.yaml --letter f --double_delay_ms 50 --velocity_random 6
+
+      The duo finger pianos look best with 50 ms. I tried higher numbers but they sound like out of control slap back echoplexes.
+
+      Now working on a video with the duo onstage. Looks great with blender connected to claude and mcp launching ./render_farm.sh 
