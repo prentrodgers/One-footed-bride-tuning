@@ -30,6 +30,8 @@ OWNED = {
     "Marimba": [],
     "Finger Piano": ["Finger Piano Stand", "Stool - Finger Piano", "Stool Footring - Finger Piano",
                      "Pignose Amp - Finger Piano", "Cable - Finger Piano", "Cable - Finger Piano Plugs"],
+    "Finger Piano 2": ["Finger Piano 2 Stand", "Stool - Finger Piano 2", "Stool Footring - Finger Piano 2",
+                       "Pignose Amp - Finger Piano 2", "Cable - Finger Piano 2", "Cable - Finger Piano 2 Plugs"],
     "Trumpet": [], "Clarinet": [],
     "Violin": ["Violin Bow"], "Oboe": [], "French Horn": ["Stool - French Horn"], "Vibraphone": [],
     "Viola": ["Viola Bow"], "Tuba": ["Stool - Tuba"],
@@ -40,6 +42,7 @@ OWNED = {
 CAMS = {
     "Marimba": ["Cam 4 Marimba Player POV", "Cam 33 Marimba Player (side, full figure)"],
     "Finger Piano": ["Cam 10 Finger Piano (player view)", "Cam 29 Finger Piano Hands (front)"],
+    "Finger Piano 2": ["Cam 37 Finger Piano 2 (player view)", "Cam 38 Finger Piano 2 Hands (front)"],
     "Trumpet": ["Cam 22 Trumpet Hands"], "Clarinet": [],
     "Violin": ["Cam 12 Violin Close"], "Oboe": ["Cam 34 Oboe Player", "Cam 7 Oboe Keys"],
     "French Horn": ["Cam 26 French Horn"], "Vibraphone": ["Cam 25 Vibraphone Player View"],
@@ -54,6 +57,7 @@ SHARED_CAMS = {
     "Baritone Flying V": ["Cam 32 Bass Section (guitar & bass finger piano)"], "Finger Piano": ["Cam 6 Finger Pianos"],
 }
 LIGHTS = {"Marimba": "Special 8 Marimba", "Finger Piano": "Special 3 Finger Piano",
+          "Finger Piano 2": "Special 18 Finger Piano 2",
           "Trumpet": "Special 10 Trumpet", "Clarinet": "Special 6 Clarinet",
           "Violin": "Special 2 Violin", "Oboe": "Special 7 Oboe", "French Horn": "Special 14 French Horn",
           "Vibraphone": "Special 16 Vibraphone", "Viola": "Special 13 Viola", "Tuba": "Special 11 Tuba",

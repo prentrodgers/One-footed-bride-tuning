@@ -17,6 +17,7 @@ the nearest 12-tone equal-tempered pitch for fingering, frets, bars and tines.
 """
 import argparse
 import bisect
+import json
 import math
 import random
 import sys
@@ -1559,12 +1560,33 @@ def camera_motion_blur(scene, perf, shutter):
     print(f"[concert] camera motion blur, shutter {shutter:g} frame")
 
 
+def apply_ensemble():
+    """A small-ensemble stage (concert_duo.py) names its cast and cameras in "Stage Controls" ensemble_json:
+    only those players are posed, looked at and filmed (the rest are hidden in that .blend). The full
+    stage has no ensemble_json and is left as it is."""
+    global PLAYER_CAMS, WIDE_CAMS
+    raw = bpy.data.objects["Stage Controls"].get("ensemble_json")
+    if not raw:
+        return
+    ens = json.loads(raw)
+    cast = ens["players"]
+    for k in [k for k in cp.PLAYERS if k not in cast]:
+        del cp.PLAYERS[k]
+    PLAYER_CAMS = {k: v for k, v in ens["player_cams"].items()}
+    WIDE_CAMS = list(ens["wide_cams"])
+    cc.GROUP_CAMS = {name: (tuple(pl), az, el, lens) for name, (pl, az, el, lens) in ens["group_cams"].items()}
+    dol = ens["dolly_cams"]                               # names (full-stage run) or {name: bracketed run}
+    cc.DOLLY_CAMS = {k: tuple(dol[k]) if isinstance(dol, dict) else v for k, v in cc.DOLLY_CAMS.items() if k in dol}
+    print(f"[concert] ensemble stage: {', '.join(cast)}; cameras {sorted(cc.GROUP_CAMS)}")
+
+
 class Performance:
     """Everything needed to put the stage into the state of one moment of a piece. Used by the farm render
     (main, below) and by concert_preview.py, so the Blender viewport shows exactly what gets rendered."""
 
     def __init__(self, npy, tempo, duration, cues=None, seed=7, camera=None, title=None):
         cp.load_layout()
+        apply_ensemble()
         self.per = load_notes(npy, tempo)
         self.players = {key: make_player(key, ns) for key, ns in self.per.items() if key in cp.PLAYERS}
         for pl in self.players.values():
