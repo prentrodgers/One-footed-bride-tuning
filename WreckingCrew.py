@@ -3236,7 +3236,7 @@ if __name__ == "__main__":
                                "the full gap and lets the envelopes do all the shaping. The two "
                                "multiply: e8 is down to half by mid-note, so a 0.12 hold leaves "
                                "only its attack. Default: on")
-      parser.add_argument("--articulate_gain", dest="articulate_gain", type=str, default="0.1,0.9",
+      parser.add_argument("--articulate_gain", dest="articulate_gain", type=str, default="0.1,0.6",
                           help="Volume multipliers for articulated notes, as "
                                "'<accent>,<sustained>'. Applied AFTER the sustained "
                                "auto-balance, which equalises sections on hold*loudness and so "
@@ -3245,7 +3245,7 @@ if __name__ == "__main__":
                                "articulated notes are touched; instruments in the same section "
                                "that kept their usual writing are untouched. Amplitude is linear "
                                "here, so 0.60 is about -4.4 dB and 0.90 about -0.9 dB. "
-                               "Use '1,1' for no reduction. Default: 0.1,0.9 (0.1 is -20 dB)")
+                               "Use '1,1' for no reduction. Default: 0.1,0.6 (0.1 is -20 dB, 0.6 about -4.4 dB)")
       parser.add_argument("--ap", dest="ap", type=int, default=None, choices=sorted(PRIME_PATTERNS),
                           help="Pin the chord-repeat pattern (the _ap tag in the output filename) instead of "
                                "drawing one at random. Relative to ap4: "
