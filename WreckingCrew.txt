@@ -24716,7 +24716,7 @@ ________________
       See what they have. 
             for n in best p90 score ; do echo $n ; grep Chorale -A6 save-$n.txt ; done
       This is better, it puts the same chord next to each of the choices, you can evaluate then more closely.
-            for c in bwv[354..365} for n bwv{354..365} ; do for n in best p90 score ; do echo $n ; grep bwv354 -A6 save-$n.txt ; done ; done
+            for c in bwv{354..365} for n bwv{354..365} ; do for n in best p90 score ; do echo $n ; grep bwv354 -A6 save-$n.txt ; done ; done
       p90 has the most high primes. I kind of like the spiciness of high primes. Go with it. 
       Copy the winning p90 to best-tunings and render in one go using --short_repeats :
             python select_best_and_render.py --numpy_dir_root Archive/straw-man --chorale_list bwv{354..365} --suffix="-opt.npy" --sort_by p90 --short_repeats --copy_mp3_to Uploads --render --copy_npy_to Archive/straw-man/best-tunings
@@ -24745,3 +24745,66 @@ __________________
       How chord numbers work. In WreckingCrew each "chord" is one sixteenth of the written score, counted from 0 at the first note. A 4/4 measure is 16 chords and a 3/4 measure is 12. That's why the numbers don't follow the measure labels in the PDF. I confirmed this for bwv354: 192 chords, the same width as its tuning in best-tunings.
 
       Repeats are played once. The arrays follow the score as written and never expand repeat signs, so a repeated passage is played and numbered only once. The table flags measures carrying a repeat sign, so you can line it up with the PDF.
+            python rondo_plan.py bwv354
+                  == bwv354   4/4, 192 chords (sixteenths), no pickup; an insert-after of 175 or more is skipped
+                  measure  chords
+                        0     0-15  
+                        1    16-31  
+                        2    32-47  
+                        3    48-63    repeat sign (played once)
+                        4    64-79  
+                        5    80-95  
+                        6    96-111 
+                        7   112-127 
+                        8   128-143 
+                        9   144-159 
+                  10   160-175 
+                  11   176-191 
+                  phrase   --rondo_section_*   measures     --rondo_insert_*_after
+                  1       0 32              0-1          31
+                  2      32 64              2-3          63
+                  3      64 96              4-5          95
+                  4      96 128             6-7          127
+                  5     128 160             8-9          159
+                  6     160 192             10-11        191  (too near the end)
+                  suggestion:
+                  --rondo_section_a 0 32 --rondo_insert_a_after 63 127 --rondo_section_b 64 96 --rondo_insert_b_after 159
+      Then create the piece and see what you have:
+            python WreckingCrew.py --chorale_list bwv354 --density_level 4 --ap 2 --rondo_section_a 0 32 --rondo_insert_a_after 63 127 --rondo_section_b 64 96 --rondo_insert_b_after 159 
+      I ran that a few times, testing times Best: real    0m17.433s user    0m16.231s sys     0m2.821s
+      Now I have a program that makes suggestions: Neat!
+            for c in bwv{354..365} ; do echo $c; python rondo_plan.py $c | grep -E "rondo_section_a|chords" ; done
+      Then paste in the WreckingCrew.py options that you want using vscode columnar cut and paste.
+            python WreckingCrew.py --chorale_list bwv354 --density_level 3 --rondo_section_a 0 32 --rondo_insert_a_after 63 127 --rondo_section_b 64 96 --rondo_insert_b_after 159
+            python WreckingCrew.py --chorale_list bwv355 --density_level 0 --rondo_section_a 0 32 --rondo_insert_a_after 95 159 --rondo_section_b 96 128 --rondo_insert_b_after 191
+            python WreckingCrew.py --chorale_list bwv356 --density_level 0 --rondo_section_a 0 48 --rondo_insert_a_after 95 143 --rondo_section_b 96 144 --rondo_insert_b_after 191
+            python WreckingCrew.py --chorale_list bwv357 --density_level 1 --rondo_section_a 0 32 --rondo_insert_a_after 95 159 --rondo_section_b 96 128 --rondo_insert_b_after 191
+            python WreckingCrew.py --chorale_list bwv358 --density_level 2 --rondo_section_a 0 32 --rondo_insert_a_after 63 127 --rondo_section_b 96 128 --rondo_insert_b_after 167
+            python WreckingCrew.py --chorale_list bwv359 --density_level 4 --rondo_section_a 0 32 --rondo_insert_a_after 63 127 --rondo_section_b 64 96 --rondo_insert_b_after 159
+            python WreckingCrew.py --chorale_list bwv360 --density_level 4 --rondo_section_a 0 32 --rondo_insert_a_after 63 127 --rondo_section_b 64 96 --rondo_insert_b_after 159
+            python WreckingCrew.py --chorale_list bwv361 --density_level 5 --rondo_section_a 0 32 --rondo_insert_a_after 55 143 --rondo_section_b 88 112 --rondo_insert_b_after 167
+            python WreckingCrew.py --chorale_list bwv362 --density_level 3 --rondo_section_a 0 32 --rondo_insert_a_after 127 335 --rondo_section_b 192 224 --rondo_insert_b_after 159
+            python WreckingCrew.py --chorale_list bwv363 --density_level 1 --rondo_section_a 0 48 --rondo_insert_a_after 95 135
+            python WreckingCrew.py --chorale_list bwv364 --density_level 1 --rondo_section_a 0 40 --rondo_insert_a_after 71 103 --rondo_section_b 72 104 --rondo_insert_b_after 139
+            python WreckingCrew.py --chorale_list bwv365 --density_level 3 --rondo_section_a 0 32 --rondo_insert_a_after 79 111
+
+      What about chaconne? replace:
+            --rondo_section_a 0 32 --rondo_insert_a_after 63 127 --rondo_section_b 64 96 --rondo_insert_b_after 159
+      With this:
+            --include_slice 0 32 --include_slice 159 192 --chaconne_section 0 32 --chaconne_insert_after 31 --chaconne_repeats 4 --chaconne_density 3 2 1 5 --density_level 4
+      And for 3/4 time signature replace:
+            --rondo_section_a 0 48 --rondo_insert_a_after 95 143 --rondo_section_b 96 144 --rondo_insert_b_after 191
+      With this:
+            --include_slice 0 48 --include_slice 228 240 --chaconne_section 0 48 --chaconne_insert_after 47 --chaconne_repeats 4 --chaconne_density 1 2 3 0 --density_level 4
+      
+            
+      And to distinguish versions? --mod_letter b
+            python WreckingCrew.py --chorale_list bwv354 --mod_letter b --include_slice 0 32 --include_slice 159 192 --chaconne_section 0 32 --chaconne_insert_after 31 --chaconne_repeats 4 --chaconne_density 3 2 1 5 --density_level 4  
+
+            python WreckingCrew.py --chorale_list bwv356 --mod_letter b --include_slice 0 48 --include_slice 228 240 --chaconne_section 0 48 --chaconne_insert_after 47 --chaconne_repeats 4 --chaconne_density 1 2 3 0 --density_level 4
+
+            python WreckingCrew.py --chorale_list bwv364 --mod_letter b --include_slice 0 32 --include_slice 160 176 --chaconne_section 0 32 --chaconne_insert_after 31 --chaconne_repeats 4 --chaconne_density 3 2 1 5 --density_level 4
+
+            python WreckingCrew.py --chorale_list bwv365 --mod_letter b --include_slice 0 32 --include_slice 128 144 --chaconne_section 0 32 --chaconne_insert_after 31 --chaconne_repeats 5 --chaconne_density 4 0 2 3 5 --density_level 2
+
+            python WreckingCrew.py --chorale_list bwv357 --mod_letter b --include_slice 0 32 --include_slice 224 256 --chaconne_section 0 32 --chaconne_insert_after 31 --chaconne_repeats 5 --chaconne_density 0 2 1 3 5 --density_level 3
