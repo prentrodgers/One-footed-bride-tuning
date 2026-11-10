@@ -4,9 +4,12 @@ WreckingCrew_v2.py - play a tuned score note for note.
 
 Each note Bach wrote is played once, at his rhythm, by the instrument of its
 part, at the pitch the tuner gave it.  Nothing is added: no doubling, no
-arpeggios, no chord masking, no repeats, no octave drop, no random timbre,
-stereo or start-time jitter.  WreckingCrew.py is untouched and still does all of
-that for the chorale arrangements.
+arpeggios, no chord masking, no repeats, no octave drop, no random timbre
+or stereo.  WreckingCrew.py is untouched and still does all of that for the
+chorale arrangements.  The one exception is a part the ensemble file gives two
+or more players: every player after the first starts each note 0 to
+--double_delay_ms (20) late, a new random delay for every note.  Two real players
+never strike together, and without the delay the two sound as one.
 
     score  (music21 corpus or Scores/<name>.*)  -> notes: onset, length, MIDI number, row
     tuning (<numpy_dir>/<name>-opt.npy, voices x sixteenths, cents per pitch class)
@@ -95,6 +98,7 @@ CSD_OCTAVE_OFFSET = 1
 # in ball9.csd's numbering: add 12 for MIDI).
 # A note outside the range still plays, from the nearest sample, transposed; v2 reports it.
 VOICES = {
+    1: ('finger piano', 12, 72),
     4: ('cello pizzicato', 36, 74),
     8: ('harp', 13, 83),
     12: ('bassoon', 22, 52),
@@ -106,6 +110,7 @@ VOICES = {
     18: ('viola, vibrato', 37, 73),
     19: ('cello, vibrato', 25, 63),
     23: ('string ensemble', 39, 75),
+    24: ('bass finger piano', 7, 62),
     25: ('trumpet in C', 42, 74),
     26: ('tenor trombone', 28, 58),
     27: ('tuba', 24, 55),
@@ -139,6 +144,8 @@ INSTRUMENTS = {
     'piano': (29, 0, 0, None),
     'harpsichord': (29, 0, 0, 'no harpsichord samples: Bosendorfer'),
     'harp': (8, 0, 0, None),
+    'finger piano': (1, 0, 0, None),        # the tines decay by themselves, as the harp's strings do
+    'bass finger piano': (24, 0, 0, None),
     'timpani': (4, 0, 0, 'no timpani samples: cello pizzicato'),
 }
 # What a part named this plays, first match wins (part name, then the score's instrument name).
@@ -539,6 +546,9 @@ def build_notes(rows, tuning, first, parts, args, glides, report, tempo=DEFAULT_
         v.sort()
     spread = int(getattr(args, 'velocity_random', 0) or 0)
     rng = np.random.default_rng(getattr(args, 'seed', 0))
+    # Its own stream, so turning the delays on or off leaves --velocity_random's draws alone.
+    delay_max = float(getattr(args, 'double_delay_ms', 0) or 0) * ms
+    delay_rng = np.random.default_rng([getattr(args, 'seed', 0), 1])
     downbeats = set(downbeats if downbeats is not None else (bars or ()))
     notes = []
     for v, (spans, _parent, p) in enumerate(rows):
@@ -592,6 +602,10 @@ def build_notes(rows, tuning, first, parts, args, glides, report, tempo=DEFAULT_
                 if not lo - 2 <= written <= hi + 2:
                     report['out_of_range'].setdefault(f"{part['name']} ({inst})", [lo, hi, 0])[2] += 1
                 vel = note_velocity(part['velocity'], c0, downbeats, spread, rng)
+                if k > 0 and delay_max > 0:
+                    # A doubling player: the whole note a little late, a new delay every note.
+                    start += delay_rng.uniform(0.0, delay_max)
+                    report['delayed'] = report.get('delayed', 0) + 1
                 notes.append([1, start, dur, vel, cents, octave, voice, pan, p9, table,
                               0, p9, 0, 0, part['volume'] * level])
     notes.sort(key=lambda r: (r[1], r[6], -r[5], -r[4]))
@@ -753,6 +767,9 @@ def render(args):
     seconds = beats * 60.0 / tempo
     print(f'{score_notes} score notes -> {len(notes)} Csound notes ({len(notes) - score_notes} by continuo '
           f'and other parts with two players), {beats:g} beats at {tempo} BPM = {mm_ss(seconds).replace("_", ":")}')
+    if report.get('delayed'):
+        print(f'doubling: {report["delayed"]} notes of the second and later players delayed 0-'
+              f'{args.double_delay_ms:g} ms at random (--double_delay_ms)')
     print(f'glides: {report["glides"]} at chord changes in held notes, widest {report["max_glide"]:.1f} cents, '
           f'{report["wide_glides"]} over {args.max_glide:g}; {len(glides.tables)} tables')
     for who, (lo, hi, n) in report['out_of_range'].items():
@@ -816,8 +833,13 @@ def main(argv=None):
     ap.add_argument('--velocity_random', type=int, default=0, metavar='N',
                     help='vary p4 around each part\'s velocity: base+N on the first beat of a measure, '
                          'a random value from base-N to base+N-1 elsewhere (default 0: every note at base)')
+    ap.add_argument('--double_delay_ms', type=float, default=20.0, metavar='MAX',
+                    help='in a part with two or more players, every player after the first starts each note '
+                         'a random 0 to MAX ms late, drawn anew for every note, so the doubling is heard as '
+                         'two players (default %(default)g; 0 = all players strike together)')
     ap.add_argument('--seed', type=int, default=0,
-                    help='random seed for --velocity_random, so a render can be repeated (default %(default)s)')
+                    help='random seed for --velocity_random and --double_delay_ms, so a render can be '
+                         'repeated (default %(default)s)')
     ap.add_argument('--merge_adjacent', action='store_true',
                     help='join a note to the one before it in its voice when they are the same pitch and '
                          'touch, tied or not (as WreckingCrew.py); the joined note glides to the new tuning')

@@ -1,0 +1,28 @@
+# WTC I Prelude in C (BWV 846) on two finger pianos, each playing every note.
+#
+#     .venv/bin/python WreckingCrew_v2.py --chorale bwv846 --ensemble ensembles/bwv846-fingerpiano.yaml --numpy_dir Archive/straw-man/<cell> --letter f
+#
+# Both staves are named Piano, so the one entry below sets both: the right and
+# left hand go to the same two players.
+#
+# instrument: a list gives the part one player per entry, all playing every note.
+# seat: one [x, y] per player, in the same order -- x from -1 (the audience's left)
+# to +1 (their right), y the depth from the front of the stage.  Pan comes from x.
+# Player 1 sits on the left, player 2 on the right.
+#
+# The finger piano samples (ball9.csd voice 1, f601) run MIDI 24-84, which covers
+# the prelude.  "bass finger piano" (voice 24, MIDI 19-74) is the other choice for
+# the second player, for a darker double: [finger piano, bass finger piano].
+#
+# pedal: a finger piano has no dampers, and its tines ring until they die away.
+# The pedal stands in for that: each note rings until the next barline, so each
+# measure's broken chord sounds together, and the last two measures ring over the
+# held C.  --no-pedal on the command line turns it off.
+
+tempo: 66
+pedal_last_bars: 2
+parts:
+  Piano:
+    instrument: [finger piano, finger piano]
+    seat: [[-0.4, 0.0], [0.4, 0.0]]
+    pedal: true
