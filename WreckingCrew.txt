@@ -24706,4 +24706,42 @@ ___________________
 
             Measure 20 sounds a little spicy. We need a thorough tuning run using ray-ratchet.sh, now including fs10 and fs11.
 ________________
-11/9/26 Lots of things have happened since the last post. I suspect that the WreckingCrew.txt in wsl on win11-vm has the most current copy. Check it.
+11/9/26 Make some music with bwv846 and the latest set of chorales. bwv{354..365} # missed 366. Ooops. 
+      There is a log at cat Archive/straw-man/ray-ratchet-20261108-1111.tsv, but it's for bwv846 from 11/8 at 11:41 am.
+      Also this one ray-ratchet-20261108-1159.tsv
+      Run these in one-footed-bride-pod:
+            python select_best_and_render.py --numpy_dir_root Archive/straw-man --chorale_list bwv{354..365} --suffix="-opt.npy" --sort_by best > save-best.txt
+            python select_best_and_render.py --numpy_dir_root Archive/straw-man --chorale_list bwv{354..365} --suffix="-opt.npy" --sort_by p90 > save-p90.txt
+            python select_best_and_render.py --numpy_dir_root Archive/straw-man --chorale_list bwv{354..365} --suffix="-opt.npy" --sort_by score > save-score.txt
+      See what they have. 
+            for n in best p90 score ; do echo $n ; grep Chorale -A6 save-$n.txt ; done
+      This is better, it puts the same chord next to each of the choices, you can evaluate then more closely.
+            for c in bwv[354..365} for n bwv{354..365} ; do for n in best p90 score ; do echo $n ; grep bwv354 -A6 save-$n.txt ; done ; done
+      p90 has the most high primes. I kind of like the spiciness of high primes. Go with it. 
+      Copy the winning p90 to best-tunings and render in one go using --short_repeats :
+            python select_best_and_render.py --numpy_dir_root Archive/straw-man --chorale_list bwv{354..365} --suffix="-opt.npy" --sort_by p90 --short_repeats --copy_mp3_to Uploads --render --copy_npy_to Archive/straw-man/best-tunings
+      Then render the chorales in lilypond to pdf.
+            for c in bwv{354..365} ; do python chord_report.py --chorale $c --input_numpy_file Archive/straw-man/best-tunings ; done
+      Then find the spots where to make the rondo or chaconne for each chorale. This will take a while. Tomorrow.
+      Then render the 846 on the bosendorfer
+            python WreckingCrew_v2.py --chorale bwv846 --pedal --velocity 64 --velocity_random 3 --letter f
+      Copy it into the fs1. Use this, with the ${f} formulation otherwise it looks at $fa and substitutes a blank. 
+            for f in {354..366}; do scp "one-footed-bride-pod:Repos/One-footed-bride-tuning/Uploads/b${f}a*.mp3" Uploads/; done
+            for f in {354..365}; do scp "one-footed-bride-pod:Repos/One-footed-bride-tuning/Uploads/b${f}a*.npy" Uploads/; done
+            cd ~/Dropbox/Uploads
+            mkdir Dj-11-09-26
+            for f in {354..366}; do scp "one-footed-bride-pod:Repos/One-footed-bride-tuning/Uploads/b${f}a*.mp3" .; done
+            scp one-footed-bride-pod:Repos/One-footed-bride-tuning/Uploads/b846f_t3_d02_11_t066_lm19_r1.25.mp3 .
+      Then get the best-tunings"
+            scp -r one-footed-bride-pod:~/Repos/One-footed-bride-tuning/Archive/straw-man/best-tunings/bwv{354..365} Archive/straw-man/best-tunings
+
+__________________
+11/10/26 Pick the rondo or chaconne for each chorale in bwv{354..365}
+      First print the pdf of the chorale:
+            python chorale_pdf.py bwv{354..365}
+      Then choose the form and the key phrases to repeat. Rondos repeat the final expanded version note for note. Chaconne repeats the original source notes, then expand those to create variations. 
+      354: dual rondo. --rondo_section_a 0 32 --rondo_insert_a_after 95 143
+      
+      How chord numbers work. In WreckingCrew each "chord" is one sixteenth of the written score, counted from 0 at the first note. A 4/4 measure is 16 chords and a 3/4 measure is 12. That's why the numbers don't follow the measure labels in the PDF. I confirmed this for bwv354: 192 chords, the same width as its tuning in best-tunings.
+
+      Repeats are played once. The arrays follow the score as written and never expand repeat signs, so a repeated passage is played and numbered only once. The table flags measures carrying a repeat sign, so you can line it up with the PDF.
