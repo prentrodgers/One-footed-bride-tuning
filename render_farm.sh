@@ -254,18 +254,23 @@ while [ $# -gt 0 ]; do
             last=$(sed -n 's/.*--frame-end \([0-9]*\).*/\1/p' <<<"$args")
             # the last line that names a frame: a finished pod's very last lines are
             # "[stage] done" and "Blender quit", which would read as "not started"
-            line=$(kubectl -n "$NS" logs "$pod" --tail=200 2>/dev/null | grep -a 'frame_[0-9]*\.png' | tail -n 1 || true)
+            log=$(kubectl -n "$NS" logs "$pod" --tail=-1 2>/dev/null || true)
+            line=$(grep -a 'frame_[0-9]*\.png' <<<"$log" | tail -n 1 || true)
             cur=$(sed -n "s/.*frame_0*\([0-9][0-9]*\)\.png.*/\1/p" <<<"$line")
             clock=$(awk '{print $1}' <<<"$line")
+            # a relaunched slice skips the frames already on disk (concert_stage.py resume): they
+            # count as done but took none of this run's time, so they stay out of the rate
+            skipped=$(sed -n 's/.*\] \([0-9]*\) frames already rendered in.*/\1/p' <<<"$log" | tail -n 1)
             awk -v pod="${pod#blender-farm-}" -v node="$node" -v phase="$phase" \
-                -v a="$first" -v b="$last" -v c="${cur:-}" -v clk="$clock" 'BEGIN{
+                -v a="$first" -v b="$last" -v c="${cur:-}" -v clk="$clock" -v sk="${skipped:-0}" 'BEGIN{
               span = b - a + 1
               if (c == "") { printf "  %-7s %-4s %-10s   %6d frames, %s\n", pod, node, phase, span, \
                                     (phase == "Succeeded" ? "finished" : "not started"); exit }
               done = c - a + 1
               n = split(clk, t, ":")
               secs = (n == 3) ? t[1]*3600 + t[2]*60 + t[3] : t[1]*60 + t[2]
-              rate = (secs > 0) ? done / secs : 0
+              made = done - sk                                   # rendered by this run
+              rate = (secs > 0 && made > 0) ? made / secs : 0
               eta = (rate > 0) ? (span - done) / rate / 60 : 0
               bars = int(20 * done / span)
               bar = ""
