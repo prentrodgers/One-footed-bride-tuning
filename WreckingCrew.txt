@@ -24815,3 +24815,25 @@ __________________
       The duo finger pianos look best with 50 ms. I tried higher numbers but they sound like out of control slap back echoplexes.
 
       Now working on a video with the duo onstage. Looks great with blender connected to claude and mcp launching ./render_farm.sh 
+
+11/10/26 The finger piano duo video of bwv846.
+      concert_duo.py builds FingerPiano_Duo.blend from Concert_Stage.blend (which it leaves alone): the two finger pianists moved together to centre stage (x = -1.4 and +1.4), everyone else hidden, four cameras on the pair (Cam 53-56), and the front-row dolly bracketed from one player to the other instead of panning across 11 m of empty stage. concert_stage.py reads the cast from the .blend and only poses and films those two. For another ensemble (Brandenburgs?), change DUO at the top of concert_duo.py and build a new .blend.
+            blender --background Concert_Stage.blend --python concert_duo.py -- --out FingerPiano_Duo.blend
+
+      Preview in the Blender window (Claude did this over MCP): open FingerPiano_Duo.blend, then in the Python console
+            import concert_preview as pv; pv.load("Uploads/b846f_t3_d02_11_t066_lm19_r1.25", tempo=66, duration=125.6)
+      Space plays, drag the timeline to scrub, Home shows the whole timeline. pv.STATE["cut"] = False holds one camera. pv.unload() puts the stage back.
+
+      Lessons:
+      The pods read the repo on the PVC, not fs1. New files have to go through git (push, then git pull on one-footed-bride-pod), and Uploads/ is not in git at all. The first render used a day-old Bosendorfer npy and mp3 from the PVC with the same name, so the pianists never moved and the audio was the old piano. render_farm.sh now refuses to launch when the npy, mp3 or .blend on fs1 differ from the PVC copy (PVC_CHECK=0 skips the check). Copy Uploads files across with scp.
+      render_farm.sh --progress now leaves frames skipped on a relaunch out of the rate, so the eta is real.
+
+      The second render (frames_concert_b846f_cyc_v2) overloaded UPS apc-A at about 900 W. It dropped fs6, then fs5 and fs6. All hosts were on powersave-gpu, but that profile leaves the Arc cards at full clock, and PER_CARD=3 keeps every card busy all the time. fs6 dropping out is probably also why its slices died in the first render. Stopped for the night.
+            ./render_farm.sh --stop
+
+      Tomorrow: check fs5/fs6 and ceph are back, count the frames, and relaunch into the same folder with fewer processes per card. Frames already rendered are skipped. Watch apc-A's load display for the first few minutes. If it is still too high, cap the Arc clocks (ARC_MAX in render_farm.sh is a possible addition) or move fs6 to UPS B.
+            PER_CARD=2 SCRIPT=concert_stage.py BLEND=FingerPiano_Duo.blend ./render_farm.sh --npy Uploads/b846f_t3_d02_11_t066_lm19_r1.25.npy --tempo 66 --duration 125.6 --out frames_concert_b846f_cyc_v2 --engine cycles --cycles-hw-rt --look studio --autogen 10:120:7
+            ./concert_mux.sh frames_concert_b846f_cyc_v2 Uploads/b846f_t3_d02_11_t066_lm19_r1.25.mp3 concert_b846f_v2.mp4
+
+      daily_chorale_tweet.py was tweeting BWV 354-366 as "Bach Chorale": its title table jumped from 267 to 367. It now has every chorale 253-438 plus the 208 chorales inside the cantatas and passions (b244.10a tweets as BWV 244/10), taken from Wikipedia's list because bach-chorales.com blocks scripts. git pull wherever the tweet runs.
+      To do before rendering any cantata chorale with WreckingCrew.py: it names files from version[-3:] (line 2825), so bwv244.10 would come out as b4.10a. WreckingCrew_v2.py already uses the full number.
