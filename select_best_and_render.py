@@ -248,7 +248,8 @@ def main():
                              'it (default: 17)')
     parser.add_argument('--copy_npy_to', type=str, default=None,
                         help='Copy the leading row per chorale (under --sort_by) to this '
-                             'directory. Ordering is not a quality verdict — check the report first.')
+                             'directory, with its .txt, and remove that chorale\'s previous copy '
+                             'there. Ordering is not a quality verdict — check the report first.')
     # Kept for when selection is trustworthy again; unused for now.
     parser.add_argument('--render', action='store_true',
                         help='Run WreckingCrew.py for the leading row per chorale')
@@ -447,15 +448,38 @@ def main():
             dest_filename = (f'{version}_t{params["tolerance"]}'
                              f'_r{params["ratio_factor"]:.3f}_lm{params["limit_max"]}{w_suffix}')
             dest_path = os.path.join(dest, dest_filename)
+            # The .txt sidecar goes with it (11 Nov 2026): it records `rests: honored`
+            # or `held`, and without it chord_report and this report score the copy as
+            # an old held-rests tuning.  Only the .npy used to be copied.
+            src_txt = os.path.splitext(src)[0] + '.txt'
+            dest_txt = os.path.splitext(dest_path)[0] + '.txt'
             # The leading row is often the destination itself: a tuning
             # promoted earlier that no grid cell has since beaten.  Copying a
             # file onto itself raises SameFileError, which used to stop the
             # loop at the first such chorale with nothing copied.
             if os.path.exists(dest_path) and os.path.samefile(src, dest_path):
                 print(f'  {version}  =   {dest_filename}  (already the leader; unchanged)')
-                continue
-            shutil.copy2(src, dest_path)
-            print(f'  {version}  →  {dest_filename}  (from {os.path.basename(d)})')
+            else:
+                shutil.copy2(src, dest_path)
+                if os.path.exists(src_txt):
+                    shutil.copy2(src_txt, dest_txt)
+                print(f'  {version}  →  {dest_filename}  (from {os.path.basename(d)})'
+                      + ('' if os.path.exists(src_txt) else '  [no .txt beside it to copy]'))
+            # The chorale's earlier copies under other cell names go (11 Nov 2026):
+            # left in place, WreckingCrew_v2's find_tuning took the first by name,
+            # which could be the old one.  Same suffix only, so a -trans-sa-opt copy
+            # is kept beside an -opt one; `bwv846_t*` never matches bwv846f_ files.
+            # An exact pattern, not a glob: `_lm*-opt.npy` also matched lm17-trans-sa-opt.npy.
+            same = re.compile(rf'{re.escape(version)}_t\d+_r[\d.]+_lm\d+{re.escape(w_suffix)}')
+            stale = [os.path.join(dest, f) for f in os.listdir(dest) if same.fullmatch(f)]
+            for old in sorted(stale):
+                if os.path.samefile(old, dest_path):
+                    continue
+                os.remove(old)
+                old_txt = os.path.splitext(old)[0] + '.txt'
+                if os.path.exists(old_txt):
+                    os.remove(old_txt)
+                print(f'  {version}  ✗  {os.path.basename(old)}  (previous leader, removed with its .txt)')
         print('\nDone copying.')
 
 
