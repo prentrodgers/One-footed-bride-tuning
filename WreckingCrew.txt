@@ -24482,12 +24482,12 @@ ___________________
             command line: python WreckingCrew.py --chorale_list bwv374 --density_level 4 --ap 2 --articulate_gain 0.1,0.6 --rondo_section_a 0 32 --rondo_insert_a_after 95 143
             ssh one-footed-bride-pod
             cd ~/Repos/One-footed-bride-tuning 
-            ffprobe -v error -show_entries format=duration -of csv=p=0 Uploads//b374a_df4_t1_d02_44_t086_ap2_lm17_r1.25.mp3
+            ffprobe -v error -show_entries format=duration -of csv=p=0 Uploads/b374a_df4_t1_d02_44_t086_ap2_lm17_r1.25.mp3
                  159.5
       Create the title page (no longer necessary unless you want a custom title):
             ssh one-footed-bride-pod "cd Repos/One-footed-bride-tuning && python concert_title.py Uploads//b374a_df4_t1_d02_44_t086_ap2_lm17_r1.25"
-      Then from on win11-vn: 
-            scp one-footed-bride-pod:Repos/One-footed-bride-tuning/Uploads//b374a_df4_t1_d02_44_t086_ap2_lm17_r1.25.title.txt ~/Repos/One-footed-bride-tuning/Uploads/
+      Then from on win11-vm: 
+            scp one-footed-bride-pod:Repos/One-footed-bride-tuning/Uploads/b374a_df4_t1_d02_44_t086_ap2_lm17_r1.25.title.txt ~/Repos/One-footed-bride-tuning/Uploads/
       Then run the render:
       On win11-vm
             cd ~/Repos/One-footed-bride-tuning 
@@ -24924,5 +24924,52 @@ _________________________________
 
       A sensible first try for UPS A would be PER_CARD="2 fs5=1 fs6=1" ARC_MAX="fs5=2000 fs6=2000", watching the Grafana UPS panels while it runs.
 
+      ___________________________________
       Next run should be something like this:
             PER_CARD="2 fs5=1 fs6=1" ARC_MAX="fs5=2000 fs6=2000" ... ./render_farm.sh ...
+
+      From scratch in the pod:
+            ssh one-footed-bride-pod
+            cd Repos/One-footed-bride-tuning/
+            ls -1t Uploads/b846*.mp3 | head -n 1
+                  Uploads/b846f_t3_d02_11_t066_lm19_r1.25.mp3
+            ffprobe -v error -show_entries format=duration -of csv=p=0 Uploads/b846f_t3_d02_11_t066_lm19_r1.25.mp3
+                  125.544475
+      Then on the host:
+            PER_CARD="2 fs5=1 fs6=1" ARC_MAX="fs5=2000 fs6=2000" SCRIPT=concert_stage.py BLEND=Concert_Stage.blend ./render_farm.sh --npy Uploads/b846f_t3_d02_11_t066_lm19_r1.25.npy --tempo 66 --duration 125.5 --out frames_concert_b846_cyc_v1 --engine cycles --cycles-hw-rt --look studio --autogen 10:121:7
+      Monitor
+            watch -n 20 "./render_farm.sh --progress ; ./render_farm.sh --status"
+      mux back in the pod:
+            ssh one-footed-bride-pod 
+            cd ~/Repos/One-footed-bride-tuning
+            ./concert_mux.sh frames_concert_b846f_cyc_v2 Uploads/b846f_t3_d02_11_t066_lm19_r1.25.mp3 concert_b846f_v2.mp4
+      Then go into the Dropbox/Uploads/Dj-11-09-26 # or whatever you are using for these. 
+            ssh one-footed-bride-pod ls -1t Repos/One-footed-bride-tuning/*.mp4 | head -n 1
+                  Repos/One-footed-bride-tuning/concert_b846f_v2.mp4
+            scp one-footed-bride-pod:Repos/One-footed-bride-tuning/concert_b846f_v2.mp4 .
+                  concert_b846f_v2.mp4  ... 100%   15MB  11.3MB/s   00:01
+      Then play it. Upload to YouTube or Substack. 
+      Stop the pods and return to balanced:
+            ./render_farm.sh --stop
+      Title: Bach's Prelude No. 1 in C major from the Well-Tempered Clavier, Book 1, BWV846
+
+      Description: This is a version of BWV846 for my amplified finger piano. This is one of my favorite pieces by Bach, with it's simlicity and sweetness, combined with deep complexity that repeated hearings reveal. The notes are tuned in my One Footed Bride Tuning to the 19-limit, with ratio_factor 1.25. Cent values of intervals are allowed to differ from the cent value of the actual ratio by up to plus or minus 3 cents. The goal of this tuning is to find ratios of intervals using the lowest possible integers. The video was created with the assistance of Claude Code Opus 5.5 who wrote the python code to be run by Blender. Each action is created to imitate the appearance and movements of real musicians on real instruments. If you hear wrong notes, those are probably those intervals that ended up with ratios with relatively high prime numbers: 11, 13, 17, and 19. Sometimes that's the best my algorithms can do. 
+      
+      Fake but almost accurate. I call it Animicrotonal Music Videos. 
+      Link: https://youtu.be/XMk7bXuaQ-M
+
+      Now it's time for more WTC before we move to the Brandenbergs. I've proven the method.
+      
+      Bach’s Well-Tempered Clavier comprises BWV 846–869 for Book I and BWV 870–893 for Book II, totaling 48 preludes and fugues across all major and minor keys.
+
+      Tune them in batches of 5, then six.
+            cd ~/Repos/One-footed-bride-tuning
+            ./ray-ratchet.sh --chorales bwv8{47..52}
+                  == plan
+                  144 (cell, chorale) tasks: 24 cells x 6 chorales
+                        chorales: bwv847 bwv848 bwv849 bwv850 bwv851 bwv852
+                        cells:    t1_r1.25_lm17 t1_r1.25_lm19 t1_r1.375_lm17 t1_r1.375_lm19 t1_r1.50_lm17 t1_r1.50_lm19 t1_r1.625_lm17 t1_r1.625_lm19 t2_r1.25_lm17 t2_r1.25_lm19 t2_r1.375_lm17 t2_r1.375_lm19 t2_r1.50_lm17 t2_r1.50_lm19 t2_r1.625_lm17 t2_r1.625_lm19 t3_r1.25_lm17 t3_r1.25_lm19 t3_r1.375_lm17 t3_r1.375_lm19 t3_r1.50_lm17 t3_r1.50_lm19 t3_r1.625_lm17 t3_r1.625_lm19
+                        patience 2, max_passes 8 (4 while a chorale has no GapSum < 10), prune after 2 at avg slack 1, 4 CPU + 2.5GiB per task
+
+                  10:15:02 syncing the PVC checkout to origin/main
+      Failed out of the gate. 

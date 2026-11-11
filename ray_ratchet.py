@@ -176,6 +176,40 @@ def parse_args():
     return a
 
 
+SCORE_SUFFIXES = ('.mxl', '.musicxml', '.xml', '.mid', '.midi', '.krn', '.abc')   # as adaptive_tuning_util
+
+
+def missing_scores(chorales):
+    """The names the tuner could not load: no Scores/<name>.* file and no music21 corpus
+    work of that name.  Checked in the plan, before the cluster is brought up -- on
+    11 Nov 2026 bwv847-852 (not in the corpus) failed all 144 tasks in 17 seconds.
+    Returns (missing, how): `how` says what was consulted."""
+    scores = os.environ.get('OFB_SCORES_DIR') or os.path.join(REPO, 'Scores')
+
+    def on_disk(c):
+        return any(os.path.isfile(os.path.join(scores, c + s)) for s in SCORE_SUFFIXES)
+
+    try:
+        import music21
+        def in_corpus(c):
+            try:
+                return bool(music21.corpus.getWork(c))
+            except Exception:
+                return False
+        how = 'Scores/ and the music21 corpus'
+    except ImportError:
+        # ray-ratchet.sh's plan may run under a python3 without music21: look for the
+        # corpus file in the repo's venv instead.
+        import glob
+        roots = glob.glob(os.path.join(REPO, '.venv', 'lib*', 'python3*', 'site-packages', 'music21', 'corpus'))
+        if not roots:
+            return [], 'nothing (no music21 here and no .venv corpus): scores NOT checked'
+        def in_corpus(c):
+            return any(glob.glob(os.path.join(r, '**', c + s), recursive=True) for r in roots for s in SCORE_SUFFIXES)
+        how = 'Scores/ and the .venv music21 corpus files'
+    return [c for c in chorales if not on_disk(c) and not in_corpus(c)], how
+
+
 # ── The driver ───────────────────────────────────────────────────────────────
 def main():
     a = parse_args()
@@ -189,6 +223,11 @@ def main():
           f'has no GapSum < {a.good_gapsum:g}), prune after {a.prune_after} at avg slack {a.avg_slack:g}, '
           f'{a.task_cpus} CPU + {a.task_memory_gb}GiB per task'
           + (', FRESH=1 on first pass' if a.fresh_first else ''))
+    missing, how = missing_scores(chorales)
+    print(f'  scores:   checked {how}')
+    if missing:
+        sys.exit(f'no score for {" ".join(missing)}: put a file at Scores/<name>.mxl (or .musicxml .xml '
+                 f'.mid .midi .krn .abc) and push it -- the workers read origin/main.  Nothing submitted.')
     if a.dry_run:
         print('dry run — nothing submitted')
         return
@@ -304,7 +343,10 @@ def main():
                 m = ray.get(ref)
             except Exception as e:                      # tuner failed, or the worker died
                 s['failures'] += 1
-                first = str(e).strip().splitlines()[0] if str(e).strip() else type(e).__name__
+                # The LAST line: Ray's first line is only its wrapper (ray::ray-bwv849-...()),
+                # and the tuner's own error is what grid_search.sh printed last.
+                lines = [l for l in str(e).strip().splitlines() if l.strip()]
+                first = lines[-1].strip()[:300] if lines else type(e).__name__
                 if s['failures'] > a.max_retries:
                     retire(k, 'failed')
                     print(f'{label}: FAILED {s["failures"]}x, retired — {first}', flush=True)

@@ -135,7 +135,7 @@ fi
 # bwv prefix) used to surface only after all that, from the job on the head.
 echo "== plan"
 python3 ray_ratchet.py "$@" --dry_run | sed '/^dry run/d; s/^/    /' \
-    || { echo "ray_ratchet.py rejected the arguments — nothing started (./ray-ratchet.sh --help)" >&2; exit 2; }
+    || { echo "ray_ratchet.py rejected the arguments or found no score for a name (see above) — nothing started (./ray-ratchet.sh --help)" >&2; exit 2; }
 echo
 
 # 1. sync
