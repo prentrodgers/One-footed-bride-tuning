@@ -15,6 +15,9 @@
 # after the first cluster on a new Ray version.  The scrape side is
 # k8s-ray-monitoring.yaml.
 #
+# Its GPU, TPU, autoscaler (Node Count) and placement-group panels are dropped:
+# this cluster has none of those, so they only ever said "No data".
+#
 # Only the default dashboard is loaded.  Ray also writes Data, Serve, Train
 # and LLM dashboards; nothing here uses those libraries, so they are empty
 # (Data was loaded until 11 Oct 2026 and never showed anything).
@@ -40,6 +43,21 @@ d = json.load(sys.stdin)
 d["title"] = "Ray: " + d["title"].replace(" Dashboard", "").lower()
 d["tags"] = sorted(set(d.get("tags", []) + ["ray", "one-footed-bride"]))
 
+# Panels for what this cluster does not have (11 Nov 2026): no GPUs or TPUs on
+# the Ray workers, and no autoscaler (fixed replicas), so these were always
+# "No data".  Grafana closes the gaps they leave on load.
+import re
+drop = re.compile(r"GPU|GRAM|TPU|Placement Group|^Node Count$")
+def keep(p):
+    return p.get("type") == "row" or not drop.search(p.get("title", ""))
+before = sum(1 for p in d["panels"]) + sum(len(r.get("panels", [])) for r in d["panels"])
+d["panels"] = [p for p in d["panels"] if keep(p)]
+for r in d["panels"]:
+    if r.get("panels"):
+        r["panels"] = [p for p in r["panels"] if keep(p)]
+after = sum(1 for p in d["panels"]) + sum(len(r.get("panels", [])) for r in d["panels"])
+print(f"dropped {before - after} GPU/TPU/autoscaler/placement-group panels", file=sys.stderr)
+
 # The temperature panel: full width, directly under Node CPU Usage / Usage %;
 # everything from there down moves 8 rows to make room.
 cpu = next(p for p in d["panels"] if p.get("title") == "Node CPU Usage %")
@@ -47,7 +65,7 @@ y = cpu["gridPos"]["y"] + cpu["gridPos"]["h"]
 for p in d["panels"] + [q for r in d["panels"] for q in r.get("panels", [])]:   # incl. collapsed rows
     if p["gridPos"]["y"] >= y:
         p["gridPos"]["y"] += 8
-uname = "* on(instance) group_left(nodename) node_uname_info{nodename=~\"fs[0-9]\"}"
+uname = "* on(instance) group_left(nodename) node_uname_info{nodename=~\"fs[0-9]+\"}"   # fs10, fs11 too
 d["panels"].append({
     "id": 9001, "type": "timeseries", "title": "CPU package temperature",
     "description": "Hottest CPU package sensor per node (node-exporter hwmon: Package id 0 on Intel, Tctl on Ryzen). Not filtered by the dashboard variables.",

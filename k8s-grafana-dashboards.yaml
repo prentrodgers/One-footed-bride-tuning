@@ -29,7 +29,7 @@ data:
       {
        "id": 1,
        "type": "stat",
-       "title": "Jobs",
+       "title": "Ray workers",
        "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -47,8 +47,8 @@ data:
           "type": "prometheus",
           "uid": "prometheus"
          },
-         "expr": "count(kube_job_info{namespace=\"default\",job_name=~\"grid-search-[0-9].*\"})",
-         "legendFormat": "total"
+         "expr": "count(ray_node_cpu_count{ray_io_cluster=\"tuning\",RayNodeType=\"worker\"})",
+         "legendFormat": "workers"
         }
        ],
        "fieldConfig": {
@@ -64,14 +64,14 @@ data:
          "values": false
         },
         "colorMode": "value",
-        "graphMode": "area",
+        "graphMode": "none",
         "textMode": "value_and_name"
        }
       },
       {
        "id": 2,
        "type": "stat",
-       "title": "Active",
+       "title": "Task slots (4 CPU each)",
        "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -89,8 +89,50 @@ data:
           "type": "prometheus",
           "uid": "prometheus"
          },
-         "expr": "sum(kube_job_status_active{namespace=\"default\",job_name=~\"grid-search-[0-9].*\"})",
-         "legendFormat": "active"
+         "expr": "sum(floor(ray_node_cpu_count{ray_io_cluster=\"tuning\",RayNodeType=\"worker\"} / 4))",
+         "legendFormat": "slots"
+        }
+       ],
+       "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+       },
+       "options": {
+        "reduceOptions": {
+         "calcs": [
+          "lastNotNull"
+         ],
+         "fields": "",
+         "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name"
+       }
+      },
+      {
+       "id": 3,
+       "type": "stat",
+       "title": "Passes running",
+       "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+       },
+       "gridPos": {
+        "x": 8,
+        "y": 0,
+        "w": 4,
+        "h": 4
+       },
+       "targets": [
+        {
+         "refId": "A",
+         "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+         },
+         "expr": "sum(ray_tasks{ray_io_cluster=\"tuning\",Name=~\"ray-.+-t[0-9]+_r[0-9.]+_lm[0-9]+-p[0-9]+\",State=\"RUNNING\"})",
+         "legendFormat": "running"
         }
        ],
        "fieldConfig": {
@@ -111,15 +153,15 @@ data:
        }
       },
       {
-       "id": 3,
+       "id": 4,
        "type": "stat",
-       "title": "Succeeded",
+       "title": "Passes waiting",
        "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
        },
        "gridPos": {
-        "x": 8,
+        "x": 12,
         "y": 0,
         "w": 4,
         "h": 4
@@ -131,8 +173,50 @@ data:
           "type": "prometheus",
           "uid": "prometheus"
          },
-         "expr": "sum(kube_job_status_succeeded{namespace=\"default\",job_name=~\"grid-search-[0-9].*\"})",
-         "legendFormat": "done"
+         "expr": "sum(ray_tasks{ray_io_cluster=\"tuning\",Name=~\"ray-.+-t[0-9]+_r[0-9.]+_lm[0-9]+-p[0-9]+\",State=~\"PENDING.*|SUBMITTED.*\"})",
+         "legendFormat": "waiting"
+        }
+       ],
+       "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+       },
+       "options": {
+        "reduceOptions": {
+         "calcs": [
+          "lastNotNull"
+         ],
+         "fields": "",
+         "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "value_and_name"
+       }
+      },
+      {
+       "id": 5,
+       "type": "stat",
+       "title": "Passes finished",
+       "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+       },
+       "gridPos": {
+        "x": 16,
+        "y": 0,
+        "w": 4,
+        "h": 4
+       },
+       "targets": [
+        {
+         "refId": "A",
+         "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+         },
+         "expr": "sum(ray_tasks{ray_io_cluster=\"tuning\",Name=~\"ray-.+-t[0-9]+_r[0-9.]+_lm[0-9]+-p[0-9]+\",State=\"FINISHED\"})",
+         "legendFormat": "finished"
         }
        ],
        "fieldConfig": {
@@ -158,15 +242,15 @@ data:
        }
       },
       {
-       "id": 4,
+       "id": 6,
        "type": "stat",
-       "title": "Failed",
+       "title": "Passes failed",
        "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
        },
        "gridPos": {
-        "x": 12,
+        "x": 20,
         "y": 0,
         "w": 4,
         "h": 4
@@ -178,7 +262,7 @@ data:
           "type": "prometheus",
           "uid": "prometheus"
          },
-         "expr": "sum(kube_job_status_failed{namespace=\"default\",job_name=~\"grid-search-[0-9].*\"})",
+         "expr": "sum(ray_tasks{ray_io_cluster=\"tuning\",Name=~\"ray-.+-t[0-9]+_r[0-9.]+_lm[0-9]+-p[0-9]+\",State=\"FAILED\"}) or vector(0)",
          "legendFormat": "failed"
         }
        ],
@@ -200,94 +284,6 @@ data:
          "values": false
         },
         "colorMode": "value",
-        "graphMode": "area",
-        "textMode": "value_and_name"
-       }
-      },
-      {
-       "id": 5,
-       "type": "stat",
-       "title": "Progress",
-       "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-       },
-       "gridPos": {
-        "x": 16,
-        "y": 0,
-        "w": 4,
-        "h": 4
-       },
-       "targets": [
-        {
-         "refId": "A",
-         "datasource": {
-          "type": "prometheus",
-          "uid": "prometheus"
-         },
-         "expr": "100 * sum(kube_job_status_succeeded{namespace=\"default\",job_name=~\"grid-search-[0-9].*\"}) / count(kube_job_info{namespace=\"default\",job_name=~\"grid-search-[0-9].*\"})",
-         "legendFormat": "done"
-        }
-       ],
-       "fieldConfig": {
-        "defaults": {
-         "unit": "percent"
-        },
-        "overrides": []
-       },
-       "options": {
-        "reduceOptions": {
-         "calcs": [
-          "lastNotNull"
-         ],
-         "fields": "",
-         "values": false
-        },
-        "colorMode": "value",
-        "graphMode": "none",
-        "textMode": "value_and_name"
-       }
-      },
-      {
-       "id": 6,
-       "type": "stat",
-       "title": "Avg job duration",
-       "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-       },
-       "gridPos": {
-        "x": 20,
-        "y": 0,
-        "w": 4,
-        "h": 4
-       },
-       "targets": [
-        {
-         "refId": "A",
-         "datasource": {
-          "type": "prometheus",
-          "uid": "prometheus"
-         },
-         "expr": "avg(kube_job_status_completion_time{namespace=\"default\",job_name=~\"grid-search-[0-9].*\"} - on(job_name) kube_job_status_start_time{namespace=\"default\",job_name=~\"grid-search-[0-9].*\"})",
-         "legendFormat": "avg"
-        }
-       ],
-       "fieldConfig": {
-        "defaults": {
-         "unit": "s"
-        },
-        "overrides": []
-       },
-       "options": {
-        "reduceOptions": {
-         "calcs": [
-          "lastNotNull"
-         ],
-         "fields": "",
-         "values": false
-        },
-        "colorMode": "value",
         "graphMode": "none",
         "textMode": "value_and_name"
        }
@@ -295,7 +291,7 @@ data:
       {
        "id": 7,
        "type": "timeseries",
-       "title": "Tuning pods by phase",
+       "title": "Passes running, by piece",
        "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -313,8 +309,8 @@ data:
           "type": "prometheus",
           "uid": "prometheus"
          },
-         "expr": "sum by (phase) (kube_pod_status_phase{namespace=\"default\",pod=~\"grid-search-[0-9].*\"})",
-         "legendFormat": "{{phase}}"
+         "expr": "sum by (piece) (label_replace(ray_tasks{ray_io_cluster=\"tuning\",Name=~\"ray-.+-t[0-9]+_r[0-9.]+_lm[0-9]+-p[0-9]+\",State=\"RUNNING\"}, \"piece\", \"$1\", \"Name\", \"ray-(.+)-t[0-9]+_r[0-9.]+_lm[0-9]+-p[0-9]+\"))",
+         "legendFormat": "{{piece}}"
         }
        ],
        "fieldConfig": {
@@ -343,7 +339,7 @@ data:
       {
        "id": 8,
        "type": "timeseries",
-       "title": "Jobs completed (cumulative) and active",
+       "title": "Passes finished, by piece (cumulative)",
        "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -361,26 +357,8 @@ data:
           "type": "prometheus",
           "uid": "prometheus"
          },
-         "expr": "sum(kube_job_status_succeeded{namespace=\"default\",job_name=~\"grid-search-[0-9].*\"})",
-         "legendFormat": "succeeded"
-        },
-        {
-         "refId": "B",
-         "datasource": {
-          "type": "prometheus",
-          "uid": "prometheus"
-         },
-         "expr": "sum(kube_job_status_active{namespace=\"default\",job_name=~\"grid-search-[0-9].*\"})",
-         "legendFormat": "active"
-        },
-        {
-         "refId": "C",
-         "datasource": {
-          "type": "prometheus",
-          "uid": "prometheus"
-         },
-         "expr": "sum(kube_job_status_failed{namespace=\"default\",job_name=~\"grid-search-[0-9].*\"})",
-         "legendFormat": "failed"
+         "expr": "sum by (piece) (label_replace(ray_tasks{ray_io_cluster=\"tuning\",Name=~\"ray-.+-t[0-9]+_r[0-9.]+_lm[0-9]+-p[0-9]+\",State=\"FINISHED\"}, \"piece\", \"$1\", \"Name\", \"ray-(.+)-t[0-9]+_r[0-9.]+_lm[0-9]+-p[0-9]+\"))",
+         "legendFormat": "{{piece}}"
         }
        ],
        "fieldConfig": {
@@ -408,7 +386,7 @@ data:
       {
        "id": 9,
        "type": "timeseries",
-       "title": "Running tuning pods per node",
+       "title": "Passes running, by node",
        "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -426,7 +404,7 @@ data:
           "type": "prometheus",
           "uid": "prometheus"
          },
-         "expr": "sum by (node) (kube_pod_info{namespace=\"default\",pod=~\"grid-search-[0-9].*\"} * on(namespace,pod) group_left() kube_pod_status_phase{namespace=\"default\",pod=~\"grid-search-[0-9].*\",phase=\"Running\"})",
+         "expr": "sum by (node) (ray_tasks{ray_io_cluster=\"tuning\",Name=~\"ray-.+-t[0-9]+_r[0-9.]+_lm[0-9]+-p[0-9]+\",State=\"RUNNING\"})",
          "legendFormat": "{{node}}"
         }
        ],
@@ -456,7 +434,7 @@ data:
       {
        "id": 10,
        "type": "timeseries",
-       "title": "CPU cores used by tuning pods, per node",
+       "title": "CPU cores used by the Ray pods, by node",
        "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -474,7 +452,7 @@ data:
           "type": "prometheus",
           "uid": "prometheus"
          },
-         "expr": "sum by (node) (rate(container_cpu_usage_seconds_total{namespace=\"default\",pod=~\"grid-search-[0-9].*\",container=\"grid-search\"}[2m]))",
+         "expr": "sum by (node) (rate(container_cpu_usage_seconds_total{namespace=\"default\",pod=~\"tuning-.*\",container=~\"ray-worker|ray-head\"}[2m]))",
          "legendFormat": "{{node}}"
         }
        ],
@@ -522,7 +500,7 @@ data:
           "type": "prometheus",
           "uid": "prometheus"
          },
-         "expr": "100 * (1 - avg by (nodename) (rate(node_cpu_seconds_total{mode=\"idle\"}[2m]) * on(instance) group_left(nodename) node_uname_info{nodename=~\"fs[0-9]\"}))",
+         "expr": "100 * (1 - avg by (nodename) (rate(node_cpu_seconds_total{mode=\"idle\"}[2m]) * on(instance) group_left(nodename) node_uname_info{nodename=~\"fs[0-9]+\"}))",
          "legendFormat": "{{nodename}}"
         }
        ],
@@ -566,7 +544,7 @@ data:
           "type": "prometheus",
           "uid": "prometheus"
          },
-         "expr": "max by (nodename) ((node_hwmon_temp_celsius * on(chip,sensor,instance) group_left(label) node_hwmon_sensor_label{label=~\"Package id 0|Tctl\"}) * on(instance) group_left(nodename) node_uname_info{nodename=~\"fs[0-9]\"})",
+         "expr": "max by (nodename) ((node_hwmon_temp_celsius * on(chip,sensor,instance) group_left(label) node_hwmon_sensor_label{label=~\"Package id 0|Tctl\"}) * on(instance) group_left(nodename) node_uname_info{nodename=~\"fs[0-9]+\"})",
          "legendFormat": "{{nodename}}"
         }
        ],
@@ -614,7 +592,7 @@ data:
       {
        "id": 13,
        "type": "timeseries",
-       "title": "Job duration by completion time",
+       "title": "UPS power (watts)",
        "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -622,7 +600,7 @@ data:
        "gridPos": {
         "x": 0,
         "y": 28,
-        "w": 24,
+        "w": 12,
         "h": 8
        },
        "targets": [
@@ -632,16 +610,39 @@ data:
           "type": "prometheus",
           "uid": "prometheus"
          },
-         "expr": "(kube_job_status_completion_time{namespace=\"default\",job_name=~\"grid-search-[0-9].*\"} - on(job_name) kube_job_status_start_time{namespace=\"default\",job_name=~\"grid-search-[0-9].*\"})",
-         "legendFormat": "{{job_name}}"
+         "expr": "network_ups_tools_ups_load * on(ups) group_left() network_ups_tools_ups_realpower_nominal / 100",
+         "legendFormat": "{{ups}}"
+        },
+        {
+         "refId": "B",
+         "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+         },
+         "expr": "sum(network_ups_tools_ups_load{ups=~\"apc-a|apc-b\"} * on(ups) group_left() network_ups_tools_ups_realpower_nominal / 100)",
+         "legendFormat": "closet (apc-a + apc-b)"
         }
        ],
        "fieldConfig": {
         "defaults": {
+         "min": 0,
+         "thresholds": {
+          "mode": "absolute",
+          "steps": [
+           {
+            "color": "green",
+            "value": null
+           },
+           {
+            "color": "red",
+            "value": 1300
+           }
+          ]
+         },
          "custom": {
-          "drawStyle": "points",
-          "showPoints": "always",
-          "pointSize": 4
+          "thresholdsStyle": {
+           "mode": "line"
+          }
          }
         },
         "overrides": []
@@ -649,13 +650,85 @@ data:
        "options": {
         "legend": {
          "displayMode": "list",
-         "placement": "hidden",
+         "placement": "bottom",
          "showLegend": true
         },
         "tooltip": {
          "mode": "multi",
          "sort": "desc"
         }
+       }
+      },
+      {
+       "id": 14,
+       "type": "timeseries",
+       "title": "CPU clock of busy cores",
+       "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+       },
+       "gridPos": {
+        "x": 12,
+        "y": 28,
+        "w": 12,
+        "h": 8
+       },
+       "targets": [
+        {
+         "refId": "A",
+         "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+         },
+         "expr": "(sum by (instance) (node_cpu_scaling_frequency_hertz * on(instance,cpu) ((1 - rate(node_cpu_seconds_total{mode=\"idle\"}[1m])) > bool 0.8)) / sum by (instance) (((1 - rate(node_cpu_seconds_total{mode=\"idle\"}[1m])) > bool 0.8))) * on(instance) group_left(nodename) node_uname_info{nodename=~\"fs[0-9]+\"}",
+         "legendFormat": "{{nodename}}"
+        }
+       ],
+       "fieldConfig": {
+        "defaults": {
+         "unit": "hertz",
+         "custom": {
+          "lineWidth": 1,
+          "fillOpacity": 12,
+          "showPoints": "never"
+         }
+        },
+        "overrides": []
+       },
+       "options": {
+        "legend": {
+         "displayMode": "list",
+         "placement": "bottom",
+         "showLegend": true
+        },
+        "tooltip": {
+         "mode": "multi",
+         "sort": "desc"
+        }
+       }
+      },
+      {
+       "id": 15,
+       "type": "text",
+       "title": "Pass results",
+       "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+       },
+       "gridPos": {
+        "x": 0,
+        "y": 36,
+        "w": 24,
+        "h": 3
+       },
+       "targets": [],
+       "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+       },
+       "options": {
+        "mode": "markdown",
+        "content": "GapSum, gaps and chord averages per pass are not metrics: they are in `Archive/straw-man/ray-ratchet-<start>.tsv` and the driver's status tables (`./ray-ratchet.sh --attach`). Ray's own view: the **Ray: default** dashboard, or http://192.168.68.14:30265 while a run is up."
        }
       }
      ],
@@ -1129,7 +1202,7 @@ data:
           "type": "prometheus",
           "uid": "prometheus"
          },
-         "expr": "100 * (1 - avg by (nodename) (rate(node_cpu_seconds_total{mode=\"idle\"}[2m]) * on(instance) group_left(nodename) node_uname_info{nodename=~\"fs[0-9]\"}))",
+         "expr": "100 * (1 - avg by (nodename) (rate(node_cpu_seconds_total{mode=\"idle\"}[2m]) * on(instance) group_left(nodename) node_uname_info{nodename=~\"fs[0-9]+\"}))",
          "legendFormat": "{{nodename}}"
         }
        ],
@@ -1173,7 +1246,7 @@ data:
           "type": "prometheus",
           "uid": "prometheus"
          },
-         "expr": "max by (nodename) ((node_hwmon_temp_celsius * on(chip,sensor,instance) group_left(label) node_hwmon_sensor_label{label=~\"Package id 0|Tctl\"}) * on(instance) group_left(nodename) node_uname_info{nodename=~\"fs[0-9]\"})",
+         "expr": "max by (nodename) ((node_hwmon_temp_celsius * on(chip,sensor,instance) group_left(label) node_hwmon_sensor_label{label=~\"Package id 0|Tctl\"}) * on(instance) group_left(nodename) node_uname_info{nodename=~\"fs[0-9]+\"})",
          "legendFormat": "{{nodename}}"
         }
        ],
@@ -1220,6 +1293,124 @@ data:
       },
       {
        "id": 112,
+       "type": "timeseries",
+       "title": "UPS power (watts)",
+       "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+       },
+       "gridPos": {
+        "x": 0,
+        "y": 28,
+        "w": 12,
+        "h": 8
+       },
+       "targets": [
+        {
+         "refId": "A",
+         "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+         },
+         "expr": "network_ups_tools_ups_load * on(ups) group_left() network_ups_tools_ups_realpower_nominal / 100",
+         "legendFormat": "{{ups}}"
+        },
+        {
+         "refId": "B",
+         "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+         },
+         "expr": "sum(network_ups_tools_ups_load{ups=~\"apc-a|apc-b\"} * on(ups) group_left() network_ups_tools_ups_realpower_nominal / 100)",
+         "legendFormat": "closet (apc-a + apc-b)"
+        }
+       ],
+       "fieldConfig": {
+        "defaults": {
+         "min": 0,
+         "thresholds": {
+          "mode": "absolute",
+          "steps": [
+           {
+            "color": "green",
+            "value": null
+           },
+           {
+            "color": "red",
+            "value": 1300
+           }
+          ]
+         },
+         "custom": {
+          "thresholdsStyle": {
+           "mode": "line"
+          }
+         }
+        },
+        "overrides": []
+       },
+       "options": {
+        "legend": {
+         "displayMode": "list",
+         "placement": "bottom",
+         "showLegend": true
+        },
+        "tooltip": {
+         "mode": "multi",
+         "sort": "desc"
+        }
+       }
+      },
+      {
+       "id": 113,
+       "type": "timeseries",
+       "title": "CPU clock of busy cores",
+       "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+       },
+       "gridPos": {
+        "x": 12,
+        "y": 28,
+        "w": 12,
+        "h": 8
+       },
+       "targets": [
+        {
+         "refId": "A",
+         "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+         },
+         "expr": "(sum by (instance) (node_cpu_scaling_frequency_hertz * on(instance,cpu) ((1 - rate(node_cpu_seconds_total{mode=\"idle\"}[1m])) > bool 0.8)) / sum by (instance) (((1 - rate(node_cpu_seconds_total{mode=\"idle\"}[1m])) > bool 0.8))) * on(instance) group_left(nodename) node_uname_info{nodename=~\"fs[0-9]+\"}",
+         "legendFormat": "{{nodename}}"
+        }
+       ],
+       "fieldConfig": {
+        "defaults": {
+         "unit": "hertz",
+         "custom": {
+          "lineWidth": 1,
+          "fillOpacity": 12,
+          "showPoints": "never"
+         }
+        },
+        "overrides": []
+       },
+       "options": {
+        "legend": {
+         "displayMode": "list",
+         "placement": "bottom",
+         "showLegend": true
+        },
+        "tooltip": {
+         "mode": "multi",
+         "sort": "desc"
+        }
+       }
+      },
+      {
+       "id": 114,
        "type": "text",
        "title": "Frame progress",
        "datasource": {
@@ -1228,7 +1419,7 @@ data:
        },
        "gridPos": {
         "x": 0,
-        "y": 28,
+        "y": 36,
         "w": 24,
         "h": 4
        },

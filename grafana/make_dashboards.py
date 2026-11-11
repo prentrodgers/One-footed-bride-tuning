@@ -1,20 +1,31 @@
 #!/usr/bin/env python3
 """Write k8s-grafana-dashboards.yaml: two Grafana dashboards, as ConfigMaps the
 kube-prometheus-stack sidecar loads (label grafana_dashboard=1), for the
-tuning jobs (grid-search-*) and the render farm (blender-farm-* pods).
+tuning runs (ray-ratchet.sh's RayCluster `tuning`) and the render farm
+(blender-farm-* pods).
 
     python grafana/make_dashboards.py && kubectl apply -f k8s-grafana-dashboards.yaml
 
-Everything comes from kube-state-metrics, cAdvisor and node-exporter, which
+Everything comes from Ray's own metrics (the ray-tuning PodMonitor),
+kube-state-metrics, cAdvisor, node-exporter and the nut-exporter (UPS), which
 this Prometheus already scrapes; there are no GPU metrics on the cluster, so
 GPU load is inferred from the pods' CPU and the nodes' temperatures.
+
+11 Nov 2026: the tuning dashboard was rebuilt on Ray.  It had counted
+Kubernetes Jobs named grid-search-*, which ray-ratchet.sh replaced, so every
+panel but the fleet two was empty.  FLEET also matched only fs0-fs9, which
+left fs10 and fs11 out of the fleet panels.
 """
 import json
 
 DS = {"type": "prometheus", "uid": "prometheus"}
-FLEET = 'nodename=~"fs[0-9]"'
-TUNE_POD = 'namespace="default",pod=~"grid-search-[0-9].*"'
-TUNE_JOB = 'namespace="default",job_name=~"grid-search-[0-9].*"'
+FLEET = 'nodename=~"fs[0-9]+"'
+# One tuning pass is a Ray task named ray-<piece>-t<t>_r<ratio>_lm<lm>-p<pass>
+# (ray_ratchet.py); the driver's own JobSupervisor tasks are left out.
+PASS = 'ray_io_cluster="tuning",Name=~"ray-.+-t[0-9]+_r[0-9.]+_lm[0-9]+-p[0-9]+"'
+PIECE = '"piece", "$1", "Name", "ray-(.+)-t[0-9]+_r[0-9.]+_lm[0-9]+-p[0-9]+"'
+RAY_POD = 'namespace="default",pod=~"tuning-.*",container=~"ray-worker|ray-head"'
+TASK_CPUS = 4                     # ray_ratchet.py --task_cpus default
 FARM_POD = 'namespace="default",pod=~"blender-farm-.*"'
 
 _id = [0]
@@ -44,8 +55,11 @@ def panel(kind, title, targets, x, y, w, h, unit=None, extra=None, legend="botto
     return p
 
 def node_panels(y):
-    """The fleet's CPU load and temperatures — shared by both dashboards."""
+    """The fleet's CPU load, temperatures, power and clocks — shared by both dashboards.
+    Two rows of 8: y and y + 8."""
     uname = f'* on(instance) group_left(nodename) node_uname_info{{{FLEET}}}'
+    ups_w = ('network_ups_tools_ups_load * on(ups) group_left() network_ups_tools_ups_realpower_nominal / 100')
+    busy = '((1 - rate(node_cpu_seconds_total{mode="idle"}[1m])) > bool 0.8)'
     return [
         panel("timeseries", "Node CPU utilisation (fleet)",
               [(f'100 * (1 - avg by (nodename) (rate(node_cpu_seconds_total{{mode="idle"}}[2m]) {uname}))',
@@ -60,6 +74,22 @@ def node_panels(y):
                                                                   {"color": "orange", "value": 75},
                                                                   {"color": "red", "value": 85}]},
                      "custom": {"thresholdsStyle": {"mode": "line"}}}}}),
+        # Power: the closet's two UPSs share one 15 A circuit (1,440 W continuous); the
+        # cap test of 8 Nov 2026 drew 900 / 951 / 1043 W from them at CAP_W 40 / 50 / 60.
+        panel("timeseries", "UPS power (watts)",
+              [(f'{ups_w}', "{{ups}}"),
+               (f'sum({ups_w.replace("network_ups_tools_ups_load", "network_ups_tools_ups_load{ups=~\"apc-a|apc-b\"}")})',
+                "closet (apc-a + apc-b)")], 0, y + 8, 12, 8, unit="watt",
+              extra={"fieldConfig": {"defaults": {"min": 0,
+                     "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": None},
+                                                                  {"color": "red", "value": 1300}]},
+                     "custom": {"thresholdsStyle": {"mode": "line"}}}}}),
+        # The clock of the cores that are busy (over 80% in the last minute): what a
+        # CAP_W change moves.  The all-core average is diluted by idle cores.
+        panel("timeseries", "CPU clock of busy cores",
+              [(f'(sum by (instance) (node_cpu_scaling_frequency_hertz * on(instance,cpu) {busy}) '
+                f'/ sum by (instance) ({busy})) {uname}', "{{nodename}}")],
+              12, y + 8, 12, 8, unit="hertz"),
     ]
 
 def dashboard(uid, title, panels, tags):
@@ -68,38 +98,43 @@ def dashboard(uid, title, panels, tags):
             "time": {"from": "now-6h", "to": "now"}, "panels": panels,
             "templating": {"list": []}, "annotations": {"list": []}}
 
-# ── Tuning jobs ─────────────────────────────────────────────────────────────
+# ── Tuning runs (Ray) ───────────────────────────────────────────────────────
+GREEN = {"fieldConfig": {"defaults": {"color": {"mode": "fixed", "fixedColor": "green"}}}}
+RED = {"fieldConfig": {"defaults": {"color": {"mode": "fixed", "fixedColor": "red"}}},
+       "options": {"graphMode": "none"}}
+STACK = {"fieldConfig": {"defaults": {"custom": {"stacking": {"mode": "normal"}, "fillOpacity": 40}}}}
 t = []
-t += [panel("stat", "Jobs", [(f'count(kube_job_info{{{TUNE_JOB}}})', "total")], 0, 0, 4, 4),
-      panel("stat", "Active", [(f'sum(kube_job_status_active{{{TUNE_JOB}}})', "active")], 4, 0, 4, 4),
-      panel("stat", "Succeeded", [(f'sum(kube_job_status_succeeded{{{TUNE_JOB}}})', "done")], 8, 0, 4, 4,
-            extra={"fieldConfig": {"defaults": {"color": {"mode": "fixed", "fixedColor": "green"}}}}),
-      panel("stat", "Failed", [(f'sum(kube_job_status_failed{{{TUNE_JOB}}})', "failed")], 12, 0, 4, 4,
-            extra={"fieldConfig": {"defaults": {"color": {"mode": "fixed", "fixedColor": "red"}}}}),
-      panel("stat", "Progress", [(f'100 * sum(kube_job_status_succeeded{{{TUNE_JOB}}}) / count(kube_job_info{{{TUNE_JOB}}})', "done")],
-            16, 0, 4, 4, unit="percent", extra={"options": {"graphMode": "none"}}),
-      panel("stat", "Avg job duration",
-            [(f'avg(kube_job_status_completion_time{{{TUNE_JOB}}} - on(job_name) kube_job_status_start_time{{{TUNE_JOB}}})', "avg")],
-            20, 0, 4, 4, unit="s", extra={"options": {"graphMode": "none"}})]
-t += [panel("timeseries", "Tuning pods by phase",
-            [(f'sum by (phase) (kube_pod_status_phase{{{TUNE_POD}}})', "{{phase}}")], 0, 4, 12, 8,
-            extra={"fieldConfig": {"defaults": {"custom": {"stacking": {"mode": "normal"}, "fillOpacity": 40}}}}),
-      panel("timeseries", "Jobs completed (cumulative) and active",
-            [(f'sum(kube_job_status_succeeded{{{TUNE_JOB}}})', "succeeded"),
-             (f'sum(kube_job_status_active{{{TUNE_JOB}}})', "active"),
-             (f'sum(kube_job_status_failed{{{TUNE_JOB}}})', "failed")], 12, 4, 12, 8)]
-t += [panel("timeseries", "Running tuning pods per node",
-            [(f'sum by (node) (kube_pod_info{{{TUNE_POD}}} * on(namespace,pod) group_left() '
-              f'kube_pod_status_phase{{{TUNE_POD},phase="Running"}})', "{{node}}")], 0, 12, 12, 8,
-            extra={"fieldConfig": {"defaults": {"custom": {"stacking": {"mode": "normal"}, "fillOpacity": 40}}}}),
-      panel("timeseries", "CPU cores used by tuning pods, per node",
-            [(f'sum by (node) (rate(container_cpu_usage_seconds_total{{{TUNE_POD},container="grid-search"}}[2m]))',
-              "{{node}}")], 12, 12, 12, 8, unit="short")]
+t += [panel("stat", "Ray workers", [('count(ray_node_cpu_count{ray_io_cluster="tuning",RayNodeType="worker"})', "workers")],
+            0, 0, 4, 4, extra={"options": {"graphMode": "none"}}),
+      panel("stat", f"Task slots ({TASK_CPUS} CPU each)",
+            # per node: a task cannot straddle two workers
+            [(f'sum(floor(ray_node_cpu_count{{ray_io_cluster="tuning",RayNodeType="worker"}} / {TASK_CPUS}))', "slots")],
+            4, 0, 4, 4, extra={"options": {"graphMode": "none"}}),
+      panel("stat", "Passes running", [(f'sum(ray_tasks{{{PASS},State="RUNNING"}})', "running")], 8, 0, 4, 4),
+      panel("stat", "Passes waiting", [(f'sum(ray_tasks{{{PASS},State=~"PENDING.*|SUBMITTED.*"}})', "waiting")],
+            12, 0, 4, 4),
+      panel("stat", "Passes finished", [(f'sum(ray_tasks{{{PASS},State="FINISHED"}})', "finished")], 16, 0, 4, 4,
+            extra=GREEN),
+      panel("stat", "Passes failed", [(f'sum(ray_tasks{{{PASS},State="FAILED"}}) or vector(0)', "failed")],
+            20, 0, 4, 4, extra=RED)]
+t += [panel("timeseries", "Passes running, by piece",
+            [(f'sum by (piece) (label_replace(ray_tasks{{{PASS},State="RUNNING"}}, {PIECE}))', "{{piece}}")],
+            0, 4, 12, 8, extra=STACK),
+      panel("timeseries", "Passes finished, by piece (cumulative)",
+            [(f'sum by (piece) (label_replace(ray_tasks{{{PASS},State="FINISHED"}}, {PIECE}))', "{{piece}}")],
+            12, 4, 12, 8)]
+t += [panel("timeseries", "Passes running, by node",
+            [(f'sum by (node) (ray_tasks{{{PASS},State="RUNNING"}})', "{{node}}")], 0, 12, 12, 8, extra=STACK),
+      panel("timeseries", "CPU cores used by the Ray pods, by node",
+            [(f'sum by (node) (rate(container_cpu_usage_seconds_total{{{RAY_POD}}}[2m]))', "{{node}}")],
+            12, 12, 12, 8, unit="short")]
 t += node_panels(20)
-t += [panel("timeseries", "Job duration by completion time",
-            [(f'(kube_job_status_completion_time{{{TUNE_JOB}}} - on(job_name) kube_job_status_start_time{{{TUNE_JOB}}})',
-              "{{job_name}}")], 0, 28, 24, 8, unit="s", legend="hidden",
-            extra={"fieldConfig": {"defaults": {"custom": {"drawStyle": "points", "showPoints": "always", "pointSize": 4}}}})]
+t += [panel("text", "Pass results", [], 0, 36, 24, 3,
+            extra={"options": {"mode": "markdown", "content":
+                   "GapSum, gaps and chord averages per pass are not metrics: they are in "
+                   "`Archive/straw-man/ray-ratchet-<start>.tsv` and the driver's status tables "
+                   "(`./ray-ratchet.sh --attach`). Ray's own view: the **Ray: default** dashboard, "
+                   "or http://192.168.68.14:30265 while a run is up."}})]
 tuning = dashboard("ofb-tuning", "One-footed bride: tuning jobs", t, ["one-footed-bride", "tuning"])
 
 # ── Render farm ─────────────────────────────────────────────────────────────
@@ -127,7 +162,7 @@ r += [panel("timeseries", "CPU cores per render pod (the per-frame Python)",
             [(f'sum by (pod) (container_memory_working_set_bytes{{{FARM_POD},container="blender"}})', "{{pod}}")],
             12, 12, 12, 8, unit="bytes")]
 r += node_panels(20)
-r += [panel("text", "Frame progress", [], 0, 28, 24, 4,
+r += [panel("text", "Frame progress", [], 0, 36, 24, 4,
             extra={"options": {"mode": "markdown", "content":
                    "Frames are files on the PVC, not metrics. For per-slice progress and ETA run "
                    "`./render_farm.sh --progress` on fs2; `./render_farm.sh --status` lists the pods. "
