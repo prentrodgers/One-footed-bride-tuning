@@ -29,7 +29,13 @@
 #   ./render_farm.sh --help
 #
 # Environment:
-#   PER_CARD=2      two Blender processes per card instead of one (see below)
+#   PER_CARD=2      two Blender processes per card instead of one (see below).
+#                   Per host: "2 fs5=1 fs6=1" is two everywhere but one on fs5 and
+#                   fs6 (a bare number is the default, host=N overrides it)
+#   ARC_MAX=2000    cap the Arc cards' clock (MHz) on the hosts rendering, for
+#                   the render; per host like PER_CARD ("fs5=2000 fs6=2000" caps
+#                   only those). Unset = no cap. Put back to each card's own
+#                   maximum when the farm finishes and by --stop (see Power below)
 #   IGPU=1          add the Core Ultra iGPUs (IGPU_RATE_EEVEE / IGPU_RATE_CYC)
 #   POWER=0         leave the tuned profiles alone
 #   CAP_W=40        Intel nodes on capped-gpu (turbo on, CPU package held at 40 W)
@@ -193,8 +199,61 @@ if [ "${IGPU:-0}" = 1 ]; then WORKERS+=(
 ); fi
 
 STAGGER=${STAGGER:-45}
+
+# PER_CARD and ARC_MAX take a bare default and host=N overrides ("2 fs5=1 fs6=1").
+# per_host SPEC HOST prints HOST's value: its override, else the default, else nothing.
+per_host() {
+  local v="" w
+  for w in $1; do
+    case "$w" in "$2"=*) echo "${w#*=}"; return;; *=*) ;; *) v=$w;; esac
+  done
+  echo "$v"
+}
+# check_spec NAME SPEC LO HI: every value in SPEC a whole number in LO..HI
+check_spec() {
+  local w
+  for w in $2; do
+    case "${w#*=}" in ''|*[!0-9]*) echo "$1: '$w' is not a number or host=number" >&2; exit 2;; esac
+    [ "${w#*=}" -ge "$3" ] && [ "${w#*=}" -le "$4" ] || { echo "$1: '$w' is outside $3-$4" >&2; exit 2; }
+  done
+}
 PER_CARD=${PER_CARD:-1}
-case "$PER_CARD" in 1|2|3|4) ;; *) echo "PER_CARD must be 1-4, got '$PER_CARD'" >&2; exit 2;; esac
+check_spec PER_CARD "$PER_CARD" 1 4
+per_card() { local n; n=$(per_host "$PER_CARD" "$1"); echo "${n:-1}"; }
+# 1200 MHz floor: power-balanced.sh puts the cards' min_freq back to 1200, and the
+# driver refuses a min above the max.
+ARC_MAX=${ARC_MAX:-}
+check_spec ARC_MAX "$ARC_MAX" 1200 3000
+
+# The hosts with an Arc card in the farm (every worker but the Core Ultra iGPUs).
+arc_hosts() {
+  local w label node select
+  for w in "${WORKERS[@]}"; do
+    read -r label node select _ <<<"$w"
+    [ "$select" = 8086:7d67 ] || echo "$node"
+  done | awk '!seen[$0]++'
+}
+# arc_max HOST [MHZ]: cap every Arc card on HOST at MHZ (never above the card's own
+# rp0), or with no MHZ put each back to its rp0. Prints what it set; a host that
+# cannot be reached is reported and skipped.
+arc_max() {
+  ssh -n -o BatchMode=yes -o ConnectTimeout=5 "$1" "
+    out=''
+    for f in /sys/class/drm/card*/device/tile0/gt0/freq0; do
+      [ -e \$f/max_freq ] || continue
+      rp0=\$(cat \$f/rp0_freq); m=${2:-\$rp0}; [ \$m -le \$rp0 ] || m=\$rp0
+      [ \"\$(cat \$f/max_freq)\" = \$m ] || echo \$m | sudo -n tee \$f/max_freq >/dev/null
+      c=\${f#/sys/class/drm/}; out=\"\$out \${c%%/*}=\$(cat \$f/max_freq)\"
+    done
+    echo \"\$(hostname) Arc max_freq:\${out:- no Arc cards}\"" 2>&1 \
+    || echo "$1 Arc max_freq: could not reach the host"
+}
+# Every Arc host back to full clocks: idempotent, and run before power-balanced.sh,
+# whose min_freq=1200 would fail under a lower cap.
+arc_restore() {
+  local h
+  for h in $(arc_hosts); do arc_max "$h" | sed 's/^/  /'; done
+}
 
 # The llama.cpp server for OpenClaw / Open WebUI holds ~45 GiB across both fs5
 # B70s, which the b70a/b70b slices need. A launch scales it to 0 and notes the
@@ -287,6 +346,7 @@ while [ $# -gt 0 ]; do
     # (the waiter spawned at launch would do it, but not if POWER=0), and the
     # llama.cpp server comes back once the B70 pods have let go of the cards.
     --stop) kubectl -n "$NS" delete po -l job=blender-farm --wait=false
+            echo "== Arc cards back to full clocks"; arc_restore
             [ "${POWER:-1}" = 1 ] && ./power-balanced.sh
             kubectl -n "$NS" wait --for=delete po -l job=blender-farm --timeout=120s >/dev/null 2>&1 || true
             llm_back; exit 0;;
@@ -304,6 +364,7 @@ while [ $# -gt 0 ]; do
                "$(kubectl -n "$NS" get po "$pod" --no-headers | awk '{print $3}')" \
                "$(kubectl -n "$NS" logs "$pod" 2>/dev/null | grep -a '\[stage\] done' | sed 's/.*done: //' | cut -c1-50)"
       done
+      echo "== Arc cards back to full clocks"; arc_restore
       [ "${POWER:-1}" = 1 ] && ./power-balanced.sh
       llm_back
       exit 0;;
@@ -406,7 +467,7 @@ for w in "${WORKERS[@]}"; do
   total_w=$(awk -v a="$total_w" -v b="$weight" 'BEGIN{print a+b}')
 done
 
-echo "render: $TOTAL frames over ${#WORKERS[@]} GPUs$([ "$PER_CARD" -gt 1 ] && echo ", $PER_CARD processes per card")  "\
+echo "render: $TOTAL frames over ${#WORKERS[@]} GPUs$([ "$PER_CARD" != 1 ] && echo ", processes per card: $PER_CARD")  "\
 "($(awk -v w="$total_w" 'BEGIN{printf "%.2f", w}') frames/s at one per card, "\
 "eta $(awk -v t="$TOTAL" -v w="$total_w" 'BEGIN{printf "%.0f", t/w/60}') min)"
 
@@ -431,6 +492,35 @@ if [ "$DRYRUN" -eq 0 ] && [ "${POWER:-1}" = 1 ] && [ -z "$ONLY" ]; then
   fi
   CAP_W=${CAP_W:-0} ./power-save-all.sh | tail -n +2 | grep -vE "^$|^== verify"
   echo
+fi
+
+# ARC_MAX (11 Nov 2026): the b846f Cycles render ran UPS A (fs5's two B70s, fs6's
+# B580) to its 900 W limit at PER_CARD=3, and it dropped them; at PER_CARD=2 it peaked
+# at ~100% again and UPS B (~630 W) briefly went to battery. Both UPSes' input sagged
+# from ~118 to ~100 V at each peak -- powersave-gpu leaves the Arc ceilings at
+# 2600-2850 MHz, and the cards are most of the farm's draw. A clock cap cuts power
+# faster than speed. Applied to the hosts this launch puts work on (an --only
+# relaunch included), and lifted by the waiter and --stop, so it does not depend on
+# POWER. tuned does not touch max_freq, so the profile switches leave it alone.
+if [ -n "$ARC_MAX" ]; then
+  caps=()
+  for h in $(arc_hosts); do
+    m=$(per_host "$ARC_MAX" "$h"); [ -n "$m" ] || continue
+    if [ -n "$ONLY" ]; then        # only the host of the slice being relaunched
+      on=0
+      for w in "${WORKERS[@]}"; do read -r l n _ <<<"$w"; [ "$n" = "$h" ] && [[ "$ONLY" == "$l"* ]] && on=1; done
+      [ $on = 1 ] || continue
+    fi
+    caps+=("$h=$m")
+  done
+  if [ ${#caps[@]} -gt 0 ]; then
+    if [ "$DRYRUN" -eq 1 ]; then echo "== Arc cards would be capped: ${caps[*]} (MHz)"
+    else
+      echo "== Arc cards capped for the render"
+      for c in "${caps[@]}"; do arc_max "${c%=*}" "${c#*=}" | sed 's/^/  /'; done
+    fi
+    echo
+  fi
 fi
 
 # Free the B70s when any slice going out is on fs5 (an --only relaunch of
@@ -469,11 +559,12 @@ for i in "${!WORKERS[@]}"; do
   # PER_CARD contiguous parts of the card's slice, the last taking the
   # remainder.  With PER_CARD=1 the part is the whole slice and the pod
   # keeps its old name, so --progress and --only work as before.
-  for ((p = 1; p <= PER_CARD; p++)); do
-    part_start=$((card_start + (p - 1) * card_span / PER_CARD))
-    if [ "$p" -eq "$PER_CARD" ]; then part_end=$card_end
-    else part_end=$((card_start + p * card_span / PER_CARD - 1)); fi
-    name=$label; [ "$PER_CARD" -gt 1 ] && name="$label-$p"
+  pc=$(per_card "$node")
+  for ((p = 1; p <= pc; p++)); do
+    part_start=$((card_start + (p - 1) * card_span / pc))
+    if [ "$p" -eq "$pc" ]; then part_end=$card_end
+    else part_end=$((card_start + p * card_span / pc - 1)); fi
+    name=$label; [ "$pc" -gt 1 ] && name="$label-$p"
     if [ -n "$ONLY" ] && [ "$ONLY" != "$label" ] && [ "$ONLY" != "$name" ]; then
       continue
     fi
