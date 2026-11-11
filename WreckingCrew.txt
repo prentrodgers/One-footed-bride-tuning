@@ -24837,3 +24837,62 @@ __________________
 
       daily_chorale_tweet.py was tweeting BWV 354-366 as "Bach Chorale": its title table jumped from 267 to 367. It now has every chorale 253-438 plus the 208 chorales inside the cantatas and passions (b244.10a tweets as BWV 244/10), taken from Wikipedia's list because bach-chorales.com blocks scripts. git pull wherever the tweet runs.
       To do before rendering any cantata chorale with WreckingCrew.py: it names files from version[-3:] (line 2825), so bwv244.10 would come out as b4.10a. WreckingCrew_v2.py already uses the full number.
+
+_________________________________
+11/11/26 Trouble with electicity again:
+      During the second run of PER_CARD=3 the apc-A failed, then came very close to failure with PER_CARD=2. I thought maybe I could move fs2 from A to B to solve it, but they were both near death during peaks of the run. This was shown in detail in the Grafana UPS dashboard. Claude had some warnings about the situation.
+      The failure is clear on the Grafana dashboard.
+
+      The dashboard shows two power peaks. The first one dropped UPS A, and tonight's run nearly did the same.
+
+      About 15:00, the crash (PER_CARD=3):
+      - Load climbs to about 85%, which is around 770 W of the Back-UPS NS 1500M2's 900 W limit.
+      - Runtime falls from about 20 minutes to almost zero. # <-- this is from the UPS dashboard window: Battery: charge and runtime with a graph of Charge, Low-battery level, and Runtime, which is how long it could run on battery if needed.
+      - Then the data stops, because the NUT server is fs5, which is on apc-a. When fs5 went down, it took the monitoring with it.
+      - The status history shows OL (on line) right up to the gap, never OB (on battery). So the battery didn't run down from a mains failure. The UPS most likely hit its overload limit and cut its outputs.
+      - The last samples were still rising, so the real peak was probably over 900 W.
+
+      About 20:00, tonight's run (PER_CARD=2):
+      - Load peaks at about 100%, and runtime drops to about a minute.
+      - It held, then eased off as the slices on fs5 and fs6 finished.
+      - PER_CARD=2 was only just within the limit, not safely within it. I wouldn't use it again as it is.
+
+      Something else to look into: the input voltage drops under load.
+      - At both peaks, mains voltage falls from about 118 V to about 100 V, and to about 105 V the second time.
+      - A drop of 15–18 V on a 120 V circuit is a lot. It suggests the wiring sags under load, such as a long extension cord, a power strip in a chain, or both UPSes sharing one 15 A circuit.
+      - If both UPSes do share one circuit, that would also explain why fs3 and bee2 on UPS B went down in the second wave even though B wasn't the overloaded UPS.
+      - If that's the setup, putting each UPS on its own circuit is worth doing whatever we change in software. # <-- key lesson. It's the amps. Not enough amps on the circuit so YOU NEED A SECOND CIRCUIT or sell some GPU.
+
+      Fixes before the next big Cycles render, best first:
+      1. Cap the Arc clocks during renders. Add an ARC_MAX setting to render_farm.sh's powersave-gpu step. It would set max_freq to about 2000 instead of 2850 on fs5's two B70s and fs6's B580. Power rises faster than clock speed, so this should save far more watts than it costs in render time.
+      2. Set PER_CARD per host. Use 1 on fs5 and fs6 (the hosts on UPS A) and 2 elsewhere.
+      3. Move fs6 to UPS B. That takes about 150–200 W off A.
+
+      I can write option 1 into render_farm.sh. I can also query the NUT data behind Grafana to get the exact peak watts for both events, so the cap can be set from real numbers instead of my reading of the graph.
+      UPS B came close as well, and putting the two dashboards side by side points to the wall circuit rather than either UPS.
+
+      What apc-b shows:
+      - Three load peaks: about 15:00, about 17:00 and about 20:00, each around 65–70%. That's roughly 600–630 W of the Back-UPS XS 1500M's 900 W limit.
+      - Runtime: fell to almost zero at each peak.
+      - LB (low battery) flags: in red at all three peaks.
+      - Charge: fell from 100% to about 85% at the 17:00 peak, and there's a short DISCHRG tick at about 17:15. B actually ran on battery for a while. That fits the second wave, when fs3 and bee2 went down.
+
+      What both UPSes show together:
+      - Voltage dips: at each peak, the input voltage on both falls from about 118 V to 100 V or lower, at the same moments. Two UPSes seeing the same sag under load means they share wiring that can't carry the load.
+      - Combined draw: at the 20:00 peak it was about 900 W on A plus about 630 W on B, roughly 1500 W. A 15 A, 120 V circuit is rated 1800 W at most and about 1440 W for continuous load. If A and B are on the same circuit, tonight's render was over the continuous rating.
+      - The UPSes' reaction: a sag to about 95 V is near a Back-UPS's switch-to-battery point. B switching briefly to battery while also near its overload limit is why its runtime collapsed.
+
+      This is a safety issue, not only uptime. Dropping 18–20 V at about 15 A means roughly 300 W of heat is being lost in the wiring between the panel and the UPSes. That usually builds up at a loose outlet contact, a cheap power strip or a thin extension cord. After the next heavy run, feel the UPS plugs, outlets and any strip or cord for warmth. A warm plug or a darkened outlet face needs fixing before more rendering.
+
+      Order I'd fix things in:
+      1. Electrical: put A and B on separate circuits, and remove any extension cord or chained power strip between the wall and a UPS. This also gets rid of the voltage sag.
+      2. Farm power limit: whatever the wiring, keep the farm's total peak well under 1440 W. The ARC_MAX clock cap is the simplest way.
+      3. Per-host PER_CARD for the hosts on whichever UPS is more heavily loaded.
+
+      One mismatch to check: the Device panel says apc-b's NUT server is fs8, but my notes put fs7 and fs8 on UPS A. The host connected to a UPS by USB is normally also plugged into it. Which machines plug into which UPS?
+
+      I can query the NUT metrics behind Grafana for the exact combined watts at each peak. That would also show whether the 17:00 peak, while A was down, was the restart or fs6's relaunch.
+
+      I've asked Claude to add PER_CARD by node to ./render_farm.sh. and add ARC_MAX clock cap.
+
+      ❯ Please make a per-host PER_CARD option on ./render_farm.sh and ARC_MAX limits to those running the GPU work. I've added this information to my notes, so please commit WreckingCrew.txt and I'll push. I have a lot to think about. Can't fit 2000 pounds of refuse in a 1440 pound bag, or something like that.
