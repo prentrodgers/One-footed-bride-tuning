@@ -86,6 +86,112 @@ BWV_TITLES = {
     "262": "Alle Menschen müssen sterben",
     "263": "Alles ist an Gottes Segen",
     "264": "Als der gütige Gott",
+    # 265-366 added 10 Nov 2026 (BWV 354-366 were tweeting as "Bach Chorale"), from the
+    # rows of Wikipedia's list that link bach-chorales.com/BWV0NNN.htm (the site itself
+    # refuses scripted fetches; the same parse matched 77 of the 85 entries already here,
+    # the rest differing only in spelling). 283, 299, 325, 335, 339 and 343 are rowspan
+    # rows, read by hand; where two texts share one setting the first is used, as for 267.
+    "265": "Als Jesus Christus in der Nacht",
+    "266": "Als vierzig Tag nach Ostern warn",
+    "268": "Auf, auf, mein Herz, und du, mein ganzer Sinn",
+    "269": "Aus meines Herzens Grunde",
+    "270": "Befiehl du deine Wege",
+    "271": "Befiehl du deine Wege",
+    "272": "Befiehl du deine Wege",
+    "273": "Christ, der du bist der helle Tag",
+    "274": "Christe, der du bist Tag und Licht",
+    "275": "Christe, du Beistand deiner Kreuzgemeine",
+    "276": "Christ ist erstanden",
+    "277": "Christ lag in Todesbanden",
+    "278": "Christ lag in Todesbanden",
+    "279": "Christ lag in Todesbanden",
+    "280": "Christ unser Herr zum Jordan kam",
+    "281": "Christus, der ist mein Leben",
+    "282": "Christus, der ist mein Leben",
+    "283": "Christus, der uns selig macht",
+    "284": "Christus ist erstanden, hat überwunden",
+    "285": "Da der Herr Christ zu Tische saß",
+    "286": "Danket dem Herrn, denn er ist sehr freundlich",
+    "287": "Dank sei Gott in der Höhe",
+    "288": "Das alte Jahr vergangen ist",
+    "289": "Das alte Jahr vergangen ist",
+    "290": "Das walt Gott Vater und Gott Sohn",
+    "291": "Das walt mein Gott",
+    "292": "Den Vater dort oben",
+    "293": "Der du bist drei in Einigkeit",
+    "294": "Der Tag, der ist so freudenreich",
+    "295": "Des Heilgen Geistes reiche Gnad",
+    "296": "Die Nacht ist kommen",
+    "297": "Die Sonn hat sich mit ihrem Glanz",
+    "298": "Dies sind die heilgen zehn Gebot",
+    "299": "Dir, dir, Jehova, will ich singen",
+    "300": "Du großer Schmerzensmann",
+    "301": "Du, o schönes Weltgebäude",
+    "302": "Ein feste Burg ist unser Gott",
+    "303": "Ein feste Burg ist unser Gott",
+    "304": "Eins ist not, ach Herr, dies Eine",
+    "305": "Erbarm dich mein, o Herre Gott",
+    "306": "Erstanden ist der heilge Christ",
+    "307": "Es ist gewißlich an der Zeit",
+    "308": "Es spricht der Unweisen Mund wohl",
+    "309": "Es stehn vor Gottes Throne",
+    "310": "Es wird schier der letzte Tag herkommen",
+    "311": "Es woll uns Gott genädig sein",
+    "312": "Es woll uns Gott genädig sein",
+    "313": "Für Freuden laßt uns springen",
+    "314": "Gelobet seist du, Jesu Christ",
+    "315": "Gib dich zufrieden und sei stille",
+    "316": "Gott, der du selber bist das Licht",
+    "317": "Gott der Vater wohn uns bei",
+    "318": "Gottes Sohn ist kommen",
+    "319": "Gott hat das Evangelium",
+    "320": "Gott lebet noch",
+    "321": "Gottlob, es geht nunmehr zu Ende",
+    "322": "Gott sei gelobet und gebenedeiet",
+    "323": "Gott sei uns gnädig und barmherzig",
+    "324": "Meine Seele erhebet den Herren",
+    "325": "Heilig, heilig",
+    "326": "Herr Gott, dich loben alle wir",
+    "327": "Vor deinen Thron tret ich hiermit",
+    "328": "Herr Gott, dich loben wir",
+    "329": "Herr, ich denk an jene Zeit",
+    "330": "Herr, ich habe mißgehandelt",
+    "331": "Herr, ich habe mißgehandelt",
+    "332": "Herr Jesu Christ, dich zu uns wend",
+    "333": "Herr Jesu Christ, du hast bereit'",
+    "334": "Herr Jesu Christ, du höchstes Gut",
+    "335": "Herr Jesu Christ, meins Lebens Licht",
+    "336": "Herr Jesu Christ, wahr Mensch und Gott",
+    "337": "Herr, nun laß in Friede",
+    "338": "Herr, straf mich nicht in deinem Zorn",
+    "339": "Wer in dem Schutz des Höchsten ist",
+    "340": "Herzlich lieb hab ich dich, o Herr",
+    "341": "Heut ist, o Mensch, ein großer Trauertag",
+    "342": "Heut triumphieret Gottes Sohn",
+    "343": "Hilf, Gott, daß mirs gelinge",
+    "344": "Hilf, Herr Jesu, laß gelingen",
+    "345": "Ich bin ja, Herr, in deiner Macht",
+    "346": "Ich dank dir, Gott, für all Wohltat",
+    "347": "Ich dank dir, lieber Herre",
+    "348": "Ich dank dir, lieber Herre",
+    "349": "Ich dank dir schon durch deinen Sohn",
+    "350": "Ich danke dir, o Gott, in deinem Throne",
+    "351": "Ich hab mein Sach Gott heimgestellt",
+    "352": "Jesu, der du meine Seele",
+    "353": "Jesu, der du meine Seele",
+    "354": "Jesu, der du meine Seele",
+    "355": "Jesu, der du selbsten wohl",
+    "356": "Jesu, du mein liebstes Leben",
+    "357": "Jesu, Jesu, du bist mein",
+    "358": "Jesu, meine Freude",
+    "359": "Jesu meiner Seelen Wonne",
+    "360": "Jesu, meiner Seelen Wonne",
+    "361": "Jesu, meines Herzens Freud",
+    "362": "Jesu, nun sei gepreiset",
+    "363": "Jesus Christus, unser Heiland, der von uns den Gotteszorn wandt",
+    "364": "Jesus Christus, unser Heiland, der den Tod überwand",
+    "365": "Jesus, meine Zuversicht",
+    "366": "Ihr Gestirn, ihr hohlen Lüfte",
     # 267 and 415-438, checked against bach-chorales.com on 19 Sep 2026
     "267": "An Wasserflüssen Babylon",
     # 367-378 added 25 Oct 2026, each checked against bach-chorales.com/BWV0NNN.htm.
@@ -170,13 +276,231 @@ BWV_TITLES = {
     "438": "Wo Gott zum Haus nicht gibt sein Gunst",
 }
 
+# Chorales inside the cantatas, passions and oratorios: "<work>.<movement>", as
+# music21 names them (bwv244.10 = St Matthew Passion no. 10) and WreckingCrew_v2.py
+# writes them (b244.10a_...). From the same Wikipedia list, keyed by each row's
+# bach-chorales.com/BWV0WWW_M.htm link, 10 Nov 2026.
+BWV_TITLES.update({
+    "1.6": "Wie schön leuchtet der Morgenstern",
+    "2.6": "Ach Gott, vom Himmel sieh darein",
+    "3.6": "Ach Gott, wie manches Herzeleid",
+    "4.8": "Christ lag in Todesbanden",
+    "5.7": "Wo soll ich fliehen hin",
+    "6.6": "Erhalt uns, Herr, bei deinem Wort",
+    "7.7": "Christ unser Herr zum Jordan kam",
+    "8.6": "Liebster Gott, wenn werd ich sterben",
+    "9.7": "Es ist das Heil uns kommen her",
+    "10.7": "Meine Seele erhebt den Herren",
+    "11.6": "Du Lebensfürst, Herr Jesu Christ",
+    "12.7": "Was Gott tut, das ist wohlgetan",
+    "13.6": "In allen meinen Taten",
+    "14.5": "Wär Gott nicht mit uns diese Zeit",
+    "16.6": "Helft mir Gotts Güte preisen",
+    "17.7": "Nun lob, mein Seel, den Herren",
+    "18.5": "Durch Adams Fall ist ganz verderbt",
+    "19.7": "Freu dich sehr, o meine Seele",
+    "22.5": "Herr Christ, der einge Gottessohn",
+    "24.6": "O Gott, du frommer Gott",
+    "25.6": "Treuer Gott, ich muss dir klagen",
+    "26.6": "Ach wie flüchtig, ach wie nichtig",
+    "27.6": "Welt, ade! Ich bin dein müde",
+    "28.6": "Helft mir Gotts Güte preisen",
+    "29.8": "Nun lob, mein Seel, den Herren",
+    "30.6": "Tröstet, tröstet meine Lieben",
+    "31.9": "Wenn mein Stündlein vorhanden ist",
+    "32.6": "Weg, mein Herz, mit den Gedanken",
+    "33.6": "Allein zu dir, Herr Jesu Christ",
+    "36.4": "Wie schön leuchtet der Morgenstern",
+    "36.8": "Nun komm, der Heiden Heiland",
+    "37.6": "Ich dank dir, lieber Herre",
+    "38.6": "Aus tiefer Not schrei ich zu dir",
+    "39.7": "Kommt, laßt euch den Herren lehren",
+    "40.3": "Wir Christenleut habn jetzund Freud",
+    "40.6": "Schwing dich auf zu deinem Gott",
+    "40.8": "Freuet euch, ihr Christen alle",
+    "41.6": "Jesu, nun sei gepreiset",
+    "42.7": "Verleih uns Frieden gnädlich",
+    "43.11": "Du Lebensfürst, Herr Jesu Christ",
+    "44.7": "In allen meinen Taten",
+    "45.7": "O Gott, du frommer Gott",
+    "46.6": "O großer Gott von Macht",
+    "47.5": "Warum betrübst du dich, mein Herz",
+    "48.3": "Ach Gott und Herr",
+    "48.7": "Herr Jesu Christ, ich schrei zu dir",
+    "52.6": "In dich hab ich gehoffet, Herr",
+    "55.5": "Werde munter, mein Gemüte",
+    "56.5": "Du, o schönes Weltgebäude",
+    "57.8": "Hast du denn, Jesu, dein Angesicht",
+    "59.3": "Komm, Heiliger Geist, Herre Gott",
+    "60.5": "Es ist genug",
+    "62.6": "Nun komm, der Heiden Heiland",
+    "64.2": "Gelobet seist du, Jesu Christ",
+    "64.4": "Was frag ich nach der Welt",
+    "64.8": "Jesu, meine Freude",
+    "65.2": "Ein Kind geborn zu Bethlehem",
+    "65.7": "Ich hab in Gottes Herz und Sinn",
+    "66.6": "Christ ist erstanden",
+    "67.4": "Erschienen ist der herrlich Tag",
+    "67.7": "Du Friedefürst, Herr Jesu Christ",
+    "69.6": "Es woll uns Gott genädig sein",
+    "70.7": "Freu dich sehr, o meine Seele",
+    "70.11": "Meinen Jesum laß ich nicht",
+    "72.6": "Was mein Gott will, das g'scheh allzeit",
+    "73.5": "Von Gott will ich nicht lassen",
+    "74.8": "Gott Vater, sende deinen Geist",
+    "77.6": "Wenn einer alle Ding verstünd",
+    "78.7": "Jesu, der du meine Seele",
+    "79.3": "Nun danket alle Gott",
+    "79.6": "Nun laßt uns Gott dem Herren",
+    "80.8": "Ein feste Burg ist unser Gott",
+    "81.7": "Jesu, meine Freude",
+    "83.5": "Mit Fried und Freud ich fahr dahin",
+    "84.5": "Wer weiß, wie nahe mir mein Ende",
+    "85.6": "Ist Gott mein Schild und Helfersmann",
+    "86.6": "Es ist das Heil uns kommen her",
+    "87.7": "Selig ist die Seele",
+    "88.7": "Wer nur den lieben Gott läßt walten",
+    "89.6": "Wo soll ich fliehen hin",
+    "90.5": "Nimm von uns, Herr, du treuer Gott",
+    "91.6": "Gelobet seist du, Jesu Christ",
+    "92.9": "Ich hab in Gottes Herz und Sinn",
+    "93.7": "Wer nur den lieben Gott läßt walten",
+    "94.8": "Was frag ich nach der Welt",
+    "95.7": "Wenn mein Stündlein vorhanden ist",
+    "96.6": "Herr Christ, der einge Gottessohn",
+    "97.9": "In allen meinen Taten",
+    "99.6": "Was Gott tut, das ist wohlgetan",
+    "100.6": "Was Gott tut, das ist wohlgetan",
+    "101.7": "Nimm von uns, Herr, du treuer Gott",
+    "102.7": "So wahr ich lebe, spricht dein Gott",
+    "103.6": "Barmherzger Vater, höchster Gott",
+    "104.6": "Der Herr ist mein getreuer Hirt",
+    "105.6": "Jesu, der du meine Seele",
+    "107.7": "Was willst du dich betrüben",
+    "108.6": "Gott Vater, sende deinen Geist",
+    "110.7": "Wir Christenleut habn jetzund Freud",
+    "111.6": "Was mein Gott will, das g'scheh allzeit",
+    "112.5": "Der Herr ist mein getreuer Hirt",
+    "113.1": "Herr Jesu Christ, du höchstes Gut",
+    "113.8": "Herr Jesu Christ, du höchstes Gut",
+    "114.7": "Ach lieben Christen, seid getrost",
+    "115.6": "Mache dich, mein Geist, bereit",
+    "116.6": "Du Friedefürst, Herr Jesu Christ",
+    "119.9": "Herr Gott, dich loben wir",
+    "120.6": "Herr Gott, dich loben wir",
+    "121.6": "Christum wir sollen loben schon",
+    "122.6": "Das neugeborne Kindelein",
+    "123.6": "Liebster Immanuel, Herzog der Frommen",
+    "124.6": "Meinen Jesum laß ich nicht, weil",
+    "125.6": "Mit Fried und Freud ich fahr dahin",
+    "126.6": "Verleih uns Frieden gnädlich",
+    "127.5": "Herr Jesu Christ, wahr Mensch und Gott",
+    "128.5": "O Jesu, meine Lust",
+    "129.5": "Gelobet sei der Herr, mein Gott",
+    "130.6": "Herr Gott, dich loben alle wir",
+    "133.6": "Ich freue mich in dir",
+    "135.6": "Ach Herr, mich armen Sünder",
+    "136.6": "Wo soll ich fliehen hin",
+    "137.5": "Lobe den Herren, den mächtigen König der Ehren",
+    "139.6": "Wohl dem, der sich auf seinen Gott",
+    "140.7": "Wachet auf, ruft uns die Stimme",
+    "144.3": "Was Gott tut, das ist wohlgetan",
+    "144.6": "Was mein Gott will, das g'scheh allzeit",
+    "145.5": "Erschienen ist der herrlich Tag",
+    "146.8": "Freu dich sehr, o meine Seele",
+    "148.6": "Wo soll ich fliehen hin",
+    "149.7": "Herzlich lieb hab ich dich, o Herr",
+    "151.5": "Lobt Gott, ihr Christen, allzugleich",
+    "153.1": "Schau, lieber Gott, wie meine Feind",
+    "153.5": "Befiehl du deine Wege",
+    "153.9": "Ach Gott, wie manches Herzeleid",
+    "154.3": "Jesu, meiner Seelen Wonne",
+    "154.8": "Meinen Jesum laß ich nicht, weil",
+    "155.5": "Es ist das Heil uns kommen her",
+    "156.6": "Herr, wie du willst, so schicks mit mir",
+    "157.5": "Meinen Jesum laß ich nicht, weil",
+    "158.4": "Christ lag in Todesbanden",
+    "159.5": "Jesu Leiden, Pein und Tod",
+    "161.6": "Herzlich tut mich verlangen",
+    "162.6": "Alle Menschen müssen sterben",
+    "164.6": "Herr Christ, der einge Gottessohn",
+    "165.6": "Nun laßt uns Gott dem Herren",
+    "166.6": "Wer weiß, wie nahe mir mein Ende",
+    "167.5": "Nun lob, mein Seel, den Herren",
+    "168.6": "Herr Jesu Christ, du höchstes Gut",
+    "169.7": "Nun bitten wir den Heiligen Geist",
+    "171.6": "Jesu, nun sei gepreiset",
+    "172.6": "Wie schön leuchtet der Morgenstern",
+    "174.5": "Herzlich lieb hab ich dich, o Herr",
+    "175.7": "O Gottes Geist, mein Trost und Rat",
+    "176.6": "Was alle Weisheit in der Welt",
+    "177.5": "Ich ruf zu dir, Herr Jesu Christ",
+    "178.7": "Wo Gott der Herr nicht bei uns hält",
+    "179.6": "Ich armer Mensch, ich armer Sünder",
+    "180.7": "Schmücke dich, o liebe Seele",
+    "183.5": "Zeuch ein zu deinen Toren",
+    "184.5": "O Herre Gott, dein göttlich Wort",
+    "185.6": "Ich ruf zu dir, Herr Jesu Christ",
+    "187.7": "Singen wir aus Herzensgrund",
+    "188.6": "Auf meinen lieben Gott",
+    "190.7": "Jesu, nun sei gepreiset",
+    "194.6": "Treuer Gott, ich muss dir klagen",
+    "194.12": "Wach auf, mein Herz, und singe",
+    "195.6": "Nun danket all und bringet Ehr",
+    "197.5": "Nun bitten wir den Heiligen Geist",
+    "197.10": "Wer nur den lieben Gott läßt walten",
+    "226.2": "Komm, Heiliger Geist, Herre Gott",
+    "227.3": "Jesu, meine Freude",
+    "227.7": "Jesu, meine Freude",
+    "229.2": "Komm, Jesu, komm",
+    "244.3": "Herzliebster Jesu",
+    "244.10": "O Welt, sieh hier dein Leben",
+    "244.15": "O Haupt voll Blut und Wunden",
+    "244.17": "O Haupt voll Blut und Wunden",
+    "244.25": "Was mein Gott will, das g'scheh allzeit",
+    "244.32": "In dich hab ich gehoffet, Herr",
+    "244.37": "O Welt, sieh hier dein Leben",
+    "244.40": "Werde munter, mein Gemüte",
+    "244.44": "Befiehl du deine Wege",
+    "244.46": "Herzliebster Jesu",
+    "244.54": "O Haupt voll Blut und Wunden",
+    "244.62": "O Haupt voll Blut und Wunden",
+    "245.3": "Herzliebster Jesu",
+    "245.5": "Vater unser im Himmelreich",
+    "245.11": "O Welt, sieh hier dein Leben",
+    "245.14": "Jesu Leiden, Pein und Tod",
+    "245.15": "Christus, der uns selig macht",
+    "245.17": "Herzliebster Jesu",
+    "245.22": "Durch dein Gefängnis, Gottes Sohn",
+    "245.26": "Valet will ich dir geben",
+    "245.28": "Jesu Leiden, Pein und Tod",
+    "245.37": "Christus, der uns selig macht",
+    "245.40": "Herzlich lieb hab ich dich, o Herr",
+    "248.5": "Wie soll ich dich empfangen",
+    "248.9": "Vom Himmel hoch, da komm ich her",
+    "248.12": "Ermuntre dich, mein schwacher Geist",
+    "248.17": "Schaut, schaut, was ist für Wunder dar",
+    "248.23": "Wir singen dir, Immanuel",
+    "248.28": "Gelobet seist du, Jesu Christ",
+    "248.33": "Fröhlich soll mein Herze springen",
+    "248.35": "Lasst Furcht und Pein",
+    "248.42": "Hilf, Herr Jesu, laß gelingen",
+    "248.46": "Nun, liebe Seel, nun ist es Zeit",
+    "248.53": "Ihr Gestirn, ihr hohlen Lüfte",
+    "248.59": "Ich steh an deiner Krippen hier",
+    "248.64": "Ihr Christen, auserkoren",
+})
+# not chorales, but rendered note for note by WreckingCrew_v2.py
+BWV_TITLES["846"] = "Prelude in C major, The Well-Tempered Clavier I"
+
 # Filename pattern (renamed 9/24/26; everything before that is the old
 # ball9-t53a_lm23_r1.50_..._t110.mp3 scheme, which this no longer reads):
 #   b424f_df0_t3_d04_08_t092_ap4_lm19_r1.25.mp3
 #
 # Abbreviations:
 #   b        = the rendered chorale (Csound orchestra ball9.csd)
-#   424f     = BWV 424, variant f — always 3 digits, so 433 and 233 cannot collide
+#   424f     = BWV 424, variant f — the number in full (3 or 4 digits, so 433 and
+#              233 cannot collide; 244.10f for a chorale inside a larger work)
 #   df0      = density level: higher is denser (4-5), lower is sparser (0-1)
 #   df4c3214 = a chaconne render: density 4, then c + each chaconne copy's level
 #   md33     = legacy max delta, written instead of df when density_level is None
@@ -194,9 +518,12 @@ BWV_TITLES = {
 # is all a phone or car display shows.  Tempo is therefore NOT the last token.
 
 FILENAME_RE = re.compile(
-    r"b(\d{3})(\w?)_"                 # BWV number + variant letter
-    r"(?:md|df)(\d+)"                 # detail value (legacy md max-delta / newer df density-level)
-    r"(?:c\d+)?_"                     # chaconne copies' density levels, one digit each (df4c3214)
+    # BWV number: three or four digits (b354, b1048), or a chorale inside a larger
+    # work as <work>.<movement> (b244.10 = St Matthew Passion no. 10, b2.6) -- then
+    # the variant letter
+    r"b(\d{1,4}\.\d{1,2}|\d{3,4})([A-Za-z]?)_"
+    r"(?:(?:md|df)(\d+)"              # detail value (legacy md max-delta / newer df density-level);
+    r"(?:c\d+)?_)?"                   # chaconne copies' levels (df4c3214); WreckingCrew_v2.py writes none
     r"t(\d+)_"                        # tolerance
     r"d(\d+)_(\d+)_"                  # duration mm_ss
     r"t(\d+)"                         # tempo
@@ -207,8 +534,9 @@ FILENAME_RE = re.compile(
 )
 
 # Which bucket objects are ours.  The prefix is now a single "b", so a bare
-# startswith("b") would sweep up anything at all — anchor on b + three digits.
-BUCKET_FILE_RE = re.compile(r"^b\d{3}[A-Za-z]?_.*\.mp3$")
+# startswith("b") would sweep up anything at all — anchor on b + a BWV number
+# (three or four digits, or <work>.<movement>).
+BUCKET_FILE_RE = re.compile(r"^b(?:\d{1,4}\.\d{1,2}|\d{3,4})[A-Za-z]?_.*\.mp3$")
 
 
 def load_env():
@@ -239,11 +567,16 @@ def parse_filename(fname, url):
 
     # Group order follows the filename: lm and r moved to the tail on 9/24/26.
     bwv, variant, detail_value, tol, dur_m, dur_s, tempo, _primes, limit, ratio = m.groups()
-    # The BWV number is always three digits now, so no hundreds digit to infer.
-    title = BWV_TITLES.get(bwv, "Bach Chorale")
+    # The BWV number is written out in full, so no hundreds digit to infer.
+    title = BWV_TITLES.get(bwv)
+    if title is None:
+        # loud in the log: a missing title tweets as "Bach Chorale" (BWV 354-366, Nov 2026)
+        print(f"WARNING: no title for BWV {bwv} in BWV_TITLES; tweeting it as \"Bach Chorale\"")
+        title = "Bach Chorale"
+    shown = bwv.replace(".", "/")                     # 244.10 is written BWV 244/10
 
     desc = (
-        f"Bach BWV {bwv} – \"{title}\"\n"
+        f"Bach BWV {shown} – \"{title}\"\n"
         f"{limit}-limit just intonation (tonality diamond).\n"
         f"{int(dur_m)}:{dur_s} at {int(tempo)} BPM.\n"   # t092 in the name, 92 in the tweet
         f"Composed by Prent Rodgers, with the help of Claude Code Opus 5.\n"

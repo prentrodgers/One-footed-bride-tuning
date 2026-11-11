@@ -69,3 +69,27 @@ def test_bucket_filter_is_anchored():
     assert not mod.BUCKET_FILE_RE.match(OLD_NAME)
     assert not mod.BUCKET_FILE_RE.match("backup-of-something.mp3")
     assert not mod.BUCKET_FILE_RE.match("b42f_df0_t3.mp3")      # only 2 digits
+
+
+def test_titles_cover_every_chorale_253_to_438():
+    """BWV 354-366 tweeted as "Bach Chorale" for want of a title (10 Nov 2026)."""
+    mod = load_module()
+    missing = [n for n in range(253, 439) if str(n) not in mod.BWV_TITLES]
+    assert missing == []
+    bwv, desc = mod.parse_filename("b354a_df3_t1_d02_30_t020_lm19_r1.25.mp3", "https://example.test/x.mp3")
+    assert bwv == "354"
+    assert '"Jesu, der du meine Seele"' in desc
+
+
+def test_parse_filename_reads_a_chorale_inside_a_larger_work():
+    """WreckingCrew_v2.py names them in full: b244.10a_ is St Matthew Passion no. 10,
+    shown the usual way as BWV 244/10. Its names carry no df token."""
+    mod = load_module()
+    name = "b244.10a_t3_d00_48_t072_lm19_r1.25.mp3"
+    assert mod.BUCKET_FILE_RE.match(name)
+    bwv, desc = mod.parse_filename(name, "https://example.test/x.mp3")
+    assert bwv == "244.10"
+    assert 'BWV 244/10 – "O Welt, sieh hier dein Leben"' in desc
+    bwv, desc = mod.parse_filename("b846f_t3_d02_11_t066_lm19_r1.25.mp3", "https://example.test/x.mp3")
+    assert bwv == "846" and "Prelude in C major" in desc
+    assert mod.BUCKET_FILE_RE.match("b1048a_t3_d05_00_t100_lm19_r1.25.mp3")
