@@ -39,6 +39,8 @@
 #   LLM_DEPLOY=none leave the llama.cpp server on fs5 running (by default it is
 #                   scaled to 0 for the render and back when the farm finishes)
 #   STAGGER=45      seconds between pod launches
+#   PVC_CHECK=0     launch even if the .npy, its .mp3 or the BLEND here differ
+#                   from the PVC copy the pods read (by default nothing launches)
 #   IMAGE=...       another image tag
 #   SCRIPT=concert_stage.py BLEND=Concert_Stage.blend
 #                   render the Concert Stage (a saved .blend, animated by
@@ -316,6 +318,47 @@ done
 # Which rate column to split by: 6 (Cycles) when the pass-through asks for
 # it, else 5 (EEVEE).
 RATE_COL=5; case " ${EXTRA[*]:-} " in *" cycles "*) RATE_COL=6;; esac
+
+# The pods read the copy on the PVC, not fs1's, and Uploads/ is not in git: a piece regenerated on
+# fs1 under the same name leaves the PVC with the old one. b846f (10 Nov 2026) rendered a day-old
+# Bosendorfer npy, so the finger pianists never moved, and was muxed with the old mp3. So the npy,
+# its mp3 and the .blend must be byte-identical on both sides, or nothing launches. Files fs1 does
+# not have are not compared (a piece made on the pod); one the PVC lacks stops the launch.
+# PVC_CHECK=0 skips this.
+PVC_HOST=${PVC_HOST:-one-footed-bride-pod}
+if [ "${PVC_CHECK:-1}" = 1 ]; then
+  check=()
+  for f in "$NPY" "${NPY%.npy}.mp3" ${BLEND:+"$BLEND"}; do
+    [ -f "$f" ] && check+=("$f")
+  done
+  if [ ${#check[@]} -gt 0 ]; then
+    remote=$(ssh -o BatchMode=yes -o LogLevel=ERROR "$PVC_HOST" \
+               "cd Repos/One-footed-bride-tuning && md5sum -- $(printf "'%s' " "${check[@]}") 2>/dev/null; true") || {
+      echo "could not reach $PVC_HOST to compare the inputs with the PVC copy. Nothing launched." >&2
+      echo "PVC_CHECK=0 skips the comparison." >&2; exit 2; }
+    bad=0
+    for f in "${check[@]}"; do
+      here=$(md5sum -- "$f" | awk '{print $1}')
+      there=$(awk -v f="$f" '{ s = $0; sub(/^[0-9a-f]+ [ *]/, "", s); if (s == f) print $1 }' <<<"$remote")
+      if [ -z "$there" ]; then
+        echo "  $f: not on the PVC ($PVC_HOST)" >&2; bad=1
+      elif [ "$here" != "$there" ]; then
+        echo "  $f: differs from the PVC copy ($PVC_HOST)" >&2
+        echo "     fs1: $(stat -c '%y %s bytes' -- "$f" | cut -c1-19,36-)" >&2
+        echo "     PVC: $(ssh -o BatchMode=yes -o LogLevel=ERROR "$PVC_HOST" \
+               "cd Repos/One-footed-bride-tuning && stat -c '%y %s bytes' -- '$f'" | cut -c1-19,36-)" >&2
+        bad=1
+      fi
+    done
+    if [ "$bad" = 1 ]; then
+      echo "The pods would render (and concert_mux.sh would mux) the PVC's copy. Nothing launched." >&2
+      echo "Copy the right one across (scp <file> $PVC_HOST:Repos/One-footed-bride-tuning/<file>), or a" >&2
+      echo ".blend through git (commit, push, git pull on $PVC_HOST); PVC_CHECK=0 launches anyway." >&2
+      exit 2
+    fi
+    echo "inputs match the PVC copy: ${check[*]}"
+  fi
+fi
 
 # The Concert Stage shows its title card for LEAD seconds before the music and TAIL seconds after it
 # when the piece has one (Uploads/<piece>.title.txt, from concert_title.py;
