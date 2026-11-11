@@ -24972,4 +24972,21 @@ _________________________________
                         patience 2, max_passes 8 (4 while a chorale has no GapSum < 10), prune after 2 at avg slack 1, 4 CPU + 2.5GiB per task
 
                   10:15:02 syncing the PVC checkout to origin/main
-      Failed out of the gate. 
+                  ... tons of error messages and this:
+                  -- 10:24:43  passes done 0, inflight 0, ready 0, cells active 0/144
+                  chorale  best cell          GapSum   n   p90   max   avg high%  good  active  retired
+                  bwv847   (no pass finished yet)                                                     0       24
+                  bwv848   (no pass finished yet)                                                     0       24
+                  bwv849   (no pass finished yet)                                                     0       24
+                  bwv850   (no pass finished yet)                                                     0       24
+                  bwv851   (no pass finished yet)                                                     0       24
+                  bwv852   (no pass finished yet)                                                     0       24
+      Failed out of the gate. Musis21 doesn't have it. 
+      To tune the rest of the Well-Tempered Clavier, the scores have to be added as files:
+
+      Put a MusicXML (.mxl/.musicxml), MIDI or kern file for each piece in Scores/.
+      Commit and push it: the workers read only what's on origin/main.
+      Two things to decide first:
+
+      Where the scores come from. One candidate is the Open Well-Tempered Clavier (Kimiko Ishizaka's edition of Book I), released as public-domain MusicXML. Check its license yourself before committing it. Or use files you already have.
+      What to call them. Each BWV number is a prelude and a fugue, and the corpus's bwv846 is the prelude only. Names like bwv847p and bwv847f keep the two apart and work with both the tuner and WreckingCrew_v2.
