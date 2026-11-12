@@ -52,7 +52,7 @@ RIM_TOP, RIM_BOTTOM = 0.035, -0.26   # of the rim, relative to the key tops
 RIM_T = 0.045                        # the rim's thickness
 
 CAMS = {   # name -> (location, target) in rig coordinates, lens
-    "Cam 61 Piano Hands (treble end)": ((1.20, -0.40, 0.58), (-0.05, -0.04, 0.0), 40),
+    "Cam 61 Piano Hands (treble end)": ((1.00, -0.62, 0.80), (-0.12, -0.05, 0.0), 40),   # steep enough to see the keys past the block
     "Cam 62 Piano Over the Shoulder": ((0.95, -1.30, 1.15), (-0.25, 0.02, -0.05), 32),   # the right shoulder: the lid is on the left
 }
 FACE_CAM = ("Cam 63 Piano Face", (1.05, 1.35, 0.18), 85)   # from inside the bend, over the music desk: offset from the head (rig axes), lens
@@ -181,8 +181,8 @@ def build_piano(M, rig, collection):
     sk.box("Piano Key Slip", (2 * CASE_W, 0.05, 0.05), (0, -0.19, -0.045), mat_=M["black"], collection=collection, parent=rig)
     sk.box("Piano Key Bed", (2 * CASE_W, 0.40, 0.05), (0, 0.02, -0.045), mat_=M["black"], collection=collection, parent=rig)
     for s in (-1, 1):
-        sk.box(f"Piano Cheek {'L' if s < 0 else 'R'}", (0.10, 0.36, 0.11), (s * (CASE_W - 0.05), 0.0, 0.03),
-               mat_=M["black"], collection=collection, parent=rig)
+        sk.box(f"Piano Cheek {'L' if s < 0 else 'R'}", (0.10, 0.36, 0.075), (s * (CASE_W - 0.05), 0.0, -0.012),
+               mat_=M["black"], collection=collection, parent=rig)      # the key blocks: 2.5 cm above the keys
     # behind the keys only a low nameboard; the fallboard is open, folded back and sloping up toward the desk,
     # so the keys lie in full view
     sk.box("Piano Nameboard", (2 * CASE_W - 0.2, 0.04, 0.034), (0, 0.02, 0.017), mat_=M["black"], collection=collection, parent=rig)
@@ -208,8 +208,8 @@ def build_piano(M, rig, collection):
 
 def build_keys(M, rig, collection):
     """88 keys, children of the rig, each hinged at its back end (rotation about local X dips the front).
-    A key's mesh runs from its hinge (local y 0) forward to -length, and the hinge line is WHITE_L into
-    the piano, so a white key's front edge lands on rig y 0 and a black key starts 5.5 cm back."""
+    A key's mesh runs from its hinge (local y 0, the rig's y 0, just in front of the nameboard) forward
+    to -length: a white key's front edge is 15 cm toward the player, a black key's 5.5 cm less."""
     for m in range(cp.PIANO_LOW, cp.PIANO_HIGH + 1):
         black = (m % 12) in cp._ACC
         if black:
@@ -222,7 +222,7 @@ def build_keys(M, rig, collection):
         bmesh.ops.create_cube(bm, size=1.0)
         bmesh.ops.scale(bm, vec=Vector(size), verts=bm.verts)
         bmesh.ops.translate(bm, vec=Vector(centre), verts=bm.verts)
-        sk.mesh_obj(f"{KEY} Key {m}", bm, loc=(cp.piano_key_x(m), cp.WHITE_L, 0.0),
+        sk.mesh_obj(f"{KEY} Key {m}", bm, loc=(cp.piano_key_x(m), 0.0, 0.0),
                     mats=[M["ebony"] if black else M["ivory"]], collection=collection, parent=rig)
 
 
