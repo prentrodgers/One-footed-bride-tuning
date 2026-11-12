@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""stream_to_midi_array must read the score by part, on the sixteenth grid.
+"""stream_to_midi_array must read the score by part, on the score's grid.
 
 For every column, each row must hold the MIDI number its voice is sounding at
-that sixteenth (or, over a rest, the note it held before).  The greedy version
+that slot (or, over a rest, the note it held before).  Slots are sixteenths
+unless the score has shorter notes (atu.slots_per_quarter).  The greedy version
 that dealt notes into rows regardless of voice passed only for chorales whose
 four voices move in lockstep; bwv437, bwv432 and bwv424 are the ones that
 caught it (rests, dotted rhythms, a silent first beat).
@@ -24,26 +25,29 @@ import adaptive_tuning_util as atu
 logging.disable(logging.CRITICAL)
 
 
-def score_grid(version):
-    """(4, sixteenths) MIDI numbers straight from the parts, -1 where a part rests."""
+def score_grid(version, spq):
+    """(4, slots) MIDI numbers straight from the parts, -1 where a part rests; spq slots a beat."""
     s = corpus.parse(f'bach/{version}')
     parts = [list(p.flatten().notesAndRests) for p in s.parts]
     total = max(n.offset + n.duration.quarterLength for p in parts for n in p)
-    grid = -np.ones((4, math.ceil(total * 4)), dtype=int)
+    grid = -np.ones((4, math.ceil(total * spq)), dtype=int)
     for v, p in enumerate(parts):
         for n in p:
             if isinstance(n, note.Note):
-                a = math.ceil(Fraction(n.offset).limit_denominator(64) * 4)
-                b = math.ceil(Fraction(n.offset + n.duration.quarterLength).limit_denominator(64) * 4)
+                a = math.ceil(Fraction(n.offset).limit_denominator(64) * spq)
+                b = math.ceil(Fraction(n.offset + n.duration.quarterLength).limit_denominator(64) * spq)
                 grid[v, a:b] = n.pitch.midi
     anyone = (grid >= 0).any(axis=0)
     first, last = np.flatnonzero(anyone)[[0, -1]]
     return grid[:, first:last + 1]
 
 
-for version in ['bwv262', 'bwv437', 'bwv432', 'bwv424']:
+# The grid is the score's: sixteenths, but 32nds for bwv432, whose soprano has two
+# 32nd passing notes (bars 4 and 6) that the sixteenth grid lost until Nov 2026.
+for version, spq in [('bwv262', 4), ('bwv437', 4), ('bwv432', 8), ('bwv424', 4)]:
+    assert atu.slots_per_quarter(corpus.parse(f'bach/{version}')) == spq, version
     chorale, *_ = atu.stream_to_midi_array(version)
-    grid = score_grid(version)
+    grid = score_grid(version, spq)
     assert chorale.shape == grid.shape, (version, chorale.shape, grid.shape)
     sounding = grid >= 0
     assert (chorale[sounding] == grid[sounding]).all(), version

@@ -25012,11 +25012,33 @@ _________________________________
             python select_best_and_render.py --numpy_dir_root Archive/straw-man --chorale_list bwv846f bwv847p bwv847f bwv848p bwv848f --suffix="-opt.npy" --sort_by best --copy_npy_to Archive/straw-man/best-tunings
       And copy the text files as well:
             cp Archive/straw-man/<cell>/bwv847p-opt.txt Archive/straw-man/best-tunings/bwv847p_t3_r1.625_lm17-opt.txt
-      And then run the v2 render:
-            python WreckingCrew_v2.py --chorale bwv847p --tempo 112 --letter l # Bösendorfer # or --instrument "Piano=harpsichord"   
-            # --pedal this does a sustain pedal for piano parts, down at each barline. Only reasonable for Prelude #1
+      
 
       The Grafana dashboards for the ray job have a lot of vacant cells. 
             One-footed bride: tuning jobs
             One-footed bride: render farm
             Ray: default
+      Claude fixed that. Then take a look at the second render ratchet pass:
+            ssh one-footed-bride-pod 
+            cd Repos/One-footed-bride-tuning 
+            git -c credential.helper= pull
+            python select_best_and_render.py --numpy_dir_root Archive/straw-man --chorale_list bwv846f bwv847p bwv847f bwv848p bwv848f --suffix="-opt.npy" --sort_by best --copy_npy_to Archive/straw-man/best-tunings
+      You can run this multiple times, and each time will replace the prior copy in Archive/straw-man/best-tunings, instead of adding a new numpy array and text. 
+      But I prefer a quick look at the winners of p90, score, and best 
+            for t in best score p90 ; do echo $t ; python select_best_and_render.py --numpy_dir_root Archive/straw-man --chorale_list bwv846f bwv847p bwv847f bwv848p bwv848f --suffix="-opt.npy" --sort_by $t > sort_by_{$t}.txt ; done
+
+            for t in best score p90 ; do echo $t ; grep Chorale -A6 sort_by_$t.txt ; done
+      The best ones are p90 and best. The score sort is full of huge gaps. The p90 picks best all but two times, and that one has the best in second place. Now we are ready to make some music. 
+      And then run the v2 render:
+            python WreckingCrew_v2.py --chorale bwv847p --tempo 112 --letter l # Bösendorfer # or --instrument "Piano=harpsichord"   
+            # --pedal this does a sustain pedal for piano parts, down at each barline. Only reasonable for Prelude #1
+      That was was not bad, but it failed when it encountered 32nd notes.
+            python WreckingCrew_v2.py --chorale bwv846f --tempo 58 --letter l
+      That one was terrible. In striving to keep horizontal notes in low number ratios, it totally screwed up the melodies, which is the whole point of a fugue. I think I might have better luck with werckmeister_III. 
+
+_______________________
+11/12/26 Claude has enabled all four Werckmeister tunings. 
+      To fix the dropped notes, claude is working on better resolution of slots so that we don't skip 32nd or 64th notes in the xml files. He suggests retuning bwv432 since it missed some 32nd notes. This change affects a lot of code in the repo, so it's taking a while.
+      Scores now get a finer grid only when they need one. Every note of bwv846f, bwv847p and bwv848f now reaches the tuner and the renderer. The chorales stay on sixteenths, so 97 of the 98 saved best tunings still match their scores. 
+      Whast about mordants? Wouldn't it be cool to handle those as ftable glides?
+      Trouble with viterbi optimization: All tests pass except test_viterbi, which fails the same way at HEAD without today's changes: a fake function in that test doesn't accept an argument the tuner now passes.

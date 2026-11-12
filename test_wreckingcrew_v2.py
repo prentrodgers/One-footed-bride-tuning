@@ -341,6 +341,45 @@ class TestNoteForNote(unittest.TestCase):
                 self.assertTrue(any(abs(cents - c) <= 0.5 for c in onsets[(a, m)]), (name, a, m, cents))
                 self.assertTrue(0 <= r[4] < 1200)
 
+    def test_short_notes_get_a_finer_grid(self):
+        # Two 32nds in one sixteenth used to share a slot, and the second was lost.
+        for name, want in (('bwv262', 4), ('bwv846', 4), ('bwv848f', 8), ('bwv846f', 16)):
+            stream = wc2.load_score(name)
+            spq = atu.slots_per_quarter(stream)
+            self.assertEqual(spq, want, name)
+            written = sum(len(n.notes) if n.isChord else 1 for part in stream.parts for n in part.recurse().notes
+                          if n.duration.quarterLength > 0)
+            read = sum(len(spans) for spans, _p in atu.score_rows(stream))
+            self.assertEqual(read, written, name)
+            midi = atu.stream_to_midi_array(name)[0]
+            rows = wc2.rows_by_part(stream, spq)
+            first = min(a for spans, _p, _i in rows for a, _b, _m in spans)
+            self.assertEqual(max(b for spans, _p, _i in rows for _a, b, _m in spans) - first, midi.shape[1], name)
+            parts = wc2.plan_parts(stream, {}, {})
+            report = dict(glides=0, max_glide=0.0, wide_glides=0, out_of_range={})
+            notes = wc2.build_notes(rows, wc2.temperament_tuning('12-TET', midi), first, parts, ARGS,
+                                    wc2.GlideTables(), report, tempo=TEMPO, spq=spq)
+            # In beats, whatever the grid: the last note starts where the score's last note does.
+            onsets = [float(n.getOffsetInHierarchy(p)) for p in stream.parts for n in p.recurse().notes]
+            self.assertAlmostEqual(float(notes[:, 1].max()), max(onsets) - min(onsets), places=6, msg=name)
+
+    def test_temperament_plays_every_note_at_its_pitch_class(self):
+        p = Piece.get('bwv846')
+        for name, table in wc2.TEMPERAMENTS.items():
+            tuning = wc2.temperament_tuning(name, p.midi)
+            self.assertEqual(atu.tuning_matches_score(tuning, p.midi), 1.0, name)
+            report = dict(glides=0, max_glide=0.0, wide_glides=0, out_of_range={})
+            notes = wc2.build_notes(p.rows, tuning, p.first, p.parts, ARGS, wc2.GlideTables(), report,
+                                    tempo=TEMPO, bars=p.bars)
+            for r in notes:
+                cents = sounding_cents(r)
+                m = int(round(cents / 100))
+                self.assertAlmostEqual(r[4], table[m % 12], delta=0.01, msg=(name, m))
+            self.assertEqual(report['glides'], 0, name)     # a held note never moves
+        self.assertEqual(set(wc2.TEMPERAMENT_TAGS), set(wc2.TEMPERAMENTS))
+        self.assertEqual(wc2.render_name('bwv846f', 'a', None, 114, 60, tag=wc2.TEMPERAMENT_TAGS['werckmeister_III']),
+                         '846fa_werck3_d01_54_t060')
+
     def test_nothing_sounds_in_a_rest(self):
         for name in PIECES:
             p = Piece.get(name)

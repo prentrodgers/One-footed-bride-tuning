@@ -1421,11 +1421,49 @@ def parse_score(name):
     return m21.converter.parse(path) if path else m21.corpus.parse(name)
 
 
-def score_rows(stream):
+GRIDS = (4, 8, 12, 16, 24, 32, 48)   # slots per quarter note that slots_per_quarter tries, coarsest first
+
+
+def grid_slot(t, spq=4):
+    """The slot holding score time t (quarter notes) on a grid of spq slots per quarter.
+
+    Slot k covers [k/spq, (k+1)/spq).  A note sounding over [onset, end) covers
+    slots grid_slot(onset) .. grid_slot(end)-1, which also copes with triplets and
+    other durations off the grid (each slot takes whatever is sounding at its start).
+    """
+    return math.ceil(Fraction(t).limit_denominator(64) * spq)
+
+
+def slots_per_quarter(stream):
+    """The coarsest grid in GRIDS on which every note of the score gets a slot of its own.
+
+    4 (sixteenths) for anything without shorter notes: the chorales, bwv846.
+    On the sixteenth grid two 32nds starting in one sixteenth share a slot and the
+    second is lost (until Nov 2026 bwv846f lost 37 notes, bwv847p 20, bwv848f 11);
+    such a score gets 8 or 16, triplet sixteenths 12, and so on.
+    """
+    spans = []
+    for p in stream.parts:
+        for n in p.recurse().notes:
+            if not isinstance(n, (m21.note.Note, m21.chord.Chord)):
+                continue
+            on = Fraction(n.getOffsetInHierarchy(p)).limit_denominator(64)
+            end = on + Fraction(n.duration.quarterLength).limit_denominator(64)
+            if end > on:
+                spans.append((on, end))
+    for spq in GRIDS:
+        if all(math.ceil(a * spq) < math.ceil(b * spq) for a, b in spans):
+            return spq
+    return GRIDS[-1]
+
+
+def score_rows(stream, spq=None):
     """
     The rows a score needs, as a list of (spans, parent), one per row.
 
-    spans is [(first_slot, last_slot_exclusive, midi), ...] on the sixteenth grid.
+    spans is [(first_slot, last_slot_exclusive, midi), ...] on the score's grid,
+    spq slots per quarter note (default slots_per_quarter(stream): sixteenths
+    unless the score has shorter notes).
     The score decides how many rows there are:
 
       * each part is a line, or one line per Voice if it has them: a keyboard
@@ -1437,12 +1475,10 @@ def score_rows(stream):
 
     Unpitched notes and notes too short to reach a slot make no row.
     """
+    spq = spq or slots_per_quarter(stream)
+
     def slot(t):
-        # Slot k covers score time [k/4, (k+1)/4) in quarter notes.  A note that
-        # sounds over [onset, end) therefore covers slots ceil(4*onset) .. ceil(4*end)-1,
-        # which also copes with triplets and other durations that are not a whole
-        # number of sixteenths (each slot takes whatever is sounding at its start).
-        return math.ceil(Fraction(t).limit_denominator(64) * 4)
+        return grid_slot(t, spq)
 
     rows = []
     for p in stream.parts:
@@ -1507,14 +1543,15 @@ def _unoverlap(spans):
 
 def stream_to_midi_array(corpus, save_midi_file = False):
     """
-    Convert a score to a (voices, n_sixteenths) array of MIDI numbers.
+    Convert a score to a (voices, n_slots) array of MIDI numbers.
 
     `corpus` names a file in SCORES_DIR or a music21 corpus work.  The score sets
     the number of rows (score_rows): a chorale in four plain parts has four, in
     soprano, alto, tenor, bass order.
 
-    Row v is sampled on the sixteenth-note grid: column k holds the MIDI number
-    of the note that line is sounding at sixteenth k, so every column is a chord
+    Row v is sampled on the score's grid, slots_per_quarter(stream) columns per
+    quarter note: sixteenths unless the score has shorter notes (bwv846f: 64ths).
+    Column k holds the MIDI number of the note that line is sounding at slot k, so every column is a chord
     that actually sounds in the piece and a held note repeats its MIDI number
     for as many columns as it lasts.  An int array cannot say "silence", so a
     rest is filled with the note that line played before it (a leading rest
@@ -1753,10 +1790,12 @@ def measure_columns(corpus):
     stream = parse_score(corpus)
     parts = list(stream.parts)
 
-    def slot(t):
-        return math.ceil(Fraction(t).limit_denominator(64) * 4)
+    spq = slots_per_quarter(stream)
 
-    first = min(a for spans, _ in score_rows(stream) for a, _, _ in spans)
+    def slot(t):
+        return grid_slot(t, spq)
+
+    first = min(a for spans, _ in score_rows(stream, spq) for a, _, _ in spans)
     result = []
     for m in parts[0].getElementsByClass(m21.stream.Measure):
         a, b = slot(m.offset), slot(m.offset + m.duration.quarterLength)

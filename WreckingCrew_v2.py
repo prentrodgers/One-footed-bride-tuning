@@ -12,7 +12,8 @@ or more players: every player after the first starts each note 0 to
 never strike together, and without the delay the two sound as one.
 
     score  (music21 corpus or Scores/<name>.*)  -> notes: onset, length, MIDI number, row
-    tuning (<numpy_dir>/<name>-opt.npy, voices x sixteenths, cents per pitch class)
+    tuning (<numpy_dir>/<name>-opt.npy, voices x slots, cents per pitch class;
+            slots are sixteenths unless the score has shorter notes: atu.slots_per_quarter)
                                                  -> each note's pitch, to 0.01 cent
     ensemble (ensembles/<name>.yaml, optional)   -> each part's instrument, seat, level
 
@@ -200,12 +201,12 @@ def load_score(version):
     return atu.parse_score(atu.score_name(version))
 
 
-def _slot(t):
-    """atu.score_rows's sixteenth grid."""
-    return math.ceil(Fraction(t).limit_denominator(64) * 4)
+def _slot(t, spq=4):
+    """atu.score_rows's grid: spq slots per quarter (atu.slots_per_quarter, 4 = sixteenths)."""
+    return atu.grid_slot(t, spq)
 
 
-def tie_continuations(part):
+def tie_continuations(part, spq=4):
     """{(slot, midi)} of the notes in a part that continue a tie (tie 'stop' or 'continue').
 
     Read from each note's own tie mark (per chord note).  music21's stripTies
@@ -214,26 +215,28 @@ def tie_continuations(part):
     """
     out = set()
     for n in part.recurse().notes:
-        a = _slot(n.getOffsetInHierarchy(part))
+        a = _slot(n.getOffsetInHierarchy(part), spq)
         for note in (n.notes if n.isChord else [n]):
             if note.tie is not None and note.tie.type in ('stop', 'continue'):
                 out.add((a, note.pitch.midi))
     return out
 
 
-def rows_by_part(stream):
+def rows_by_part(stream, spq=None):
     """atu.score_rows, plus the part each row belongs to: [(spans, parent, part_index)].
 
-    The rows are exactly the tuner's.  score_rows reads each tied piece as a note
-    of its own; here a span that continues the one before it at the same pitch,
-    and that the score marks as the end of a tie, is joined to it, so a tie is
-    one note.
+    The rows are exactly the tuner's, on the same grid (the whole score's
+    slots_per_quarter, not each part's).  score_rows reads each tied piece as a
+    note of its own; here a span that continues the one before it at the same
+    pitch, and that the score marks as the end of a tie, is joined to it, so a
+    tie is one note.
     """
+    spq = spq or atu.slots_per_quarter(stream)
     out = []
     for i, part in enumerate(stream.parts):
         base = len(out)
-        tied = tie_continuations(part)
-        for spans, parent in atu.score_rows(types.SimpleNamespace(parts=[part])):
+        tied = tie_continuations(part, spq)
+        for spans, parent in atu.score_rows(types.SimpleNamespace(parts=[part]), spq):
             joined = []
             for a, b, midi in spans:
                 if joined and joined[-1][1] == a and joined[-1][2] == midi and (a, midi) in tied:
@@ -291,6 +294,36 @@ def find_tuning(version, numpy_dir, partial):
         if hits:
             return hits[0]
     raise FileNotFoundError(f'no tuning for {version} in {numpy_dir} ({partial})')
+
+
+# Fixed temperaments, cents above C for C C# D Eb E F F# G G# A Bb B: every C# the same pitch
+# wherever it falls, in every key, as on an organ tuned once.  Werckmeister's numbers as in
+# WreckingCrew.txt (6/18/25), to the thousandth (Orgel-Probe, 1681/1698):
+TEMPERAMENTS = {
+    '12-TET': [0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100],
+    # I (III), "correct temperament": C-G, G-D, D-A and B-F# narrowed by 1/4 Pythagorean comma
+    'werckmeister_I': [0, 90.225, 192.180, 294.135, 390.225, 498.045, 588.270, 696.090,
+                       792.180, 888.270, 996.090, 1092.180],
+    # II (IV): fifths narrowed by 1/3 comma
+    'werckmeister_II': [0, 82.405, 196.090, 294.135, 392.180, 498.045, 588.270, 694.135,
+                        784.360, 890.225, 1003.910, 1086.315],
+    # III (V): 1/4 comma, distributed differently from I
+    'werckmeister_III': [0, 96.090, 203.910, 300.000, 396.090, 503.910, 600.000, 701.955,
+                         792.180, 900.000, 1001.955, 1098.045],
+    # IV (VI), Septenarius: string lengths in 196ths
+    'werckmeister_IV': [0, 91.700, 196.300, 298.000, 395.100, 498.000, 595.000, 698.200,
+                        793.700, 893.300, 1000.000, 1097.300],
+}
+
+
+# The temperament as the render's file name gives it: b846fa_werck3_d01_54_t060.mp3
+TEMPERAMENT_TAGS = {'12-TET': '12tet', 'werckmeister_I': 'werck1', 'werckmeister_II': 'werck2',
+                    'werckmeister_III': 'werck3', 'werckmeister_IV': 'werck4'}
+
+
+def temperament_tuning(name, midi):
+    """A (voices, slots) tuning that plays every note of `midi` at its pitch class's value in TEMPERAMENTS[name]."""
+    return np.asarray(TEMPERAMENTS[name], dtype=float)[np.asarray(midi, dtype=int) % 12]
 
 
 def tuning_params(path):
@@ -379,11 +412,11 @@ def plan_parts(stream, ensemble, overrides, pedal=None):
     return parts
 
 
-def barlines(stream, first):
-    """Slots (sixteenths from the first note) where measures start, from the first part."""
+def barlines(stream, first, spq=4):
+    """Slots (from the first note) where measures start, from the first part."""
     if not stream.parts:
         return []
-    return sorted({_slot(m.getOffsetInHierarchy(stream.parts[0])) - first
+    return sorted({_slot(m.getOffsetInHierarchy(stream.parts[0]), spq) - first
                    for m in stream.parts[0].getElementsByClass('Measure')})
 
 
@@ -399,7 +432,7 @@ def pedal_changes(bars, last_bars=1):
     return bars[:max(len(bars) - n, 1)] + [bars[-1]]
 
 
-def final_chord(stream, rows, first):
+def final_chord(stream, rows, first, spq=4):
     """(start, end) in beats of the piece's last chord, and whether the score marks it with
     a fermata (bwv846's last C major chord, a chorale's last chord)."""
     end = max(b for spans, _p, _i in rows for _a, b, _m in spans)
@@ -407,17 +440,17 @@ def final_chord(stream, rows, first):
     fermata = False
     for part in stream.parts:
         for n in part.recurse().notes:
-            on = _slot(n.getOffsetInHierarchy(part))
+            on = _slot(n.getOffsetInHierarchy(part), spq)
             if on == start and any(type(e).__name__ == 'Fermata' for e in n.expressions):
                 fermata = True
-    return (start - first) / 4.0, (end - first) / 4.0, fermata
+    return (start - first) / spq, (end - first) / spq, fermata
 
 
-def ending_for(stream, rows, first, args):
+def ending_for(stream, rows, first, args, spq=4):
     """build_notes' `ending`: notes still sounding at the piece's end hold to the end of the
     final chord, lengthened by --fermata when the score marks one, then die away over
     --final_release_ms instead of the damper."""
-    start, end, fermata = final_chord(stream, rows, first)
+    start, end, fermata = final_chord(stream, rows, first, spq)
     factor = getattr(args, 'fermata', FERMATA) if fermata else 1.0
     return dict(end=end, extra=(factor - 1.0) * (end - start), fermata=fermata,
                 release_ms=getattr(args, 'final_release_ms', FINAL_RELEASE_MS))
@@ -494,21 +527,22 @@ def damper_tables(indexes):
     return lines
 
 
-def sounding_end(start, written_end, part, midi, args, ms, bars, strikes):
+def sounding_end(start, written_end, part, midi, args, ms, bars, strikes, spq=4):
     """Beat at which a note's envelope starts to fade (the dampers fall, or the player lets go).
 
     Without pedal: --overlap_ms after the written end (scaled by --legato), so it
     overlaps the next note.  With pedal: 1 ms before the barline at or after the
     written end, but no later than just past the same key's next strike in the part.
+    bars and strikes are slots, spq to a beat.
     """
     if not part['pedal'] or not bars:
         return start + (written_end - start) * args.legato + getattr(args, 'overlap_ms', OVERLAP_MS) * ms
-    slot = written_end * 4
+    slot = written_end * spq
     bar = next((x for x in bars if x >= slot - 1e-9), bars[-1])
-    end = max(bar / 4.0 - PEDAL_LIFT_MS * ms, written_end - PEDAL_LIFT_MS * ms)
-    again = next((s for s in strikes.get((part['name'], midi), ()) if s > start * 4 + 1e-9), None)
-    if again is not None and again / 4.0 < end:
-        end = again / 4.0 + getattr(args, 'overlap_ms', OVERLAP_MS) * ms
+    end = max(bar / spq - PEDAL_LIFT_MS * ms, written_end - PEDAL_LIFT_MS * ms)
+    again = next((s for s in strikes.get((part['name'], midi), ()) if s > start * spq + 1e-9), None)
+    if again is not None and again / spq < end:
+        end = again / spq + getattr(args, 'overlap_ms', OVERLAP_MS) * ms
     return end
 
 
@@ -523,7 +557,7 @@ def note_velocity(base, slot, downbeats, spread, rng):
 
 
 def build_notes(rows, tuning, first, parts, args, glides, report, tempo=DEFAULT_TEMPO, bars=None,
-                downbeats=None, ending=None):
+                downbeats=None, ending=None, spq=4):
     """The (n, 15) p-field array, one row per note per player, sorted by start time.
 
     Columns as in WreckingCrew.py's features array (ball9.csd p1..p15):
@@ -533,9 +567,11 @@ def build_notes(rows, tuning, first, parts, args, glides, report, tempo=DEFAULT_
 
     Column 2 is p3, the length Csound plays, envelope release included: longer than
     the written note (see sounding_end).  bars: barline slots, from barlines(),
-    with the piece's end appended; needed only for pedalled parts.
+    with the piece's end appended; needed only for pedalled parts.  spq: slots per
+    beat of the rows and the tuning (atu.slots_per_quarter).
     """
     ms = tempo / 60000.0                                  # beats per millisecond
+    glide_len = max(1, round(args.glide_slots * spq / 4))  # --glide_slots counts sixteenths
     players = sum(len(parts[p]['instruments']) for _s, _par, p in rows)
     level = LOUDNESS_BUDGET / max(players, 1)
     strikes = {}                                          # (part name, midi) -> onset slots, for re-struck keys
@@ -561,8 +597,8 @@ def build_notes(rows, tuning, first, parts, args, glides, report, tempo=DEFAULT_
             for a, b, midi in spans:
                 c0, c1 = a - first, b - first
                 pitch = absolute_cents(tuning[v, c0:c1], midi) + shift
-                start = c0 / 4.0
-                end = sounding_end(start, c1 / 4.0, part, midi, args, ms, bars, strikes)
+                start = c0 / spq
+                end = sounding_end(start, c1 / spq, part, midi, args, ms, bars, strikes, spq)
                 p9 = env
                 release_ms = getattr(args, 'release_ms', RELEASE_MS)
                 if ending and end >= ending['end'] - 2 * PEDAL_LIFT_MS * ms:
@@ -589,9 +625,9 @@ def build_notes(rows, tuning, first, parts, args, glides, report, tempo=DEFAULT_
                     pts = [(0.0, 2 ** ((pitch[0] - p0) / 1200))]
                     for j, m in enumerate(moves):
                         nxt = moves[j + 1] if j + 1 < len(moves) else len(pitch)
-                        end = min(m + args.glide_slots, nxt)
-                        pts.append((m / 4.0 / dur, pts[-1][1]))
-                        pts.append((end / 4.0 / dur, 2 ** ((pitch[m] - p0) / 1200)))
+                        end = min(m + glide_len, nxt)
+                        pts.append((m / spq / dur, pts[-1][1]))
+                        pts.append((end / spq / dur, 2 ** ((pitch[m] - p0) / 1200)))
                         step = abs(pitch[m] - pitch[m - 1])
                         report['glides'] += 1
                         report['max_glide'] = max(report['max_glide'], step)
@@ -668,9 +704,11 @@ def mm_ss(seconds):
     return f'{m:02}_{s:02}'
 
 
-def render_name(version, letter, params, seconds, tempo):
+def render_name(version, letter, params, seconds, tempo, tag=None):
     number = version[3:] if version.lower().startswith('bwv') else version
     name = f'{number}{letter}'
+    if tag:                                   # a temperament: 846fa_werck3_d01_54_t060
+        name += f'_{tag}'
     if params:
         tol, ratio, lm = params
         name += f'_t{tol}_d{mm_ss(seconds)}_t{tempo:03}_lm{lm}_r{ratio:.2f}'
@@ -708,7 +746,8 @@ def print_plan(parts, rows):
 def render(args):
     version = args.chorale
     stream = load_score(version)
-    rows = rows_by_part(stream)
+    spq = atu.slots_per_quarter(stream)
+    rows = rows_by_part(stream, spq)
     if not rows:
         raise SystemExit(f'{version}: the score has no pitched notes')
     first = min(a for spans, _p, _i in rows for a, _b, _m in spans)
@@ -718,26 +757,35 @@ def render(args):
     if getattr(args, 'velocity', None) is not None:
         for part in parts:
             part['velocity'] = args.velocity
-    print(f'{version}: {len(stream.parts)} parts, {len(rows)} rows')
+    grid = {4: 'sixteenths', 8: '32nds', 16: '64ths', 12: 'sixteenth triplets'}.get(spq, f'1/{spq} beats')
+    print(f'{version}: {len(stream.parts)} parts, {len(rows)} rows, on a grid of {grid}')
     print_plan(parts, rows)
     if args.list:
         return None
 
-    tuning_path = find_tuning(version, args.numpy_dir, args.cent_file_partial)
-    tuning = np.load(tuning_path)
     midi = atu.stream_to_midi_array(atu.score_name(version))[0]
-    if tuning.shape != midi.shape:
-        raise SystemExit(f'{tuning_path}: shape {tuning.shape}, but the score reads as {midi.shape}')
-    match = atu.tuning_matches_score(tuning, midi)
-    if match < 1.0 and not args.force:
-        raise SystemExit(f'{tuning_path} plays only {match:.0%} of the score\'s chords; --force to render anyway')
-    print(f'tuning {tuning_path} ({atu.rests_mode_from_sidecar(tuning_path)} rests in the tuner)')
+    temperament = getattr(args, 'temperament', None)
+    if temperament:
+        tuning_path = None
+        tuning = temperament_tuning(temperament, midi)
+        print(f'tuning: {temperament}, ' + ' '.join(
+            f'{n}{c:g}' for n, c in zip(('C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'G#', 'A', 'Bb', 'B'),
+                                        TEMPERAMENTS[temperament])))
+    else:
+        tuning_path = find_tuning(version, args.numpy_dir, args.cent_file_partial)
+        tuning = np.load(tuning_path)
+        if tuning.shape != midi.shape:
+            raise SystemExit(f'{tuning_path}: shape {tuning.shape}, but the score reads as {midi.shape}')
+        match = atu.tuning_matches_score(tuning, midi)
+        if match < 1.0 and not args.force:
+            raise SystemExit(f'{tuning_path} plays only {match:.0%} of the score\'s chords; --force to render anyway')
+        print(f'tuning {tuning_path} ({atu.rests_mode_from_sidecar(tuning_path)} rests in the tuner)')
 
     tempo = int(args.tempo or ensemble.get('tempo') or TEMPOS.get(version, DEFAULT_TEMPO))
     glides = GlideTables()
     report = dict(glides=0, max_glide=0.0, wide_glides=0, out_of_range={})
     last = max(b for spans, _p, _i in rows for _a, b, _m in spans) - first
-    downbeats = barlines(stream, first)
+    downbeats = barlines(stream, first, spq)
     bars = downbeats + [last]
     last_bars =args.pedal_last_bars or ensemble.get('pedal_last_bars') or 1
     bars = pedal_changes(bars, last_bars)
@@ -747,9 +795,9 @@ def render(args):
         merged = score_notes - sum(len(spans) for spans, _p, _i in rows)
         print(f'merge_adjacent: {merged} of {score_notes} score notes joined to the note before them')
         score_notes -= merged
-    ending = ending_for(stream, rows, first, args)
+    ending = ending_for(stream, rows, first, args, spq)
     notes = build_notes(rows, tuning, first, parts, args, glides, report, tempo=tempo, bars=bars,
-                        downbeats=downbeats, ending=ending)
+                        downbeats=downbeats, ending=ending, spq=spq)
     struck = any(INSTRUMENTS[i][1] == 0 for x in parts for i in x['instruments'])
     print(f'ending: the last chord {"has a fermata, held %gx, " % args.fermata if ending["fermata"] else ""}'
           f'sounds to beat {ending["end"] + ending["extra"]:g}'
@@ -776,7 +824,8 @@ def render(args):
         print(f'  {who}: {n} notes outside its samples (MIDI {lo + 12 * CSD_OCTAVE_OFFSET}-'
               f'{hi + 12 * CSD_OCTAVE_OFFSET}), played from the nearest sample')
 
-    stem = render_name(version, args.letter, tuning_params(tuning_path), seconds + TAIL_SECONDS, tempo)
+    stem = render_name(version, args.letter, tuning_params(tuning_path), seconds + TAIL_SECONDS, tempo,
+                       tag=TEMPERAMENT_TAGS.get(temperament))
     csd = os.path.join(REPO, OUTPUT_CSD)
     write_csd(notes, glides, tempo, csd)
     print(f'wrote {csd}: b{stem}')
@@ -803,6 +852,8 @@ def main(argv=None):
     ap.add_argument('--chorale', required=True, help='score name: a corpus work (bwv244.10) or Scores/<name>.*')
     ap.add_argument('--numpy_dir', default='Archive/straw-man/best-tunings', help='where the tuning is')
     ap.add_argument('--cent_file_partial', default='-opt.npy', help='tuning file suffix after the name')
+    ap.add_argument('--temperament', choices=sorted(TEMPERAMENTS), default=None,
+                    help='play in a fixed temperament instead of a tuning file (no --numpy_dir needed)')
     ap.add_argument('--tempo', type=int, default=None, help='quarter notes per minute')
     ap.add_argument('--letter', default='a', help='render-set letter in the file name (b262a_...)')
     ap.add_argument('--ensemble', default=None, help='ensemble YAML (default ensembles/<chorale>.yaml)')
