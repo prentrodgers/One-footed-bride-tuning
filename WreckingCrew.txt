@@ -25052,4 +25052,57 @@ _______________________
       For bwv846, I would prefer the pedal and other arguments. It's really nice in Werck III with the two intruments and the velociy_random. I'll keep the others with the default values.
       Then retune the one chorale that needs it:
             ./ray-ratchet.sh --chorales bwv432 # , or include bwv847p if you still think it might work. 
-      I'm wondering if I need to add --double_delay_ms 50 and --velocity_random 6. This would mean needing an ensembles/bwv that specifies two pianos. I'ld like to hear that.
+      I'm wondering if I need to add --double_delay_ms 50 and --velocity_random 6. This would mean needing an ensembles/bwv that specifies two pianos. I'ld like to hear that. I asked claude and he obliged.
+      Now the dual pianos:
+            python WreckingCrew_v2.py --chorale bwv846 --ensemble ensembles/wtc-two-pianos.yaml --letter d --double_delay_ms 50 --temperament werckmeister_III --velocity_random 6 --pedal --tempo 58 --velocity 66
+                  bwv846: 2 parts, 6 rows, on a grid of sixteenths
+                  part                     rows  instrument             voice  pan   note
+                  Piano                       3  piano                     29   4.0  p4 66: the velocity-47 recordings
+                                                 piano                     29  12.0  p4 66: the velocity-47 recordings
+                  Piano                       3  piano                     29   4.0  p4 66: the velocity-47 recordings
+                                                 piano                     29  12.0  p4 66: the velocity-47 recordings
+                  tuning: werckmeister_III, C0 C#96.09 D203.91 Eb300 E396.09 F503.91 F#600 G701.955 G#792.18 A900 Bb1001.96 B1098.05
+                  ending: the last chord has a fermata, held 1.5x, sounds to beat 138, then dies away over 1500 ms
+      With --velocity 66:
+                  velocity: +-6 (seed 0), downbeats at the top: 60x80 (vel-25), 61x71 (vel-31), 62x75 (vel-31), 63x87 (vel-39), 64x78
+                   (vel-39), 65x67 (vel-47), 66x95 (vel-47), 67x85 (vel-63), 68x92 (vel-63), 69x89 (vel-78), 70x79 (vel-78), 71x92 (vel-85), 72x76 (vel-85)
+      With --velocity 64
+                  velocity: +-6 (seed 0), downbeats at the top: 58x80 (vel-25), 59x71 (vel-25), 60x75 (vel-25), 61x87 (vel-31), 62x78 (vel-31), 63x67 (vel-39), 64x95 (vel-39), 65x85 (vel-47), 66x92 (vel-47), 67x89 (vel-63), 68x79 (vel-63), 69x92 (vel-78), 70x76 (vel-78)
+
+                  sustain pedal: Piano, changed at 33 barlines; the last 2 measures under one pedal
+                  533 score notes -> 1066 Csound notes (533 by continuo and other parts with two players), 139.485 beats at 58 BPM = 02:24
+                  doubling: 533 notes of the second and later players delayed 0-50 ms at random (--double_delay_ms)
+                  glides: 0 at chord changes in held notes, widest 0.0 cents, 0 over 45; 0 tables
+                  wrote /home/prent/Repos/One-footed-bride-tuning/new_output_v2.csd: b846d_werck3_d02_28_t058
+                  end of score.              overall amps:   2401.1   3164.8
+                        overall samples out of range:        0        0
+                  0 errors in performance
+                  Music/sflib
+                  here are the values used in trim.sh
+                  ball9 846d_werck3_d02_28_t058 /tmp/tmplsait8vk /home/prent/Repos/One-footed-bride-tuning/Uploads
+                  --Csound version 6.18 (double samples) 2025-01-31
+                  [commit: none]
+                  libsndfile-1.2.2
+                  util sndinfo:
+                  Music/sflib/ball9.wav:
+                        srate 44100, stereo, 24 bit WAV, 144.295 seconds
+                        (6363395 sample frames)
+                  end of score.              overall amps:      0.0
+                        overall samples out of range:        0
+                  0 errors in performance
+      Now for all the others:
+            python WreckingCrew_v2.py --chorale bwv846f --ensemble ensembles/wtc-two-pianos.yaml --letter d --double_delay_ms 30 --temperament werckmeister_III --velocity_random 6 --tempo 58 --velocity 76
+            python WreckingCrew_v2.py --chorale bwv846f --letter e --temperament werckmeister_III --velocity_random 6 --tempo 58 --velocity 76
+      What are the velocity alternatives? 76 was too harsh. Try 74, and reduce the velocity_random to 4
+            --velocity default is 70
+                  --velocity 
+                        layer
+                  60- -> 25 
+                  64  -> 39
+                  66  -> 47
+                  68  -> 63
+                  70  -> 78
+                  72  -> 85
+                  74  -> 99
+                  76  -> 113
+                  78+ -> 127

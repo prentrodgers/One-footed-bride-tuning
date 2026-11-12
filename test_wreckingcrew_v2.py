@@ -229,7 +229,8 @@ class TestNoteForNote(unittest.TestCase):
             self.assertAlmostEqual(held_end(one[i]), 136.0, places=6)
 
     def test_velocity_random(self):
-        """--velocity 64 --velocity_random 3: downbeats at 67, every other note 61-66, repeatable by seed."""
+        """--velocity 64 --velocity_random 3: downbeats at 65.5 (accent half the spread), every
+        other note 61-65.5, repeatable by seed; --accent sets the downbeat on its own."""
         p = Piece.get('bwv846')
         parts = [dict(x, velocity=64) for x in p.parts]
         downbeats = set(wc2.barlines(p.stream, p.first))
@@ -244,8 +245,14 @@ class TestNoteForNote(unittest.TestCase):
         n = build(velocity_random=3, seed=0)
         on_beat = np.array([int(round(r[1] * 4)) in downbeats for r in n])
         self.assertTrue(on_beat.any())
-        self.assertEqual(set(n[on_beat, 3]), {67})
-        self.assertEqual(set(n[~on_beat, 3]), set(range(61, 67)))
+        self.assertEqual(set(n[on_beat, 3]), {65.5})
+        self.assertEqual(set(n[~on_beat, 3]), {61, 62, 63, 64, 65, 65.5})   # 66 held to the downbeat
+        wide = build(velocity_random=3, accent=4, seed=0)
+        self.assertEqual(set(wide[on_beat, 3]), {68})
+        self.assertEqual(set(wide[~on_beat, 3]), set(range(61, 67)))
+        alone = build(accent=2)                                             # no randomness
+        self.assertEqual(set(alone[on_beat, 3]), {66})
+        self.assertEqual(set(alone[~on_beat, 3]), {64})
         self.assertTrue(np.array_equal(n, build(velocity_random=3, seed=0)))
         self.assertFalse(np.array_equal(n[:, 3], build(velocity_random=3, seed=1)[:, 3]))
         # Only p4 changes.

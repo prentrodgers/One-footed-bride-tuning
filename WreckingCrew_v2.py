@@ -546,14 +546,20 @@ def sounding_end(start, written_end, part, midi, args, ms, bars, strikes, spq=4)
     return end
 
 
-def note_velocity(base, slot, downbeats, spread, rng):
-    """--velocity_random: base + spread on the first beat of a measure, otherwise a random
-    whole number from base - spread to base + spread - 1, so no note outranks a downbeat."""
+def note_velocity(base, slot, downbeats, spread, rng, accent=None):
+    """p4 for one note.  --accent: base + accent on the first beat of a measure (default
+    spread / 2).  --velocity_random: every other note a random whole number from
+    base - spread to base + spread - 1, held to no louder than a downbeat.
+
+    p4 is decibels in ball9.csd (ampdb), so an accent of 1.5 is 1.5 dB.  Until 12 Nov 2026
+    the accent was the whole spread (base + 3 at --velocity_random 3), too strong."""
+    if accent is None:
+        accent = spread / 2
+    if slot in downbeats:
+        return base + accent
     if not spread:
         return base
-    if slot in downbeats:
-        return base + spread
-    return int(rng.integers(base - spread, base + spread))
+    return min(int(rng.integers(base - spread, base + spread)), base + accent)
 
 
 def build_notes(rows, tuning, first, parts, args, glides, report, tempo=DEFAULT_TEMPO, bars=None,
@@ -581,6 +587,7 @@ def build_notes(rows, tuning, first, parts, args, glides, report, tempo=DEFAULT_
     for v in strikes.values():
         v.sort()
     spread = int(getattr(args, 'velocity_random', 0) or 0)
+    accent = getattr(args, 'accent', None)
     rng = np.random.default_rng(getattr(args, 'seed', 0))
     # Its own stream, so turning the delays on or off leaves --velocity_random's draws alone.
     delay_max = float(getattr(args, 'double_delay_ms', 0) or 0) * ms
@@ -637,7 +644,7 @@ def build_notes(rows, tuning, first, parts, args, glides, report, tempo=DEFAULT_
                 written = (midi * 100 + shift) / 100 - 12 * CSD_OCTAVE_OFFSET   # in ball9.csd's numbering
                 if not lo - 2 <= written <= hi + 2:
                     report['out_of_range'].setdefault(f"{part['name']} ({inst})", [lo, hi, 0])[2] += 1
-                vel = note_velocity(part['velocity'], c0, downbeats, spread, rng)
+                vel = note_velocity(part['velocity'], c0, downbeats, spread, rng, accent)
                 if k > 0 and delay_max > 0:
                     # A doubling player: the whole note a little late, a new delay every note.
                     start += delay_rng.uniform(0.0, delay_max)
@@ -802,11 +809,12 @@ def render(args):
     print(f'ending: the last chord {"has a fermata, held %gx, " % args.fermata if ending["fermata"] else ""}'
           f'sounds to beat {ending["end"] + ending["extra"]:g}'
           + (f', then dies away over {ending["release_ms"]:g} ms' if struck else ''))
-    if args.velocity_random:
-        vels, counts = np.unique(notes[:, 3].astype(int), return_counts=True)
+    accent = args.velocity_random / 2 if args.accent is None else args.accent
+    if args.velocity_random or accent:
+        vels, counts = np.unique(notes[:, 3], return_counts=True)
         piano = any(INSTRUMENTS[i][0] == 29 for x in parts for i in x['instruments'])
-        print(f'velocity: +-{args.velocity_random} (seed {args.seed}), downbeats at the top: ' + ', '.join(
-            f'{v}x{n}' + (f' (vel-{bosendorfer_layer(v)})' if piano else '') for v, n in zip(vels, counts)))
+        print(f'velocity: +-{args.velocity_random} (seed {args.seed}), downbeats +{accent:g}: ' + ', '.join(
+            f'{v:g}x{n}' + (f' (vel-{bosendorfer_layer(v)})' if piano else '') for v, n in zip(vels, counts)))
     pedalled = [x['name'] for x in parts if x['pedal']]
     if pedalled:
         held = f'; the last {last_bars} measures under one pedal' if int(last_bars) > 1 else ''
@@ -882,8 +890,11 @@ def main(argv=None):
                          'recording from it: 60 or less -> the velocity-25 layer, 64 -> 39, 66 -> 47, 68 -> 63, '
                          '70 -> 78, 72 -> 85, 74 -> 99, 76 -> 113, 78+ -> 127' % VELOCITY)
     ap.add_argument('--velocity_random', type=int, default=0, metavar='N',
-                    help='vary p4 around each part\'s velocity: base+N on the first beat of a measure, '
-                         'a random value from base-N to base+N-1 elsewhere (default 0: every note at base)')
+                    help='vary p4 around each part\'s velocity: a random value from base-N to base+N-1, '
+                         'never above a downbeat (default 0: every note at base)')
+    ap.add_argument('--accent', type=float, default=None, metavar='A',
+                    help='the first note of every measure at base+A; p4 is dB, so A=1.5 is 1.5 dB louder '
+                         '(default half of --velocity_random, 0 without it). Works without --velocity_random')
     ap.add_argument('--double_delay_ms', type=float, default=20.0, metavar='MAX',
                     help='in a part with two or more players, every player after the first starts each note '
                          'a random 0 to MAX ms late, drawn anew for every note, so the doubling is heard as '
