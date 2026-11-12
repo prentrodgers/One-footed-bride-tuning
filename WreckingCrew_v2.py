@@ -27,6 +27,17 @@ the next chord.  It glides there at the chord change (over --glide_slots
 sixteenths) through a GEN -7 table of frequency multipliers read across the
 note, numbered from 5000 as in WreckingCrew.py.
 
+Ornaments (bwv846f has two trills and a mordent) ride on the same table as
+pitch steps, so the note is struck once and its pitch alternates with the
+neighbour's: a trill starts on the upper note, --trill_rate (8) notes a beat,
+and ends on the written note; a mordent is the written note, its neighbour,
+the written note, each a half step of the trill rate.  The pitch jumps between
+the two as on a keyboard, or slides with --trill_glide F (1: a continuous sweep).  The neighbour is the
+score's (music21 reads the key signature and accidentals), a just interval from
+the tuned main note: 16/15 for a semitone, 9/8 for a whole tone, or the
+temperament's own interval under --temperament.  --no-ornaments plays the
+written note plain.  Turns and grace notes are not played.
+
 Legato: ball9.csd's envelopes scale with the note (p3) and fade over its last
 part (f293, e5, the last 12.5%), so a note played at its written length fades
 out before the next one starts.  Each note is lengthened so that the fade
@@ -60,6 +71,7 @@ array make_score_videos.sh and the Blender stage read.
     .venv/bin/python WreckingCrew_v2.py --chorale bwv262 --list     # show the part -> instrument table only
 """
 import argparse
+import collections
 import glob
 import logging
 import math
@@ -79,6 +91,7 @@ if REPO not in sys.path:
     sys.path.insert(0, REPO)
 
 import adaptive_tuning_util as atu  # noqa: E402
+import music21 as m21  # noqa: E402
 
 CSD_FILE = os.path.join(REPO, 'ball9.csd')
 CSD_C_FILE = os.path.join(REPO, 'ball9c.csd')
@@ -175,6 +188,8 @@ VELOCITY = 70                   # ball9.csd works best at 60-80
 LOUDNESS_BUDGET = 20.0          # sum of p15 over all players; trim.sh normalises the mix afterwards
 GLIDE_TABLE_START = 5000        # above every sample table in ball9.csd, as in WreckingCrew.py
 GLIDE_TABLE_SIZE = 1024         # GEN -7 points (+1 guard point)
+JUST_STEPS = {1: 16 / 15, 2: 9 / 8}  # an ornament's neighbour, by semitones, as a ratio to the main note
+ORNAMENTS = {'Trill': 'trill', 'Mordent': 'mordent', 'InvertedMordent': 'inverted mordent'}
 TAIL_SECONDS = 4.0              # room for the last note's release and the reverb
 # Where each envelope (p9) starts to fade, as a fraction of p3, from its ball9.csd table:
 # f298 (e0) is 1 1 496 496 of 1024, then the release; f293 (e5) is 1 1 447 447.
@@ -219,6 +234,34 @@ def tie_continuations(part, spq=4):
         for note in (n.notes if n.isChord else [n]):
             if note.tie is not None and note.tie.type in ('stop', 'continue'):
                 out.add((a, note.pitch.midi))
+    return out
+
+
+def ornaments(stream, spq=4):
+    """{(part index, slot, midi): (kind, semitones)} for each trill or mordent on a single note.
+
+    kind is 'trill', 'mordent' (lower neighbour) or 'inverted mordent' (upper
+    neighbour, the one written without a slash); semitones is the signed
+    interval to the neighbour, which music21 reads from the key signature and the
+    measure's accidentals (bwv846f: B4 trills with C5, E5 with F5, G5's mordent
+    goes to A5).  Ornaments on chords, turns and grace notes are left out.
+    """
+    out = {}
+    for i, part in enumerate(stream.parts):
+        for n in part.recurse().notes:
+            if n.isChord:
+                continue
+            for e in n.expressions:
+                kind = ORNAMENTS.get(type(e).__name__)
+                if kind is None:
+                    continue
+                try:
+                    e.resolveOrnamentalPitches(n, keySig=n.getContextByClass(m21.key.KeySignature))
+                    aux = e.ornamentalPitches[0].midi
+                except Exception:                 # music21 could not read it: a whole step up or down
+                    aux = n.pitch.midi + (-2 if kind == 'mordent' else 2)
+                a = _slot(n.getOffsetInHierarchy(part), spq)
+                out[(i, a, n.pitch.midi)] = (kind, aux - n.pitch.midi)
     return out
 
 
@@ -497,6 +540,72 @@ class GlideTables:
         return [f'f{num} 0 {GLIDE_TABLE_SIZE + 1} -7 {args}' for num, args in self.tables.values()]
 
 
+def neighbour_ratio(midi, semitones, temperament=None):
+    """Frequency ratio from an ornamented note to its neighbour `semitones` away.
+
+    A just interval (JUST_STEPS) unless a fixed temperament names both pitches,
+    in which case the temperament's own interval.
+    """
+    if temperament is not None:
+        cents = temperament[(midi + semitones) % 12] - temperament[midi % 12]
+        cents += 1200 * round((semitones * 100 - cents) / 1200)   # the octave nearest the written step
+        return 2 ** (cents / 1200)
+    ratio = JUST_STEPS.get(abs(semitones), 2 ** (abs(semitones) / 12))
+    return ratio if semitones > 0 else 1 / ratio
+
+
+def ornament_points(kind, ratio, written, rate, dur, glide=0.0):
+    """[(position 0..1 of the note, multiplier)]: the ornament as pitch steps across a note.
+
+    written: the note's written length in beats; dur: its Csound length (p3),
+    which the positions are fractions of; rate: trill notes per beat.  A trill
+    starts on the neighbour and alternates to the end of the written note, an
+    even number of notes so it ends on the main note.  A mordent is main,
+    neighbour, main, the first two each half a trill note long (or a third of the
+    written note if that is shorter).
+
+    glide: the fraction of each ornament note spent sliding to the next pitch,
+    centred on the change.  0 is a keyboard's step (one table point); 1 slides
+    the whole time, the continuous sweep of the Goldberg Aria's trill tables.
+    """
+    eps = 1.0 / GLIDE_TABLE_SIZE
+    if kind == 'trill':
+        n = max(2, int(written * rate) - int(written * rate) % 2)
+        length = written / n
+        segments = [(k * length, length, ratio if k % 2 == 0 else 1.0) for k in range(n)]
+    else:
+        step = min(0.5 / rate, written / 3)
+        segments = [(0.0, step, 1.0), (step, step, ratio), (2 * step, written - 2 * step, 1.0)]
+    pts = [(0.0, segments[0][2])]
+    for (beat, length, _prev), (_b, nxt_len, mult) in zip(segments, segments[1:]):
+        change = beat + length
+        if glide > 0:
+            hold = (change - glide * length / 2) / dur
+            if hold > pts[-1][0]:
+                pts.append((hold, pts[-1][1]))
+            pts.append(((change + glide * nxt_len / 2) / dur, mult))
+        else:
+            pts.append((change / dur, pts[-1][1]))      # hold the previous value to the step
+            pts.append((change / dur + eps, mult))
+    pts.append((written / dur, pts[-1][1]))
+    return pts
+
+
+def multiply_points(lines, steps):
+    """The product of two multiplier curves as one point list: `lines` joins its points
+    (the chord-change glides), `steps` holds each value until the next (an ornament)."""
+    xs = sorted({x for x, _ in lines} | {x for x, _ in steps})
+    lx, ly = zip(*lines)
+    sx = [x for x, _ in steps]
+    out = []
+    for x in xs:
+        line = float(np.interp(x, lx, ly))
+        k = max(j for j, s in enumerate(sx) if s <= x) if sx and sx[0] <= x else None
+        step = steps[k][1] if k is not None else 1.0
+        out.append((x, line * step))
+    return out
+
+
 def damper_p9(index):
     """p9 for the damper envelope that holds to index/1024 of p3, then releases."""
     return 298 - (ENV_TABLE_START + index)
@@ -563,7 +672,7 @@ def note_velocity(base, slot, downbeats, spread, rng, accent=None):
 
 
 def build_notes(rows, tuning, first, parts, args, glides, report, tempo=DEFAULT_TEMPO, bars=None,
-                downbeats=None, ending=None, spq=4):
+                downbeats=None, ending=None, spq=4, ornaments=None):
     """The (n, 15) p-field array, one row per note per player, sorted by start time.
 
     Columns as in WreckingCrew.py's features array (ball9.csd p1..p15):
@@ -574,7 +683,8 @@ def build_notes(rows, tuning, first, parts, args, glides, report, tempo=DEFAULT_
     Column 2 is p3, the length Csound plays, envelope release included: longer than
     the written note (see sounding_end).  bars: barline slots, from barlines(),
     with the piece's end appended; needed only for pedalled parts.  spq: slots per
-    beat of the rows and the tuning (atu.slots_per_quarter).
+    beat of the rows and the tuning (atu.slots_per_quarter).  ornaments: the map
+    from ornaments(), played as pitch steps in the note's glide table.
     """
     ms = tempo / 60000.0                                  # beats per millisecond
     glide_len = max(1, round(args.glide_slots * spq / 4))  # --glide_slots counts sixteenths
@@ -593,6 +703,11 @@ def build_notes(rows, tuning, first, parts, args, glides, report, tempo=DEFAULT_
     delay_max = float(getattr(args, 'double_delay_ms', 0) or 0) * ms
     delay_rng = np.random.default_rng([getattr(args, 'seed', 0), 1])
     downbeats = set(downbeats if downbeats is not None else (bars or ()))
+    ornaments = ornaments or {}
+    temperament = TEMPERAMENTS.get(getattr(args, 'temperament', None) or '')
+    trill_rate = float(getattr(args, 'trill_rate', 8) or 8)
+    trill_glide = min(max(float(getattr(args, 'trill_glide', 0) or 0), 0.0), 1.0)
+    played = report.setdefault('ornaments', {})
     notes = []
     for v, (spans, _parent, p) in enumerate(rows):
         part = parts[p]
@@ -626,7 +741,8 @@ def build_notes(rows, tuning, first, parts, args, glides, report, tempo=DEFAULT_
                 octave, cents = int(octave) - CSD_OCTAVE_OFFSET, round(cents, CENT_PLACES)
                 table = 0
                 moves = np.flatnonzero(np.abs(np.diff(pitch)) > 0.5) + 1 if args.glides else []
-                if len(moves):
+                ornament = ornaments.get((p, a, midi))
+                if len(moves) or ornament:
                     # Hold, glide over --glide_slots at each chord change, hold: as multipliers of the
                     # written start pitch, so the table also carries the start's sub-cent remainder.
                     pts = [(0.0, 2 ** ((pitch[0] - p0) / 1200))]
@@ -640,6 +756,12 @@ def build_notes(rows, tuning, first, parts, args, glides, report, tempo=DEFAULT_
                         report['max_glide'] = max(report['max_glide'], step)
                         if step > args.max_glide:
                             report['wide_glides'] += 1
+                    if ornament:
+                        kind, semitones = ornament
+                        steps = ornament_points(kind, neighbour_ratio(midi, semitones, temperament),
+                                                (c1 - c0) / spq, trill_rate, dur, trill_glide)
+                        pts = multiply_points(pts, steps)
+                        played[kind] = played.get(kind, 0) + 1
                     table = glides.table_for(pts)
                 written = (midi * 100 + shift) / 100 - 12 * CSD_OCTAVE_OFFSET   # in ball9.csd's numbering
                 if not lo - 2 <= written <= hi + 2:
@@ -803,8 +925,10 @@ def render(args):
         print(f'merge_adjacent: {merged} of {score_notes} score notes joined to the note before them')
         score_notes -= merged
     ending = ending_for(stream, rows, first, args, spq)
+    written = ornaments(stream, spq)
     notes = build_notes(rows, tuning, first, parts, args, glides, report, tempo=tempo, bars=bars,
-                        downbeats=downbeats, ending=ending, spq=spq)
+                        downbeats=downbeats, ending=ending, spq=spq,
+                        ornaments=written if args.ornaments else None)
     struck = any(INSTRUMENTS[i][1] == 0 for x in parts for i in x['instruments'])
     print(f'ending: the last chord {"has a fermata, held %gx, " % args.fermata if ending["fermata"] else ""}'
           f'sounds to beat {ending["end"] + ending["extra"]:g}'
@@ -828,6 +952,14 @@ def render(args):
               f'{args.double_delay_ms:g} ms at random (--double_delay_ms)')
     print(f'glides: {report["glides"]} at chord changes in held notes, widest {report["max_glide"]:.1f} cents, '
           f'{report["wide_glides"]} over {args.max_glide:g}; {len(glides.tables)} tables')
+    if written:
+        kinds = collections.Counter(kind for kind, _s in written.values())
+        what = ', '.join(f'{n} {k}{"s" if n > 1 else ""}' for k, n in sorted(kinds.items()))
+        if args.ornaments:
+            print(f'ornaments: {what}, played as pitch steps in the glide table, {args.trill_rate:g} trill '
+                  f'notes a beat (--trill_rate; --no-ornaments plays the written notes plain)')
+        else:
+            print(f'ornaments: {what} in the score, played plain (--no-ornaments)')
     for who, (lo, hi, n) in report['out_of_range'].items():
         print(f'  {who}: {n} notes outside its samples (MIDI {lo + 12 * CSD_OCTAVE_OFFSET}-'
               f'{hi + 12 * CSD_OCTAVE_OFFSET}), played from the nearest sample')
@@ -908,6 +1040,13 @@ def main(argv=None):
     ap.add_argument('--glides', action=argparse.BooleanOptionalAction, default=True,
                     help='glide a held note to its new value at a chord change (--no-glides holds the first)')
     ap.add_argument('--glide_slots', type=int, default=1, help='glide length in sixteenths')
+    ap.add_argument('--ornaments', action=argparse.BooleanOptionalAction, default=True,
+                    help='play trills and mordents as pitch steps in the glide table (--no-ornaments: plain)')
+    ap.add_argument('--trill_rate', type=float, default=8.0, metavar='N',
+                    help='trill notes per beat (8: 32nd notes); a mordent\'s notes are half that long')
+    ap.add_argument('--trill_glide', type=float, default=0.0, metavar='F',
+                    help='fraction of each trill note spent sliding to the next pitch: 0 steps like a '
+                         'keyboard, 1 sweeps continuously as in the Goldberg Aria tables')
     ap.add_argument('--max_glide', type=float, default=45.0, help='report glides wider than this (cents)')
     ap.add_argument('--force', action='store_true', help='render a tuning that does not match the score')
     ap.add_argument('--list', action='store_true', help='print the part -> instrument table and stop')

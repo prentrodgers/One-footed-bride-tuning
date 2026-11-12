@@ -496,5 +496,97 @@ class TestNames(unittest.TestCase):
         self.assertTrue(a.shape == b.shape and (a == b).all())
 
 
+class TestOrnaments(unittest.TestCase):
+    """bwv846f: B4 trills with C5 (m13), G5 has an inverted mordent to A5 (m18), E5 trills with F5 (m19)."""
+
+    @staticmethod
+    def table_values(glides, table):
+        """The multipliers of a GEN -7 glide table, in order."""
+        args = next(key for num, key in glides.tables.values() if num == table).split()
+        return [float(v) for v in args[0::2]]
+
+    @classmethod
+    def render(cls, ornaments=True, **extra):
+        stream = wc2.load_score('bwv846f')
+        spq = atu.slots_per_quarter(stream)
+        rows = wc2.rows_by_part(stream, spq)
+        midi = atu.stream_to_midi_array('bwv846f')[0]
+        first = min(a for spans, _p, _i in rows for a, _b, _m in spans)
+        parts = wc2.plan_parts(stream, {}, {})
+        tuning = (midi % 12) * 100.0               # 12-TET: no chord-change glides, only ornaments
+        glides = wc2.GlideTables()
+        report = dict(glides=0, max_glide=0.0, wide_glides=0, out_of_range={})
+        args = types.SimpleNamespace(**vars(ARGS), **extra)
+        written = wc2.ornaments(stream, spq)
+        notes = wc2.build_notes(rows, tuning, first, parts, args, glides, report, tempo=TEMPO, spq=spq,
+                                ornaments=written if ornaments else None)
+        return types.SimpleNamespace(spq=spq, first=first, notes=notes, glides=glides, report=report,
+                                     written=written)
+
+    def test_the_score_has_three(self):
+        p = self.render()
+        slot = lambda beat: atu.grid_slot(beat, p.spq)  # noqa: E731
+        self.assertEqual(p.written, {(0, slot(51.0), 71): ('trill', 1),
+                                     (0, slot(71.5), 79): ('inverted mordent', 2),
+                                     (0, slot(73.0), 76): ('trill', 1)})
+        self.assertEqual(p.report['ornaments'], {'trill': 2, 'inverted mordent': 1})
+
+    def ornamented(self, p, beat, midi):
+        rows = [r for r in p.notes if abs(r[1] - (atu.grid_slot(beat, p.spq) - p.first) / p.spq) < 1e-9
+                and abs(sounding_cents(r) - midi * 100) < 1]
+        self.assertEqual(len(rows), 1)
+        return rows[0]
+
+    def test_trill_starts_above_and_ends_on_the_note(self):
+        p = self.render()
+        r = self.ornamented(p, 51.0, 71)                  # dotted eighth: 6 trill notes at 8 a beat
+        values = self.table_values(p.glides, int(r[9]))
+        self.assertAlmostEqual(values[0], 16 / 15, places=6)
+        self.assertEqual(values[-1], 1.0)
+        self.assertEqual(sum(1 for v in values if abs(v - 16 / 15) < 1e-6), 3 * 2)   # 3 upper notes, held
+        self.assertTrue(all(abs(v - 1) < 1e-9 or abs(v - 16 / 15) < 1e-6 for v in values))
+
+    def test_mordent_touches_the_neighbour_once(self):
+        p = self.render()
+        r = self.ornamented(p, 71.5, 79)
+        values = self.table_values(p.glides, int(r[9]))
+        self.assertEqual(values[0], 1.0)
+        self.assertEqual(values[-1], 1.0)
+        self.assertEqual(sum(1 for v in values if abs(v - 9 / 8) < 1e-6), 2)
+
+    def test_no_ornaments_plays_plain(self):
+        p = self.render(ornaments=False)
+        self.assertEqual(p.report['ornaments'], {})
+        for beat, midi in ((51.0, 71), (71.5, 79), (73.0, 76)):
+            self.assertEqual(self.ornamented(p, beat, midi)[9], 0)
+        self.assertTrue((p.notes[:, 9] == 0).all())
+
+    def test_other_notes_untouched(self):
+        plain, played = self.render(ornaments=False).notes, self.render().notes
+        self.assertEqual(plain.shape, played.shape)
+        same = (plain[:, [0, 1, 2, 3, 4, 5, 6, 7, 8]] == played[:, [0, 1, 2, 3, 4, 5, 6, 7, 8]]).all()
+        self.assertTrue(same)
+        self.assertEqual(int((played[:, 9] > 0).sum()), 3)
+
+    def test_glide_sweeps_between_the_pitches(self):
+        p = self.render(trill_glide=1.0)
+        r = self.ornamented(p, 73.0, 76)
+        values = self.table_values(p.glides, int(r[9]))
+        self.assertAlmostEqual(values[0], 16 / 15, places=6)
+        self.assertEqual(values[-1], 1.0)
+        # A triangle wave: after the opening hold on the neighbour, every table segment is a slide
+        # between the two pitches, until the hold on the main note that ends the written length.
+        self.assertTrue(all(a != b for a, b in zip(values[1:-3], values[2:-2])), values)
+        self.assertEqual(len(values), 9)
+
+    def test_neighbour_ratio(self):
+        self.assertAlmostEqual(wc2.neighbour_ratio(71, 1), 16 / 15)
+        self.assertAlmostEqual(wc2.neighbour_ratio(79, 2), 9 / 8)
+        self.assertAlmostEqual(wc2.neighbour_ratio(79, -2), 8 / 9)
+        werck = wc2.TEMPERAMENTS['werckmeister_III']
+        self.assertAlmostEqual(wc2.neighbour_ratio(71, 1, werck), 2 ** ((werck[0] + 1200 - werck[11]) / 1200))
+        self.assertAlmostEqual(wc2.neighbour_ratio(76, 1, werck), 2 ** ((werck[5] - werck[4]) / 1200))
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)
