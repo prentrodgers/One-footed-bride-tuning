@@ -52,7 +52,7 @@ RIM_TOP, RIM_BOTTOM = 0.035, -0.26   # of the rim, relative to the key tops
 RIM_T = 0.045                        # the rim's thickness
 
 CAMS = {   # name -> (location, target) in rig coordinates, lens
-    "Cam 61 Piano Hands (treble end)": ((1.15, -0.22, 0.42), (-0.05, -0.02, 0.0), 40),
+    "Cam 61 Piano Hands (treble end)": ((1.20, -0.40, 0.58), (-0.05, -0.04, 0.0), 40),
     "Cam 62 Piano Over the Shoulder": ((0.95, -1.30, 1.15), (-0.25, 0.02, -0.05), 32),   # the right shoulder: the lid is on the left
 }
 FACE_CAM = ("Cam 63 Piano Face", (1.05, 1.35, 0.18), 85)   # from inside the bend, over the music desk: offset from the head (rig axes), lens
@@ -183,12 +183,17 @@ def build_piano(M, rig, collection):
     for s in (-1, 1):
         sk.box(f"Piano Cheek {'L' if s < 0 else 'R'}", (0.10, 0.36, 0.11), (s * (CASE_W - 0.05), 0.0, 0.03),
                mat_=M["black"], collection=collection, parent=rig)
-    sk.box("Piano Fallboard", (2 * CASE_W - 0.2, 0.09, 0.11), (0, 0.055, 0.045), mat_=M["black"], collection=collection, parent=rig)
-    sk.box("Piano Felt", (cp.N_WHITE * cp.WHITE_W, 0.012, 0.004), (0, 0.004, 0.012), mat_=M["felt"], collection=collection, parent=rig)
-    # the music desk, tilted back
-    desk = sk.box("Piano Music Desk", (0.62, 0.012, 0.30), (0, 0.30, 0.19), mat_=M["black"], collection=collection, parent=rig)
-    desk.rotation_euler = (math.radians(-18), 0, 0)
-    sk.box("Piano Music Desk Ledge", (0.62, 0.05, 0.012), (0, 0.285, 0.05), mat_=M["black"], collection=collection, parent=rig)
+    # behind the keys only a low nameboard; the fallboard is open, folded back and sloping up toward the desk,
+    # so the keys lie in full view
+    sk.box("Piano Nameboard", (2 * CASE_W - 0.2, 0.04, 0.034), (0, 0.02, 0.017), mat_=M["black"], collection=collection, parent=rig)
+    fall = sk.box("Piano Fallboard (open)", (2 * CASE_W - 0.2, 0.19, 0.012), (0, 0.135, 0.062), mat_=M["black"],
+                  collection=collection, parent=rig)
+    fall.rotation_euler = (math.radians(14), 0, 0)
+    sk.box("Piano Felt", (cp.N_WHITE * cp.WHITE_W, 0.012, 0.004), (0, 0.004, 0.036), mat_=M["felt"], collection=collection, parent=rig)
+    # the music desk, well back on the pin block and tilted back
+    desk = sk.box("Piano Music Desk", (0.60, 0.012, 0.24), (0, 0.46, 0.21), mat_=M["black"], collection=collection, parent=rig)
+    desk.rotation_euler = (math.radians(-20), 0, 0)
+    sk.box("Piano Music Desk Ledge", (0.60, 0.05, 0.012), (0, 0.44, 0.10), mat_=M["black"], collection=collection, parent=rig)
     # legs and casters, the pedal lyre, the brass pedals
     floor = -KEY_HEIGHT
     for name, (x, y) in (("Piano Leg Treble", (0.64, 0.12)), ("Piano Leg Bass", (-0.64, 0.12)), ("Piano Leg Tail", (-0.28, 2.18))):
