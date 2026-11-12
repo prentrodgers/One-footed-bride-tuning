@@ -695,5 +695,7 @@ def frame_for(key):
     p = Vector(LAYOUT[key]["pos"])
     f = (Vector((0, -12, 0)) - p); f.z = 0; f.normalize()
     if key in FACE_FORWARD: f = Vector((0, -1, 0))
+    if "facing" in LAYOUT[key]:                                  # e.g. the pianist, side-on to the house
+        f = Vector(LAYOUT[key]["facing"]); f.z = 0; f.normalize()
     up = Vector((0, 0, 1)); l = up.cross(f).normalized()
     return p, f, l, up

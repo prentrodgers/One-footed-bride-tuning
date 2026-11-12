@@ -47,6 +47,7 @@ VOICES = {
     14: ("Flute", "wind"), 13: ("Clarinet", "wind"), 15: ("Oboe", "wind"), 12: ("Bassoon", "wind"),
     25: ("Trumpet", "valves"), 39: ("Trumpet", "valves"), 27: ("Tuba", "valves"),
     16: ("French Horn", "valves"), 26: ("Trombone", "slide"),
+    29: ("Piano", "key"),                                    # the Bosendorfer, on the piano stage (concert_piano.py)
 }
 # Voices with 8 instruments playing at once in the activity array, too many for one player: each note goes
 # to one of two players by its stereo position (col 7, 1..16): below 8 (the audience's left) the stage-right
@@ -54,7 +55,7 @@ VOICES = {
 SPLIT = {5: ("Marimba 2", "Marimba"), 1: ("Finger Piano 2", "Finger Piano")}
 PAN_COL, PAN_SPLIT = 7, 8
 VOICE_NAMES = {6: "xylophone", 8: "harp", 21: "Super Slinky", 22: "long string", 23: "original string",
-               28: "triangle wave", 29: "Bosendorfer"}
+               28: "triangle wave"}
 
 # camera shots that feature each player (the first is preferred), and the wide shots
 PLAYER_CAMS = {
@@ -71,6 +72,8 @@ PLAYER_CAMS = {
     "Bassoon": ["Cam 23 Bassoon Close", "Cam 15 Bassoon & Clarinet (riser)"],
     "Trumpet": ["Cam 22 Trumpet Hands", "Cam 9 Trumpet & Trombone (riser)"], "Trombone": ["Cam 27 Trombone", "Cam 9 Trumpet & Trombone (riser)"],
     "Tuba": ["Cam 14 Tuba Close", "Cam 24 Tuba Side"], "French Horn": ["Cam 26 French Horn"],
+    "Piano": ["Cam 61 Piano Hands (treble end)", "Cam 62 Piano Over the Shoulder", "Cam 60 Piano Full (lid side)",
+              "Cam 63 Piano Face"],
 }
 WIDE_CAMS = ["Cam 1 Audience Wide", "Cam 2 Front Row Left", "Cam 8 Stage Right Side", "Cam 3 Overhead"]
 SPECIAL_LIGHT = {  # player -> spotlight object
@@ -80,6 +83,7 @@ SPECIAL_LIGHT = {  # player -> spotlight object
     "Tuba": "Special 11 Tuba", "Bassoon": "Special 12 Bassoon", "Viola": "Special 13 Viola", "French Horn": "Special 14 French Horn",
     "Trombone": "Special 15 Trombone", "Vibraphone": "Special 16 Vibraphone",
     "Marimba 2": "Special 17 Marimba 2", "Finger Piano 2": "Special 18 Finger Piano 2",
+    "Piano": "Special 19 Piano",
 }
 
 
@@ -603,6 +607,135 @@ class FingerPianoPlayer:
         return st
 
 
+# ─────────────────────────────── grand piano ───────────────────────────────
+class PianoPlayer:
+    """Two hands on 88 keys. Notes below middle C go to the left hand, the rest to the right; a chord's
+    notes go to adjacent fingers in pitch order (the thumb and little finger for a wide stretch), a
+    single note to the finger that moves the hand least. A finger drops onto its key just before the
+    onset, takes the key down with it, holds while the note sounds (up to HOLD_MAX) and lifts; the hand
+    glides along the keyboard between chords with the knuckles at one height, as a pianist's does."""
+    DESCEND, PRESS, RELEASE = 0.05, 0.03, 0.07   # seconds: finger down to the key, key going down, key coming up
+    HOLD_MAX = 1.2                               # a long note is held this long at most (then the finger rests on it)
+    HOVER = 0.012                                # finger height over an idle key
+    SPLIT = 60                                   # middle C: below it the left hand
+    SPAN = 0.17                                  # a hand's reach between its thumb and little finger (an octave)
+    CHORD = 0.03                                 # onsets this close are one chord
+
+    def __init__(self, key, notes):
+        self.key = key
+        self.notes = [dict(n, m=min(max(n["midi"], cp.PIANO_LOW), cp.PIANO_HIGH)) for n in notes]
+        self.window = self.DESCEND + self.PRESS
+        self._plan()
+
+    def _fingers(self, side, ns):
+        """{digit: note} for a hand's notes of one chord (ascending), at most five."""
+        kx = cp.piano_key_x
+        ns = sorted({n["m"]: n for n in ns}.values(), key=lambda n: n["m"])
+        while len(ns) > 1 and kx(ns[-1]["m"]) - kx(ns[0]["m"]) > self.SPAN:
+            ns = ns[1:] if side == "L" else ns[:-1]         # beyond the reach: keep the notes nearest the thumb
+        ns = ns[:5]
+        order = ns if side == "R" else list(reversed(ns))    # from the thumb outward
+        if len(order) == 1:
+            return None
+        if len(order) == 2 and kx(ns[-1]["m"]) - kx(ns[0]["m"]) > 0.10:
+            return {4: order[0], 3: order[1]}                 # thumb and little finger
+        digits = [4, 0, 1, 2, 3] if len(order) == 5 else [4, 0, 1, 2][:len(order)] if len(order) <= 2 else [4, 0, 1, 2, 3][:len(order)]
+        if len(order) == 2:
+            digits = [4, 1]                                   # a third: thumb and middle finger
+        return {d: n for d, n in zip(digits, order)}
+
+    def _plan(self):
+        kx = cp.piano_key_x
+        dx = cp.PIANO_DIGIT_X
+        self.plan = {"L": [], "R": []}
+        hand = {"L": kx(55), "R": kx(67)}
+        i = 0
+        while i < len(self.notes):
+            chord = [self.notes[i]]
+            while i + len(chord) < len(self.notes) and self.notes[i + len(chord)]["t0"] - self.notes[i]["t0"] < self.CHORD:
+                chord.append(self.notes[i + len(chord)])
+            i += len(chord)
+            for side in ("L", "R"):
+                ns = [n for n in chord if (n["m"] < self.SPLIT) == (side == "L")]
+                if not ns:
+                    continue
+                sgn = 1.0 if side == "R" else -1.0
+                fingers = self._fingers(side, ns)
+                if fingers is None:
+                    n = ns[0]
+                    x = kx(n["m"])
+                    # the finger that keeps the hand where it is; the thumb only for a note on the hand's inner side
+                    cands = [(abs((x - sgn * dx[j]) - hand[side]) + (0.015 if j in (3, 4) else 0.0), j) for j in range(5)]
+                    j = min(cands)[1]
+                    fingers = {j: n}
+                hx = sum(kx(n["m"]) - sgn * dx[j] for j, n in fingers.items()) / len(fingers)
+                hand[side] = hx
+                self.plan[side].append((chord[0]["t0"], hx, fingers))
+
+    def gesture(self, n, t):
+        """(height above the key, how far the key is down) for a note's finger at time t."""
+        u = t - n["t0"]
+        hold = min(n["dur"], self.HOLD_MAX)
+        if u < -self.window:
+            return self.HOVER, 0.0
+        if u < -self.PRESS:                                   # coming down onto the key
+            v = (u + self.window) / self.DESCEND
+            return self.HOVER * (1.0 - v), 0.0
+        if u < 0:                                             # taking the key down
+            return 0.0, (u + self.PRESS) / self.PRESS
+        if u < hold:
+            return 0.0, 1.0
+        if u < hold + self.RELEASE:                           # the key comes back up under the finger, which lifts
+            v = (u - hold) / self.RELEASE
+            return self.HOVER * v, 1.0 - v
+        return self.HOVER, 0.0
+
+    def _hand(self, side, t):
+        pl = self.plan[side]
+        digits = {}
+        live = [p for p in pl if p[0] - self.window <= t <= p[0] + self.HOLD_MAX + self.RELEASE]
+        if live:
+            lead = live[-1]
+            for p in live:
+                if abs(p[1] - lead[1]) > 0.02:
+                    continue
+                for j, n in p[2].items():
+                    dz, press = self.gesture(n, t)
+                    if dz >= self.HOVER and press <= 0.0 and p is not lead:
+                        continue
+                    digits[j] = {"m": n["m"], "dz": dz, "press": press}
+        prev = nxt = None
+        for p in pl:
+            if p[0] - self.window <= t:
+                prev = p
+            elif nxt is None:
+                nxt = p
+        if prev is None:
+            return (nxt[1] if nxt else None), digits
+        hx = prev[1]
+        if nxt:
+            t_leave = max(prev[0] + 0.08, nxt[0] - self.window - 0.30)
+            t_arrive = nxt[0] - self.window
+            if t > t_leave and t_arrive > t_leave:
+                u = min(1.0, (t - t_leave) / (t_arrive - t_leave))
+                hx = hx + (nxt[1] - hx) * u * u * (3 - 2 * u)
+        return hx, digits
+
+    def state(self, t):
+        dips = {}
+        for n in self.notes:
+            if n["t0"] - self.window > t:
+                break
+            _dz, press = self.gesture(n, t)
+            if press > dips.get(n["m"], 0.0):
+                dips[n["m"]] = press
+        st = {"dips": dips}
+        for side in ("L", "R"):
+            hx, digits = self._hand(side, t)
+            st[side] = {"digits": digits} if hx is None else {"x": hx, "digits": digits}
+        return st
+
+
 # ─────────────────────────────── strings ───────────────────────────────
 OPEN = {"Violin": [55, 62, 69, 76], "Viola": [48, 55, 62, 69], "Cello": [36, 43, 50, 57],
         "Baritone Flying V": [35, 40, 45, 50, 54, 59]}
@@ -1032,6 +1165,8 @@ class BrassPlayer(Breathing):
 
 
 def make_player(key, notes):
+    if key == "Piano":
+        return PianoPlayer(key, notes)
     if key in ("Marimba", "Marimba 2", "Vibraphone"):
         return MalletPlayer(key, notes)
     if key in ("Finger Piano", "Finger Piano 2", "Bass Finger Piano"):
@@ -1062,14 +1197,14 @@ def make_player(key, notes):
 FINGER_PIANOS = ("Finger Piano", "Finger Piano 2", "Bass Finger Piano")
 MALLETS = ("Marimba", "Marimba 2", "Vibraphone")
 BOWED_KEYS = ("Violin", "Viola", "Cello")
-STRUCK = FINGER_PIANOS + MALLETS + ("Baritone Flying V",)
+STRUCK = FINGER_PIANOS + MALLETS + ("Baritone Flying V", "Piano")
 HEAD_LIMIT = {"Violin": (0.45, 0.16), "Viola": (0.45, 0.16)}      # (yaw, pitch) radians
 HEAD_LIMIT_ALL = (0.85, 0.42)
 LOOK_DOWN = 0.40             # radians (23 deg): a finger pianist looking at the tines
 WATCH_DOWN = {"Marimba": 0.34, "Marimba 2": 0.34, "Vibraphone": 0.30,        # looking down while playing:
-              "Baritone Flying V": 0.30, "Cello": 0.22}                      # pitch
+              "Baritone Flying V": 0.30, "Cello": 0.22, "Piano": 0.30}       # pitch
 WATCH_SHARE = {"Marimba": 0.75, "Marimba 2": 0.75, "Vibraphone": 0.70,       # ... and how much of the time
-               "Baritone Flying V": 0.40, "Cello": 0.30}
+               "Baritone Flying V": 0.40, "Cello": 0.30, "Piano": 0.70}
 NECK_YAW = {"Baritone Flying V": 0.35, "Cello": 0.20}                       # toward the fretting hand
 REST_MIN = 1.3               # a rest this long or longer (a gap between strokes for struck players) gets looks
 NOD = 0.06                   # radians (3.4 deg): a nod just big enough to signal someone (was 0.17)
@@ -1107,8 +1242,12 @@ class HeadPlanner:
             return lo + (hi - lo) * rng.random() ** 1.5
 
         def watch(k, t0, t1):
-            """A look at someone playing in [t0, t1] (the busiest, ties at random), part of the way."""
-            yaw, pitch = self.aim(k, busiest(k, t0, t1))
+            """A look at someone playing in [t0, t1] (the busiest, ties at random), part of the way. A player
+            alone on the stage (the pianist) looks out into the house instead, a little to one side."""
+            if len(cp.PLAYERS) > 1:
+                yaw, pitch = self.aim(k, busiest(k, t0, t1))
+            else:
+                yaw, pitch = rng.choice((-1, 1)) * rng.uniform(0.25, 0.6), rng.uniform(-0.10, 0.05)
             a = amount()
             return (t0, t1, yaw * a, pitch * a, 1 if rng.random() < NOD_CHANCE and t1 - t0 >= 1.6 else 0)
 
@@ -1587,6 +1726,9 @@ class Performance:
     def __init__(self, npy, tempo, duration, cues=None, seed=7, camera=None, title=None):
         cp.load_layout()
         apply_ensemble()
+        for key in [k for k in cp.PLAYERS if bpy.data.objects.get(cp.body_name(k)) is None]:
+            print(f"[concert] {key}: not on this stage")        # e.g. the pianist on the full stage
+            del cp.PLAYERS[key]
         self.per = load_notes(npy, tempo)
         self.players = {key: make_player(key, ns) for key, ns in self.per.items() if key in cp.PLAYERS}
         for pl in self.players.values():
@@ -1657,6 +1799,8 @@ class Performance:
             cp.pose(key, None, self.puppets[key])
         for k in ("Finger Piano", "Finger Piano 2", "Bass Finger Piano"):
             cp.set_tine_bends(k, {})
+        if "Piano" in cp.PLAYERS:
+            cp.set_key_dips("Piano", {})
         for cam, loc in self.follow_base.items():
             bpy.data.objects[cam].location = loc
         for lt in self.lights.values():

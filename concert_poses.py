@@ -42,6 +42,8 @@ PLAYERS = {
     "Trombone": (14, 0.0, 0.04), "Vibraphone": (15, 0.05, 0.04),
     # second players, splitting a voice by stereo position (concert_stage.SPLIT): stage right
     "Marimba 2": (16, 0.07, 0.04), "Finger Piano 2": (17, 0.10, 0.08),
+    # the grand piano (concert_piano.py): seated side-on to the house, facing the layout's "facing"
+    "Piano": (18, 0.08, 0.10),
 }
 
 
@@ -1677,7 +1679,96 @@ def lower_instrument(key, u):
                        @ Matrix.Rotation(math.radians(tilt * u), 4, l) @ Matrix.Translation(-m) @ R)
 
 
+# ---- grand piano ----
+# The rig is the empty "Piano": its origin is the middle of the keyboard's front edge at the top of the
+# white keys, local X runs from the bass to the treble, local Y away from the player into the piano,
+# local Z up. The keys are its children, "Piano Key <midi>", each pivoting at its back end.
+PIANO_LOW, PIANO_HIGH = 21, 108                  # A0 .. C8
+WHITE_W, WHITE_L, WHITE_T = 0.0235, 0.150, 0.020   # a white key: width, visible length, thickness
+BLACK_W, BLACK_L, BLACK_RISE = 0.011, 0.095, 0.011  # a black key: width, length, how far it stands above the whites
+KEY_DIP = 0.010                                  # a key goes down this far at its front
+KEY_GAP = 0.0010
+PIANO_DIGIT_X = [-0.030, -0.010, 0.010, 0.030, -0.052]   # knuckle offsets index..pinky, thumb (along the keys)
+_WHITE_INDEX = {}
+_i = 0
+for _m in range(PIANO_LOW, PIANO_HIGH + 1):
+    if (_m % 12) not in _ACC:
+        _WHITE_INDEX[_m] = _i
+        _i += 1
+N_WHITE = _i
+
+
+def piano_key_x(midi):
+    """Centre of a key along the keyboard (rig X), 0 at the middle of the 52 white keys."""
+    if midi in _WHITE_INDEX:
+        return (_WHITE_INDEX[midi] + 0.5) * WHITE_W - N_WHITE * WHITE_W / 2
+    return (_WHITE_INDEX[midi - 1] + 1.0) * WHITE_W - N_WHITE * WHITE_W / 2
+
+
+def piano_key_spot(midi):
+    """(x, y, z) in the rig where a finger plays this key: a white key near its front, a black key on its top."""
+    if midi in _WHITE_INDEX:
+        return Vector((piano_key_x(midi), -WHITE_L + 0.045, 0.0))
+    return Vector((piano_key_x(midi), -BLACK_L + 0.035, BLACK_RISE))
+
+
+def set_key_dips(key, dips):
+    """dips: {midi: 0..1}; every key of the rig is set, so a released key comes back up."""
+    ang = math.atan2(KEY_DIP, WHITE_L)
+    for m in range(PIANO_LOW, PIANO_HIGH + 1):
+        ob = bpy.data.objects.get(f"{key} Key {m}")
+        if ob is not None:
+            ob.rotation_euler.x = ang * max(0.0, min(1.0, dips.get(m, 0.0)))
+
+
+def hands_piano(state=None, key="Piano"):
+    """state: {"dips": {midi: 0..1},
+               "L"/"R": {"x": hand position along the keyboard (rig X, or None: at rest),
+                         "digits": {0-3 index..pinky, 4 thumb: {"m": midi, "dz": height above the key, "press": 0..1}}}}
+    The hand's knuckles ride at a fixed height over the keys and glide along them (the planned x); each
+    note is played by its finger alone, which drops onto the key and follows it down. Idle fingers rest
+    curved over the keys beside the working ones."""
+    st = state or {}
+    ob = bpy.data.objects[key]
+    mw = ob.matrix_world
+    R3 = mw.to_3x3()
+    Xk = (R3 @ Vector((1, 0, 0))).normalized(); Yk = (R3 @ Vector((0, 1, 0))).normalized(); Zk = (R3 @ Vector((0, 0, 1))).normalized()
+    set_key_dips(key, st.get("dips", {}))
+    hover = 0.012
+    rest_x = {"L": piano_key_x(55), "R": piano_key_x(67)}      # G3 and G4: hands at rest either side of middle C
+    hands = {}
+    for side in ("L", "R"):
+        hs = st.get(side, {})
+        sgn = 1.0 if side == "R" else -1.0
+        ac = Xk * sgn                                            # index -> pinky runs up the keys for the right hand
+        digits = hs.get("digits", {})
+        targets = {}
+        for j, d in digits.items():
+            spot = piano_key_spot(d["m"])
+            down = KEY_DIP * d.get("press", 0.0) * (1.0 - (spot.y + WHITE_L) / WHITE_L * 0.0)   # the front of the key
+            targets[j] = mw @ spot + Zk * (0.0085 + d.get("dz", 0.0) - down)
+        hx = hs.get("x")
+        if hx is None and targets:
+            j0 = min(targets)
+            hx = (mw.inverted() @ targets[j0]).x - sgn * PIANO_DIGIT_X[j0]
+        if hx is None:
+            hx = rest_x[side]
+        kc = mw @ Vector((hx, -0.075, 0.0)) + Zk * (0.0085 + hover + 0.055)
+        rest = lambda j: kc - Zk * (0.055 - hover * 0.5) + Yk * 0.025 + ac * PIANO_DIGIT_X[j] * 1.05
+        tips = [targets.get(j, rest(j)) for j in range(4)]
+        W = kc - Yk * 0.080 + Zk * 0.012                         # the wrist a little above the knuckles, as pianists hold it
+        if 4 in targets:
+            thumb = targets[4]
+        else:
+            pd = (kc - W).normalized()
+            base = W + pd * 0.028 - ac * 0.030
+            thumb = base + pd * 0.046 - ac * 0.016 - Zk * 0.030
+        hands[side] = dict(kc=kc, tips=tips, thumb=thumb, wrist=W)
+    return hands, {}
+
+
 HANDS = {
+    "Piano": hands_piano,
     "Baritone Flying V": hands_guitar, "Violin": hands_violin, "Viola": hands_viola, "Cello": hands_cello,
     "Finger Piano": hands_finger_piano, "Bass Finger Piano": hands_bass_finger_piano,
     "Finger Piano 2": lambda state=None: hands_finger_piano(state, key="Finger Piano 2"),
