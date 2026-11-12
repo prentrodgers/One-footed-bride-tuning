@@ -670,7 +670,12 @@ class PianoPlayer:
                     fingers = {j: n}
                 hx = sum(kx(n["m"]) - sgn * dx[j] for j, n in fingers.items()) / len(fingers)
                 hand[side] = hx
-                self.plan[side].append((chord[0]["t0"], hx, fingers))
+                # depth and height: the knuckles a little behind and above the fingertips, so the hand comes
+                # in toward the fallboard and up for the black keys and the fingertips land ahead of the knuckles
+                spots = [cp.piano_key_spot(n["m"]) for n in fingers.values()]
+                hy = sum(v.y for v in spots) / len(spots) - cp.PIANO_KC_BACK
+                hz = sum(v.z for v in spots) / len(spots)
+                self.plan[side].append((chord[0]["t0"], hx, fingers, hy, hz))
 
     def gesture(self, n, t):
         """(height above the key, how far the key is down) for a note's finger at time t."""
@@ -710,16 +715,18 @@ class PianoPlayer:
                 prev = p
             elif nxt is None:
                 nxt = p
+        at = lambda p: (p[1], p[3], p[4])                      # the hand's x along the keys, its depth, its height
         if prev is None:
-            return (nxt[1] if nxt else None), digits
-        hx = prev[1]
+            return (at(nxt) if nxt else None), digits
+        h = at(prev)
         if nxt:
             t_leave = max(prev[0] + 0.08, nxt[0] - self.window - 0.30)
             t_arrive = nxt[0] - self.window
             if t > t_leave and t_arrive > t_leave:
                 u = min(1.0, (t - t_leave) / (t_arrive - t_leave))
-                hx = hx + (nxt[1] - hx) * u * u * (3 - 2 * u)
-        return hx, digits
+                e = u * u * (3 - 2 * u)
+                h = tuple(a + (b - a) * e for a, b in zip(h, at(nxt)))
+        return h, digits
 
     def state(self, t):
         dips = {}
@@ -731,8 +738,8 @@ class PianoPlayer:
                 dips[n["m"]] = press
         st = {"dips": dips}
         for side in ("L", "R"):
-            hx, digits = self._hand(side, t)
-            st[side] = {"digits": digits} if hx is None else {"x": hx, "digits": digits}
+            h, digits = self._hand(side, t)
+            st[side] = {"digits": digits} if h is None else {"x": h[0], "y": h[1], "z": h[2], "digits": digits}
         return st
 
 

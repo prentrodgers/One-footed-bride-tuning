@@ -79,7 +79,10 @@ def load(stem, tempo, cues=None, duration=None, follow_cues=True, shading='MATER
     for win in bpy.context.window_manager.windows:
         for area in win.screen.areas:
             if area.type == 'VIEW_3D' and shading:
-                area.spaces.active.shading.type = shading
+                sh = area.spaces.active.shading
+                sh.type = shading
+                # the theatre's own world and lights, not Blender's studio HDRI (a forest in the piano's polish)
+                sh.use_scene_world = sh.use_scene_lights = True
     scene.frame_set(0)
     print(f"[preview] {Path(npy).name}: {scene.frame_end + 1} frames, cues={cues or 'generated'}")
     return STATE["perf"]

@@ -498,6 +498,15 @@ def main():
     light = sk.stage_light("Special 19 Piano", 'SPOT', (x + 0.6, -2.8, 7.3), (x + 0.45, y, 1.0), (1.0, 0.95, 0.88), 2600,
                            "specials", spot_deg=26, blend=0.45, size=0.15)
     print(f"[piano] {light.name} hung over the keyboard")
+    # EEVEE reflects the world in glossy surfaces unless a probe has captured the room: one sphere probe
+    # round the piano, so the case, the fallboard and the frame show the hall and the stage, not a flat fill
+    probe = bpy.data.objects.get("Piano Reflection Probe")
+    if probe is None:
+        pd_ = bpy.data.lightprobes.new("Piano Reflection Probe", 'SPHERE')
+        probe = bpy.data.objects.new("Piano Reflection Probe", pd_)
+        C.objects.link(probe)
+    probe.location = rig.matrix_world @ Vector((0.0, 1.0, 0.9))
+    probe.data.influence_distance = 4.0
     bpy.context.view_layer.update()
     build_cams(rig)
     yz = cc.DOLLY_CAMS["Cam 50 Dolly Front Row"]

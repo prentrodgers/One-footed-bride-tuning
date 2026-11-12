@@ -290,7 +290,10 @@ _FINGER_L = (0.080, 0.088, 0.083, 0.066)
 HAND_STYLE = {
     "Piano": {"flen": (0.072, 0.080, 0.075, 0.060),
               "fr": [(0.0086, 0.0079, 0.0071, 0.0062)] * 3 + [(0.0074, 0.0068, 0.0062, 0.0055)],
-              "knuckle_r": 0.0084, "thumb_r": (0.0100, 0.0087, 0.0072)},
+              "knuckle_r": 0.0084, "thumb_r": (0.0100, 0.0087, 0.0072),
+              # the thumb's visible part starts at its knuckle halfway along the palm, so its tip reaches
+              # the keys a little behind the fingertips, as a pianist's does
+              "thumb_base": 0.050, "thumb_l": (0.036, 0.030)},
 }
 
 
@@ -301,22 +304,64 @@ def _parts(key=None):
     for i in range(4):
         rr = st["fr"][i] if st else _FINGER_R[i]
         parts.append((f"f{i}k", "sphh" if st else "sph", 0, st["knuckle_r"] if st else 0.0095, 1))
-        for j in range(3):
-            if st:                                   # finer meshes, the joint a touch fuller than the bone: no seam
-                parts.append((f"f{i}s{j}", "cylh", 0, rr[j], rr[j + 1] / rr[j]))
-                parts.append((f"f{i}j{j}", "sphh", 0, rr[j + 1] * 1.04, 1))
-            else:
+        if st:                                       # one smooth tapering tube through the joints, a round tip
+            parts.append((f"f{i}c", "tube", 0, tuple(rr), 1))
+            parts.append((f"f{i}j2", "sphh", 0, rr[3], 1))
+            parts.append((f"f{i}n", "sph", 6, rr[3], 1))
+        else:
+            for j in range(3):
                 parts.append((f"f{i}s{j}", "cyl", 0, rr[j], rr[j + 1] / rr[j]))
                 parts.append((f"f{i}j{j}", "sph", 0, rr[j + 1], 1))
-        if st:
-            parts.append((f"f{i}n", "sph", 6, rr[3], 1))
     tr = st["thumb_r"] if st else (0.0104, 0.0092, 0.0080)
-    cy, sp, jf = ("cylh", "sphh", 1.04) if st else ("cyl", "sph", 1.0)
-    parts += [("t0", cy, 0, tr[0], tr[1] / tr[0]), ("tj0", sp, 0, tr[1] * jf, 1),
-              ("t1", cy, 0, tr[1], tr[2] / tr[1]), ("tj1", sp, 0, tr[2] * jf, 1)]
     if st:
-        parts.append(("tn", "sph", 6, tr[2], 1))
+        parts += [("tc", "tube", 0, tuple(tr), 1), ("tj1", "sphh", 0, tr[2], 1), ("tn", "sph", 6, tr[2], 1)]
+    else:
+        parts += [("t0", "cyl", 0, tr[0], tr[1] / tr[0]), ("tj0", "sph", 0, tr[1], 1),
+                  ("t1", "cyl", 0, tr[1], tr[2] / tr[1]), ("tj1", "sph", 0, tr[2], 1)]
     return parts
+
+
+TUBE_N = 13                                          # points along a finger tube
+
+
+def _tube_obj(name):
+    """A finger as a curve: a poly spline of TUBE_N points, bevelled round, its radius set per point."""
+    cu = bpy.data.curves.get(name) or bpy.data.curves.new(name, 'CURVE')
+    cu.dimensions = '3D'
+    cu.splines.clear()
+    sp = cu.splines.new('POLY')
+    sp.points.add(TUBE_N - 1)
+    cu.bevel_mode = 'ROUND'
+    cu.bevel_depth = 1.0                             # the points' radius is the tube's radius in metres
+    cu.bevel_resolution = 4
+    cu.use_fill_caps = True
+    sp.use_smooth = True
+    if not cu.materials:
+        cu.materials.append(None)
+    return bpy.data.objects.new(name, cu)
+
+
+def _catmull(pts, n):
+    """n points along a Catmull-Rom curve through pts (ends held), with the fraction of the way along."""
+    P = [pts[0] * 2 - pts[1]] + list(pts) + [pts[-1] * 2 - pts[-2]]
+    out = []
+    segs = len(pts) - 1
+    for k in range(n):
+        u = k / (n - 1) * segs
+        i = min(int(u), segs - 1)
+        t = u - i
+        p0, p1, p2, p3 = P[i], P[i + 1], P[i + 2], P[i + 3]
+        out.append((0.5 * (2 * p1 + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t * t
+                           + (-p0 + 3 * p1 - 3 * p2 + p3) * t ** 3), u / segs, i, t))
+    return out
+
+
+def _set_tube(ob, pts, radii):
+    """Lay the tube through the joint points, the radius tapering joint to joint."""
+    sp = ob.data.splines[0]
+    for (c, _f, i, t), p in zip(_catmull(pts, TUBE_N), sp.points):
+        p.co = (c.x, c.y, c.z, 1.0)
+        p.radius = radii[i] + (radii[i + 1] - radii[i]) * t
 
 
 def _palm_mesh(bm):
@@ -374,13 +419,18 @@ def build_puppet(key):
             old = bpy.data.objects.get(name)
             if old:
                 bpy.data.objects.remove(old, do_unlink=True)
-            ob = bpy.data.objects.new(name, _unit_mesh(kind, taper))
+            ob = _tube_obj(name) if kind == "tube" else bpy.data.objects.new(name, _unit_mesh(kind, taper))
             col.objects.link(ob)
             ob.material_slots[0].link = 'OBJECT'
             ob.material_slots[0].material = mats[mi]
+            if kind == "tube":
+                ob["radii"] = list(r)
+                r = r[-1]
             ob["r"] = r
             if part == "palm" and st:
                 ob["flen"] = list(st["flen"])
+                ob["thumb_base"] = st["thumb_base"]
+                ob["thumb_l"] = list(st["thumb_l"])
             pup[(side, part)] = ob
     return pup
 
@@ -559,15 +609,25 @@ def pose_arm(pup, side, S, spec, pole):
         k = knuckles[i] if knuckles else kc + ac * (-0.027 + 0.018 * i)
         pts = finger_chain(k, tips[i], bend, [flen[i] * s for s in PHALANX], pd)
         _ball(g(f"f{i}k"), k)
-        for j in range(3):
-            _seg(g(f"f{i}s{j}"), pts[j], pts[j + 1]); _ball(g(f"f{i}j{j}"), pts[j + 1])
+        if (side, f"f{i}c") in pup:
+            tube = g(f"f{i}c")
+            _set_tube(tube, pts, tube["radii"])
+            _ball(g(f"f{i}j2"), pts[3])
+        else:
+            for j in range(3):
+                _seg(g(f"f{i}s{j}"), pts[j], pts[j + 1]); _ball(g(f"f{i}j{j}"), pts[j + 1])
         if (side, f"f{i}n") in pup:
             side_ax = ac.cross(pd)
             sgn = 1.0 if side_ax.dot(back) > 0 else -1.0     # the fingers bend about the knuckle line (ac)
             _nail(g(f"f{i}n"), pts[2], pts[3], ac, lambda along: sgn * ac.cross(along))
-    base = W + pd * 0.028 - ac * 0.030
-    pts = finger_chain(base, th, bend, THUMB_L, pd, coupling=(1.0,))
-    _seg(g("t0"), pts[0], pts[1]); _ball(g("tj0"), pts[1]); _seg(g("t1"), pts[1], pts[2]); _ball(g("tj1"), pts[2])
+    base = W + pd * palm.get("thumb_base", 0.028) - ac * 0.030
+    pts = finger_chain(base, th, bend, tuple(palm["thumb_l"]) if "thumb_l" in palm else THUMB_L, pd, coupling=(1.0,))
+    if (side, "tc") in pup:
+        tube = g("tc")
+        _set_tube(tube, pts, tube["radii"])
+        _ball(g("tj1"), pts[2])
+    else:
+        _seg(g("t0"), pts[0], pts[1]); _ball(g("tj0"), pts[1]); _seg(g("t1"), pts[1], pts[2]); _ball(g("tj1"), pts[2])
     if (side, "tn") in pup:                                  # the thumb's nail faces back and out, away from the fingers
         _nail(g("tn"), pts[1], pts[2], ac, lambda along: (back - ac) - (back - ac).dot(along) * along)
     return dlt
@@ -1769,7 +1829,10 @@ WHITE_W, WHITE_L, WHITE_T = 0.0235, 0.150, 0.020   # a white key: width, visible
 BLACK_W, BLACK_L, BLACK_RISE = 0.011, 0.095, 0.011  # a black key: width, length, how far it stands above the whites
 KEY_DIP = 0.010                                  # a key goes down this far at its front
 KEY_GAP = 0.0010
-KNUCKLE_RISE = 0.025                             # knuckles ~4.5 cm over the keys: the fingers curl, the last joint near vertical
+# A curved finger (the first joint nearly level, the second bent down, the last near vertical) puts its tip
+# about 2.4 cm in front of its knuckle and 4.2 cm below it: the hand rides there, over the keys it plays.
+PIANO_KC_BACK = 0.024                            # knuckles this far toward the player from the fingertips
+PIANO_KC_UP = 0.042                              # ... and this far above the fingertips' centres
 PIANO_DIGIT_X = [-0.030, -0.010, 0.010, 0.030, -0.052]   # knuckle offsets index..pinky, thumb (along the keys)
 _WHITE_INDEX = {}
 _i = 0
@@ -1835,15 +1898,23 @@ def hands_piano(state=None, key="Piano"):
             hx = (mw.inverted() @ targets[j0]).x - sgn * PIANO_DIGIT_X[j0]
         if hx is None:
             hx = rest_x[side]
-        kc = mw @ Vector((hx, -0.075, 0.0)) + Zk * (0.0085 + hover + KNUCKLE_RISE)
-        rest = lambda j: kc - Zk * (KNUCKLE_RISE - hover * 0.5) + Yk * 0.025 + ac * PIANO_DIGIT_X[j] * 1.05
+        rest_y = piano_key_spot(PIANO_LOW).y - PIANO_KC_BACK      # a hand over the white keys
+        hy = hs.get("y", rest_y)
+        # a finger on (or nearly on) its key must stay in front of its knuckle, or it would fold back under the
+        # hand: a white key still held while the hand moves in toward the black keys pulls the hand back
+        for j, d in digits.items():
+            w = 1.0 if d.get("press", 0.0) > 0 else max(0.0, 1.0 - d.get("dz", 0.0) / hover)
+            cap = piano_key_spot(d["m"]).y - PIANO_KC_BACK * 0.5
+            hy -= max(0.0, hy - cap) * w
+        kc = mw @ Vector((hx, hy, hs.get("z", 0.0))) + Zk * (0.0085 + PIANO_KC_UP)
+        rest = lambda j: kc - Zk * (PIANO_KC_UP - hover) + Yk * PIANO_KC_BACK + ac * PIANO_DIGIT_X[j] * 1.05
         tips = [targets.get(j, rest(j)) for j in range(4)]
         W = kc - Yk * 0.080 + Zk * 0.004                         # the wrist about level with the knuckles, as pianists hold it
         if 4 in targets:
             thumb = targets[4]
         else:
             pd = (kc - W).normalized()
-            base = W + pd * 0.028 - ac * 0.030
+            base = W + pd * HAND_STYLE[key]["thumb_base"] - ac * 0.030
             thumb = base + pd * 0.046 - ac * 0.016 - Zk * 0.030
         hands[side] = dict(kc=kc, tips=tips, thumb=thumb, wrist=W)
     return hands, {}
