@@ -72,7 +72,7 @@ PLAYER_CAMS = {
     "Bassoon": ["Cam 23 Bassoon Close", "Cam 15 Bassoon & Clarinet (riser)"],
     "Trumpet": ["Cam 22 Trumpet Hands", "Cam 9 Trumpet & Trombone (riser)"], "Trombone": ["Cam 27 Trombone", "Cam 9 Trumpet & Trombone (riser)"],
     "Tuba": ["Cam 14 Tuba Close", "Cam 24 Tuba Side"], "French Horn": ["Cam 26 French Horn"],
-    "Piano": ["Cam 61 Piano Hands (treble end)", "Cam 62 Piano Over the Shoulder", "Cam 60 Piano Full (lid side)",
+    "Piano": ["Cam 66 Piano Keys (along the keyboard)", "Cam 62 Piano Over the Shoulder", "Cam 60 Piano Full (lid side)",
               "Cam 63 Piano Face"],
 }
 WIDE_CAMS = ["Cam 1 Audience Wide", "Cam 2 Front Row Left", "Cam 8 Stage Right Side", "Cam 3 Overhead"]
@@ -1529,7 +1529,7 @@ def build_shots(per, duration, seed, fixed=None, lead=0.0):
         if r < CLOSE_SHARE:                                   # one player: the loudest few, spread around
             hold = rng.uniform(3.0, 5.0)
             loud = sorted(((_energy(ns, t - lead, hold), p) for p, ns in per.items()
-                           if p in PLAYER_CAMS and p not in recent[-3:]), reverse=True)
+                           if p in PLAYER_CAMS and (p not in recent[-3:] or len(per) == 1)), reverse=True)   # a soloist may come back
             loud = [p for e, p in loud[:3] if e > 0.25 * hold]   # sounding for a real share of the shot
             if loud:
                 player = rng.choice(loud)

@@ -25106,3 +25106,36 @@ _______________________
                   74  -> 99
                   76  -> 113
                   78+ -> 127
+      There is an accent on the first beat of a measure, and it's annoyingly constant. Need something more subtle:
+            python WreckingCrew_v2.py --chorale bwv846f --temperament werckmeister_III --velocity_random 4 --accent 1 --tempo 58 --velocity 76
+      Now do the other available scores:
+            ls -1 Scores/*.mxl
+                  Scores/bwv848f.mxl
+                  Scores/bwv848p.mxl
+                  Scores/bwv847f.mxl
+                  Scores/bwv847p.mxl
+                  Scores/bwv846f.mxl # <-- done.
+            for s in bwv847p bwv847f bwv848p bwv848f ; do echo $s ;python WreckingCrew_v2.py --chorale $s --temperament werckmeister_III --velocity_random 4 --accent 1 --tempo 84 --velocity 76 ; done
+      I asked him to create a video of it.
+      Committed as 51bd769 on the pod, not pushed. The stage is built, tested with single frames and an eight-second clip, and ready for the farm.
+
+      **The hall.** The impulse response in ball9c.csd is Farina's measurement of the Teatro Municipal Buero Vallejo in Alcorcón, a 1994 Italian-style proscenium house with 912 seats in stalls, amphitheatre and gallery, whose acoustic correction Farina designed in 1999. I modelled it from the 2012 renovation's photos and plans: red brick side walls with three lit round arches each, a panelled dado, raked stalls under two stacked balconies, seats shading blue-grey to taupe to red as in the renovated house, the garnet curtain tied open in the proscenium, white reflectors hung over the stalls, and low warm house lights that follow the stage dimmers. concert_hall.py builds it around the existing stage and writes Alcorcon_Hall.blend.
+
+      **The piano and pianist.** The old stage had no piano and no player for voice 29, so bwv846f would have shown an empty stage. concert_piano.py adds a grand piano with 88 hinged keys, open lid, plate and strings, a bench, and a pianist seated facing stage left so the lid throws sound into the house. The Bösendorfer voice now drives a PianoPlayer that fingers each chord, drops a finger onto the key just before the onset and takes the key down with it. Six piano cameras plus the hall wides feed the usual automatic shot generator. The title card now handles a temperament render and names the fugue, the Werckmeister III cents and the hall.
+
+      **To see it now:** a test clip with audio from 30 to 38 seconds of bwv846f is at [piano_test_clip_b846ft_30s.mp4](Uploads/piano_test_clip_b846ft_30s.mp4) on the pod. It was rendered before the last camera fix, so its face shot is the old framing.
+
+      **To render the full video**, after pushing from the pod and pulling in WSL:
+
+      ```
+      SCRIPT=concert_stage.py BLEND=Alcorcon_Piano.blend ./render_farm.sh \
+      --npy Uploads/b846ft_werck3_d01_54_t060.npy --tempo 60 --duration 114 \
+      --out frames_piano_b846ft --engine cycles --cycles-hw-rt
+      ./concert_mux.sh frames_piano_b846ft Uploads/b846ft_werck3_d01_54_t060 b846ft_alcorcon.mp4
+      ```
+
+      The title file for that piece is already in Uploads on the PVC.
+
+      **Left undone:** the two-piano renders (b846d) would need a second pianist; there is no audience in the seats; the bench reads lighter than its leather under the special. Sources for the venue: [Envés arquitectos, Reforma del Teatro Buero Vallejo](https://www.envesarquitectos.com/pr036.html), [Teatro Municipal Buero Vallejo on Spanish Wikipedia](https://es.wikipedia.org/wiki/Teatro_Municipal_Buero_Vallejo), [taquilla.com venue page](https://www.taquilla.com/alcorcon/teatro-buero-vallejo-de-alcorcon-alcorcon), [Angelo Farina's university profile](https://personale.unipr.it/en/ugovdocenti/person/18339).
+
+      Some more ideas: The seats in the theater face away from the stage. I'd like to have an audience also. They should start some quiet clapping while the title shows up then quickly end the clapping with silence, a few slight coughing, then silent again as the music starts.
