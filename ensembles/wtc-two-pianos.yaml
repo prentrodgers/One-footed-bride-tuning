@@ -1,0 +1,33 @@
+# Any WTC prelude or fugue on two Bosendorfers, each playing every note, a little
+# out of phase: the second piano's notes land 0-20 ms late, a new random delay for
+# every note (--double_delay_ms, default 20; --seed picks the draw).
+#
+#     .venv/bin/python WreckingCrew_v2.py --chorale bwv848f --ensemble ensembles/wtc-two-pianos.yaml \
+#         --temperament werckmeister_III --letter d
+#     for c in bwv846 bwv846f bwv847p bwv847f bwv848p bwv848f; do
+#         .venv/bin/python WreckingCrew_v2.py --chorale $c --ensemble ensembles/wtc-two-pianos.yaml \
+#             --temperament werckmeister_III --letter d --velocity_random 3
+#     done
+#
+# Both staves of every WTC score are named Piano (bwv846 from the corpus and the
+# OpenWTC files in Scores/), so the one entry below sets both hands.
+#
+# instrument: a list gives the part one player per entry, all playing every note;
+# the first plays on time, the second takes the delay.
+# seat: one [x, y] per player, same order -- x from -1 (the audience's left) to
+# +1 (their right), y the depth from the front.  Pan comes from x.
+#
+# Like the finger-piano file, but for the Bosendorfer (ball9.csd voice 29: the
+# velocity layers, real dampers).  No tempo: the piece's own ensemble file does
+# not apply when this one is given, so --tempo sets it (default 60, 66 suits the
+# C major prelude).  The pedal stays opt-in: --pedal changes it at every barline,
+# and pedal_last_bars holds the final two measures under one pedal.
+#
+# The two pianos are tuned alike, so the doubling thickens rather than beats;
+# --double_delay_ms 40 widens the smear, 0 lines them up.
+
+pedal_last_bars: 2
+parts:
+  Piano:
+    instrument: [piano, piano]
+    seat: [[-0.5, 0.0], [0.5, 0.3]]

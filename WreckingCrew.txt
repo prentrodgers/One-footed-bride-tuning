@@ -25041,4 +25041,15 @@ _______________________
       To fix the dropped notes, claude is working on better resolution of slots so that we don't skip 32nd or 64th notes in the xml files. He suggests retuning bwv432 since it missed some 32nd notes. This change affects a lot of code in the repo, so it's taking a while.
       Scores now get a finer grid only when they need one. Every note of bwv846f, bwv847p and bwv848f now reaches the tuner and the renderer. The chorales stay on sixteenths, so 97 of the 98 saved best tunings still match their scores. 
       Whast about mordants? Wouldn't it be cool to handle those as ftable glides?
-      Trouble with viterbi optimization: All tests pass except test_viterbi, which fails the same way at HEAD without today's changes: a fake function in that test doesn't accept an argument the tuner now passes.
+      Trouble with viterbi optimization: All tests pass except test_viterbi, which fails the same way at HEAD without today's changes: a fake function in that test doesn't accept an argument the tuner now passes. 
+      Run the latest on Werckmeister III:
+            ssh one-footed-bride-pod 
+            cd Repos/One-footed-bride-tuning
+            git -c credential.helper= pull
+            for c in bwv846f bwv847p bwv847f bwv848p bwv848f; do python WreckingCrew_v2.py --chorale $c --temperament werckmeister_III ; done
+      Make the special case bwv846:
+            python WreckingCrew_v2.py --chorale bwv846 --ensemble ensembles/bwv846-fingerpiano.yaml --letter f --double_delay_ms 50 --temperament werckmeister_III --velocity_random 6
+      For bwv846, I would prefer the pedal and other arguments. It's really nice in Werck III with the two intruments and the velociy_random. I'll keep the others with the default values.
+      Then retune the one chorale that needs it:
+            ./ray-ratchet.sh --chorales bwv432 # , or include bwv847p if you still think it might work. 
+      I'm wondering if I need to add --double_delay_ms 50 and --velocity_random 6. This would mean needing an ensembles/bwv that specifies two pianos. I'ld like to hear that.
