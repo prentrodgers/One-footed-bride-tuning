@@ -301,7 +301,7 @@ def seats(M, C):
         levels.append(rows)
     builders = [sk.Builder() for _ in range(BANDS)]
     count = 0
-    back_rot = Matrix.Rotation(math.radians(-10), 4, 'X')
+    back_rot = Matrix.Rotation(math.radians(10), 4, 'X')        # the back leans away from the stage
     for rows in levels:
         for y, z, t, per_side, stagger in rows:
             band = min(BANDS - 1, int(t * BANDS))
@@ -309,11 +309,12 @@ def seats(M, C):
             for s in (-1, 1):
                 for k in range(per_side):
                     x = s * (0.85 + k * SEAT_PITCH + SEAT_PITCH / 2) + (stagger * SEAT_PITCH * 0.5 if s > 0 else -stagger * SEAT_PITCH * 0.5)
+                    # the sitter faces the stage (+y), so the back is on the -y side, behind them
                     B.box((x, y, z + 0.44), (0.48, 0.46, 0.10), mi=0)
-                    B.box((x, y + 0.24, z + 0.76), (0.48, 0.07, 0.62), mi=0, rot=back_rot)
+                    B.box((x, y - 0.24, z + 0.76), (0.48, 0.07, 0.62), mi=0, rot=back_rot)
                     for a in (-1, 1):
-                        B.box((x + a * 0.255, y + 0.02, z + 0.62), (0.05, 0.42, 0.04), mi=1)
-                    B.box((x, y + 0.05, z + 0.2), (0.10, 0.10, 0.40), mi=1)
+                        B.box((x + a * 0.255, y - 0.02, z + 0.62), (0.05, 0.42, 0.04), mi=1)
+                    B.box((x, y - 0.05, z + 0.2), (0.10, 0.10, 0.40), mi=1)
                     count += 1
     for i, B in enumerate(builders):
         B.build(f"Hall Seats {i}", [M[f"seat{i}"], M["seat_frame"]], collection=C)

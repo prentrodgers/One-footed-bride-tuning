@@ -73,7 +73,8 @@ def shoulders(key):
 def _mats(i):
     return [sk.mat(f"Skin {i}", sk.SKINS[i % 12], rough=0.45), sk.mat(f"Shirt {i}", sk.SHIRTS[i % 12], rough=0.75),
             sk.mat("Concert Black Cloth", (0.03, 0.03, 0.035), rough=0.85), sk.mat("Shoe Leather", (0.015, 0.012, 0.01), rough=0.35),
-            sk.mat(f"Hair {i}", sk.HAIRS[i % 12], rough=0.55), sk.mat("Eye Dark", (0.01, 0.01, 0.01), rough=0.2)]
+            sk.mat(f"Hair {i}", sk.HAIRS[i % 12], rough=0.55), sk.mat("Eye Dark", (0.01, 0.01, 0.01), rough=0.2),
+            sk.mat("Fingernail", (0.86, 0.62, 0.58), rough=0.3, coat=0.4)]
 
 
 # ─────────────────────────────── body ───────────────────────────────
@@ -283,32 +284,73 @@ def _skirt(B, key, p, f, right, pel, axis, fwd, Lt, seated, knees):
 _FINGER_R = [(0.0092, 0.0086, 0.0080, 0.0074)] * 3 + [(0.0080, 0.0075, 0.0070, 0.0066)]
 _FINGER_L = (0.080, 0.088, 0.083, 0.066)
 
+# A player's own hands, where the close-ups need them (the pianist's fill Cam 66): real adult proportions
+# (knuckle to tip 7.2, 8.0, 7.5, 6.0 cm; the fingers tapering to the tip), a shaped palm in place of the
+# ellipsoid, and fingernails. The other players keep the generic hand their fingerings were tuned to.
+HAND_STYLE = {
+    "Piano": {"flen": (0.072, 0.080, 0.075, 0.060),
+              "fr": [(0.0086, 0.0079, 0.0071, 0.0062)] * 3 + [(0.0074, 0.0068, 0.0062, 0.0055)],
+              "knuckle_r": 0.0084, "thumb_r": (0.0100, 0.0087, 0.0072)},
+}
 
-def _parts():
+
+def _parts(key=None):
+    st = HAND_STYLE.get(key)
     parts = [("upper", "cyl", 1, 0.047, 0.040 / 0.047), ("elbow", "sph", 1, 0.040, 1), ("forearm", "cyl", 1, 0.038, 0.029 / 0.038),
-             ("wrist", "sph", 0, 0.024, 1), ("palm", "sph", 0, 1.0, 1)]
+             ("wrist", "sph", 0, 0.024, 1), ("palm", "palm" if st else "sph", 0, 1.0, 1)]
     for i in range(4):
-        rr = _FINGER_R[i]
-        parts.append((f"f{i}k", "sph", 0, 0.0095, 1))
+        rr = st["fr"][i] if st else _FINGER_R[i]
+        parts.append((f"f{i}k", "sphh" if st else "sph", 0, st["knuckle_r"] if st else 0.0095, 1))
         for j in range(3):
-            parts.append((f"f{i}s{j}", "cyl", 0, rr[j], rr[j + 1] / rr[j]))
-            parts.append((f"f{i}j{j}", "sph", 0, rr[j + 1], 1))
-    parts += [("t0", "cyl", 0, 0.0104, 0.0092 / 0.0104), ("tj0", "sph", 0, 0.0092, 1),
-              ("t1", "cyl", 0, 0.0092, 0.0080 / 0.0092), ("tj1", "sph", 0, 0.0080, 1)]
+            if st:                                   # finer meshes, the joint a touch fuller than the bone: no seam
+                parts.append((f"f{i}s{j}", "cylh", 0, rr[j], rr[j + 1] / rr[j]))
+                parts.append((f"f{i}j{j}", "sphh", 0, rr[j + 1] * 1.04, 1))
+            else:
+                parts.append((f"f{i}s{j}", "cyl", 0, rr[j], rr[j + 1] / rr[j]))
+                parts.append((f"f{i}j{j}", "sph", 0, rr[j + 1], 1))
+        if st:
+            parts.append((f"f{i}n", "sph", 6, rr[3], 1))
+    tr = st["thumb_r"] if st else (0.0104, 0.0092, 0.0080)
+    cy, sp, jf = ("cylh", "sphh", 1.04) if st else ("cyl", "sph", 1.0)
+    parts += [("t0", cy, 0, tr[0], tr[1] / tr[0]), ("tj0", sp, 0, tr[1] * jf, 1),
+              ("t1", cy, 0, tr[1], tr[2] / tr[1]), ("tj1", sp, 0, tr[2] * jf, 1)]
+    if st:
+        parts.append(("tn", "sph", 6, tr[2], 1))
     return parts
 
 
+def _palm_mesh(bm):
+    """A unit palm: z from the wrist (0) to the knuckles (1), x across (+-1, the thumb at -x), y the back
+    of the hand (+). A rounded slab: square-ish in plan, a little wider at the knuckles, arched across the
+    back and flatter underneath, with the ball of the thumb filling out the lower thumb side."""
+    bmesh.ops.create_uvsphere(bm, u_segments=20, v_segments=14, radius=1.0)
+    sq = lambda v, e: math.copysign(abs(v) ** e, v)
+    for v in bm.verts:
+        x, y, z = v.co
+        zz = (sq(z, 0.55) + 1) / 2                          # 0 wrist .. 1 knuckles, squared-off ends
+        xx = sq(x, 0.6) * (0.84 + 0.16 * zz)                # boxy sides, widening toward the knuckles
+        yy = y * (1.0 - 0.30 * xx * xx) if y > 0 else y * 0.75
+        if y < 0 and xx < -0.2 and zz < 0.6:                # the thenar pad
+            yy -= 0.35 * (-xx - 0.2) * (0.6 - zz) * 2.5 * abs(y)
+        v.co = (xx, yy, zz)
+
+
 def _unit_mesh(kind, taper):
-    name = f"PUP {kind} {taper:.3f}" if kind == "cyl" else ("PUP box" if kind == "box" else "PUP sph")
+    name = (f"PUP {kind} {taper:.3f}" if kind in ("cyl", "cylh")
+            else {"box": "PUP box", "palm": "PUP palm", "sphh": "PUP sphh"}.get(kind, "PUP sph"))
     me = bpy.data.meshes.get(name)
     if me:
         return me
     bm = bmesh.new()
-    if kind == "cyl":       # unit length along +Z from 0 to 1, radius 1 at the base
-        bmesh.ops.create_cone(bm, cap_ends=True, segments=12, radius1=1.0, radius2=taper, depth=1.0,
-                              matrix=Matrix.Translation((0, 0, 0.5)))
+    if kind == "palm":
+        _palm_mesh(bm)
+    elif kind in ("cyl", "cylh"):       # unit length along +Z from 0 to 1, radius 1 at the base
+        bmesh.ops.create_cone(bm, cap_ends=True, segments=24 if kind == "cylh" else 12, radius1=1.0, radius2=taper,
+                              depth=1.0, matrix=Matrix.Translation((0, 0, 0.5)))
     elif kind == "box":
         bmesh.ops.create_cube(bm, size=1.0)
+    elif kind == "sphh":
+        bmesh.ops.create_uvsphere(bm, u_segments=24, v_segments=16, radius=1.0)
     else:
         bmesh.ops.create_uvsphere(bm, u_segments=12, v_segments=8, radius=1.0)
     me = bpy.data.meshes.new(name)
@@ -325,8 +367,9 @@ def build_puppet(key):
     mats = _mats(idx)
     col = sk.coll("Musicians")
     pup = {}
+    st = HAND_STYLE.get(key)
     for side in ("L", "R"):
-        for part, kind, mi, r, taper in _parts():
+        for part, kind, mi, r, taper in _parts(key):
             name = f"{body_name(key)} {side} {part}"
             old = bpy.data.objects.get(name)
             if old:
@@ -336,6 +379,8 @@ def build_puppet(key):
             ob.material_slots[0].link = 'OBJECT'
             ob.material_slots[0].material = mats[mi]
             ob["r"] = r
+            if part == "palm" and st:
+                ob["flen"] = list(st["flen"])
             pup[(side, part)] = ob
     return pup
 
@@ -422,7 +467,7 @@ def pose_stepper(key, st):
 
 
 def get_puppet(key):
-    return {(side, part): bpy.data.objects[f"{body_name(key)} {side} {part}"] for side in ("L", "R") for part, *_ in _parts()}
+    return {(side, part): bpy.data.objects[f"{body_name(key)} {side} {part}"] for side in ("L", "R") for part, *_ in _parts(key)}
 
 
 def _seg(ob, a, b):
@@ -484,7 +529,11 @@ def pose_arm(pup, side, S, spec, pole):
     ac.normalize()
     ny = pd.cross(ac).normalized()
     Rp = Matrix((ac, ny, pd)).transposed().to_4x4()
-    g("palm").matrix_world = Matrix.Translation((W + kc) / 2) @ Rp @ Matrix.Diagonal((0.041, 0.016, plen / 2 + 0.010, 1.0))
+    palm = g("palm")
+    shaped = palm.data.name == "PUP palm"
+    if not shaped:
+        palm.matrix_world = Matrix.Translation((W + kc) / 2) @ Rp @ Matrix.Diagonal((0.041, 0.016, plen / 2 + 0.010, 1.0))
+    flen = tuple(palm["flen"]) if "flen" in palm else _FINGER_L
     # palm side: the way the fingers curl. Given explicitly where it matters (a hand on a fingerboard),
     # otherwise toward where the fingertips are
     if "palm" in spec:
@@ -498,17 +547,49 @@ def pose_arm(pup, side, S, spec, pole):
     # fingertip lies ahead of the knuckle, and still well defined when it lies straight toward the palm
     # (fingers reaching over a fingerboard), where bending toward n alone picked a random plane.
     bend = n - pd
+    back = -n                                                # the back of the hand
+    if shaped:                                               # x across (thumb at -x), y the back, z wrist -> knuckles
+        xa = ac - ac.dot(back) * back
+        xa.normalize()
+        Rs = Matrix((xa, back, pd)).transposed().to_4x4()
+        palm.matrix_world = (Matrix.Translation(W - pd * 0.006 - back * 0.002) @ Rs
+                             @ Matrix.Diagonal((0.040, 0.0135, plen + 0.010, 1.0)))
     knuckles = [Vector(k) for k in spec["knuckles"]] if "knuckles" in spec else None
     for i in range(4):
         k = knuckles[i] if knuckles else kc + ac * (-0.027 + 0.018 * i)
-        pts = finger_chain(k, tips[i], bend, [_FINGER_L[i] * s for s in PHALANX], pd)
+        pts = finger_chain(k, tips[i], bend, [flen[i] * s for s in PHALANX], pd)
         _ball(g(f"f{i}k"), k)
         for j in range(3):
             _seg(g(f"f{i}s{j}"), pts[j], pts[j + 1]); _ball(g(f"f{i}j{j}"), pts[j + 1])
+        if (side, f"f{i}n") in pup:
+            side_ax = ac.cross(pd)
+            sgn = 1.0 if side_ax.dot(back) > 0 else -1.0     # the fingers bend about the knuckle line (ac)
+            _nail(g(f"f{i}n"), pts[2], pts[3], ac, lambda along: sgn * ac.cross(along))
     base = W + pd * 0.028 - ac * 0.030
     pts = finger_chain(base, th, bend, THUMB_L, pd, coupling=(1.0,))
     _seg(g("t0"), pts[0], pts[1]); _ball(g("tj0"), pts[1]); _seg(g("t1"), pts[1], pts[2]); _ball(g("tj1"), pts[2])
+    if (side, "tn") in pup:                                  # the thumb's nail faces back and out, away from the fingers
+        _nail(g("tn"), pts[1], pts[2], ac, lambda along: (back - ac) - (back - ac).dot(along) * along)
     return dlt
+
+
+def _nail(ob, a, b, ac, dorsal_of):
+    """A fingernail on the distal phalanx a -> b: a thin oval on its back, over the last part of the bone."""
+    along = b - a
+    L = along.length
+    if L < 1e-5:
+        return
+    along /= L
+    d = dorsal_of(along)
+    d = d - d.dot(along) * along
+    if d.length < 1e-6:
+        d = along.orthogonal()
+    d.normalize()
+    x = d.cross(along)
+    r = ob["r"]
+    c = a + along * (L * 0.70) + d * (r * 0.78)
+    ob.matrix_world = (Matrix.Translation(c) @ Matrix((x, d, along)).transposed().to_4x4()
+                       @ Matrix.Diagonal((r * 0.80, r * 0.30, L * 0.36, 1.0)))
 
 
 PHALANX = (0.48, 0.29, 0.23)      # proximal, middle, distal share of a finger's length
@@ -1688,6 +1769,7 @@ WHITE_W, WHITE_L, WHITE_T = 0.0235, 0.150, 0.020   # a white key: width, visible
 BLACK_W, BLACK_L, BLACK_RISE = 0.011, 0.095, 0.011  # a black key: width, length, how far it stands above the whites
 KEY_DIP = 0.010                                  # a key goes down this far at its front
 KEY_GAP = 0.0010
+KNUCKLE_RISE = 0.025                             # knuckles ~4.5 cm over the keys: the fingers curl, the last joint near vertical
 PIANO_DIGIT_X = [-0.030, -0.010, 0.010, 0.030, -0.052]   # knuckle offsets index..pinky, thumb (along the keys)
 _WHITE_INDEX = {}
 _i = 0
@@ -1753,10 +1835,10 @@ def hands_piano(state=None, key="Piano"):
             hx = (mw.inverted() @ targets[j0]).x - sgn * PIANO_DIGIT_X[j0]
         if hx is None:
             hx = rest_x[side]
-        kc = mw @ Vector((hx, -0.075, 0.0)) + Zk * (0.0085 + hover + 0.055)
-        rest = lambda j: kc - Zk * (0.055 - hover * 0.5) + Yk * 0.025 + ac * PIANO_DIGIT_X[j] * 1.05
+        kc = mw @ Vector((hx, -0.075, 0.0)) + Zk * (0.0085 + hover + KNUCKLE_RISE)
+        rest = lambda j: kc - Zk * (KNUCKLE_RISE - hover * 0.5) + Yk * 0.025 + ac * PIANO_DIGIT_X[j] * 1.05
         tips = [targets.get(j, rest(j)) for j in range(4)]
-        W = kc - Yk * 0.080 + Zk * 0.012                         # the wrist a little above the knuckles, as pianists hold it
+        W = kc - Yk * 0.080 + Zk * 0.004                         # the wrist about level with the knuckles, as pianists hold it
         if 4 in targets:
             thumb = targets[4]
         else:

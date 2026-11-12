@@ -68,7 +68,7 @@ SOUNDBOARD_Z = RIM_TOP - 0.25
 
 CAMS = {   # name -> (location, target) in rig coordinates, lens
     "Cam 61 Piano Hands (treble end)": ((1.00, -0.62, 0.80), (-0.12, -0.05, 0.0), 40),   # steep enough to see the keys past the block
-    "Cam 66 Piano Keys (along the keyboard)": ((0.92, -0.46, 0.22), (-0.05, -0.03, 0.04), 45),  # low at the treble end: keys, hands, fallboard
+    "Cam 66 Piano Keys (along the keyboard)": ((0.62, -0.24, 0.15), (-0.06, -0.07, 0.03), 50),  # low at the treble end, in front of the forearm: hands, keys, the name
     "Cam 62 Piano Over the Shoulder": ((0.95, -1.30, 1.15), (-0.25, 0.02, -0.05), 32),   # the right shoulder: the lid is on the left
 }
 FACE_CAM = ("Cam 63 Piano Face", (1.45, 1.00, 0.28), 85)   # from beyond the bend, past the music desk's treble end: offset from the head (rig axes), lens
