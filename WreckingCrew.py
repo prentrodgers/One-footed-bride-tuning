@@ -2478,9 +2478,6 @@ def expand_chorale(repeats, chorale_in_cents_slides, glides, stored_gliss, voice
     notes_features_audible = notes_features_final[_audible]
     _discarded = notes_features_final.shape[0] - notes_features_audible.shape[0]
     print(f'Audibility filter: {notes_features_final.shape[0]} -> {notes_features_audible.shape[0]} rows ({_discarded} inaudible discarded)')
-    if version:
-        np.save(f'{version}_features_array.npy', notes_features_audible)
-        print(f'Saved {version}_features_array.npy ({notes_features_audible.shape[0]} rows)')
 
     # send the arrays to the file new_output.csd which csound will convert to a wave file to make sounds
     logging.debug(f'about to update_gliss_table with {stored_gliss.shape = }')
@@ -2523,21 +2520,16 @@ def expand_chorale(repeats, chorale_in_cents_slides, glides, stored_gliss, voice
     mod = f'{mod}{density_tag}_t{tolerance}_d{dur_short}_t{tempo:03}{primes_tag}{lm_tag}_r{ratio_factor:.2f}'
     mod = atu.windows_compliant_filename(mod) # get rid of the windows invalid characters in the file name
     print(f'{mod = }')
-    # Provenance: park a copy of the features array beside the mp3 this run is
-    # about to write, same stem, differing only in extension. The
-    # {version}_features_array.npy saved earlier is overwritten by EVERY run
-    # and carries no link to any particular audio file, so re-running silently
-    # invalidates any pairing — which is how a video ends up animating notes
-    # that aren't in the mp3 it was muxed with.
+    # Provenance: the features array goes beside the mp3 this run is about to
+    # write, same stem, differing only in extension, so a video animates the
+    # notes in the mp3 it is muxed with.  (Until 11/2026 it was also saved as
+    # {version}_features_array.npy in the repo root, overwritten by every run
+    # and paired with nothing; that file is no longer written.)
     if version:
-        _npy_src = f'{version}_features_array.npy'
         _npy_dst = os.path.join(UPLOADS_DIR, f'b{mod}.npy')
-        if os.path.exists(_npy_src):
-            os.makedirs(UPLOADS_DIR, exist_ok=True)
-            shutil.copyfile(_npy_src, _npy_dst)
-            print(f'Saved {_npy_dst} (pairs with b{mod}.mp3)')
-        else:
-            print(f'WARNING: {_npy_src} missing, no paired .npy written for b{mod}')
+        os.makedirs(UPLOADS_DIR, exist_ok=True)
+        np.save(_npy_dst, notes_features_audible)
+        print(f'Saved {_npy_dst} ({notes_features_audible.shape[0]} rows, pairs with b{mod}.mp3)')
     return duration, volume_function, mod
 # end of expand_chorale
 
