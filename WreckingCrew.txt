@@ -24465,7 +24465,7 @@ _____________________
             scp one-footed-bride-pod:Repos/One-footed-bride-tuning/concert_b371a_v1.mp4 .
       Stop the pods and return to balanced:
             ./render_farm.sh --stop
-      Title: Chorale Perlude based on Bach's BWV371 "Kyrie! Gott Vater in Ewigkeit" (Lord! God the Father forever)
+      Title: Chorale Prelude based on Bach's BWV371 "Kyrie! Gott Vater in Ewigkeit" (Lord! God the Father forever)
       Description: Chorale Preludes were a favorite of JS Bach, who wrote 48, and probably improvised hundreds more.  Bach’s chorale preludes are short, polyphonic organ works based on Lutheran hymn tunes, often used before congregational singing. They are most famously grouped in the Orgelbüchlein (BWV 599–644), which contains 46 complete pieces. 
       
       This particular chorale is upon which my Prelude is based is one of the longest I've found so far. It has 39 measures, when some are as short as 4 measures. There is a lot repetition throughout. 
@@ -25139,3 +25139,111 @@ _______________________
       **Left undone:** the two-piano renders (b846d) would need a second pianist; there is no audience in the seats; the bench reads lighter than its leather under the special. Sources for the venue: [Envés arquitectos, Reforma del Teatro Buero Vallejo](https://www.envesarquitectos.com/pr036.html), [Teatro Municipal Buero Vallejo on Spanish Wikipedia](https://es.wikipedia.org/wiki/Teatro_Municipal_Buero_Vallejo), [taquilla.com venue page](https://www.taquilla.com/alcorcon/teatro-buero-vallejo-de-alcorcon-alcorcon), [Angelo Farina's university profile](https://personale.unipr.it/en/ugovdocenti/person/18339).
 
       Some more ideas: The seats in the theater face away from the stage. I'd like to have an audience also. They should start some quiet clapping while the title shows up then quickly end the clapping with silence, a few slight coughing, then silent again as the music starts.
+
+      From scratch in the pod:
+            ssh one-footed-bride-pod
+            cd Repos/One-footed-bride-tuning/
+            ls -1t Uploads/b846*.* | head -n 3
+                  Uploads/b846ft_werck3_d01_54_t060.title.txt
+                  Uploads/b846ft_werck3_d01_54_t060.npy
+                  Uploads/b846ft_werck3_d01_54_t060.mp3
+            ffprobe -v error -show_entries format=duration -of csv=p=0 Uploads/b846ft_werck3_d01_54_t060.mp3
+                  109.4 - add 2 seconds for the play lifting their fingers off the piano keyboard
+                  111.5
+      Then on the host:
+            PER_CARD="2 fs5=1 fs6=1" ARC_MAX="fs5=2000 fs6=2000" SCRIPT=concert_stage.py BLEND=Alcorcon_Piano.blend ./render_farm.sh --npy Uploads/b846ft_werck3_d01_54_t060.npy --tempo 60 --duration 111.5 --out frames_concert_b846ft_cyc_v1 --engine cycles --cycles-hw-rt --autogen 10:107:7
+      Monitor
+            watch -n 20 "./render_farm.sh --progress ; ./render_farm.sh --status"
+      mux back in the pod:
+            ssh one-footed-bride-pod 
+            cd ~/Repos/One-footed-bride-tuning
+            ./concert_mux.sh frames_concert_b846ft_cyc_v1 Uploads/b846ft_werck3_d01_54_t060.mp3 concert_b846ft_v1.mp4
+      Then go into the Dropbox/Uploads/Dj-11-09-26 # or whatever you are using for these. 
+            ssh one-footed-bride-pod ls -1t ~/Repos/One-footed-bride-tuning/*.mp4 | head -n 1
+                  Repos/One-footed-bride-tuning/concert_b846f_v2.mp4
+            scp one-footed-bride-pod:Repos/One-footed-bride-tuning/concert_b846f_v2.mp4 .
+                  concert_b846f_v2.mp4  ... 100%   15MB  11.3MB/s   00:01
+      Then play it. Upload to YouTube or Substack. 
+      Stop the pods and return to balanced:
+            ./render_farm.sh --stop
+      Title: Bach's Fugue No, 1 in 4 voices in C major from the Well-Tempered Clavier, Book 1
+
+      Description: This is a version of the first fugue from the Well Tempered Clavier by Bach. The music was created by some python code writing csound using Bosendorfer samples. The notes are tuned in Werckmeister III, a tuning in common during the life of Bach. There is no documentation suggesting that he used this tuning. An account of Bach's life written by one of his sons (Nekrolog in 1754 by Carl Philipp Emanuel Bach) said that JS Bach tuned his own harpsichord, so we can only speculate what tuning he used. I tried using my One Footed Bride Tuning, but it sounded terrible, so I switched to a common tempered tuning. The video was created with the assistance of Claude Code Opus 5.5 who wrote the python code to be run by Blender. Each action is created to imitate the appearance and movements of real musicians on a real Bosendorfer piano. It's set in the Teatro Buero Vallejo de Alcorcón, where the impulse response file that provides the reverberation via csound was measured by Angelo Farina. I've used this location's audio for decades. Impulse response files are designed to recreate the audio environment of unique spaces electronically, so I figured I'd include the space in the video. More to come once I add the audience.
+      
+      Fake but almost accurate. I call it Animicrotonal Music Videos. 
+      Link: https://youtu.be/7suQkNsT8Jw
+
+      __________________
+      Create a video on this Chorale Prelude in the form of a Chaconne on bwv354
+      ssh one-footed-bride-pod
+            cd ~/Repos/One-footed-bride-tuning 
+            ls Uploads/b354*.mp3 -1t
+                  Uploads/b354b_df4c3215_t1_d04_00_t096_ap3_lm19_r1.25.mp3
+            ffprobe -v error -show_entries format=duration -of csv=p=0 Uploads/b354b_df4c3215_t1_d04_00_t096_ap3_lm19_r1.25.mp3
+                 236.7
+      
+      Then run the render start on fs1 or win11-vm
+            cd ~/Repos/One-footed-bride-tuning 
+            ./render_farm.sh --stop
+            PER_CARD=2 SCRIPT=concert_stage.py BLEND=Concert_Stage.blend ./render_farm.sh --npy Uploads/b354b_df4c3215_t1_d04_00_t096_ap3_lm19_r1.25.npy --tempo 96 --duration 236.7 --out frames_concert_b354_cyc_v1 --engine cycles --cycles-hw-rt --look studio --autogen 10:231:7
+            
+      Monitor
+            watch -n 20 "./render_farm.sh --progress ; ./render_farm.sh --status"
+      mux 
+            ssh one-footed-bride-pod 
+            cd ~/Repos/One-footed-bride-tuning
+            ./concert_mux.sh frames_concert_b354_cyc_v1 Uploads/b354b_df4c3215_t1_d04_00_t096_ap3_lm19_r1.25.mp3 concert_b354_v1.mp4
+
+      Copy them to fs2 and fs1:
+            ssh one-footed-bride-pod ls -lth Repos/One-footed-bride-tuning/concert_b354_v1.mp4
+            scp one-footed-bride-pod:Repos/One-footed-bride-tuning/concert_b354_v1.mp4 .
+      Stop the pods and return to balanced:
+            ./render_farm.sh --stop
+      Title: Chorale Prelude based on Bach's BWV354 "Jesu, der du meine Seele" (Jesus, you who have saved my soul)
+      Description: Chorale Preludes were a favorite of JS Bach, who wrote 48, and probably improvised hundreds more.  Bach’s chorale preludes are short, polyphonic organ works based on Lutheran hymn tunes, often used before congregational singing. They are most famously grouped in the Orgelbüchlein (BWV 599–644), which contains 46 complete pieces. 
+      
+      This particular chorale has been used to create a Chaconne, which is a kind of theme and variations structure. In this case I ran captured the first two measures, and used those as the material for expansion using many different probabilistic manipulations. These two measures include some rather spicy chords. Here is the command I run to isolate those two measures, and repeat them four times, with different density levels. It ends with the last two measures of the chorale, enhanced.
+            python WreckingCrew.py --chorale_list bwv354 --include_slice 0 32 --include_slice 160 192 --chaconne_section 0 32 --chaconne_insert_after 31 --chaconne_repeats 4 --chaconne_density 3 2 1 5 --density_level 4 
+      Here are the chords 16-28, showing lots of high prime ratios using  11 and 13 as numerator or denominator as the best ratios for some intervals.
+18:  303  468 1005  619 E♭ F♮ B♭ G♭     97.0
+ # Fr/To Cents Ratio     # Fr/To Cents Ratio     # Fr/To Cents Ratio
+ 1 E♭ F♮   165 11/10 *   2 E♭ B♭   498  4/3      3 E♭ G♭   316  6/5   
+ 4 F♮ B♭   537 15/11 *   5 F♮ G♭   151 12/11 *   6 B♭ G♭   386  5/4   
+20:   82  619 1170  468 D♭ G♭ C♮ F♮     115.0
+ # Fr/To Cents Ratio     # Fr/To Cents Ratio     # Fr/To Cents Ratio
+ 1 D♭ G♭   537 15/11 *   2 D♭ C♮   112 16/15     3 D♭ F♮   386  5/4   
+ 4 G♭ C♮   551  11/8 *   5 G♭ F♮   151 12/11 *   6 C♮ F♮   498  4/3   
+22: 1170  619 1170  259 C♮ G♭ C♮ E♭     115.0
+ # Fr/To Cents Ratio     # Fr/To Cents Ratio     # Fr/To Cents Ratio
+ 1 C♮ G♭   551  11/8 *   2 C♮ C♮     0  1/1      3 C♮ E♭   289 13/11 *
+ 4 G♭ C♮   551  11/8 *   5 G♭ E♭   360 16/13 *   6 C♮ E♭   289 13/11 *
+24: 1170  468  854  468 C♮ F♮ A♮ F♮     43.0
+ # Fr/To Cents Ratio     # Fr/To Cents Ratio     # Fr/To Cents Ratio
+ 1 C♮ F♮   498  4/3      2 C♮ A♮   316  6/5      3 C♮ F♮   498  4/3   
+ 4 F♮ A♮   386  5/4      5 F♮ F♮     0  1/1      6 A♮ F♮   386  5/4   
+26: 1170  317  854  468 C♮ E♭ A♮ F♮     96.0
+ # Fr/To Cents Ratio     # Fr/To Cents Ratio     # Fr/To Cents Ratio
+ 1 C♮ E♭   347  11/9 *   2 C♮ A♮   316  6/5      3 C♮ F♮   498  4/3   
+ 4 E♭ A♮   537 15/11 *   5 E♭ F♮   151 12/11 *   6 A♮ F♮   386  5/4   
+28:  966   82  468  966 B♭ D♭ F♮ B♭     45.0
+ # Fr/To Cents Ratio     # Fr/To Cents Ratio     # Fr/To Cents Ratio
+ 1 B♭ D♭   316  6/5      2 B♭ F♮   498  4/3      3 B♭ B♭     0  1/1   
+ 4 D♭ F♮   386  5/4      5 D♭ B♭   316  6/5      6 F♮ B♭   498  4/3   
+      
+      The video was created with the assistance of Claude Code Opus 5.5 who wrote the python code to be run by Blender. Each action is created to imitate the appearance and movements of real musicians on real instruments. 
+      
+      Fake but almost accurate. I call it Animicrotonal Music Videos. 
+      Link: https://youtu.be/2HnfaYvd9ws
+
+____________________
+11/13/26 Pick up for the failure last night.
+      The render failed on fs6:
+            cd ~/Repos/One-footed-bride-tuning
+            k delete pod blender-farm-b580f6-1 blender-farm-b580f6-2
+            PER_CARD=2 SCRIPT=concert_stage.py BLEND=Concert_Stage.blend ./render_farm.sh --only b580f6 --npy Uploads/b354b_df4c3215_t1_d04_00_t096_ap3_lm19_r1.25.npy --tempo 96 --duration 236.7 --out frames_concert_b354_cyc_v1 --engine cycles --cycles-hw-rt --look studio --autogen 10:231:7
+      Meanwhile, have claude investigate if there is an API to pull more musicxml files from musescore. I obtained the musicxml file from https://musescore.com/classicman/scores/214901 after purchasing their "Pro" plan for $40. Is there a way to use an API to retrieve musicxml files from musescore? 
+
+      Nope.
+
+      What makes bwv364 so spicy:
+            python chord_report.py --chorale bwv354 --include_slice 0 32 --input_numpy_file Archive/straw-man/best-tunings
