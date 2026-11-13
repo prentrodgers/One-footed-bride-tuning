@@ -389,7 +389,7 @@ RATE_COL=5; case " ${EXTRA[*]:-} " in *" cycles "*) RATE_COL=6;; esac
 PVC_HOST=${PVC_HOST:-one-footed-bride-pod}
 if [ "${PVC_CHECK:-1}" = 1 ]; then
   check=()
-  for f in "$NPY" "${NPY%.npy}.mp3" ${BLEND:+"$BLEND"}; do
+  for f in "$NPY" "${NPY%.npy}.mp3" "${NPY%.npy}.recital.json" ${BLEND:+"$BLEND"}; do
     [ -f "$f" ] && check+=("$f")
   done
   if [ ${#check[@]} -gt 0 ]; then
@@ -431,8 +431,16 @@ fi
 # Rendering without one is a 4-hour mistake to find out about afterwards (b411h, 4 Oct 2026), so if it
 # cannot be made the launch stops; --title none renders without one on purpose. Not on --only: a
 # re-launched slice must keep the frame ranges of the launch it belongs to.
+#
+# A recital (make_recital.py: <piece>.recital.json beside the .npy) carries its own title, on the curtain,
+# and its mp3 is the whole soundtrack: no title card, --duration is the whole video.
 TITLE_HOST=${TITLE_HOST:-one-footed-bride-pod}
 TITLE_FILE="${NPY%.npy}.title.txt"
+RECITAL=0; [ -f "${NPY%.npy}.recital.json" ] && RECITAL=1
+if [ "$RECITAL" = 1 ]; then
+  echo "recital: ${NPY%.npy}.recital.json (title on the curtain; the mp3 holds the applause)"
+  [[ " ${EXTRA[*]:-} " == *" --title none "* ]] || EXTRA+=(--title none)
+fi
 if [ "$(basename "$SCRIPT")" = concert_stage.py ] && [ ! -f "$TITLE_FILE" ] && [ -z "$ONLY" ] \
    && [[ " ${EXTRA[*]:-} " != *" --title none "* ]]; then
   echo "== no $TITLE_FILE: making it on $TITLE_HOST"

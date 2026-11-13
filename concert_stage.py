@@ -11,6 +11,11 @@ ffmpeg exactly as before.
         --npy Uploads/x.npy --tempo 104 --duration 10 --out frames_concert \
         [--frame-start 0 --frame-end 299] [--engine cycles] [--camera "Cam 1 Audience Wide"]
 
+A recital (make_recital.py, on Alcorcon_Recital.blend from concert_recital.py) is a piece whose
+Uploads/<name>.recital.json gives the timeline: the title on the closed curtain, the curtain parting
+with the applause, the pieces, the applause at the end. Its mp3 is the whole soundtrack and --duration
+the whole video; concert_recital.Recital runs the curtain, title, house lights and the house shots.
+
 The stage itself was built over Blender MCP (concert_stagekit.py); the players
 are puppets posed by concert_poses.py from a per-frame musical state. Notes use
 the nearest 12-tone equal-tempered pitch for fingering, frets, bars and tines.
@@ -33,6 +38,7 @@ sys.path.insert(0, str(REPO_DIR))
 import concert_poses as cp          # noqa: E402  (imports concert_stagekit)
 import concert_cameras as cc        # noqa: E402
 import concert_lighting as cl       # noqa: E402
+import concert_recital as cr        # noqa: E402
 
 FPS = 30
 
@@ -1745,12 +1751,23 @@ class Performance:
         # Title card on the backdrop (the title camera holds unless --camera is fixed): for `lead` seconds
         # before the music and `tail` seconds after it, while the players rest. All times past this point
         # are video times; the music, and every note time in self.per, starts at self.lead.
-        self.title = cc.TitleCard.for_piece(npy, duration, title)
-        self.lead = self.title.lead if self.title else 0.0
-        self.tail = self.title.tail if self.title else 0.0
+        # A recital (Uploads/<piece>.recital.json, make_recital.py, on Alcorcon_Recital.blend): the mp3 is the
+        # whole soundtrack and --duration the whole video; the music runs from the timeline's music_start
+        # (note times count from there) to music_end, with the curtain, applause and title around it.
+        self.recital = cr.Recital.for_piece(npy)
+        if self.recital:
+            rc = self.recital
+            self.title, self.lead, self.tail = None, rc.music_start, rc.end - rc.music_end
+            duration = rc.music_end - rc.music_start
+        else:
+            self.title = cc.TitleCard.for_piece(npy, duration, title)
+            self.lead = self.title.lead if self.title else 0.0
+            self.tail = self.title.tail if self.title else 0.0
         self.duration = duration                              # the music; the video is lead + duration + tail
         self.fixed_camera = camera
-        if cues:                                              # cue sheets are written in music time
+        if self.recital and not camera:
+            self.shots = self.recital.shots(build_shots(self.per, duration, seed, None, self.lead), seed)
+        elif cues:                                            # cue sheets are written in music time
             self.shots = [(t0 + self.lead, c) for t0, c in parse_cues(cues)]
             if self.title:
                 self.shots = [(0.0, cc.TITLE_CAM)] + self.shots + [(self.lead + duration, cc.TITLE_CAM)]
@@ -1790,6 +1807,8 @@ class Performance:
         self.lighting.apply(t)
         if self.title:
             self.title.apply(t)
+        if self.recital:
+            self.recital.apply(t, self.shots)
         if set_camera:
             cam = shot_at(self.shots, t)
             if self.title and self.title.showing(t) and not self.fixed_camera:
@@ -1802,6 +1821,8 @@ class Performance:
         self.lighting.restore()
         if self.title:
             self.title.hide()
+        if self.recital:
+            self.recital.restore()
         for key in cp.PLAYERS:
             cp.pose(key, None, self.puppets[key])
         for k in ("Finger Piano", "Finger Piano 2", "Bass Finger Piano"):
@@ -1829,6 +1850,11 @@ def main():
     scene.render.use_sequencer = False                        # a preview's sound strip must never replace the 3D render
     perf = Performance(args.npy, args.tempo, args.duration, args.cues, args.seed, args.camera, args.title)
     print("[concert] lighting: " + perf.lighting.describe())
+    if perf.recital:
+        print("[concert] recital: " + perf.recital.describe())
+        if abs(args.duration - perf.recital.end) > 0.05:
+            raise SystemExit(f"[concert] --duration {args.duration:g} is not the recital's length "
+                             f"{perf.recital.end:g} (its mp3); the frame slices would not match")
     print("[concert] title card: " + (f"{perf.lead:g} s before the music (audio delayed {perf.lead:g} s when muxed) "
                                       f"and {perf.tail:g} s after it" if perf.title else "none"))
     print("[concert] camera shots: " + ", ".join(f"{int(t0 // 60)}:{t0 % 60:04.1f} {c}" for t0, c in perf.shots))
@@ -1841,7 +1867,7 @@ def main():
     scene.render.resolution_percentage = 100
     scene.render.fps = FPS
     scene.render.image_settings.file_format = 'PNG'
-    video = args.duration + perf.lead + perf.tail
+    video = perf.recital.end if perf.recital else args.duration + perf.lead + perf.tail
     n_frames = int(math.ceil(video * FPS - 1e-9))             # as render_farm.sh counts them
     f0 = max(0, args.frame_start)
     f1 = n_frames - 1 if args.frame_end is None else min(args.frame_end, n_frames - 1)

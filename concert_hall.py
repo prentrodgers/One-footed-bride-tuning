@@ -284,9 +284,21 @@ def reflectors(M, C):
     B.build("Hall Reflectors", [M["reflector"]], collection=C)
 
 
-def seats(M, C):
-    """912 seats in three levels, each level shading front to back from blue-grey through taupe to red,
-    one mesh per colour band (a seat is a cushion, a back, two arms and a pedestal)."""
+def seat_positions():
+    """Every seat as (x, y, z, level, row, t): z is the floor under it, level 0 the stalls, 1 the
+    amphitheatre, 2 the gallery, t 0..1 from the level's front row to its back. The sitter faces +y."""
+    out = []
+    for lv, rows in enumerate(_seat_rows()):
+        for r, (y, z, t, per_side, stagger) in enumerate(rows):
+            for s in (-1, 1):
+                for k in range(per_side):
+                    x = s * (0.85 + k * SEAT_PITCH + SEAT_PITCH / 2) + (stagger * SEAT_PITCH * 0.5 if s > 0 else -stagger * SEAT_PITCH * 0.5)
+                    out.append((x, y, z, lv, r, t))
+    return out
+
+
+def _seat_rows():
+    """Per level, its rows as (y, floor z, t, seats per side, stagger)."""
     levels = []
     stalls = []
     for r in range(STALLS_ROWS):
@@ -299,23 +311,25 @@ def seats(M, C):
             rows.append((lvl["first"] - r * ROW_PITCH, lvl["z0"] + r * lvl["rise"], r / max(1, lvl["rows"] - 1),
                          lvl["per_side"], 0.6 if r % 2 else 0.0))
         levels.append(rows)
+    return levels
+
+
+def seats(M, C):
+    """912 seats in three levels, each level shading front to back from blue-grey through taupe to red,
+    one mesh per colour band (a seat is a cushion, a back, two arms and a pedestal)."""
     builders = [sk.Builder() for _ in range(BANDS)]
     count = 0
     back_rot = Matrix.Rotation(math.radians(10), 4, 'X')        # the back leans away from the stage
-    for rows in levels:
-        for y, z, t, per_side, stagger in rows:
-            band = min(BANDS - 1, int(t * BANDS))
-            B = builders[band]
-            for s in (-1, 1):
-                for k in range(per_side):
-                    x = s * (0.85 + k * SEAT_PITCH + SEAT_PITCH / 2) + (stagger * SEAT_PITCH * 0.5 if s > 0 else -stagger * SEAT_PITCH * 0.5)
-                    # the sitter faces the stage (+y), so the back is on the -y side, behind them
-                    B.box((x, y, z + 0.44), (0.48, 0.46, 0.10), mi=0)
-                    B.box((x, y - 0.24, z + 0.76), (0.48, 0.07, 0.62), mi=0, rot=back_rot)
-                    for a in (-1, 1):
-                        B.box((x + a * 0.255, y - 0.02, z + 0.62), (0.05, 0.42, 0.04), mi=1)
-                    B.box((x, y - 0.05, z + 0.2), (0.10, 0.10, 0.40), mi=1)
-                    count += 1
+    for x, y, z, _lv, _r, t in seat_positions():
+        band = min(BANDS - 1, int(t * BANDS))
+        B = builders[band]
+        # the sitter faces the stage (+y), so the back is on the -y side, behind them
+        B.box((x, y, z + 0.44), (0.48, 0.46, 0.10), mi=0)
+        B.box((x, y - 0.24, z + 0.76), (0.48, 0.07, 0.62), mi=0, rot=back_rot)
+        for a in (-1, 1):
+            B.box((x + a * 0.255, y - 0.02, z + 0.62), (0.05, 0.42, 0.04), mi=1)
+        B.box((x, y - 0.05, z + 0.2), (0.10, 0.10, 0.40), mi=1)
+        count += 1
     for i, B in enumerate(builders):
         B.build(f"Hall Seats {i}", [M[f"seat{i}"], M["seat_frame"]], collection=C)
     return count
