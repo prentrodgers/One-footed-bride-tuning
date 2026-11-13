@@ -25255,5 +25255,16 @@ ____________________
       
       What are the goldberg variations in bwv numbers: 988 
             python chorale_pdf.py Scores/bwv988.mxl # --force to rerender --keyboard to ensure proper stave placement. 
-      There is one variation towards the end that has some very strange notes. Glenn Gould does variation 26 at warp speed. Variation 25 is the one that has the slow wondering feel. 6:30 to the end. Variation 30 is kind of a summary of all the techniques. 
+      There is one variation towards the end that has some very strange notes. Glenn Gould does variation 26 at warp speed. Variation 25 is the one that has the slow wondering feel. 6:30 to the end. Variation 30 Quodlibet is a counterpoint made from two folk melodies.
       I love the WTC prelude #13 in F sharp major. The musescore seems to have trouble getting me that prelude #13. It either gives me the G or F major. I sorted it out. There are misnamed files, but the xml has the right stuff. 
+      From the WTC # 13 prelude & fugue
+            python WreckingCrew_v2.py --chorale bwv858p --temperament werckmeister_III --velocity_random 4 --accent 1 --tempo 58 --velocity 66
+            python WreckingCrew_v2.py --chorale bwv858f --temperament werckmeister_III --velocity_random 4 --accent 1 --tempo 84 --velocity 70
+      Quodlibet from Goldberg Variations:
+            python WreckingCrew_v2.py --chorale bwv988q --temperament werckmeister_III --velocity_random 4 --accent 1 --tempo 96 --velocity 74
+      Variation 25 - very slow and emotional wondering
+            python WreckingCrew_v2.py --chorale bwv988-25 --temperament werckmeister_III --velocity_random 4 --accent 1 --tempo 19 --velocity 66
+      Variation 26 - like a bullet - finished in under a minute, like Glenn Gould 
+            python WreckingCrew_v2.py --chorale bwv988-26 --temperament werckmeister_III --velocity_random 4 --accent 1 --tempo 108 --velocity 76
+      So we now have two from the WTC and three from Goldberg. Add the aria and make it a suite.
+            python WreckingCrew_v2.py --chorale bwv988-a --temperament werckmeister_III --velocity_random 4 --accent 1 --tempo 56 --velocity 68
