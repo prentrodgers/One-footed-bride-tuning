@@ -25277,5 +25277,41 @@ ____________________
       Make tepid applause at the end like the beginning, but not between the prelude and the fugue.
 
       The recital is ready to render. I built it on fs1 and checked frames from every part of the timeline: the title, the curtain opening, the music, the audience shots, the bows and the curtain closing. Nothing has run on the farm yet, and nothing is committed or copied to the pod.
-      Copy the files to the pod:
+      What I built:
+
+      concert_recital.py turns Alcorcon_Piano.blend into Alcorcon_Recital.blend. It adds 661 seated patrons, the full first six rows and fewer upstairs, each with their own coat, skin and hair colours. It also adds a garnet house curtain that parts and five new cameras (Cam 70–74).
+      make_recital.py takes the two pieces and the applause and builds the whole soundtrack, one combined note file, and Uploads/b858r_recital.recital.json with the timing. It also prints the render and mux commands. I copied the applause file into the repo as sfx/applause_tepid.mp3.
+      concert_stage.py gets a recital mode, used automatically when a .recital.json is beside the npy.
+      render_farm.sh treats a recital as having no title card, and it also checks the .recital.json against the PVC.
+      concert_hall.py now has a seat_positions() function, so the patrons sit exactly in the seats. The hall itself builds as before.
+      To render:
+
+      Copy the three recital files to the pod:
+
             for f in Uploads/b858r_recital.{npy,mp3,recital.json}; do scp $f one-footed-bride-pod:Repos/One-footed-bride-tuning/$f; done
+      Commit and push, then git pull on the pod. The code and Alcorcon_Recital.blend reach it through git.
+      Launch the render. make_recital.py printed this command, and a dry run gives 6771 frames, about 100 minutes on the farm:
+
+      PER_CARD=2 SCRIPT=concert_stage.py BLEND=Alcorcon_Recital.blend ./render_farm.sh --npy Uploads/b858r_recital.npy --tempo 60 --duration 225.70 --out frames_b858r_recital_v1 --engine cycles --cycles-hw-rt --title none
+      Mux on the pod:
+
+      ./concert_mux.sh frames_b858r_recital_v1 Uploads/b858r_recital b858r_recital_v1.mp4
+      Not done yet:
+
+      The patrons don't move, so nobody claps.
+      The pianist doesn't bow; they stay seated at the keyboard during the applause.
+      The patrons' faces are plain, like the pianist's.
+
+      To see the blender quick view: Top of page in blender --> scripting. Then locate the
+            PYTHON INTERACTIVE CONSOLE 3.13.13 (main, Apr 25 2025, 12:39:20) [GCC 14.2.1 20250110 (Red Hat 14.2.1-11)]
+
+            Builtin Modules:       bpy, bpy.data, bpy.ops, bpy.props, bpy.types, bpy.context, bpy.utils, gpu, blf, mathutils
+            Convenience Imports:   from mathutils import *; from math import *
+            Convenience Variables: C = bpy.context, D = bpy.data
+            >>> enter this:
+import sys; sys.path.insert(0, "/home/prent/Repos/One-footed-bride-tuning")
+for m in [m for m in sys.modules if m.startswith("concert_")]: del sys.modules[m]
+
+import concert_preview as pv
+pv.load("Uploads/b858r_recital", tempo=60)
+      Go back to layout.0
