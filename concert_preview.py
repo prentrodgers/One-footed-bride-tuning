@@ -12,6 +12,8 @@ In Blender (Stage tab > Preview a Piece), or from the Python console:
     pv.load("Uploads/b421g_df4_t1_d01_00_t106_ap4_lm19_r1.38", tempo=106, cues="b421g_56")
     pv.unload()          # handler off, sound strip removed, stage back at rest
 
+A recital (make_recital.py) on Alcorcon_Recital.blend: pv.load("Uploads/b858r_recital", tempo=60).
+
 To see the real materials (wood grain, skin, hair), switch the viewport to Material Preview or
 Rendered shading - Solid shading draws each object in one flat colour.
 """
@@ -66,10 +68,13 @@ def load(stem, tempo, cues=None, duration=None, follow_cues=True, shading='MATER
     scene.render.fps = cs.FPS
     # with a title card the music (and its sound strip) starts perf.lead seconds in, as in the muxed video,
     # and the closing card runs perf.tail seconds past its end
-    scene.frame_start, scene.frame_end = 0, int(math.ceil((duration + perf.lead + perf.tail) * cs.FPS)) - 1
+    # a recital's mp3 is the whole soundtrack, from frame 0, and the video is the recital's length
+    video = perf.recital.end if perf.recital else duration + perf.lead + perf.tail
+    audio_at = 0.0 if perf.recital else perf.lead
+    scene.frame_start, scene.frame_end = 0, int(math.ceil(video * cs.FPS)) - 1
     if os.path.exists(mp3):                                 # audio in sync with the timeline
         strips = _strips(scene)
-        s = strips.new_sound(SOUND_STRIP, mp3, channel=1, frame_start=int(round(perf.lead * cs.FPS)))
+        s = strips.new_sound(SOUND_STRIP, mp3, channel=1, frame_start=int(round(audio_at * cs.FPS)))
         scene.sync_mode = 'AUDIO_SYNC'
     scene.render.use_sequencer = False                     # the strip is for listening only, never for rendering
     for h in list(bpy.app.handlers.frame_change_post):

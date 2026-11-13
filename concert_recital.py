@@ -75,13 +75,16 @@ STILL_CAMS = {
     "Cam 72 House from Stage Left": ((5.3, -4.25, 2.0), (-2.5, -11.0, 0.2), 26),
 }
 # Pans: (location, target at the start, target at the end, lens); the target glides from one to the
-# other over the shot, eased at both ends.
+# other over the shot, eased at both ends. Short sweeps, between the pianist and the first rows only
+# (to the middle of the stalls they swung too far past the performer).
 PAN_CAMS = {
-    "Cam 73 Pan Pianist to House": ((-5.3, -4.25, 2.2), (-0.4, 0.4, 1.0), (1.5, -12.0, 0.4), 30),
-    "Cam 74 Pan House to Pianist": ((10.2, -8.6, 1.9), (-3.5, -12.5, 0.4), (-0.5, 0.3, 1.0), 32),
+    "Cam 73 Pan Pianist to House": ((-5.3, -4.25, 2.2), (-0.6, 0.3, 1.0), (-0.2, -7.8, 0.2), 30),
+    # from the right of the stalls, far enough in that the tied-back leg does not hide the pianist
+    "Cam 74 Pan House to Pianist": ((6.5, -10.5, 1.9), (-5.0, -6.5, 0.2), (-0.6, 0.3, 1.0), 32),
 }
-AUDIENCE_CAMS = ["Cam 71 Pianist over the Heads", "Cam 73 Pan Pianist to House", "Cam 72 House from Stage Left",
-                 "Cam 74 Pan House to Pianist"]
+PAUSE_CAM = "Cam 72 House from Stage Left"           # the look at the house between pieces
+AUDIENCE_CAMS = ["Cam 71 Pianist over the Heads", "Cam 74 Pan House to Pianist", "Cam 73 Pan Pianist to House"]
+PAUSE_CLEAR = 30.0                       # no look at the house during the music this close to a pause
 OUTRO_CAM = "Cam 71 Pianist over the Heads"
 AUDIENCE_EVERY = (35.0, 55.0)            # seconds between looks at the house during the music
 AUDIENCE_HOLD = (6.0, 8.0)               # how long one lasts
@@ -231,7 +234,7 @@ def preview(out_dir, samples=32, res=(1280, 720), closed=True):
     sc.render.image_settings.file_format = 'PNG'
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    for name in [CURTAIN_CAM] + [c for c in AUDIENCE_CAMS]:
+    for name in [CURTAIN_CAM, PAUSE_CAM] + AUDIENCE_CAMS:
         set_curtain(0.0 if (closed and name == CURTAIN_CAM) else 1.0)
         sc.camera = bpy.data.objects[name]
         sc.render.filepath = str(out_dir / (name.split(" ")[1] + ".png"))
@@ -308,6 +311,7 @@ class Recital:
             ob.data.size = k * min(base, cc.TITLE_MAX_W / widest)
             ob.location = (0.0, TITLE_Y, z)
             ob.visible_shadow = False                         # the front wash would print it on the curtain
+            ob.data.offset = 0.0                              # no glyph thickening: it blurred the small heading
             z -= ob.data.size * (ob.data.space_line * (len(lines) - 1) + cc.GLYPH["sans"]) + k * cc.TITLE_GAP
 
     def title_alpha(self, t):
@@ -369,6 +373,7 @@ class Recital:
                 ob.location = (0.0, cc.TITLE_PLANE_Y, cc.TITLE_TOP_Z)
                 ob.data.size = cc.TITLE_PARTS[ob.name][1]
                 ob.visible_shadow = True
+                ob.data.offset = cc.TITLE_PARTS[ob.name][3]
         for name, (loc, a, _b, _lens) in PAN_CAMS.items():
             tgt = bpy.data.objects.get(name + " Target")
             if tgt:
@@ -389,20 +394,24 @@ class Recital:
         while t < self.music_end - 12.0:
             hold = rng.uniform(*AUDIENCE_HOLD)
             clear = all(not (p["start"] - 2.0 <= t < p["start"] + CLEAR_OF_START) for p in self.pieces)
-            clear = clear and all(not (a - 4.0 < t < b + 4.0) for a, b in looks)
+            clear = clear and all(not (a - PAUSE_CLEAR < t < b + PAUSE_CLEAR) for a, b in looks)
             if clear:
                 looks.append((t, t + hold))
                 t += hold + rng.uniform(*AUDIENCE_EVERY)
             else:
                 t += 3.0
+        pauses = set(looks[:len(self.pieces) - 1])
         looks.sort()
         n = 0
         for a, b in looks:
             before = [s for s in inner if s[0] <= b]
             resume = before[-1][1] if before else (inner[0][1] if inner else OUTRO_CAM)
             inner = [s for s in inner if not (a <= s[0] < b)]
-            cam = AUDIENCE_CAMS[n % len(AUDIENCE_CAMS)]
-            n += 1
+            if (a, b) in pauses:
+                cam = PAUSE_CAM
+            else:
+                cam = AUDIENCE_CAMS[n % len(AUDIENCE_CAMS)]
+                n += 1
             inner += [(a, cam), (b, resume)]
         inner.sort()
         out = [(0.0, CURTAIN_CAM)] + inner + [(self.music_end + 0.4, OUTRO_CAM)]
@@ -413,7 +422,7 @@ class Recital:
         merged = []
         for k, (t0, cam) in enumerate(out):
             t1 = out[k + 1][0] if k + 1 < len(out) else self.end
-            if merged and cam != CURTAIN_CAM and cam not in AUDIENCE_CAMS and t1 - t0 < MIN_SHOT:
+            if merged and cam not in (CURTAIN_CAM, PAUSE_CAM) and cam not in AUDIENCE_CAMS and t1 - t0 < MIN_SHOT:
                 out[k + 1] = (t0, out[k + 1][1]) if k + 1 < len(out) else out[k + 1]
                 continue
             if not merged or merged[-1][1] != cam:
