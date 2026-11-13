@@ -25266,5 +25266,16 @@ ____________________
             python WreckingCrew_v2.py --chorale bwv988-25 --temperament werckmeister_III --velocity_random 4 --accent 1 --tempo 19 --velocity 66
       Variation 26 - like a bullet - finished in under a minute, like Glenn Gould 
             python WreckingCrew_v2.py --chorale bwv988-26 --temperament werckmeister_III --velocity_random 4 --accent 1 --tempo 108 --velocity 76
-      So we now have two from the WTC and three from Goldberg. Add the aria and make it a suite.
+      Aria:
             python WreckingCrew_v2.py --chorale bwv988-a --temperament werckmeister_III --velocity_random 4 --accent 1 --tempo 56 --velocity 68
+      
+      So now I have six pieces. Could I combine them all with a short pause between? 
+      Start with WTC # 13 P&F 
+      Next I'd like to go back to the blender render. I'd like to put an audience in the seats, and start with a camera that can see the first few rows of patrons and the closed red curtain as the backdrop for the title screen. Shorten the time the titles are up, and shrink it down by half, and leave only the title line and this: Teatro Buero Vallejo, Alcorcon (Madrid). As the red curtain parts, start the sound of tepid applause from this audio file: /home/prent/Downloads/emircanalp-applause-alks-ses-efekti-125030.mp3 As that sound dies away, then start the music. During the play, ocassionally pan to include the audience. Use the piano stage. I'd like to have two pieces rendered, both from WTC. 
+            Uploads/b858pa_werck3_d01_39_t058.npy/.mp3
+            Uploads/b858fa_werck3_d01_47_t084.npy/.mp3
+      Make tepid applause at the end like the beginning, but not between the prelude and the fugue.
+
+      The recital is ready to render. I built it on fs1 and checked frames from every part of the timeline: the title, the curtain opening, the music, the audience shots, the bows and the curtain closing. Nothing has run on the farm yet, and nothing is committed or copied to the pod.
+      Copy the files to the pod:
+            for f in Uploads/b858r_recital.{npy,mp3,recital.json}; do scp $f one-footed-bride-pod:Repos/One-footed-bride-tuning/$f; done
