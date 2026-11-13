@@ -1415,10 +1415,30 @@ def score_name(version):
     return version
 
 
-def parse_score(name):
-    """A music21 score by name: from SCORES_DIR if it is there, otherwise the corpus."""
+def parse_score(name, keep_hidden=False):
+    """A music21 score by name: from SCORES_DIR if it is there, otherwise the corpus.
+
+    Notes marked invisible are removed unless keep_hidden.  MuseScore editions
+    write an ornament out a second time as hidden notes in a spare voice so
+    their own playback plays it (bwv858p: each trill's 32nds in a hidden voice
+    2, under the visible note carrying the trill mark), and played as well, the
+    trill sounded twice: once as WreckingCrew_v2's glide, once as key presses.
+    Found in bwv846f, bwv847p, bwv848f, bwv858f and bwv858p (Nov 2026); the
+    corpus has none.
+    """
     path = score_file(name)
-    return m21.converter.parse(path) if path else m21.corpus.parse(name)
+    score = m21.converter.parse(path) if path else m21.corpus.parse(name)
+    if not keep_hidden:
+        drop_hidden_notes(score)
+    return score
+
+
+def drop_hidden_notes(score):
+    """Remove the notes and chords marked invisible (playback-only realizations); returns how many."""
+    hidden = [n for n in score.recurse().notes if n.style.hideObjectOnPrint]
+    for n in hidden:
+        n.activeSite.remove(n)
+    return len(hidden)
 
 
 GRIDS = (4, 8, 12, 16, 24, 32, 48)   # slots per quarter note that slots_per_quarter tries, coarsest first
