@@ -25425,3 +25425,9 @@ ______________________
 
       The fingers are greatly improved, but the keys still stay down after the fingers move away from the keys.
       Idea: This experimental Bosendorfer model includes a neural link that allows the performer to play trills and mordants through brain wave alterations that causes a slide mechanism on the strings to raise and lower the pitch without the need to actually play the keys of the ornament directly, saving 6.4% of the wear on the fingers of the player for each piece played.
+
+      I switched to the long hair, and change the pianist to a woman. Much better. Now run a render on the pod.
+            ssh fs1
+            PER_CARD="2 fs5=1 fs6=1" ARC_MAX="fs5=2000 fs6=2000" SCRIPT=concert_stage.py BLEND=Alcorcon_Recital.blend ./render_farm.sh --npy Uploads/b858r_recital.npy --tempo 60 --duration 225.70 --out frames_b858r_recital_v2 --engine cycles --cycles-hw-rt --title none
+      3. Mux: 
+            ./concert_mux.sh frames_b858r_recital_v2 Uploads/b858r_recital b858r_recital_v2.mp4
