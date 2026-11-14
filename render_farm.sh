@@ -580,6 +580,17 @@ for i in "${!WORKERS[@]}"; do
            $((part_end - part_start + 1)) "${EXTRA[*]:+  ${EXTRA[*]}}"
     [ "$DRYRUN" -eq 0 ] || continue
 
+    # A finished pod of the same name from an earlier render (Completed, or Failed like fs6's on 12 Nov)
+    # would make `kubectl apply` refuse: a pod's arguments cannot be changed. Delete it; its frames stay
+    # on the PVC. A pod still running is another render's (or this one's, relaunched too soon): stop.
+    phase=$(kubectl -n "$NS" get pod "blender-farm-$name" -o jsonpath='{.status.phase}' 2>/dev/null || true)
+    case "$phase" in
+      "") ;;
+      Succeeded|Failed) kubectl -n "$NS" delete pod "blender-farm-$name" --wait=true >/dev/null
+                        echo "            (deleted the finished pod blender-farm-$name from an earlier render)";;
+      *) echo "blender-farm-$name is $phase: a render is still using that name. ./render_farm.sh --stop" \
+              "ends it (or wait for it); nothing more launched." >&2; exit 2;;
+    esac
     # Let the previous pod's volume finish mounting before asking for this one.
     [ "$launched" -gt 0 ] && sleep "$STAGGER"
     launched=$((launched + 1))
