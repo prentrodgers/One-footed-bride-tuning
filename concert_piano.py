@@ -366,13 +366,24 @@ def build_piano(M, rig, collection):
     sk.box("Piano Action", (2 * wi, DESK_BACK - 0.03, FALL_H - 0.04), (0, (0.03 + DESK_BACK) / 2, -0.02 + (FALL_H - 0.04) / 2),
            mat_=M["action"], collection=collection, parent=rig)
     logo(M, rig, collection)
-    # the music desk: a broad panel leaning back, with a ledge for the music
+    # the music desk: its base board lies ON the block over the action (on a real piano it slides there), the
+    # ledge for the music runs along the base's front, and the broad panel stands on it, leaning back on a
+    # prop. (Until 14 Nov 2026 the panel and ledge hung 3 cm over the block with nothing under them, and
+    # the gap showed from the lid side.)
     tilt = math.radians(15)
     dh = 0.30
-    desk = sk.box("Piano Music Desk", (0.82, 0.014, dh), (0, 0.34 + math.sin(tilt) * dh / 2, RIM_TOP + 0.03 + math.cos(tilt) * dh / 2),
+    base_t = 0.018
+    sk.box("Piano Music Desk Base", (0.86, 0.19, base_t), (0, 0.385, RIM_TOP + base_t / 2),
+           mat_=M["black"], collection=collection, parent=rig)
+    z0 = RIM_TOP + base_t                                # the top of the base: the panel's foot
+    desk = sk.box("Piano Music Desk", (0.82, 0.014, dh), (0, 0.34 + math.sin(tilt) * dh / 2, z0 + math.cos(tilt) * dh / 2),
                   mat_=M["black"], collection=collection, parent=rig)
     desk.rotation_euler = (-tilt, 0, 0)
-    sk.box("Piano Music Desk Ledge", (0.82, 0.05, 0.014), (0, 0.33, RIM_TOP + 0.03), mat_=M["black"], collection=collection, parent=rig)
+    sk.box("Piano Music Desk Ledge", (0.82, 0.05, 0.014), (0, 0.318, z0 + 0.007), mat_=M["black"], collection=collection, parent=rig)
+    up = 0.62 * dh                                       # the prop: from the back of the base to the panel's back
+    sk.rod("Piano Music Desk Prop", Vector((0.0, 0.47, z0)),
+           Vector((0.0, 0.34 + math.sin(tilt) * up + 0.007, z0 + math.cos(tilt) * up)), 0.006,
+           mat_=M["black"], collection=collection, parent=rig)
     # legs: square, tapering, with brass ferrules and casters; two under the arms, one under the tail
     L = sk.Builder()
     for x, y in ((0.69, 0.30), (-0.69, 0.30), (-0.22, 2.25)):
@@ -403,6 +414,8 @@ def logo(M, rig, collection):
     cu.body = "Bösendorfer"
     if Path(LOGO_FONT).exists():
         cu.font = bpy.data.fonts.load(LOGO_FONT, check_existing=True)
+        if not cu.font.packed_file:
+            cu.font.pack()                    # into the .blend: the render pods and a rented machine have no Z003
     cu.size = 0.055
     cu.align_x, cu.align_y = 'CENTER', 'CENTER'
     cu.extrude = 0.0006
