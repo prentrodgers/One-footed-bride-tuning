@@ -715,7 +715,7 @@ class PianoPlayer:
                     dz, press = self.gesture(n, t)
                     if dz >= self.HOVER and press <= 0.0 and p is not lead:
                         continue
-                    digits[j] = {"m": n["m"], "dz": dz, "press": press}
+                    digits[j] = {"m": n["m"], "dz": dz, "press": press, "age": t - n["t0"]}   # age: for concert_human.py
         prev = nxt = None
         for p in pl:
             if p[0] - self.window <= t:
@@ -746,8 +746,26 @@ class PianoPlayer:
         st = {"dips": dips}
         for side in ("L", "R"):
             h, digits = self._hand(side, t)
-            st[side] = {"digits": digits} if h is None else {"x": h[0], "y": h[1], "z": h[2], "digits": digits}
+            st[side] = {"digits": digits} if h is None else {"x": h[0], "y": h[1], "z": h[2], "digits": digits,
+                                                             "glide": self._glide(side, t)}
+        st["at"] = lambda dt: self.state(t + dt)             # the state a little earlier or later (concert_human.py)
         return st
+
+    # Between fast notes the plan moves a hand in a frame or two (it leaves 0.08 s after one onset and is
+    # there 0.08 s before the next): 18 cm in two frames in the F-sharp fugue. The puppet's hand, a few
+    # tubes, gets away with it; a real hand (concert_human.py) reads as teleporting. "glide" is the same
+    # path averaged over five frames around t, weighted to the middle: the leap takes five frames, and it
+    # is still a function of t alone. The puppet ignores it.
+    GLIDE = ((-2, 1.0), (-1, 2.0), (0, 3.0), (1, 2.0), (2, 1.0))      # (frames from t, weight)
+
+    def _glide(self, side, t):
+        acc, wsum = [0.0, 0.0, 0.0], 0.0
+        for k, w in self.GLIDE:
+            h = self._hand(side, t + k / FPS)[0]
+            if h is not None:
+                acc = [a + w * v for a, v in zip(acc, h)]
+                wsum += w
+        return tuple(a / wsum for a in acc)
 
 
 # ─────────────────────────────── strings ───────────────────────────────

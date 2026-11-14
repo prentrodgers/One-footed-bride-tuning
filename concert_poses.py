@@ -1989,6 +1989,9 @@ def pose_head(key, angles=None, blink=0.0):
 
 def pose(key, state=None, pup=None):
     """Pose one player (and its bow/mallets/slide) for a musical state."""
+    if bpy.data.objects.get(f"Human - {key}") is not None:   # a MakeHuman person sits there (concert_human.py):
+        import concert_human                                  # the same state moves bones instead of the puppet
+        return concert_human.human_for(key).pose(state)
     if key in LOWER:
         lower_instrument(key, (state or {}).get("lower", 0.0))
     hands, pole = HANDS[key](state)
