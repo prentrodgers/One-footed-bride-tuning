@@ -7,7 +7,7 @@ skinned, clothed human made by MPFB (the MakeHuman plugin for Blender) and drive
 state: PianoPlayer's fingering plan and concert_poses.hands_piano's targets are untouched, and only what
 they move is different - 163 bones instead of 50 loose parts.
 
-Three jobs, three ways in:
+Four jobs, four ways in:
 
   1. BUILD the person (needs MPFB and its asset packs, which live in their own Blender profile so that
      nobody's own Blender is touched):
@@ -17,6 +17,11 @@ Three jobs, three ways in:
 
      LOOK below is the person: body sliders, skin, hair, clothes. The .blend packs its textures and
      needs no add-on afterwards: the render pods and a rented machine open it as it is.
+
+     DRESS him (part of build; again on its own after a change to SUIT, HAIR or SKIN, without MPFB):
+     concert black, strand hair, skin - see "1b. dress" below.
+
+       blender --background Pianist_Human.blend --python concert_human.py -- dress --out Pianist_Human.blend
 
   2. SEAT that person on a piano stage (Alcorcon_Piano.blend, Alcorcon_Recital.blend): the puppet is
      hidden, not deleted (the stage's cameras and the head planner still look it up by name), the bench
@@ -43,11 +48,12 @@ from mathutils import Matrix, Vector
 UP = Vector((0, 0, 1))
 PROFILE = Path.home() / ".local/share/ofb-mpfb/userres"      # MPFB 2.0.18 + asset packs (see build)
 
-# The pianist, chosen from the contact sheets of 14 Nov 2026: person P15 (a middle-aged man), hair H08
-# (long01, in its own colour), the suit and build of tile B04 (male suit 3, athletic).
+# The pianist, chosen from the contact sheets of 14 Nov 2026: a middle-aged woman (sheet tile P06; first P15,
+# a man, until the user asked for a woman), hair H08 (long01), the suit of tile B04 (male suit 3, fitted to
+# her by MPFB) - the suit in concert black and the hair as strands, by dress().
 LOOK = {
-    "Piano": dict(sex="male", age=0.66, race="caucasian", muscle=0.95, weight=0.5, height=0.55, proportions=0.6,
-                  skin="middleage_caucasian_male", hair="long01", hair_colour=None, eyebrows="eyebrow001",
+    "Piano": dict(sex="female", age=0.66, race="caucasian", muscle=0.5, weight=0.5, height=0.55, proportions=0.6,
+                  skin="middleage_caucasian_female", hair="long01", hair_colour=None, eyebrows="eyebrow006",
                   clothes=["toigo_male_suit_3", "shoes01"], brown_eyes=False),
 }
 # (saturation, value, multiply) on a hairstyle's own texture; None leaves it as the pack made it
@@ -108,6 +114,7 @@ def build(key, out):
     for im in bpy.data.images:                               # the packs' textures: into the .blend
         if im.source == "FILE" and im.filepath and not im.packed_file:
             im.pack()
+    dress(key)
     rig["ofb_human"] = key
     bpy.ops.wm.save_as_mainfile(filepath=str(out), compress=True)
     meshes = [o for o in bpy.data.objects if o.type == "MESH"]
@@ -138,6 +145,433 @@ def _colour(look):
                 mul.inputs[0].default_value = 1.0; mul.inputs[2].default_value = (*tint, 1)
                 nt.links.new(mix.outputs[0], hs.inputs["Color"]); nt.links.new(hs.outputs[0], mul.inputs[1])
                 nt.links.new(mul.outputs[0], bsdf.inputs["Base Color"])
+
+
+# ─────────────────────────────── 1b. dress: concert black, hair, skin ───────────────────────────────
+# What MPFB's packs give, tuned for the stage (14 Nov 2026). dress() works on a built person with or without
+# MPFB and can be run again: every change starts from what the packs gave (kept in the .blend), so
+#
+#     blender --background Pianist_Human.blend --python concert_human.py -- dress --out Pianist_Human.blend
+#
+# re-dresses him after a change here without rebuilding.
+
+# Concert black. The suit pack has one texture for the whole outfit: navy pinstripe jacket and trousers,
+# a pale blue shirt and a red patterned tie. Recoloured from that texture (sRGB values): black wool with no
+# stripe, a white shirt, a black tie. Black cloth is not 0: wool reflects a few percent, and under the
+# stage lights a jacket of 0 would be a hole in the picture.
+SUIT = dict(cloth=0.075, shirt=(0.93, 0.93, 0.91), tie=0.06, sheen=0.07, rough=0.72)
+
+# The hair: strands, not the pack's painted shells. The long01 hairstyle is an outer shell over the head
+# and 17 sheets inside it, each painted with hair that runs down its texture. A strand is laid along a
+# shell or a sheet the way its texture runs - from the crown (the top of the painted hair) to where the
+# paint fades out - bound to the triangles it crosses, so it rides on the shell as the armature moves it
+# (a geometry-nodes modifier rebuilds every strand from the shell's evaluated vertices, every frame,
+# with no Python), and a few children are scattered round each one, coming together toward the tip as
+# hair clumps. The shell stays under them, darkened, so no scalp shows between strands.
+HAIR = dict(guides=7000, points=18, children=6, root_r=0.00005, tip_r=0.000016, clump=0.0035,
+            strays=0.03, stray_out=0.012, frizz=0.0012, frizz_scale=60.0,
+            lift=(0.0004, 0.0030), sheet_lift=0.0012, inner_share=0.45, shell_dark=0.40,
+            melanin=0.62, redness=0.17, roughness=0.26, radial=0.32, random_colour=0.12, seed=11)
+
+# Skin: MPFB's "enhanced SSS" skin, with its inputs set here (input name -> value). As the pack set it, light
+# went 0.5 mm into the skin and at a fifth strength: the hands read as hard and wet, with bright spots
+# on the knuckles. Measured human skin scatters red light about 3.7 mm, green 1.4 and blue 0.7 (Jensen
+# et al., 2001); the group multiplies these by the Principled BSDF's subsurface scale of 5 mm.
+SKIN = {"SSS strength": 1.0, "SSS radius scale": 0.73, "SSS radius R": 1.0, "SSS radius G": 0.37, "SSS radius B": 0.19,
+        "Pore strength": 0.35, "Roughness": 0.45, "Clearcoat": 0.05}
+
+
+def dress(key):
+    look = LOOK[key]
+    _concert_black(look)
+    _strand_hair(look)
+    _skin(look)
+
+
+def _concert_black(look):
+    import numpy as np
+    ob = next(o for o in bpy.data.objects if o.type == "MESH" and look["clothes"][0] in o.name)
+    mat = ob.material_slots[0].material
+    nt = mat.node_tree
+    tex = nt.nodes["diffuseTexture"]
+    src = bpy.data.images.get(mat.get("ofb_suit_src", "")) or tex.image
+    mat["ofb_suit_src"] = src.name
+    src.use_fake_user = True                                 # kept in the .blend, unused, for the next dress()
+    W, H = src.size
+    px = np.empty(W * H * 4, np.float32)
+    src.pixels.foreach_get(px)
+    px = px.reshape(H, W, 4)
+    rgb = px[..., :3]
+    lum = rgb @ np.array([0.2126, 0.7152, 0.0722], np.float32)
+
+    def dilate(m, r):
+        out = m.copy()
+        for dy in range(-r, r + 1):
+            for dx in range(-r, r + 1):
+                if dx * dx + dy * dy <= r * r:
+                    out |= np.roll(np.roll(m, dy, 0), dx, 1)
+        return out
+
+    def blur(a, r):                                          # a box blur, both ways
+        k = 2 * r + 1
+        c = np.cumsum(np.pad(a, ((0, 0), (r + 1, r))), 1); a = (c[:, k:] - c[:, :-k]) / k
+        c = np.cumsum(np.pad(a, ((r + 1, r), (0, 0))), 0); return (c[k:] - c[:-k]) / k
+
+    red = (rgb[..., 0] > 0.30) & (rgb[..., 0] > 1.6 * rgb[..., 1]) & (rgb[..., 0] > 1.6 * rgb[..., 2])
+    tie = dilate(red, 7)                                     # the tie's white dots are inside its red
+    shirt = (lum > 0.50) & ~tie
+    cloth = ~(shirt | tie)
+    out = np.empty_like(px)
+    out[..., 3] = px[..., 3]
+    # the cloth: the pinstripes blurred away, a little of the weave's light and dark kept
+    soft = blur(lum, 7)
+    var = np.clip((soft / max(np.median(soft[cloth]), 1e-4)) ** 0.5, 0.85, 1.15)
+    out[..., :3] = (SUIT["cloth"] * var)[..., None]
+    sv = np.clip(lum / max(np.median(lum[shirt]), 1e-4), 0.80, 1.06)[..., None]
+    out[..., :3] = np.where(shirt[..., None], np.array(SUIT["shirt"], np.float32) * sv, out[..., :3])
+    tv = SUIT["tie"] * (0.8 + 0.4 * np.clip(lum / max(np.percentile(lum[tie], 90), 1e-4), 0, 1))
+    out[..., :3] = np.where(tie[..., None], tv[..., None], out[..., :3])
+    name = src.name.rsplit(".", 1)[0] + " concert black"
+    old = bpy.data.images.get(name)
+    if old:
+        bpy.data.images.remove(old)
+    img = bpy.data.images.new(name, W, H, alpha=True)
+    img.pixels.foreach_set(out.ravel())
+    img.file_format = "PNG"
+    img.pack()
+    tex.image = img
+    bsdf = nt.nodes["Principled BSDF"]
+    # The pinstripe is in the pack's normal and specular maps too: the jacket kept its stripes in relief
+    # and in its shine. Wool instead: one roughness, a fine weave in the bump.
+    for inp in ("Roughness", "Normal"):
+        for l in list(bsdf.inputs[inp].links):
+            nt.links.remove(l)
+    bsdf.inputs["Roughness"].default_value = SUIT["rough"]
+    weave = nt.nodes.get("OFB weave") or nt.nodes.new("ShaderNodeTexNoise")
+    weave.name = "OFB weave"; weave.inputs["Scale"].default_value = 900.0; weave.inputs["Detail"].default_value = 2.0
+    bump = nt.nodes.get("OFB weave bump") or nt.nodes.new("ShaderNodeBump")
+    bump.name = "OFB weave bump"; bump.inputs["Strength"].default_value = 0.08; bump.inputs["Distance"].default_value = 0.0004
+    nt.links.new(weave.outputs["Fac"], bump.inputs["Height"]); nt.links.new(bump.outputs["Normal"], bsdf.inputs["Normal"])
+    bsdf.inputs["Sheen Weight"].default_value = SUIT["sheen"]   # wool's soft edge light
+    bsdf.inputs["Sheen Roughness"].default_value = 0.4
+    bsdf.inputs["Specular IOR Level"].default_value = 0.35
+    print(f"[human] concert black: {cloth.mean():.0%} of the suit texture cloth, {shirt.mean():.1%} shirt, "
+          f"{tie.mean():.1%} tie -> '{name}'")
+
+
+def _islands(me):
+    """The island (connected piece) of every polygon."""
+    parent = list(range(len(me.vertices)))
+
+    def root(x):
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]; x = parent[x]
+        return x
+    for p in me.polygons:
+        vs = list(p.vertices)
+        for v in vs[1:]:
+            parent[root(v)] = root(vs[0])
+    ids, out = {}, []
+    for p in me.polygons:
+        out.append(ids.setdefault(root(p.vertices[0]), len(ids)))
+    return out
+
+
+def _strand_hair(look):
+    import numpy as np
+    rng = np.random.default_rng(HAIR["seed"])
+    shell = next(o for o in bpy.data.objects if o.type == "MESH" and o.name.endswith("." + look["hair"]))
+    name = shell.name + " strands"
+    for nm in (name, name + " binding"):                     # dressed before: out with the old ones
+        old = bpy.data.objects.get(nm)
+        if old:
+            data = old.data; bpy.data.objects.remove(old)
+            (bpy.data.meshes if isinstance(data, bpy.types.Mesh) else bpy.data.hair_curves).remove(data)
+    # The strands are bound to the shell's vertices as it is evaluated, so the shell is smoothed by geometry
+    # nodes (always on the CPU, at one level, in the viewport and the render alike) instead of the Subsurf
+    # modifier (level 0 in the viewport, 1 in the render, and on the GPU in the viewport): the vertices the
+    # strands are bound to are then the same everywhere. Bound to the bare shell they would lie on its
+    # flat faces, and look it.
+    for m in [m for m in shell.modifiers if m.type == "SUBSURF"]:
+        shell.modifiers.remove(m)
+    if "Smooth" not in shell.modifiers:
+        shell.modifiers.new("Smooth", "NODES").node_group = _smooth_nodes()
+    dg = bpy.context.evaluated_depsgraph_get()
+    me = shell.evaluated_get(dg).to_mesh()                  # the rig is at rest: the shell as it is built
+    me.calc_loop_triangles()
+    nt_ = len(me.loop_triangles)
+    V = np.empty(len(me.vertices) * 3, np.float32); me.vertices.foreach_get("co", V); V = V.reshape(-1, 3)
+    NV = np.empty(len(me.vertices) * 3, np.float32); me.vertices.foreach_get("normal", NV); NV = NV.reshape(-1, 3)
+    UV = np.empty(len(me.loops) * 2, np.float32); me.uv_layers.active.data.foreach_get("uv", UV); UV = UV.reshape(-1, 2)
+    TL = np.empty(nt_ * 3, np.int32); me.loop_triangles.foreach_get("loops", TL); TL = TL.reshape(-1, 3)
+    TV = np.empty(nt_ * 3, np.int32); me.loop_triangles.foreach_get("vertices", TV); TV = TV.reshape(-1, 3)
+    TP = np.empty(nt_, np.int32); me.loop_triangles.foreach_get("polygon_index", TP)
+    isl_of_poly = np.array(_islands(me))
+    TI = isl_of_poly[TP]
+    mat = shell.material_slots[0].material
+    img = mat.node_tree.nodes["diffuseTexture"].image
+    IW, IH = img.size
+    A = np.empty(IW * IH * 4, np.float32); img.pixels.foreach_get(A); A = A.reshape(IH, IW, 4)[..., 3]
+
+    def alpha(u, v):
+        return A[np.clip((v * IH).astype(int), 0, IH - 1), np.clip((u * IW).astype(int), 0, IW - 1)]
+
+    tri_area = 0.5 * np.linalg.norm(np.cross(V[TV[:, 1]] - V[TV[:, 0]], V[TV[:, 2]] - V[TV[:, 0]]), axis=1)
+    counts = np.bincount(TI); outer = int(np.argmax(counts))     # the shell; the rest are the sheets inside
+    isl_ids = np.unique(TI)
+    weight = np.array([tri_area[TI == i].sum() * (1.0 if i == outer else HAIR["inner_share"]) for i in isl_ids])
+    n_isl = np.maximum(1, np.round(HAIR["guides"] * weight / weight.sum())).astype(int)
+    P = HAIR["points"]
+    pts_i, pts_w, pts_off, pts_t = [], [], [], []
+    made = 0
+    for isl, n in zip(isl_ids, n_isl):
+        tris = np.where(TI == isl)[0]
+        uvt = UV[TL[tris]]                                   # (k, 3, 2)
+        lo, hi = uvt.reshape(-1, 2).min(0), uvt.reshape(-1, 2).max(0)
+        R = 400
+        grid = -np.ones((R, R), np.int32)
+        cell = (hi - lo) / R
+        for k, t in enumerate(tris):                         # which triangle covers each cell of the island's UVs
+            a, b, c = (uvt[k] - lo) / cell
+            x0, y0 = np.floor(np.minimum(np.minimum(a, b), c)).astype(int)
+            x1, y1 = np.ceil(np.maximum(np.maximum(a, b), c)).astype(int)
+            xs, ys = np.meshgrid(np.arange(max(x0, 0), min(x1, R)) + 0.5, np.arange(max(y0, 0), min(y1, R)) + 0.5)
+            d = (b[1] - c[1]) * (a[0] - c[0]) + (c[0] - b[0]) * (a[1] - c[1])
+            if xs.size == 0 or abs(d) < 1e-12:
+                continue
+            l1 = ((b[1] - c[1]) * (xs - c[0]) + (c[0] - b[0]) * (ys - c[1])) / d
+            l2 = ((c[1] - a[1]) * (xs - c[0]) + (a[0] - c[0]) * (ys - c[1])) / d
+            inside = (l1 >= -1e-6) & (l2 >= -1e-6) & (1 - l1 - l2 >= -1e-6)
+            grid[ys[inside].astype(int), xs[inside].astype(int)] = t
+        rows_v = lo[1] + (np.arange(R) + 0.5) * cell[1]
+        got, tries = 0, 0
+        while got < n and tries < n * 20:
+            tries += 1
+            col = rng.integers(0, R)
+            u = lo[0] + (col + rng.random()) * cell[0]
+            ca = alpha(np.full(R, u), rows_v)
+            ok = (grid[:, col] >= 0) & (ca > 0.5)
+            if not ok.any():
+                continue
+            top = int(np.where(ok)[0].max())                 # the crown end: the highest painted cell
+            bad = np.where(~((grid[:top + 1, col] >= 0) & (ca[:top + 1] > 0.2)))[0]
+            r = int(bad.max()) + 1 if bad.size else 0        # ... down to where the paint fades out
+            if top - r < 6:
+                continue
+            v0, v1 = rows_v[top], rows_v[r]
+            v1 = v0 + (v1 - v0) * rng.uniform(0.80, 1.0)     # ragged ends
+            vs = np.linspace(v0, v1, P)
+            rows = np.clip(((vs - lo[1]) / cell[1]).astype(int), 0, R - 1)
+            ts = grid[rows, col]
+            if (ts < 0).any():
+                continue
+            q = UV[TL[ts]]
+            a, b, c = q[:, 0], q[:, 1], q[:, 2]
+            pu = np.stack([np.full(P, u), vs], 1)
+            d = (b[:, 1] - c[:, 1]) * (a[:, 0] - c[:, 0]) + (c[:, 0] - b[:, 0]) * (a[:, 1] - c[:, 1])
+            l1 = ((b[:, 1] - c[:, 1]) * (pu[:, 0] - c[:, 0]) + (c[:, 0] - b[:, 0]) * (pu[:, 1] - c[:, 1])) / d
+            l2 = ((c[:, 1] - a[:, 1]) * (pu[:, 0] - c[:, 0]) + (a[:, 0] - c[:, 0]) * (pu[:, 1] - c[:, 1])) / d
+            w = np.clip(np.stack([l1, l2, 1 - l1 - l2], 1), 0, 1)
+            w /= w.sum(1, keepdims=True)
+            if isl == outer:                                 # above the shell, by a little more toward the tip
+                off = rng.uniform(*HAIR["lift"]) * (0.6 + 0.4 * np.linspace(0, 1, P))
+            else:                                            # either side of a sheet
+                off = np.full(P, rng.uniform(-1, 1) * HAIR["sheet_lift"])
+            pts_i.append(TV[ts]); pts_w.append(w); pts_off.append(off); pts_t.append(np.linspace(0, 1, P))
+            got += 1
+        made += got
+    shell.evaluated_get(dg).to_mesh_clear()
+    I = np.concatenate(pts_i).astype(np.int32); Wt = np.concatenate(pts_w).astype(np.float32)
+    OFF = np.concatenate(pts_off).astype(np.float32); TT = np.concatenate(pts_t).astype(np.float32)
+    # the outer shell's normals must point out of the head, or "above" it is inside it
+    rest = (V[I] * Wt[..., None]).sum(1)
+    nrm = (NV[I] * Wt[..., None]).sum(1)
+    axis = np.stack([np.zeros(len(rest)), np.full(len(rest), V[:, 1].mean()), rest[:, 2]], 1)
+    if (np.einsum("ij,ij->i", nrm, rest - axis) < 0).mean() > 0.5:
+        OFF = -OFF
+    rest = rest + nrm / np.linalg.norm(nrm, axis=1, keepdims=True) * OFF[:, None]
+
+    # Where every strand point is bound (vertices, with the binding as attributes, and edges along the
+    # strands): a mesh that is never seen. The strands themselves are a hair-curves object whose geometry
+    # nodes make them from it: curves made by geometry nodes on a MESH object are taken for plain curves
+    # with no bevel, and Cycles renders nothing of them.
+    sm = bpy.data.meshes.new(name + " binding")
+    sm.vertices.add(len(rest))
+    sm.vertices.foreach_set("co", rest.ravel())
+    e = np.arange(len(rest)).reshape(-1, P)
+    edges = np.stack([e[:, :-1].ravel(), e[:, 1:].ravel()], 1)
+    sm.edges.add(len(edges))
+    sm.edges.foreach_set("vertices", edges.ravel().astype(np.int32))
+    for k in range(3):
+        sm.attributes.new(f"i{k}", "INT", "POINT").data.foreach_set("value", I[:, k])
+        sm.attributes.new(f"w{k}", "FLOAT", "POINT").data.foreach_set("value", Wt[:, k])
+    sm.attributes.new("off", "FLOAT", "POINT").data.foreach_set("value", OFF)
+    sm.attributes.new("t", "FLOAT", "POINT").data.foreach_set("value", TT)
+    sm.update()
+    bind = bpy.data.objects.new(name + " binding", sm)
+    hc = bpy.data.hair_curves.new(name)
+    ob = bpy.data.objects.new(name, hc)
+    for o in (bind, ob):
+        for c in shell.users_collection:
+            c.objects.link(o)
+        o.parent = shell
+        o.matrix_parent_inverse.identity()
+        o.matrix_basis.identity()
+    bind.hide_viewport = bind.hide_render = True              # still evaluated: the strands depend on it
+    hm = _hair_material(shell)
+    hc.materials.append(hm)
+    gn = ob.modifiers.new("Hair strands", "NODES")
+    gn.node_group = _hair_nodes(shell, bind, hm)
+    _darken_shell(mat)
+    print(f"[human] hair: {made} strands along the shell and its {len(isl_ids) - 1} sheets, "
+          f"{len(rest)} points, x{HAIR['children'] + 1} at render -> '{name}'")
+
+
+def _smooth_nodes():
+    name = "OFB Smooth"
+    ng = bpy.data.node_groups.get(name)
+    if ng is None:
+        ng = bpy.data.node_groups.new(name, "GeometryNodeTree")
+        ng.interface.new_socket("Geometry", in_out="INPUT", socket_type="NodeSocketGeometry")
+        ng.interface.new_socket("Geometry", in_out="OUTPUT", socket_type="NodeSocketGeometry")
+        gi, go = ng.nodes.new("NodeGroupInput"), ng.nodes.new("NodeGroupOutput")
+        sd = ng.nodes.new("GeometryNodeSubdivisionSurface"); sd.inputs["Level"].default_value = 1
+        ng.links.new(gi.outputs[0], sd.inputs["Mesh"]); ng.links.new(sd.outputs[0], go.inputs[0])
+    return ng
+
+
+def _hair_nodes(shell, binding, material):
+    name = "OFB Hair Strands"
+    old = bpy.data.node_groups.get(name)
+    if old:
+        bpy.data.node_groups.remove(old)
+    ng = bpy.data.node_groups.new(name, "GeometryNodeTree")
+    ng.interface.new_socket("Geometry", in_out="INPUT", socket_type="NodeSocketGeometry")
+    ng.interface.new_socket("Geometry", in_out="OUTPUT", socket_type="NodeSocketGeometry")
+    N, link = ng.nodes, ng.links.new
+
+    def attr(nm, typ):
+        n = N.new("GeometryNodeInputNamedAttribute"); n.data_type = typ; n.inputs["Name"].default_value = nm
+        return n.outputs["Attribute"]
+
+    def vmath(op, a, b=None, scale=None):
+        n = N.new("ShaderNodeVectorMath"); n.operation = op
+        link(a, n.inputs[0])
+        if b is not None:
+            link(b, n.inputs[1])
+        if scale is not None:
+            if isinstance(scale, (int, float)):
+                n.inputs["Scale"].default_value = scale
+            else:
+                link(scale, n.inputs["Scale"])
+        return n.outputs[0]
+
+    def math(op, a, b):
+        n = N.new("ShaderNodeMath"); n.operation = op
+        for i, x in enumerate((a, b)):
+            if isinstance(x, (int, float)):
+                n.inputs[i].default_value = x
+            else:
+                link(x, n.inputs[i])
+        return n.outputs[0]
+
+    go = N.new("NodeGroupOutput")
+    bi = N.new("GeometryNodeObjectInfo"); bi.transform_space = "RELATIVE"
+    bi.inputs["Object"].default_value = binding
+    m2c = N.new("GeometryNodeMeshToCurve"); link(bi.outputs["Geometry"], m2c.inputs["Mesh"])
+    info = N.new("GeometryNodeObjectInfo"); info.transform_space = "RELATIVE"
+    info.inputs["Object"].default_value = shell
+    pos, nrm = N.new("GeometryNodeInputPosition").outputs[0], N.new("GeometryNodeInputNormal").outputs[0]
+    P = Nn = None
+    for k in range(3):
+        idx, w = attr(f"i{k}", "INT"), attr(f"w{k}", "FLOAT")
+        terms = []
+        for field in (pos, nrm):
+            s = N.new("GeometryNodeSampleIndex"); s.data_type = "FLOAT_VECTOR"; s.domain = "POINT"
+            link(info.outputs["Geometry"], s.inputs["Geometry"]); link(field, s.inputs["Value"]); link(idx, s.inputs["Index"])
+            terms.append(vmath("SCALE", s.outputs[0], scale=w))
+        P = terms[0] if P is None else vmath("ADD", P, terms[0])
+        Nn = terms[1] if Nn is None else vmath("ADD", Nn, terms[1])
+    bound = vmath("ADD", P, vmath("SCALE", vmath("NORMALIZE", Nn), scale=attr("off", "FLOAT")))
+    sp = N.new("GeometryNodeSetPosition")
+    link(m2c.outputs[0], sp.inputs["Geometry"]); link(bound, sp.inputs["Position"])
+    # the children: copies of each strand, scattered round it, closer toward the tip
+    dup = N.new("GeometryNodeDuplicateElements"); dup.domain = "SPLINE"
+    dup.inputs["Amount"].default_value = HAIR["children"] + 1
+    link(sp.outputs[0], dup.inputs["Geometry"])
+    sid = N.new("GeometryNodeFieldOnDomain"); sid.domain = "CURVE"; sid.data_type = "INT"
+    link(N.new("GeometryNodeInputIndex").outputs[0], sid.inputs[0])
+    rnd = N.new("FunctionNodeRandomValue"); rnd.data_type = "FLOAT_VECTOR"
+    rnd.inputs["Min"].default_value = (-1, -1, -1); rnd.inputs["Max"].default_value = (1, 1, 1)
+    link(sid.outputs[0], rnd.inputs["ID"])
+    t = attr("t", "FLOAT")
+    first = math("COMPARE", dup.outputs["Duplicate Index"], 0.0)      # copy 0 is the strand itself
+    spread = math("MULTIPLY", math("SUBTRACT", 1.0, math("MULTIPLY", t, 0.6)), HAIR["clump"])
+    # now and then a stray, a long way out from its clump past the middle of its length
+    stray = N.new("FunctionNodeRandomValue"); stray.data_type = "BOOLEAN"
+    stray.inputs["Probability"].default_value = HAIR["strays"]
+    link(sid.outputs[0], stray.inputs["ID"]); stray.inputs["Seed"].default_value = 7
+    spread = math("ADD", spread, math("MULTIPLY", math("MULTIPLY", stray.outputs[0], math("MULTIPLY", t, t)), HAIR["stray_out"]))
+    spread = math("MULTIPLY", spread, math("SUBTRACT", 1.0, first))
+    # frizz: every strand wanders a little off its line, more toward the tip
+    pos2 = N.new("GeometryNodeInputPosition").outputs[0]
+    noise = N.new("ShaderNodeTexNoise"); noise.noise_dimensions = "4D"
+    noise.inputs["Scale"].default_value = HAIR["frizz_scale"]
+    link(pos2, noise.inputs["Vector"])
+    link(math("MULTIPLY", sid.outputs[0], 0.37), noise.inputs["W"])          # each strand its own
+    sub = N.new("ShaderNodeVectorMath"); sub.operation = "SUBTRACT"
+    link(noise.outputs["Color"], sub.inputs[0]); sub.inputs[1].default_value = (0.5, 0.5, 0.5)
+    frizz = vmath("SCALE", sub.outputs[0], scale=math("MULTIPLY", math("POWER", t, 1.5), HAIR["frizz"] * 2))
+    off = N.new("GeometryNodeSetPosition")
+    link(dup.outputs["Geometry"], off.inputs["Geometry"])
+    link(vmath("ADD", vmath("SCALE", rnd.outputs["Value"], scale=spread), frizz), off.inputs["Offset"])
+    rad = N.new("GeometryNodeSetCurveRadius"); link(off.outputs[0], rad.inputs["Curve"])
+    link(math("ADD", HAIR["root_r"], math("MULTIPLY", t, HAIR["tip_r"] - HAIR["root_r"])), rad.inputs["Radius"])
+    sm = N.new("GeometryNodeSetMaterial"); link(rad.outputs[0], sm.inputs["Geometry"])
+    sm.inputs["Material"].default_value = material
+    link(sm.outputs[0], go.inputs[0])
+    return ng
+
+
+def _hair_material(shell):
+    name = "OFB Hair"
+    m = bpy.data.materials.get(name) or bpy.data.materials.new(name)
+    m.use_nodes = True
+    nt = m.node_tree
+    nt.nodes.clear()
+    h = nt.nodes.new("ShaderNodeBsdfHairPrincipled")
+    h.model = "CHIANG"; h.parametrization = "MELANIN"
+    h.inputs["Melanin"].default_value = HAIR["melanin"]
+    h.inputs["Melanin Redness"].default_value = HAIR["redness"]
+    h.inputs["Roughness"].default_value = HAIR["roughness"]
+    h.inputs["Radial Roughness"].default_value = HAIR["radial"]
+    h.inputs["Random Color"].default_value = HAIR["random_colour"]
+    h.inputs["Random Roughness"].default_value = 0.15
+    out = nt.nodes.new("ShaderNodeOutputMaterial")
+    nt.links.new(h.outputs[0], out.inputs["Surface"])
+    return m
+
+
+def _darken_shell(mat):
+    """The painted shell, darker, under the strands: the shade of hair seen deep between strands."""
+    nt = mat.node_tree
+    bsdf, mix = nt.nodes["Principled BSDF"], nt.nodes["diffuseIntensity"]
+    mul = nt.nodes.get("OFB shell dark") or nt.nodes.new("ShaderNodeMixRGB")
+    mul.name = "OFB shell dark"; mul.blend_type = "MULTIPLY"
+    mul.inputs[0].default_value = 1.0
+    mul.inputs[2].default_value = (HAIR["shell_dark"],) * 3 + (1,)
+    src = next((l.from_socket for l in bsdf.inputs["Base Color"].links), mix.outputs[0])
+    if src.node is not mul:
+        nt.links.new(src, mul.inputs[1])
+    nt.links.new(mul.outputs[0], bsdf.inputs["Base Color"])
+    bsdf.inputs["Roughness"].default_value = 0.6
+
+
+def _skin(look):
+    body = next(o for o in bpy.data.objects if o.type == "MESH" and o.name.endswith(".body"))
+    grp = next(n for n in body.material_slots[0].material.node_tree.nodes if n.bl_idname == "ShaderNodeGroup")
+    for k, v in SKIN.items():
+        grp.inputs[k].default_value = v
 
 
 # ─────────────────────────────── forward kinematics ───────────────────────────────
@@ -605,6 +1039,9 @@ PLAYER_CAMS = {"Piano": {"shoulder": "Cam 62 Piano Over the Shoulder",
                          "face": ("Cam 63 Piano Face", (1.35, 1.30, 0.05))}}   # offset from the head, instrument axes
 
 
+FACE_CAM_DROP = 0.09
+
+
 def _cameras(key, h, back):
     spec = PLAYER_CAMS.get(key, {})
     cam = bpy.data.objects.get(spec.get("shoulder", ""))
@@ -617,15 +1054,17 @@ def _cameras(key, h, back):
     cam, tgt = bpy.data.objects.get(name), bpy.data.objects.get(name + " Target")
     if cam is not None and tgt is not None:
         centre = h.rig.matrix_world @ h.fk.head("head").lerp(h.fk.tail("head"), 0.5)
-        tgt.location = centre
         cam.location = centre + bpy.data.objects[key].matrix_world.to_3x3() @ Vector(off)
+        # aimed below the head as it sits at rest: playing, the player looks down at the keys (13 degrees on
+        # average, the head planner), and the face drops into the bottom of a frame centred on the rest pose
+        tgt.location = centre - UP * FACE_CAM_DROP
 
 
 def main():
     import argparse
     argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
     p = argparse.ArgumentParser(prog="concert_human.py")
-    p.add_argument("job", choices=("build", "seat"))
+    p.add_argument("job", choices=("build", "dress", "seat"))
     p.add_argument("--key", default="Piano")
     p.add_argument("--human", default="Pianist_Human.blend", help="seat: the built person")
     p.add_argument("--out", required=True, help="the .blend to write")
@@ -633,6 +1072,11 @@ def main():
     t = time.time()
     if a.job == "build":
         build(a.key, Path(a.out).resolve())
+    elif a.job == "dress":
+        dress(a.key)
+        bpy.context.preferences.filepaths.save_version = 0
+        bpy.ops.wm.save_as_mainfile(filepath=str(Path(a.out).resolve()), compress=True)
+        print(f"[human] {a.key}: dressed -> {a.out} ({Path(a.out).stat().st_size / 1e6:.1f} MB)")
     else:
         sys.path.insert(0, str(Path(__file__).resolve().parent))
         seat(a.key, Path(a.human).resolve())
