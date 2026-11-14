@@ -45,6 +45,13 @@
 #   LLM_DEPLOY=none leave the llama.cpp server on fs5 running (by default it is
 #                   scaled to 0 for the render and back when the farm finishes)
 #   STAGGER=45      seconds between pod launches
+#   SHARE=1         every process gets the WHOLE frame range and they share it out in blocks of
+#                   SHARE_BLOCK frames (30), each taking the next block nobody has (concert_stage.py
+#                   --claim-block): a slow card simply does fewer, nobody waits on a slow slice, and
+#                   frames already on disk are skipped. Needs SCRIPT=concert_stage.py. For a scene whose
+#                   cost per card differs from the rate table (the b858r recital with strand hair, 14 Nov
+#                   2026: fixed slices 8.3 h, shared about 4.5). If a process dies, its block is left
+#                   unfinished: launch the same command again, and only the missing frames are rendered.
 #   PVC_CHECK=0     launch even if the .npy, its .mp3 or the BLEND here differ
 #                   from the PVC copy the pods read (by default nothing launches)
 #   IMAGE=...       another image tag
@@ -308,9 +315,23 @@ while [ $# -gt 0 ]; do
     # lot; --tail=1 --prefix gets each worker's last line, which is the useful
     # one.
     --progress)
-      kubectl -n "$NS" get po -l job=blender-farm -o \
+      report=$(kubectl -n "$NS" get po -l job=blender-farm -o \
         jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.status.phase}{"\t"}{.spec.nodeName}{"\t"}{.spec.containers[0].args[0]}{"\n"}{end}' \
         | while IFS=$'\t' read -r pod phase node args; do
+            # SHARE=1: every process has the whole range; what counts is how many frames it has made
+            if [[ "$args" == *"--claim-block"* ]]; then
+              log=$(kubectl -n "$NS" logs "$pod" --tail=200 2>/dev/null || true)
+              line=$(grep -a ' mine=' <<<"$log" | tail -n 1 || true)
+              mine=$(sed -n 's/.* mine=\([0-9]*\).*/\1/p' <<<"$line"); el=$(sed -n 's/.* elapsed=\([0-9.]*\)s.*/\1/p' <<<"$line")
+              out=$(sed -n 's/.*--out \([^ ]*\).*/\1/p' <<<"$args"); last=$(sed -n 's/.*--frame-end \([0-9]*\).*/\1/p' <<<"$args")
+              echo "@OUT $out $((last + 1))"
+              if [ -z "$mine" ]; then printf "  %-8s %-4s %-10s shared range, not started\n" "${pod#blender-farm-}" "$node" "$phase"; continue; fi
+              awk -v pod="${pod#blender-farm-}" -v node="$node" -v m="$mine" -v e="$el" -v ph="$phase" 'BEGIN{
+                r = (e > 0) ? m / e : 0
+                printf "  %-8s %-4s %-10s %5d frames  %.2fs/frame\n", pod, node, (ph == "Succeeded" ? "finished" : "shared"), m, (r > 0 ? 1/r : 0)
+                if (ph == "Running") printf "@RATE %.6f\n", r }'
+              continue
+            fi
             first=$(sed -n 's/.*--frame-start \([0-9]*\).*/\1/p' <<<"$args")
             last=$(sed -n 's/.*--frame-end \([0-9]*\).*/\1/p' <<<"$args")
             # the last line that names a frame: a finished pod's very last lines are
@@ -340,7 +361,16 @@ while [ $# -gt 0 ]; do
                      pod, node, bar, 100*done/span, done, span, (rate>0?1/rate:0), \
                      (phase == "Succeeded" ? "finished" : sprintf("eta %2.0fm", eta))
             }'
-          done
+          done)
+      grep -v '^@' <<<"$report"
+      if grep -q '^@OUT' <<<"$report"; then                  # shared: the frames on disk, and one eta for all
+        read -r _ out total <<<"$(grep '^@OUT' <<<"$report" | head -1)"
+        have=$(ssh -o BatchMode=yes -o LogLevel=ERROR "${PVC_HOST:-one-footed-bride-pod}" \
+                 "cd Repos/One-footed-bride-tuning && find '$out' -maxdepth 1 -name 'frame_*.png' -size +0 | wc -l" 2>/dev/null || echo 0)
+        awk -v h="$have" -v t="$total" -v r="$(grep '^@RATE' <<<"$report" | awk '{s += $2} END {print s + 0}')" 'BEGIN{
+          printf "  all      %d/%d frames on disk (%.1f%%), %.2f frames/s together, eta %s\n", h, t, 100*h/t, r,
+                 (r > 0 && h < t) ? sprintf("%dm", (t - h) / r / 60 + 1) : (h >= t ? "done" : "?") }'
+      fi
       exit 0;;
     # Stopping ends the load, so the fleet goes back to balanced here too
     # (the waiter spawned at launch would do it, but not if POWER=0), and the
@@ -461,6 +491,24 @@ if [ "$(basename "$SCRIPT")" = concert_stage.py ] && [ -f "${NPY%.npy}.title.txt
   echo "title card: ${LEAD} s of title before the music and ${TAIL} s after it"
 fi
 
+# SHARE=1: one range for everybody, claimed a block at a time. Claims left by an earlier launch (a process
+# killed halfway through a block keeps its claim) are cleared before anything starts: nothing renders then.
+SHARE=${SHARE:-0}; SHARE_BLOCK=${SHARE_BLOCK:-30}; CLAIM=()
+if [ "$SHARE" = 1 ]; then
+  [ "$(basename "$SCRIPT")" = concert_stage.py ] || { echo "SHARE=1 needs SCRIPT=concert_stage.py" >&2; exit 2; }
+  [[ "$SHARE_BLOCK" =~ ^[1-9][0-9]*$ ]] || { echo "SHARE_BLOCK must be a whole number of frames" >&2; exit 2; }
+  CLAIM=(--claim-block "$SHARE_BLOCK")
+  if [ -n "$ONLY" ]; then
+    echo "SHARE=1 with --only: the other processes are still claiming; their claims are left alone"
+  elif [ "$DRYRUN" -eq 0 ]; then
+    running=$(kubectl -n "$NS" get po -l job=blender-farm --no-headers 2>/dev/null | awk '$3 ~ /Running|Pending|ContainerCreating/' | wc -l)
+    [ "$running" -eq 0 ] || { echo "$running farm pods are still running: ./render_farm.sh --stop first (SHARE=1 clears the claims)" >&2; exit 2; }
+    ssh -o BatchMode=yes -o LogLevel=ERROR "$PVC_HOST" \
+        "cd Repos/One-footed-bride-tuning && mkdir -p '$OUT' && rm -rf '$OUT/.claims' && rm -f '$OUT'/.part_* && find '$OUT' -maxdepth 1 -name 'frame_*.png' -size +0 | wc -l" \
+      | { read -r have; echo "shared range: $have of the frames already in $OUT are skipped; blocks of $SHARE_BLOCK frames"; }
+  fi
+fi
+
 # Frame count exactly as blender_stage.py / concert_stage.py compute it: ceil((duration + lead + tail) * FPS).
 TOTAL=$(awk -v d="$DURATION" -v l="$((LEAD + TAIL))" -v f="$FPS" 'BEGIN{t=(d+l)*f; c=int(t); if (t-c>1e-9) c++; print c}')
 
@@ -572,12 +620,13 @@ for i in "${!WORKERS[@]}"; do
     part_start=$((card_start + (p - 1) * card_span / pc))
     if [ "$p" -eq "$pc" ]; then part_end=$card_end
     else part_end=$((card_start + p * card_span / pc - 1)); fi
+    [ "$SHARE" = 1 ] && { part_start=0; part_end=$((TOTAL - 1)); }
     name=$label; [ "$pc" -gt 1 ] && name="$label-$p"
     if [ -n "$ONLY" ] && [ "$ONLY" != "$label" ] && [ "$ONLY" != "$name" ]; then
       continue
     fi
     printf "  %-9s %-4s %-11s frames %6d..%-6d (%d)%s\n" "$name" "$node" "$select" "$part_start" "$part_end" \
-           $((part_end - part_start + 1)) "${EXTRA[*]:+  ${EXTRA[*]}}"
+           $((part_end - part_start + 1)) "${CLAIM[*]:+  ${CLAIM[*]}}${EXTRA[*]:+  ${EXTRA[*]}}"
     [ "$DRYRUN" -eq 0 ] || continue
 
     # A finished pod of the same name from an earlier render (Completed, or Failed like fs6's on 12 Nov)
@@ -618,7 +667,7 @@ spec:
     - ${hide_cmd}cd $REPO && exec blender --background ${BLEND} --gpu-backend vulkan
       --python $SCRIPT -- --npy $NPY --tempo $TEMPO --duration $DURATION
       --res-x $RES_X --res-y $RES_Y --out $OUT --frame-start $part_start --frame-end $part_end
-      --gpu-name any ${EXTRA[*]:-}
+      --gpu-name any ${CLAIM[*]:-} ${EXTRA[*]:-}
     volumeMounts:
     # subPaths, not the PVC root: see the relabel note at the top.
     - {name: ceph, mountPath: $REPO, subPath: ${REPO#/home/prent/}}
