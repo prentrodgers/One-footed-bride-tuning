@@ -561,7 +561,10 @@ def hair_quality(full=True):
                     if getattr(item, "in_out", "") == "INPUT" and item.name in ("Children", "Thicker"):
                         want = (item.default_value if full else 0) if item.name == "Children" else \
                                (1.0 if full else HAIR["viewport_thicker"])
-                        getattr(m.properties.inputs, item.identifier).value = want
+                        if hasattr(m, "properties"):                   # Blender 5.3
+                            getattr(m.properties.inputs, item.identifier).value = want
+                        else:                                          # before (the farm pods' 5.2)
+                            m[item.identifier] = want
                 ob.update_tag()
                 n += 1
     return n
