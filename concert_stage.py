@@ -24,6 +24,7 @@ import argparse
 import bisect
 import json
 import math
+import os
 import random
 import sys
 import time
@@ -1601,9 +1602,17 @@ def parse_args():
     p.add_argument("--special-attack", type=float, default=0.0,
                    help="seconds for a player's special to rise on a note (0: in one frame, as before)")
     p.add_argument("--cycles-exposure", type=float, default=0.0, help="Cycles: added to the scene's exposure (stops)")
-    p.add_argument("--gpu-name", default="Arc")
+    p.add_argument("--render-device", choices=sorted(CYCLES_BACKENDS) + ["cpu"], default="oneapi",
+                   help="Cycles backend: oneapi (the Arc farm; the default), optix or cuda (an NVIDIA card, "
+                        "as render_cloud.sh rents them), cpu")
+    p.add_argument("--gpu-name", default=None,
+                   help="use the GPUs whose name contains this, or 'any' (default: Arc on oneapi, any otherwise)")
     p.add_argument("--frame-start", type=int, default=0)
     p.add_argument("--frame-end", type=int, default=None)
+    p.add_argument("--claim-block", type=int, default=0,
+                   help="share --frame-start..--frame-end with other processes rendering into the same --out: "
+                        "the frames go in blocks of this many, each to whichever process claims it first "
+                        "(0 = off: this process renders the whole range, as render_farm.sh's slices do)")
     p.add_argument("--camera", default=None, help="hold one camera for the whole render")
     p.add_argument("--cues", default=None, help=f"cue sheet: one of {sorted(CUE_SHEETS)} or 'm:ss=Camera;m:ss=Camera'")
     p.add_argument("--seed", type=int, default=7, help="camera generator seed")
@@ -1619,6 +1628,13 @@ def parse_args():
     return args
 
 
+# --render-device -> (Cycles' name for the backend, how the log calls it). The Arc cards render through
+# oneAPI; a rented NVIDIA card through OptiX (CUDA is the fallback if a driver is too old for OptiX).
+# Not called --cycles-device: Cycles itself reads that name from the arguments after "--" and exits on a
+# value it does not know.
+CYCLES_BACKENDS = {"oneapi": ("ONEAPI", "oneAPI"), "optix": ("OPTIX", "OptiX"), "cuda": ("CUDA", "CUDA")}
+
+
 def configure_engine(scene, args):
     if args.engine != "cycles":
         for name in ("BLENDER_EEVEE", "BLENDER_EEVEE_NEXT"):
@@ -1628,22 +1644,35 @@ def configure_engine(scene, args):
             except TypeError:
                 continue
         return
-    prefs = bpy.context.preferences.addons["cycles"].preferences
-    prefs.compute_device_type = "ONEAPI"
-    prefs.refresh_devices()
-    if hasattr(prefs, "use_oneapirt"):
-        prefs.use_oneapirt = bool(args.cycles_hw_rt)
-    chosen = []
-    for d in prefs.devices:
-        d.use = d.type == "ONEAPI" and (args.gpu_name == "any" or args.gpu_name in d.name)
-        if d.use:
-            chosen.append(d.name)
-    if not chosen:
-        raise SystemExit(f"[concert] no oneAPI GPU matching {args.gpu_name!r}")
     scene.render.engine = "CYCLES"
-    scene.cycles.device = "GPU"; scene.cycles.samples = args.samples
+    scene.cycles.samples = args.samples
+    # Open Image Denoise on every backend, an NVIDIA card included (not OptiX's own denoiser): the Arc
+    # farm's renders and a rented card's then differ only in noise, and the brass was tuned against it.
     scene.cycles.use_denoising = True; scene.cycles.denoiser = "OPENIMAGEDENOISE"
-    print(f"[concert] Cycles on {chosen}, {args.samples} samples")
+    if args.render_device == "cpu":
+        scene.cycles.device = "CPU"
+        print(f"[concert] Cycles on the CPU, {args.samples} samples")
+    else:
+        backend, label = CYCLES_BACKENDS[args.render_device]
+        gpu_name = args.gpu_name or ("Arc" if backend == "ONEAPI" else "any")
+        prefs = bpy.context.preferences.addons["cycles"].preferences
+        try:
+            prefs.compute_device_type = backend
+        except TypeError:                                     # the enum only lists what this build has
+            raise SystemExit(f"[concert] this Blender build has no {label} backend for Cycles")
+        prefs.refresh_devices()
+        if hasattr(prefs, "use_oneapirt"):
+            prefs.use_oneapirt = bool(args.cycles_hw_rt)      # oneAPI only; OptiX always traces in hardware
+        chosen = []
+        for d in prefs.devices:
+            d.use = d.type == backend and (gpu_name == "any" or gpu_name in d.name)
+            if d.use:
+                chosen.append(d.name)
+        if not chosen:
+            seen = [d.name for d in prefs.devices if d.type == backend]
+            raise SystemExit(f"[concert] no {label} GPU matching {gpu_name!r} (this machine's: {seen or 'none'})")
+        scene.cycles.device = "GPU"
+        print(f"[concert] Cycles on {chosen}, {args.samples} samples")
     tame_cycles(scene, args)
 
 
@@ -1836,6 +1865,30 @@ class Performance:
                 lt["level"] = 1.0
 
 
+def frame_done(out, fi):
+    f = out / f"frame_{fi:06d}.png"
+    return f.is_file() and f.stat().st_size > 0
+
+
+def claimed_frames(out, f0, f1, block):
+    """--claim-block: the frames of f0..f1 this process is to render, a block at a time. A block goes to
+    whichever process creates its claim file first (O_EXCL: one winner, on CephFS and NFS too), so any
+    number of processes given the same range share it out and a faster card simply takes more blocks;
+    nobody waits on a slow slice. Blocks are counted from frame 0, so every process cuts the range at the
+    same frames. A block with nothing left to render is not claimed."""
+    claims = out / ".claims"
+    claims.mkdir(exist_ok=True)
+    for b in range(f0 // block, f1 // block + 1):
+        todo = [fi for fi in range(max(f0, b * block), min(f1, (b + 1) * block - 1) + 1) if not frame_done(out, fi)]
+        if not todo:
+            continue
+        try:
+            os.close(os.open(claims / f"block_{b:06d}", os.O_CREAT | os.O_EXCL | os.O_WRONLY))
+        except FileExistsError:
+            continue
+        yield from todo
+
+
 def main():
     sys.stdout.reconfigure(line_buffering=True)               # so the pod log shows progress as it happens
     args = parse_args()
@@ -1873,26 +1926,42 @@ def main():
     f1 = n_frames - 1 if args.frame_end is None else min(args.frame_end, n_frames - 1)
     out = Path(args.out); out.mkdir(parents=True, exist_ok=True)
     print(f"[concert] animating frames {f0}..{f1} of {n_frames} ({video:.1f}s @ {FPS}fps) -> {out}/")
-    # Resume: frames already in --out are kept (a relaunched slice after a crash only renders what is
-    # missing). The newest one in the range is redone, in case the crash cut its write short.
-    have = {fi for fi in range(f0, f1 + 1) if (out / f"frame_{fi:06d}.png").is_file()
-            and (out / f"frame_{fi:06d}.png").stat().st_size > 0}
-    have.discard(max(have, default=-1))
-    if have:
-        print(f"[concert] {len(have)} frames already rendered in {f0}..{f1}: skipping them")
     r0 = time.time()
-    for fi in range(f0, f1 + 1):
-        if fi in have:
-            continue
-        t = fi / FPS
-        scene.frame_set(fi)                                   # backdrop colour runs off the frame number
-        perf.apply(scene, t)
-        scene.render.filepath = str(out / f"frame_{fi:06d}.png")
-        bpy.ops.render.render(write_still=True, scene=scene.name)
-        if fi % 30 == 0:
-            print(f"  frame {fi}/{n_frames}  t={t:.2f}s  elapsed={time.time() - r0:.1f}s")
+    if args.claim_block > 0:
+        # Shared range (render_cloud.sh): every process is given the same range and takes blocks from it.
+        # A frame is written under another name and renamed, so one in --out is whole: a rerun after a
+        # crash (with the claims cleared, as render_cloud.sh does) renders exactly what is missing.
+        print(f"[concert] sharing the range in blocks of {args.claim_block} frames (claims in {out}/.claims/)")
+        n = 0
+        for fi in claimed_frames(out, f0, f1, args.claim_block):
+            t = fi / FPS
+            scene.frame_set(fi)                               # backdrop colour runs off the frame number
+            perf.apply(scene, t)
+            part = out / f".part_{os.getpid()}_{fi:06d}.png"
+            scene.render.filepath = str(part)
+            bpy.ops.render.render(write_still=True, scene=scene.name)
+            os.replace(part, out / f"frame_{fi:06d}.png")
+            n += 1
+            print(f"  frame {fi}/{n_frames}  t={t:.2f}s  mine={n}  elapsed={time.time() - r0:.1f}s")
+    else:
+        # Resume: frames already in --out are kept (a relaunched slice after a crash only renders what is
+        # missing). The newest one in the range is redone, in case the crash cut its write short.
+        have = {fi for fi in range(f0, f1 + 1) if frame_done(out, fi)}
+        have.discard(max(have, default=-1))
+        if have:
+            print(f"[concert] {len(have)} frames already rendered in {f0}..{f1}: skipping them")
+        for fi in range(f0, f1 + 1):
+            if fi in have:
+                continue
+            t = fi / FPS
+            scene.frame_set(fi)                               # backdrop colour runs off the frame number
+            perf.apply(scene, t)
+            scene.render.filepath = str(out / f"frame_{fi:06d}.png")
+            bpy.ops.render.render(write_still=True, scene=scene.name)
+            if fi % 30 == 0:
+                print(f"  frame {fi}/{n_frames}  t={t:.2f}s  elapsed={time.time() - r0:.1f}s")
+        n = f1 - f0 + 1
     total = time.time() - r0
-    n = f1 - f0 + 1
     print(f"[stage] done: {n} frames in {total:.1f}s ({total / max(n, 1):.3f}s/frame), total {time.time() - t_start:.1f}s")
 
 
