@@ -25292,10 +25292,14 @@ ____________________
       Commit and push, then git pull on the pod. The code and Alcorcon_Recital.blend reach it through git.
       Launch the render. make_recital.py printed this command, and a dry run gives 6771 frames, about 100 minutes on the farm:
 
-      PER_CARD=2 SCRIPT=concert_stage.py BLEND=Alcorcon_Recital.blend ./render_farm.sh --npy Uploads/b858r_recital.npy --tempo 60 --duration 225.70 --out frames_b858r_recital_v1 --engine cycles --cycles-hw-rt --title none
+            PER_CARD=2 SCRIPT=concert_stage.py BLEND=Alcorcon_Recital.blend ./render_farm.sh --npy Uploads/b858r_recital.npy --tempo 60 --duration 225.70 --out frames_b858r_recital_v1 --engine cycles --cycles-hw-rt --title none
+
       Mux on the pod:
 
-      ./concert_mux.sh frames_b858r_recital_v1 Uploads/b858r_recital b858r_recital_v1.mp4
+            ./concert_mux.sh frames_b858r_recital_v1 Uploads/b858r_recital b858r_recital_v1.mp4
+            ssh one-footed-bride-pod ls -1th Repos/One-footed-bride-tuning/b858r_recital_v1.mp4
+                  Repos/One-footed-bride-tuning/b858r_recital_v1.mp4
+            scp one-footed-bride-pod:Repos/One-footed-bride-tuning/b858r_recital_v1.mp4 .
       Not done yet:
 
       The patrons don't move, so nobody claps.
@@ -25309,9 +25313,115 @@ ____________________
             Convenience Imports:   from mathutils import *; from math import *
             Convenience Variables: C = bpy.context, D = bpy.data
             >>> enter this:
-import sys; sys.path.insert(0, "/home/prent/Repos/One-footed-bride-tuning")
-for m in [m for m in sys.modules if m.startswith("concert_")]: del sys.modules[m]
+            import sys; sys.path.insert(0, "/home/prent/Repos/One-footed-bride-tuning")
+            for m in [m for m in sys.modules if m.startswith("concert_")]: del sys.modules[m]
 
-import concert_preview as pv
-pv.load("Uploads/b858r_recital", tempo=60)
-      Go back to layout.0
+            import concert_preview as pv
+            pv.load("Uploads/b858r_recital", tempo=60)
+                  Go back to layout.0
+
+______________________
+11/14/26 For the render last night, but I accidentally cut it off before it finished starting.
+      We are looking for a number of frames:
+            render: 6771 frames over 7 GPUs, processes per card: 2  (1.13 frames/s at one per card, eta 100 min)
+      How many do we have?
+            ssh one-footed-bride-pod 
+            cd Repos/One-footed-bride-tuning 
+            ls -lth frames_b858r_recital_v1 | wc -l
+                  6132
+      I pressed ctrl-c after b50f4-1 so that's where I probably need to start. I just started it over, thinking it would not recreate those already started. Bad assumption?
+            PER_CARD=2 SCRIPT=concert_stage.py BLEND=Alcorcon_Recital.blend ./render_farm.sh --npy Uploads/b858r_recital.npy --tempo 60 --duration 225.70 --out frames_b858r_recital_v1 --engine cycles --cycles-hw-rt --title none
+      This appears to have been the correct call. It has started up the two renders on fs4 b50: 
+            cd Repos/One-footed-bride-tuning/
+            ./render_farm.sh --progress
+                  b50f4-1 fs4  ##..................  12.2%     39/320    20.93s/frame  eta 98m
+                  b50f4-2 fs4  ###.................  17.2%     55/320    14.53s/frame  eta 64m
+                  b580f2-1 fs2  #################### 100.0%    497/497    31.56s/frame  finished
+                  b580f2-2 fs2  #################### 100.0%    497/497    14.26s/frame  finished
+                  ...
+      It's only running the fs4 b50 renders. Good. How can I speed it up? Claude suggests this:
+            ./power-balanced.sh fs4
+      There was no GPU cap on the b50, since it's a low watt card as it is. 
+            ./power-balanced.sh --verify fs4
+                  == verify
+                  fs4  profile=balanced       no_turbo=0  PL1=250 W  Arc(card0) min=1200 max=2600  iGPU(card1) gt0 max=2000/RP0=2000   OK
+      But it still says 27 and 17 seconds per frame. I guess it wasn't CPU gated before. It's GPU is power limited to 70 watts from the PCIe slot. Just have to wait for it to finish. Meantime, boost the Claude cli to Fable 5.2 Effort high.
+
+      I asked Claude Fable 5.2 to help me understand the trade-offs in rendering and tuning infrastructure to meet my priorities. 
+
+      I'm looking for the best solution. I just picked FoxRenderFarm at random, based on a suggestion from an AI on my CloudFlare account where I host an object store. My priorities are the following: 1. run faster than my current renders, 2. improve the quality of the renders so the musicians look more realistic (hands especially, but faces, expressions, hair, clothing are looking pretty clunky today), 3. lower the electicity consumption, 4. cost less than my electricity bill due to the server farm in my office, and 5. stop the massive load on my consumer grade UPS's. 6. Allow me to sell some of my servers with B580's while the eBay prices are relatively high.
+      Key findings:
+      - Renders: about 12.5 hours, roughly 8–10% of the energy.
+      - Tuning: about 4 hours of real work (Nov 11), roughly 1–2%.
+      - Always-on floor: still about 80%, around 540 W. # <-- this suggests selling some servers. Electicity costs are fixed just by having so many servers, not by the actual use to solve tuning and render issues. 
+      The four B580/32 GB boxes are fs2, fs3, fs6 and fs9, which together are costing $20-40 per month. Per PSE: ❯ I'm using 2006 Killowatt hours per month for a bill of $414 per month. Detail:
+      2,006 kWh used for service 10/6/2026 - 11/4/2026
+            Basic Charge $7.49 per month $ 7.49
+            Electricity
+            Tier 1 (First 600 kWh Used) 0.150017 600 kWh 90.01
+            Tier 2 (Above 600 kWh Used) 0.169434 1,406 kWh 238.22 # <-- this is the marginal rate
+            Electric Cons. Program Charge 0.009409 2,006 kWh 18.87 # <-- plus this 
+            Power Cost Adjustment 0.038719 2,006 kWh 77.67 # <-- plus this
+            Energy Exchange Credit −0.006648 2,006 kWh −13.34
+            Other Electric Charges & Credits −0.002378 2,006 kWh −4.77
+            # --> Sum of the previous : $0.21/marginal kWh
+            Subtotal of Electric Charges 414.15
+      On the four UPS that's about $108 of the bill. 4 prime shift tuning runs would cost that much.
+      That works out to $0.207 per kWh, and it means the cluster is only about a quarter of your bill.
+
+      Conclusion: I'm already at the lowest cost option: turn off the servers at night.
+
+      So the whole plan takes roughly 10–15% off the bill. Against that, the cloud would cost an estimated $2–4 per video and $7–26 per tuning run, which is more than the electricity it replaces.
+
+      Against your priorities, that leaves:
+
+      - Speed and the UPS overloads: cloud rendering fixes both, and these are the real reasons to do it.
+      - Electricity use: it drops modestly, mostly from selling hardware rather than from moving workloads. The servers that have high idle power are the bulk of the problem, not to ocassional render or tuning run. 
+      - Costing less than the bill: the cloud won't pay for itself from electricity savings. The resale money is what offsets it. $450-500 for the memory alone, plus $200 for the B580. Will require relocating the Ceph storage to concentrate in fewer nodes. That increases the risk of failure of a server node causing a storage outage.
+      - Realism: unaffected by any of this; it is the separate rigged-character work.
+
+      The plan itself doesn't change: cloud renders first, then sell fs2, fs6, fs3 and fs9 (big storage provider) in that order, with tuning kept local and the cloud as a burst.
+
+      Cloud options: 
+      What cloud tuning costs
+      A run reserves 112 cores (28 tasks × 4) and really keeps 55–75 busy.
+      ┌────────────┬─────────────────────────────────────────┬────────────────────────────┐
+      │            │ Cloud (2 × AWS c7a.16xlarge, 128 cores) │            Home            │
+      ├────────────┼─────────────────────────────────────────┼────────────────────────────┤
+      │ Per hour   │ $6.57 on-demand; about $1.70–3.10 spot  │ —                          │
+      ├────────────┼─────────────────────────────────────────┼────────────────────────────┤
+      │ 4-hour run │ about $7–12 spot, $26 on-demand         │ about 1.4 kWh, under $0.50 │
+      └────────────┴─────────────────────────────────────────┴────────────────────────────┘
+
+      Realism improvements. Depth of field. 
+      Realism plan, in order of gain
+
+      1. Swap the pianist for the MakeHuman character. The fingering plan stays; the arm, hand, body and head posing is rewritten for a skeleton. Rough estimate: a few days to hold up over a whole piece.
+      2. Look: black tails, better hair, skin detail for close-ups.
+      3. Life: breathing, sway, eyes on the keys, blinks. The face has 52 expression controls to work with.
+      4. Camera: depth of field on close-ups and 1080p. This is where the rented GPU time goes.
+      5. Audience: replace the sphere-heads with the reused low-detail characters.
+      One reason to keep the current server inventory: According to Taiwan's Economic Daily News, Chen expects the most severe supply constraints to occur between Q4 2026 and the end of Q2 2027, with little indication of meaningful price reductions throughout next year. # <-- prices are likely to continue their climb. Hang on to an irreplaceable asset for now. Plan to sell servers in 4Q27 or 1Q28, no sooner. Bring down the k8s cluster and run things on the fs1 during the pause. 
+
+      Working on the cloud tuning. Test with this locally:
+            VM=prent@fs2 IMAGE_HOST=fs2 ./ray-ratchet-vm.sh --chorales bwv846f # fugues don't tune well, so this is a waste of time and electrons. But it's a good test of outsourcing to a cloud provider. 
+            VM=prent@fs2 IMAGE_HOST=fs2 ./ray-ratchet-vm.sh --attach
+
+      Ideas to save power and lights dimming: 
+      1. shut off all the servers at night. Set-Up-Linux-on-Lenovo-Machines$ ls -lth cluster*.sh
+            cluster-shutdown.sh
+            cluster-startup.sh
+      2. Run a wire from Susie's office into my server closet to split the circuits. Test using the klein tester.
+
+      What isn't right yet
+
+      - Fast passages: fingers still flick quickly in places. Sudden joint turns are down by about two thirds from where they started, but I want to see the clip before calling the motion good.
+      - Held notes: when the plan moves a hand away from a note that is still sounding, the key stays down with no finger on it. That comes from the fingering plan and the puppet had it too.
+      - Look: skin, hair and the suit are as the packs supply them; nothing is tuned yet.
+      Where things are
+      - He is seated only on a scratch copy of the recital stage. Alcorcon_Piano.blend and Alcorcon_Recital.blend don't have him, and nothing has been rendered on the farm.
+      - New files: concert_human.py and Pianist_Human.blend (22.7 MB). concert_poses.py and concert_stage.py have small additions. Nothing is committed.
+      - The MakeHuman add-on and asset packs now live in ~/.local/share/ofb-mpfb (464 MB), separate from your own Blender setup.
+
+      The fingers are greatly improved, but the keys still stay down after the fingers move away from the keys.
+      Idea: This experimental Bosendorfer model includes a neural link that allows the performer to play trills and mordants through brain wave alterations that causes a slide mechanism on the strings to raise and lower the pitch without the need to actually play the keys of the ornament directly, saving 6.4% of the wear on the fingers of the player for each piece played.
