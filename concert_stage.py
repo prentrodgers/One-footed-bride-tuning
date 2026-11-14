@@ -736,6 +736,19 @@ class PianoPlayer:
         return h, digits
 
     def state(self, t):
+        # Memoised: the human pianist (concert_human.py) looks at the moments around each frame, so playing
+        # through, each moment is asked for five times. The state is a pure function of t; nobody changes it.
+        memo = self.__dict__.setdefault("_memo", {})
+        k = round(t * 48000)
+        if k in memo:
+            return memo[k]
+        st = self._state(t)
+        memo[k] = st
+        if len(memo) > 96:
+            del memo[next(iter(memo))]
+        return st
+
+    def _state(self, t):
         dips = {}
         for n in self.notes:
             if n["t0"] - self.window > t:
@@ -749,6 +762,7 @@ class PianoPlayer:
             st[side] = {"digits": digits} if h is None else {"x": h[0], "y": h[1], "z": h[2], "digits": digits,
                                                              "glide": self._glide(side, t)}
         st["at"] = lambda dt: self.state(t + dt)             # the state a little earlier or later (concert_human.py)
+        st["t"] = t
         return st
 
     # Between fast notes the plan moves a hand in a frame or two (it leaves 0.08 s after one onset and is
@@ -1931,6 +1945,9 @@ def main():
     print("[concert] camera shots: " + ", ".join(f"{int(t0 // 60)}:{t0 % 60:04.1f} {c}" for t0, c in perf.shots))
 
     perf.special_attack = args.special_attack
+    import concert_human
+    if concert_human.hair_quality(full=True):                # full strand hair, whatever a preview left saved
+        print("[concert] strand hair: full")
     configure_engine(scene, args)
     if args.engine == "cycles" and args.motion_blur > 0:
         camera_motion_blur(scene, perf, args.motion_blur)

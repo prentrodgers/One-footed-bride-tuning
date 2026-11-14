@@ -169,7 +169,7 @@ SUIT = dict(cloth=0.075, shirt=(0.93, 0.93, 0.91), tie=0.06, sheen=0.07, rough=0
 # with no Python), and a few children are scattered round each one, coming together toward the tip as
 # hair clumps. The shell stays under them, darkened, so no scalp shows between strands.
 HAIR = dict(guides=7000, points=18, children=6, root_r=0.00005, tip_r=0.000016, clump=0.0035,
-            strays=0.03, stray_out=0.012, frizz=0.0012, frizz_scale=60.0,
+            strays=0.03, stray_out=0.012, frizz=0.0012, frizz_scale=60.0, viewport_thicker=2.5,
             lift=(0.0004, 0.0030), sheet_lift=0.0012, inner_share=0.45, shell_dark=0.40,
             melanin=0.62, redness=0.17, roughness=0.26, radial=0.32, random_colour=0.12, seed=11)
 
@@ -420,8 +420,7 @@ def _strand_hair(look):
     bind.hide_viewport = bind.hide_render = True              # still evaluated: the strands depend on it
     hm = _hair_material(shell)
     hc.materials.append(hm)
-    gn = ob.modifiers.new("Hair strands", "NODES")
-    gn.node_group = _hair_nodes(shell, bind, hm)
+    ob.modifiers.new("Hair strands", "NODES").node_group = _hair_nodes(shell, bind, hm)
     _darken_shell(mat)
     print(f"[human] hair: {made} strands along the shell and its {len(isl_ids) - 1} sheets, "
           f"{len(rest)} points, x{HAIR['children'] + 1} at render -> '{name}'")
@@ -440,42 +439,63 @@ def _smooth_nodes():
     return ng
 
 
-def _hair_nodes(shell, binding, material):
-    name = "OFB Hair Strands"
-    old = bpy.data.node_groups.get(name)
-    if old:
-        bpy.data.node_groups.remove(old)
-    ng = bpy.data.node_groups.new(name, "GeometryNodeTree")
-    ng.interface.new_socket("Geometry", in_out="INPUT", socket_type="NodeSocketGeometry")
-    ng.interface.new_socket("Geometry", in_out="OUTPUT", socket_type="NodeSocketGeometry")
-    N, link = ng.nodes, ng.links.new
+class _Nodes:
+    """A new geometry-node group, Geometry in and out, with a few helpers for building it."""
 
-    def attr(nm, typ):
-        n = N.new("GeometryNodeInputNamedAttribute"); n.data_type = typ; n.inputs["Name"].default_value = nm
+    def __init__(self, name):
+        old = bpy.data.node_groups.get(name)
+        if old:
+            bpy.data.node_groups.remove(old)
+        self.ng = ng = bpy.data.node_groups.new(name, "GeometryNodeTree")
+        ng.interface.new_socket("Geometry", in_out="INPUT", socket_type="NodeSocketGeometry")
+        ng.interface.new_socket("Geometry", in_out="OUTPUT", socket_type="NodeSocketGeometry")
+        self.N, self.link = ng.nodes, ng.links.new
+        self.inp, self.out = self.N.new("NodeGroupInput"), self.N.new("NodeGroupOutput")
+
+    def attr(self, nm, typ):
+        n = self.N.new("GeometryNodeInputNamedAttribute"); n.data_type = typ; n.inputs["Name"].default_value = nm
         return n.outputs["Attribute"]
 
-    def vmath(op, a, b=None, scale=None):
-        n = N.new("ShaderNodeVectorMath"); n.operation = op
-        link(a, n.inputs[0])
+    def vmath(self, op, a, b=None, scale=None):
+        n = self.N.new("ShaderNodeVectorMath"); n.operation = op
+        self.link(a, n.inputs[0])
         if b is not None:
-            link(b, n.inputs[1])
+            self.link(b, n.inputs[1])
         if scale is not None:
             if isinstance(scale, (int, float)):
                 n.inputs["Scale"].default_value = scale
             else:
-                link(scale, n.inputs["Scale"])
+                self.link(scale, n.inputs["Scale"])
         return n.outputs[0]
 
-    def math(op, a, b):
-        n = N.new("ShaderNodeMath"); n.operation = op
+    def math(self, op, a, b):
+        n = self.N.new("ShaderNodeMath"); n.operation = op
         for i, x in enumerate((a, b)):
             if isinstance(x, (int, float)):
                 n.inputs[i].default_value = x
             else:
-                link(x, n.inputs[i])
+                self.link(x, n.inputs[i])
         return n.outputs[0]
 
-    go = N.new("NodeGroupOutput")
+    def radius(self, geo, scale):
+        t = self.attr("t", "FLOAT")
+        r = self.math("ADD", HAIR["root_r"], self.math("MULTIPLY", t, HAIR["tip_r"] - HAIR["root_r"]))
+        n = self.N.new("GeometryNodeSetCurveRadius"); self.link(geo, n.inputs["Curve"])
+        self.link(self.math("MULTIPLY", r, scale), n.inputs["Radius"])
+        return n.outputs[0]
+
+
+def _hair_nodes(shell, binding, material):
+    """The strands, bound to the shell, and the hair round them. Two inputs: Children (copies of each strand
+    scattered round it) and Thicker (on the strands' radius). Full hair is HAIR["children"] and 1.0; the
+    Blender preview turns them down (hair_quality), since there the full hair took 0.3 s a frame, most of
+    the scene's time, and concert_stage.py turns them up again before it renders."""
+    A = _Nodes("OFB Hair Strands")
+    N, link = A.N, A.link
+    sock = A.ng.interface.new_socket("Children", in_out="INPUT", socket_type="NodeSocketInt")
+    sock.default_value, sock.min_value = HAIR["children"], 0
+    sock = A.ng.interface.new_socket("Thicker", in_out="INPUT", socket_type="NodeSocketFloat")
+    sock.default_value, sock.min_value = 1.0, 0.1
     bi = N.new("GeometryNodeObjectInfo"); bi.transform_space = "RELATIVE"
     bi.inputs["Object"].default_value = binding
     m2c = N.new("GeometryNodeMeshToCurve"); link(bi.outputs["Geometry"], m2c.inputs["Mesh"])
@@ -484,53 +504,67 @@ def _hair_nodes(shell, binding, material):
     pos, nrm = N.new("GeometryNodeInputPosition").outputs[0], N.new("GeometryNodeInputNormal").outputs[0]
     P = Nn = None
     for k in range(3):
-        idx, w = attr(f"i{k}", "INT"), attr(f"w{k}", "FLOAT")
+        idx, w = A.attr(f"i{k}", "INT"), A.attr(f"w{k}", "FLOAT")
         terms = []
         for field in (pos, nrm):
             s = N.new("GeometryNodeSampleIndex"); s.data_type = "FLOAT_VECTOR"; s.domain = "POINT"
             link(info.outputs["Geometry"], s.inputs["Geometry"]); link(field, s.inputs["Value"]); link(idx, s.inputs["Index"])
-            terms.append(vmath("SCALE", s.outputs[0], scale=w))
-        P = terms[0] if P is None else vmath("ADD", P, terms[0])
-        Nn = terms[1] if Nn is None else vmath("ADD", Nn, terms[1])
-    bound = vmath("ADD", P, vmath("SCALE", vmath("NORMALIZE", Nn), scale=attr("off", "FLOAT")))
+            terms.append(A.vmath("SCALE", s.outputs[0], scale=w))
+        P = terms[0] if P is None else A.vmath("ADD", P, terms[0])
+        Nn = terms[1] if Nn is None else A.vmath("ADD", Nn, terms[1])
+    bound = A.vmath("ADD", P, A.vmath("SCALE", A.vmath("NORMALIZE", Nn), scale=A.attr("off", "FLOAT")))
     sp = N.new("GeometryNodeSetPosition")
     link(m2c.outputs[0], sp.inputs["Geometry"]); link(bound, sp.inputs["Position"])
     # the children: copies of each strand, scattered round it, closer toward the tip
     dup = N.new("GeometryNodeDuplicateElements"); dup.domain = "SPLINE"
-    dup.inputs["Amount"].default_value = HAIR["children"] + 1
+    link(A.math("ADD", A.inp.outputs["Children"], 1.0), dup.inputs["Amount"])
     link(sp.outputs[0], dup.inputs["Geometry"])
     sid = N.new("GeometryNodeFieldOnDomain"); sid.domain = "CURVE"; sid.data_type = "INT"
     link(N.new("GeometryNodeInputIndex").outputs[0], sid.inputs[0])
     rnd = N.new("FunctionNodeRandomValue"); rnd.data_type = "FLOAT_VECTOR"
     rnd.inputs["Min"].default_value = (-1, -1, -1); rnd.inputs["Max"].default_value = (1, 1, 1)
     link(sid.outputs[0], rnd.inputs["ID"])
-    t = attr("t", "FLOAT")
-    first = math("COMPARE", dup.outputs["Duplicate Index"], 0.0)      # copy 0 is the strand itself
-    spread = math("MULTIPLY", math("SUBTRACT", 1.0, math("MULTIPLY", t, 0.6)), HAIR["clump"])
+    t = A.attr("t", "FLOAT")
+    first = A.math("COMPARE", dup.outputs["Duplicate Index"], 0.0)    # copy 0 is the strand itself
+    spread = A.math("MULTIPLY", A.math("SUBTRACT", 1.0, A.math("MULTIPLY", t, 0.6)), HAIR["clump"])
     # now and then a stray, a long way out from its clump past the middle of its length
     stray = N.new("FunctionNodeRandomValue"); stray.data_type = "BOOLEAN"
     stray.inputs["Probability"].default_value = HAIR["strays"]
     link(sid.outputs[0], stray.inputs["ID"]); stray.inputs["Seed"].default_value = 7
-    spread = math("ADD", spread, math("MULTIPLY", math("MULTIPLY", stray.outputs[0], math("MULTIPLY", t, t)), HAIR["stray_out"]))
-    spread = math("MULTIPLY", spread, math("SUBTRACT", 1.0, first))
+    spread = A.math("ADD", spread, A.math("MULTIPLY", A.math("MULTIPLY", stray.outputs[0], A.math("MULTIPLY", t, t)), HAIR["stray_out"]))
+    spread = A.math("MULTIPLY", spread, A.math("SUBTRACT", 1.0, first))
     # frizz: every strand wanders a little off its line, more toward the tip
-    pos2 = N.new("GeometryNodeInputPosition").outputs[0]
     noise = N.new("ShaderNodeTexNoise"); noise.noise_dimensions = "4D"
     noise.inputs["Scale"].default_value = HAIR["frizz_scale"]
-    link(pos2, noise.inputs["Vector"])
-    link(math("MULTIPLY", sid.outputs[0], 0.37), noise.inputs["W"])          # each strand its own
+    link(N.new("GeometryNodeInputPosition").outputs[0], noise.inputs["Vector"])
+    link(A.math("MULTIPLY", sid.outputs[0], 0.37), noise.inputs["W"])        # each strand its own
     sub = N.new("ShaderNodeVectorMath"); sub.operation = "SUBTRACT"
     link(noise.outputs["Color"], sub.inputs[0]); sub.inputs[1].default_value = (0.5, 0.5, 0.5)
-    frizz = vmath("SCALE", sub.outputs[0], scale=math("MULTIPLY", math("POWER", t, 1.5), HAIR["frizz"] * 2))
+    frizz = A.vmath("SCALE", sub.outputs[0], scale=A.math("MULTIPLY", A.math("POWER", t, 1.5), HAIR["frizz"] * 2))
     off = N.new("GeometryNodeSetPosition")
     link(dup.outputs["Geometry"], off.inputs["Geometry"])
-    link(vmath("ADD", vmath("SCALE", rnd.outputs["Value"], scale=spread), frizz), off.inputs["Offset"])
-    rad = N.new("GeometryNodeSetCurveRadius"); link(off.outputs[0], rad.inputs["Curve"])
-    link(math("ADD", HAIR["root_r"], math("MULTIPLY", t, HAIR["tip_r"] - HAIR["root_r"])), rad.inputs["Radius"])
-    sm = N.new("GeometryNodeSetMaterial"); link(rad.outputs[0], sm.inputs["Geometry"])
+    link(A.vmath("ADD", A.vmath("SCALE", rnd.outputs["Value"], scale=spread), frizz), off.inputs["Offset"])
+    sm = N.new("GeometryNodeSetMaterial"); link(A.radius(off.outputs[0], A.inp.outputs["Thicker"]), sm.inputs["Geometry"])
     sm.inputs["Material"].default_value = material
-    link(sm.outputs[0], go.inputs[0])
-    return ng
+    link(sm.outputs[0], A.out.inputs[0])
+    return A.ng
+
+
+def hair_quality(full=True):
+    """Every strand-hair modifier in the open file to full hair (renders) or to the strands alone, thicker
+    (the Blender preview). Returns how many it set."""
+    n = 0
+    for ob in bpy.data.objects:
+        for m in ob.modifiers:
+            if m.type == "NODES" and m.node_group and m.node_group.name.startswith("OFB Hair Strands"):
+                for item in m.node_group.interface.items_tree:     # Blender 5: m.properties.inputs.<identifier>.value
+                    if getattr(item, "in_out", "") == "INPUT" and item.name in ("Children", "Thicker"):
+                        want = (item.default_value if full else 0) if item.name == "Children" else \
+                               (1.0 if full else HAIR["viewport_thicker"])
+                        getattr(m.properties.inputs, item.identifier).value = want
+                ob.update_tag()
+                n += 1
+    return n
 
 
 def _hair_material(shell):
@@ -560,9 +594,9 @@ def _darken_shell(mat):
     mul.name = "OFB shell dark"; mul.blend_type = "MULTIPLY"
     mul.inputs[0].default_value = 1.0
     mul.inputs[2].default_value = (HAIR["shell_dark"],) * 3 + (1,)
-    src = next((l.from_socket for l in bsdf.inputs["Base Color"].links), mix.outputs[0])
-    if src.node is not mul:
-        nt.links.new(src, mul.inputs[1])
+    # always from the pack's own colour node: run again, the colour into the BSDF is this node's own (and a
+    # link from it to itself made the shell black under the strands)
+    nt.links.new(mix.outputs[0], mul.inputs[1])
     nt.links.new(mul.outputs[0], bsdf.inputs["Base Color"])
     bsdf.inputs["Roughness"].default_value = 0.6
 
@@ -837,7 +871,21 @@ class HumanPianist:
 
     def _solve(self, st):
         """The hands for one instant: per side, where the knuckles' centre goes (after any pull toward a key
-        out of reach) and each digit's target relative to it - on its key, letting go of it, or at rest."""
+        out of reach) and each digit's target relative to it - on its key, letting go of it, or at rest.
+        A pure function of the moment (the arms hang from shoulders that do not move), so it is memoised:
+        _hands asks for five moments a frame, four of them asked for by the frames either side."""
+        key = round(st["t"] * 48000) if "t" in st else None
+        memo = self.__dict__.setdefault("_memo", {})
+        if key is not None and key in memo:
+            return memo[key]
+        out = self._solve1(st)
+        if key is not None:
+            memo[key] = out
+            if len(memo) > 48:
+                del memo[next(iter(memo))]
+        return out
+
+    def _solve1(self, st):
         cp, fk, yk, zk = self.cp, self.fk, self.yk, self.zk
         st = {k: v for k, v in st.items() if k in ("L", "R")}
         for s in "LR":                                       # the hand's path, taken over five frames (PianoPlayer._glide)
@@ -947,14 +995,14 @@ class HumanPianist:
         self.cp.set_key_dips(self.key, self.dips)
         fk.apply()
         blink = st.get("blink", 0.0)
-        for ob in self.meshes:
-            kb = ob.data.shape_keys.key_blocks
-            for k, v in FACE.items():
-                if k in kb:
-                    kb[k].value = v
-            for k in ("eyeBlinkLeft", "eyeBlinkRight"):
-                if k in kb:
-                    kb[k].value = max(0.12, blink)
+        face = dict(FACE, eyeBlinkLeft=max(0.12, blink), eyeBlinkRight=max(0.12, blink))
+        if face != getattr(self, "_face", None):             # only when it changes: each write re-evaluates every mesh
+            self._face = face
+            for ob in self.meshes:
+                kb = ob.data.shape_keys.key_blocks
+                for k, v in face.items():
+                    if k in kb:
+                        kb[k].value = v
 
 
 _HUMANS = {}

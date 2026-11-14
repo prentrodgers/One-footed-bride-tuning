@@ -65,6 +65,9 @@ def load(stem, tempo, cues=None, duration=None, follow_cues=True, shading='MATER
         duration = max(n["t1"] for ns in per.values() for n in ns) + 1.5
     perf = STATE["perf"] = cs.Performance(npy, tempo, duration, cues)
     STATE["cut"] = follow_cues
+    import concert_human
+    if concert_human.hair_quality(full=False):               # strand hair: the strands alone, to play in real time
+        print("[preview] hair: strands only in the preview (renders get it all)")
     scene.render.fps = cs.FPS
     # with a title card the music (and its sound strip) starts perf.lead seconds in, as in the muxed video,
     # and the closing card runs perf.tail seconds past its end
@@ -104,6 +107,8 @@ def unload(quiet=False):
             strips.remove(s)
     if STATE["perf"] is not None:
         STATE["perf"].restore()
+        import concert_human
+        concert_human.hair_quality(full=True)
     STATE["perf"] = None
     if not quiet:
         print("[preview] unloaded; stage at rest")
