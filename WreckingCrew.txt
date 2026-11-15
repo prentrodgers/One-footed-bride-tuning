@@ -25453,13 +25453,34 @@ ______________________
 
 _______________________
 11/15/26 Now do the 4 selections from the Goldberg Variations:
-      Quodlibet:
-            python WreckingCrew_v2.py --chorale bwv988q --temperament werckmeister_III --velocity_random 4 --accent 1 --tempo 96 --velocity 74
-      Variation 25 - very slow and emotional wondering
-            python WreckingCrew_v2.py --chorale bwv988-25 --temperament werckmeister_III --velocity_random 4 --accent 1 --tempo 19 --velocity 66
-      Variation 26 - like a bullet - finished in under a minute, like Glenn Gould 
-            python WreckingCrew_v2.py --chorale bwv988-26 --temperament werckmeister_III --velocity_random 4 --accent 1 --tempo 108 --velocity 76
       Aria:
-            python WreckingCrew_v2.py --chorale bwv988-a --temperament werckmeister_III --velocity_random 4 --accent 1 --tempo 56 --velocity 68
+            python WreckingCrew_v2.py --chorale bwv988-a --temperament werckmeister_III --velocity_random 4 --accent 1 --tempo 56 --velocity 68 --ornaments --trill_glide 0.2
+                  Created: Uploads/b988-aa_werck3_d03_32_t056.npy
+      Variation 26 - like a bullet - finished in under a minute, like Glenn Gould 
+            python WreckingCrew_v2.py --chorale bwv988-26 --temperament werckmeister_III --velocity_random 4 --accent 1 --tempo 108 --velocity 76 --ornaments --trill_glide 0.2
+                  Created: Uploads/b988-26a_werck3_d00_59_t108.npy
+      Variation 25 - very slow and emotional wondering
+            python WreckingCrew_v2.py --chorale bwv988-25 --temperament werckmeister_III --velocity_random 4 --accent 1 --tempo 19 --velocity 66 --ornaments --trill_glide 0.2
+                  Created: Uploads/b988-25a_werck3_d05_28_t019.npy
+      Quodlibet:
+            python WreckingCrew_v2.py --chorale bwv988q --temperament werckmeister_III --velocity_random 4 --accent 1 --tempo 96 --velocity 74 --ornaments --trill_glide 0.2
+                  Created: Uploads/b988qa_werck3_d00_46_t096.npy
+      Repeat of the Aria:
+            python WreckingCrew_v2.py --chorale bwv988-a --temperament werckmeister_III --velocity_random 4 --accent 1 --tempo 56 --velocity 68 --ornaments --trill_glide 0.2
+                  Created: Uploads/b988-aa_werck3_d03_32_t056.npy
                   
       I'd like to run them all again in case they can pick up the glissando ornamentations. 
+      Set --ornaments # turns on the pitch bends replacing keyboard pressed noted 
+      Set --trill_rate 8 # only if you don't want the default of 32nd notes (8 per beat)
+      Set --trill_glide F # It's a percent of time gliding, as opposed to being at the target note, default 0. 
+      Done. Now copy the mp3 and npy just created into Uploads on the pod.
+            scp Uploads/ ... one-footed-bride-pod:Repos/One-footed-bride-tuning/Uploads/
+            scp Uploads/b988-aa_werck3_d03_32_t056.npy  one-footed-bride-pod:Repos/One-footed-bride-tuning/Uploads/ 
+            scp Uploads/b988-aa_werck3_d03_32_t056.mp3  one-footed-bride-pod:Repos/One-footed-bride-tuning/Uploads/ 
+            scp Uploads/b988-26a_werck3_d00_59_t108.npy one-footed-bride-pod:Repos/One-footed-bride-tuning/Uploads/  
+            scp Uploads/b988-26a_werck3_d00_59_t108.mp3 one-footed-bride-pod:Repos/One-footed-bride-tuning/Uploads/  
+            scp Uploads/b988-25a_werck3_d05_28_t019.npy one-footed-bride-pod:Repos/One-footed-bride-tuning/Uploads/  
+            scp Uploads/b988-25a_werck3_d05_28_t019.mp3 one-footed-bride-pod:Repos/One-footed-bride-tuning/Uploads/  
+            scp Uploads/b988qa_werck3_d00_46_t096.npy   one-footed-bride-pod:Repos/One-footed-bride-tuning/Uploads/
+            scp Uploads/b988qa_werck3_d00_46_t096.mp3   one-footed-bride-pod:Repos/One-footed-bride-tuning/Uploads/
+            
