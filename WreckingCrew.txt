@@ -25431,3 +25431,21 @@ ______________________
             PER_CARD="2 fs5=1 fs6=1" ARC_MAX="fs5=2000 fs6=2000" SCRIPT=concert_stage.py BLEND=Alcorcon_Recital.blend ./render_farm.sh --npy Uploads/b858r_recital.npy --tempo 60 --duration 225.70 --out frames_b858r_recital_v2 --engine cycles --cycles-hw-rt --title none
       3. Mux: 
             ./concert_mux.sh frames_b858r_recital_v2 Uploads/b858r_recital b858r_recital_v2.mp4
+            ssh one-footed-bride-pod ls -1th Repos/One-footed-bride-tuning/b858r_recital_v2.mp4 
+            cd /home/prent/Dropbox/Uploads/Dk-WTC
+            scp one-footed-bride-pod:Repos/One-footed-bride-tuning/b858r_recital_v2.mp4 .
+      The render is running, but causing trouble with the UPS farm, naturally. Looks like several hours of work to do:
+            ./render_farm.sh --progress
+                  b50f4-1 fs4  ###.................  18.1%     58/320    66.90s/frame  eta 292m
+                  b50f4-2 fs4  #######.............  35.6%    114/320    34.42s/frame  eta 118m
+                  b580f2-1 fs2  #####...............  25.2%    125/497    32.27s/frame  eta 200m
+                  b580f2-2 fs2  ####................  23.7%    118/497    34.01s/frame  eta 215m
+                  b580f3-1 fs3  ###.................  17.3%     78/450    52.67s/frame  eta 327m
+                  b580f3-2 fs3  ####................  21.3%     96/450    42.47s/frame  eta 251m
+                  b580f6  fs6  #####...............  26.3%    234/889    18.18s/frame  eta 198m
+                  b580f9-1 fs9  #####...............  27.7%    129/465    32.76s/frame  eta 183m
+                  b580f9-2 fs9  #####...............  28.3%    132/466    31.83s/frame  eta 177m
+                  b70a    fs5  ####................  22.7%    307/1350   14.22s/frame  eta 247m
+                  b70b    fs5  ######..............  31.5%    336/1067   12.91s/frame  eta 157m
+      Like five hours! It's all those GPU cycles to model the hair. Go with a bald guy wearing a hat next time.
+      I came back an hour later and it's still 291 minutes to go. 
