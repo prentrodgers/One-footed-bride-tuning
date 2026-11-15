@@ -83,6 +83,7 @@ PAN_CAMS = {
     "Cam 74 Pan House to Pianist": ((6.5, -10.5, 1.9), (-5.0, -6.5, 0.2), (-0.6, 0.3, 1.0), 32),
 }
 PAUSE_CAM = "Cam 72 House from Stage Left"           # the look at the house between pieces
+PAUSE_LAP = 5.0                         # a pause this long or longer: the look at the house waits for the hands
 AUDIENCE_CAMS = ["Cam 71 Pianist over the Heads", "Cam 74 Pan House to Pianist", "Cam 73 Pan Pianist to House"]
 PAUSE_CLEAR = 30.0                       # no look at the house during the music this close to a pause
 OUTRO_CAM = "Cam 71 Pianist over the Heads"
@@ -389,7 +390,10 @@ class Recital:
         # looks at the house: in each pause between pieces, and every so often during the music
         looks = []
         for a, b in zip(self.pieces, self.pieces[1:]):
-            looks.append((a["end"] - 1.0, b["start"] + 2.5))
+            if b["start"] - a["end"] >= PAUSE_LAP:            # the hands go to the lap (PianoPlayer.away): watch them
+                looks.append((a["end"] + 2.0, b["start"] - 1.8))   # go, look at the house, and see them come back
+            else:
+                looks.append((a["end"] - 1.0, b["start"] + 2.5))
         t = self.music_start + rng.uniform(*AUDIENCE_EVERY)
         while t < self.music_end - 12.0:
             hold = rng.uniform(*AUDIENCE_HOLD)

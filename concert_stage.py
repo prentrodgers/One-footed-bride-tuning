@@ -627,12 +627,38 @@ class PianoPlayer:
     SPLIT = 60                                   # middle C: below it the left hand
     SPAN = 0.17                                  # a hand's reach between its thumb and little finger (an octave)
     CHORD = 0.03                                 # onsets this close are one chord
+    # Hands to the lap (concert_human.py; the puppet ignores it): whenever nothing has sounded for AWAY_GAP
+    # seconds - before the first note, between a recital's pieces, after the last note - the hands leave
+    # AWAY_AFTER s after the last note stops, take AWAY_MOVE s to get there, and are back over the keys
+    # AWAY_BEFORE s before the next note's finger comes down.
+    AWAY_GAP, AWAY_AFTER, AWAY_MOVE, AWAY_BEFORE = 4.0, 0.45, 1.1, 0.35
 
     def __init__(self, key, notes):
         self.key = key
         self.notes = [dict(n, m=min(max(n["midi"], cp.PIANO_LOW), cp.PIANO_HIGH)) for n in notes]
         self.window = self.DESCEND + self.PRESS
         self._plan()
+        self._away_plan()
+
+    def _away_plan(self):
+        """[(a, b)]: the silences of AWAY_GAP or more, from the end of one note's sound to the next onset
+        (-inf before the first note, +inf after the last)."""
+        self.rests, end = [], -math.inf
+        for n in sorted(self.notes, key=lambda n: n["t0"]):
+            if n["t0"] - end >= self.AWAY_GAP:
+                self.rests.append((end, n["t0"]))
+            end = max(end, n["t0"] + n["dur"])
+        self.rests.append((end, math.inf))
+
+    def away(self, t):
+        """0 at the keys .. 1 in the lap."""
+        sm = lambda u: 0.0 if u <= 0 else 1.0 if u >= 1 else u * u * (3 - 2 * u)
+        w = 0.0
+        for a, b in self.rests:
+            up = sm((t - a - self.AWAY_AFTER) / self.AWAY_MOVE) if a > -math.inf else 1.0
+            back = sm((b - self.window - self.AWAY_BEFORE - t) / self.AWAY_MOVE) if b < math.inf else 1.0
+            w = max(w, min(up, back))
+        return w
 
     def _fingers(self, side, ns):
         """{digit: note} for a hand's notes of one chord (ascending), at most five."""
@@ -763,6 +789,7 @@ class PianoPlayer:
                                                              "glide": self._glide(side, t)}
         st["at"] = lambda dt: self.state(t + dt)             # the state a little earlier or later (concert_human.py)
         st["t"] = t
+        st["away"] = self.away(t)
         return st
 
     # Between fast notes the plan moves a hand in a frame or two (it leaves 0.08 s after one onset and is

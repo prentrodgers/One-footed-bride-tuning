@@ -735,6 +735,11 @@ SPLAY_FADE = 0.030         # ... and has let go of it by this much further
 LET_GO_AFTER = 0.10        # seconds after its onset before a finger may let a key go: until then the hand goes to the key
 THUMB_STRETCH = 0.010      # a thumb's key may be this far past its reach before it starts to let go
 DIGIT_BONE = {0: 2, 1: 3, 2: 4, 3: 5, 4: 1}     # the plan's digit (0-3 index..pinky, 4 thumb) -> MPFB's finger number
+# The hands in the lap between pieces (PianoPlayer.away, 0 at the keys .. 1 in the lap): the knuckles over each
+# thigh, LAP_ALONG of the way from the hip to the knee and LAP_IN of the way toward the other thigh, LAP_UP above
+# the thigh bone. On the way the hand first lifts off the keys (LAP_LIFT), then comes back toward the body and
+# only then down, so it never passes through the front of the keyboard; coming back it goes up first.
+LAP_ALONG, LAP_IN, LAP_UP, LAP_LIFT = 0.62, 0.22, 0.105, 0.035
 
 
 class HumanPianist:
@@ -753,6 +758,12 @@ class HumanPianist:
         self.s_hand = sum(fk.len[f"finger3-{i}.L"] for i in (1, 2, 3)) / cp.HAND_STYLE[key]["flen"][1]
         self._static()
         self.static = dict(fk.basis)
+        knees = {s: fk.head(f"lowerleg01.{s}") for s in "LR"}
+        self.lap = {}
+        for s, o in (("L", "R"), ("R", "L")):
+            p = fk.head(f"upperleg01.{s}").lerp(knees[s], LAP_ALONG)
+            p = p.lerp(fk.head(f"upperleg01.{o}").lerp(knees[o], LAP_ALONG), LAP_IN)
+            self.lap[s] = p + self.zk * LAP_UP
 
     # --- what never moves: the lean toward the keys, the legs, the eyes
     def _static(self):
@@ -890,6 +901,7 @@ class HumanPianist:
 
     def _solve1(self, st):
         cp, fk, yk, zk = self.cp, self.fk, self.yk, self.zk
+        away = float(st.get("away", 0.0))
         st = {k: v for k, v in st.items() if k in ("L", "R")}
         for s in "LR":                                       # the hand's path, taken over five frames (PianoPlayer._glide)
             if "glide" in st.get(s, {}):
@@ -912,11 +924,27 @@ class HumanPianist:
                 if short.length < 0.0008:
                     break
                 kc = kc + short
-            T = {j: (live[j] if j in live else self._rest_tip(s, sgn, hs, j)) - kc for j in range(5)}
+            if away > 0:                                     # to the lap: nothing on a key, the fingers at rest
+                live = {}
+                T = {j: self._rest_tip(s, sgn, hs, j) - kc for j in range(5)}
+                kc = self._to_lap(kc, self.lap[s], away)
+            else:
+                T = {j: (live[j] if j in live else self._rest_tip(s, sgn, hs, j)) - kc for j in range(5)}
             keys = {j: (self._thumb_target(hs) if j == 4 else self.A(hs["tips"][j]) - zk * PAD) for j in digits}
             out[s] = dict(kc=kc, T=T, keys=keys, live=set(live),
                           press={j: float(digits[j].get("press", 0.0)) for j in live})
         return out
+
+    def _to_lap(self, kc, lap, w):
+        """The knuckles' centre w of the way from the keys (kc) to the lap: up off the keys, back toward the
+        body, then down onto the thigh (coming back, the same path the other way)."""
+        sm = lambda u: 0.0 if u <= 0 else 1.0 if u >= 1 else u * u * (3 - 2 * u)
+        yk, zk = self.yk, self.zk
+        d = lap - kc
+        dy, dz = d.dot(yk), d.dot(zk)
+        dx = d - yk * dy - zk * dz
+        return (kc + dx * sm(w) + yk * dy * sm(w / 0.6) + zk * dz * sm((w - 0.35) / 0.65)
+                + zk * LAP_LIFT * math.sin(math.pi * min(1.0, w / 0.5)))
 
     def _hands(self, st):
         """Both hands, as the weighted average of five instants around this one (SMOOTH). Taken one instant
