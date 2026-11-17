@@ -1787,6 +1787,11 @@ def configure_engine(scene, args):
     # Open Image Denoise on every backend, an NVIDIA card included (not OptiX's own denoiser): the Arc
     # farm's renders and a rented card's then differ only in noise, and the brass was tuned against it.
     scene.cycles.use_denoising = True; scene.cycles.denoiser = "OPENIMAGEDENOISE"
+    # ... and on the GPU. The .blend had "Use GPU" off, so OIDN ran on the CPU at HIGH quality: on a rented
+    # RTX PRO 5000 (17 Nov 2026) the card sat idle 2-3 s a frame while 24 threads were saturated, and two
+    # processes or four made the same 0.33-0.35 frames/s. The same denoiser on the card gives the same image.
+    if hasattr(scene.cycles, "denoising_use_gpu"):
+        scene.cycles.denoising_use_gpu = args.render_device != "cpu"
     if args.render_device == "cpu":
         scene.cycles.device = "CPU"
         print(f"[concert] Cycles on the CPU, {args.samples} samples")
