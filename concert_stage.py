@@ -80,7 +80,8 @@ PLAYER_CAMS = {
     "Trumpet": ["Cam 22 Trumpet Hands", "Cam 9 Trumpet & Trombone (riser)"], "Trombone": ["Cam 27 Trombone", "Cam 9 Trumpet & Trombone (riser)"],
     "Tuba": ["Cam 14 Tuba Close", "Cam 24 Tuba Side"], "French Horn": ["Cam 26 French Horn"],
     "Piano": ["Cam 66 Piano Keys (along the keyboard)", "Cam 62 Piano Over the Shoulder", "Cam 60 Piano Full (lid side)",
-              "Cam 63 Piano Face"],
+              "Cam 63 Piano Face", "Cam 61 Piano Hands (treble end)", "Cam 67 Piano Keys from the Left",
+              "Cam 68 Piano Hands from Above"],      # as concert_piano.PLAYER_CAMS (the .blend's ensemble_json wins)
 }
 WIDE_CAMS = ["Cam 1 Audience Wide", "Cam 2 Front Row Left", "Cam 8 Stage Right Side", "Cam 3 Overhead"]
 SPECIAL_LIGHT = {  # player -> spotlight object
@@ -115,7 +116,7 @@ def load_notes(npy, tempo):
             player = SPLIT[v][0] if row[PAN_COL] < PAN_SPLIT else SPLIT[v][1]
         cents = row[5] * 1200 + row[4]
         n = dict(t0=row[1] / bps, dur=row[2] / bps, midi=int(round(cents / 100.0)) + 12, cents=float(cents),
-                 vol=float(row[14]), art=art, voice=v)
+                 vol=float(row[14]), vel=float(row[3]), art=art, voice=v)
         n["t1"] = n["t0"] + n["dur"]
         per.setdefault(player, []).append(n)
         vmax[player] = max(vmax.get(player, 0.0), n["vol"])
@@ -639,6 +640,7 @@ class PianoPlayer:
         self.window = self.DESCEND + self.PRESS
         self._plan()
         self._away_plan()
+        self._pedal_plan()
 
     def _away_plan(self):
         """[(a, b)]: the silences of AWAY_GAP or more, from the end of one note's sound to the next onset
@@ -649,6 +651,82 @@ class PianoPlayer:
                 self.rests.append((end, n["t0"]))
             end = max(end, n["t0"] + n["dur"])
         self.rests.append((end, math.inf))
+
+    # The pedals (concert_human.py puts the feet on them; the puppet has none). Neither is in the sound -
+    # WreckingCrew_v2 renders these pieces without pedal - so they follow the music, sparingly:
+    # * sustain (right foot): down through a legato stretch - one where, over LEGATO_WINDOW seconds, the
+    #   notes are mostly long (median length LEGATO_NOTE or more) and the sound never stops - and up in quick
+    #   or detached playing. It goes down just after the stretch's first note and comes up as its last note
+    #   ends; held at least PEDAL_MIN_DOWN, and a lift shorter than PEDAL_MIN_UP is not made. No pedal changes
+    #   within a stretch: a foot pumping at every chord would pull the eye from the hands.
+    # * una corda (left foot): onto the left pedal for one of the quietest notes of a piece (the lowest p4
+    #   --velocity_random gave it), for SOFT_SHARE of them chosen at random, from just before the note to
+    #   SOFT_HOLD after it; presses closer together than SOFT_MERGE are one.
+    LEGATO_WINDOW, LEGATO_NOTE, PEDAL_MIN_DOWN, PEDAL_MIN_UP = 2.0, 0.42, 3.0, 2.0
+    SOFT_SHARE, SOFT_HOLD, SOFT_MERGE, SOFT_SEED = 0.10, 1.2, 2.0, 5
+    PEDAL_MOVE = 0.15                                   # seconds for a foot to take a pedal down or let it up
+
+    def _pedal_plan(self):
+        import random
+        ns = sorted(self.notes, key=lambda n: n["t0"])
+        # the sections between the rests (a recital's pieces): sounding without a break
+        sections, prev_end = [], None
+        for a, b in self.rests:
+            if prev_end is not None:
+                sections.append((prev_end, a))
+            prev_end = b
+        self.sustain, self.soft = [], []
+        for s0, s1 in sections:
+            sec = [n for n in ns if s0 <= n["t0"] < s1]
+            if not sec:
+                continue
+            # sustain: sample the section every quarter second
+            legato = []
+            t = s0
+            while t < s1:
+                w = [n for n in sec if t - self.LEGATO_WINDOW / 2 <= n["t0"] < t + self.LEGATO_WINDOW / 2]
+                durs = sorted(n["dur"] for n in w)
+                legato.append((t, bool(durs) and durs[len(durs) // 2] >= self.LEGATO_NOTE))
+                t += 0.25
+            runs, start = [], None
+            for t, on in legato + [(s1, False)]:
+                if on and start is None:
+                    start = t
+                elif not on and start is not None:
+                    runs.append([start, t]); start = None
+            merged = []
+            for r in runs:                                   # short lifts are not made
+                if merged and r[0] - merged[-1][1] < self.PEDAL_MIN_UP:
+                    merged[-1][1] = r[1]
+                else:
+                    merged.append(r)
+            for a, b in merged:
+                if b - a < self.PEDAL_MIN_DOWN:
+                    continue
+                first = next((n["t0"] for n in sec if n["t0"] >= a - 1e-6), a)
+                last = max((n["t0"] + n["dur"] for n in sec if n["t0"] < b), default=b)
+                self.sustain.append((first + 0.08, min(last, s1)))
+            # una corda: a share of the section's quietest notes
+            quiet = min(n["vel"] for n in sec)
+            pick = random.Random(self.SOFT_SEED * 1000 + int(s0 * 10))
+            for n in sec:
+                if n["vel"] <= quiet + 1e-6 and pick.random() < self.SOFT_SHARE:
+                    a, b = n["t0"] - self.PEDAL_MOVE - 0.10, n["t0"] + max(n["dur"], self.SOFT_HOLD)
+                    if self.soft and a - self.soft[-1][1] < self.SOFT_MERGE:
+                        self.soft[-1] = (self.soft[-1][0], b)
+                    else:
+                        self.soft.append((a, b))
+
+    def pedals(self, t):
+        """{"sustain": 0..1, "soft": 0..1}: how far down each pedal is at t."""
+        def level(spans):
+            m = self.PEDAL_MOVE
+            for a, b in spans:
+                if a - m <= t <= b + m:
+                    u = min((t - (a - m)) / m, ((b + m) - t) / m, 1.0)
+                    return u * u * (3 - 2 * u)
+            return 0.0
+        return {"sustain": level(self.sustain), "soft": level(self.soft)}
 
     def away(self, t):
         """0 at the keys .. 1 in the lap."""
@@ -790,6 +868,7 @@ class PianoPlayer:
         st["at"] = lambda dt: self.state(t + dt)             # the state a little earlier or later (concert_human.py)
         st["t"] = t
         st["away"] = self.away(t)
+        st["pedals"] = self.pedals(t)
         return st
 
     # Between fast notes the plan moves a hand in a frame or two (it leaves 0.08 s after one onset and is

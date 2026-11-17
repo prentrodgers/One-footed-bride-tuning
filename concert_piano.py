@@ -69,8 +69,20 @@ SOUNDBOARD_Z = RIM_TOP - 0.25
 CAMS = {   # name -> (location, target) in rig coordinates, lens
     "Cam 61 Piano Hands (treble end)": ((1.00, -0.62, 0.80), (-0.12, -0.05, 0.0), 40),   # steep enough to see the keys past the block
     "Cam 66 Piano Keys (along the keyboard)": ((0.62, -0.24, 0.15), (-0.06, -0.07, 0.03), 50),  # low at the treble end, in front of the forearm: hands, keys, the name
-    "Cam 62 Piano Over the Shoulder": ((0.95, -1.30, 1.15), (-0.25, 0.02, -0.05), 32),   # the right shoulder: the lid is on the left
+    # the right shoulder: the lid is on the left. Back a quarter further than it was (17 Nov 2026), the lens
+    # longer to match: from closer, the keys' reflection in the fallboard ran into the keys over the red
+    # felt, which read as a red line through the keyboard; from here the felt shows as the strip between them
+    "Cam 62 Piano Over the Shoulder": ((1.25, -1.63, 1.45), (-0.25, 0.02, -0.05), 40),
+    # from the player's left, beyond the bass end of the keys: along the keyboard to both hands
+    "Cam 67 Piano Keys from the Left": ((-0.92, -0.38, 0.38), (0.10, -0.04, 0.0), 38),
+    # close over her right shoulder's side, looking down and forward at the hands, clear of her head; tilted
+    # forward so the keyboard runs across the frame (straight down, it ran up it)
+    "Cam 68 Piano Hands from Above": ((0.34, -0.36, 0.62), (0.0, 0.02, 0.0), 30),
 }
+# a solo pianist's close shots (concert_stage.build_shots picks one at random for each)
+PLAYER_CAMS = ["Cam 66 Piano Keys (along the keyboard)", "Cam 62 Piano Over the Shoulder", "Cam 60 Piano Full (lid side)",
+               "Cam 63 Piano Face", "Cam 61 Piano Hands (treble end)", "Cam 67 Piano Keys from the Left",
+               "Cam 68 Piano Hands from Above"]
 FACE_CAM = ("Cam 63 Piano Face", (1.45, 1.00, 0.28), 85)   # from beyond the bend, past the music desk's treble end: offset from the head (rig axes), lens
 FIT_CAMS = {   # name -> (azimuth, elevation, lens), framed on the pianist and the piano (concert_cameras._fit)
     "Cam 60 Piano Full (lid side)": (38, 12, 42),
@@ -393,16 +405,62 @@ def build_piano(M, rig, collection):
     L.build("Piano Legs", [M["black"], M["brass"]], collection=collection, parent=rig)
     # the lyre: two posts down to the pedal box, a brace back to the belly, three brass pedals
     Ly = sk.Builder()
-    yl = 0.40
+    yl = LYRE_Y
     for x in (-0.075, 0.075):
         Ly.box((x, yl, (FLOOR + 0.08 + RIM_BOTTOM) / 2), (0.03, 0.03, RIM_BOTTOM - FLOOR - 0.08))
     Ly.box((0, yl, RIM_BOTTOM - 0.02), (0.26, 0.07, 0.04))
     Ly.box((0, yl, FLOOR + 0.045), (0.30, 0.12, 0.07))
     Ly.cyl((0, yl + 0.06, FLOOR + 0.07), (0, 0.66, RIM_BOTTOM), 0.009, seg=8)
-    Ly.build("Piano Lyre", [M["black"]], collection=collection, parent=rig)
+    Ly.build("Piano Lyre", [M["black"]], collection=collection, parent=rig)["ofb_lyre_y"] = LYRE_Y
     for k, x in enumerate((-0.07, 0.0, 0.07)):
         sk.box(f"Piano Pedal {k + 1}", (0.026, 0.11, 0.012), (x, yl - 0.06 - 0.045, FLOOR + 0.06), mat_=M["brass"],
                collection=collection, parent=rig)
+
+
+# The lyre's posts, LYRE_Y behind the key fronts' line (rig y). It was 0.40 until 17 Nov 2026, with the pedals' tips
+# 39 cm behind the front of the keys, out of reach of the pianist's feet; on a grand they are under the keys,
+# a hand's breadth in. move_lyre() moves the lyre and pedals of an existing .blend to here.
+LYRE_Y = 0.13
+LYRE_Y_WAS = 0.40
+
+
+def move_lyre():
+    """The lyre and the pedals of a .blend built with the lyre at LYRE_Y_WAS, to LYRE_Y (moved along the
+    rig's y, as children of the rig). Returns how far they moved; 0 if they are there already."""
+    rig = bpy.data.objects[KEY]
+    lyre = bpy.data.objects["Piano Lyre"]
+    shift = LYRE_Y - LYRE_Y_WAS
+    if abs(lyre.get("ofb_lyre_y", LYRE_Y_WAS) - LYRE_Y) < 1e-6:
+        return 0.0
+    d = rig.matrix_world.to_3x3() @ Vector((0.0, shift, 0.0))
+    for ob in [lyre] + [bpy.data.objects[f"Piano Pedal {k}"] for k in (1, 2, 3)]:
+        ob.matrix_world = Matrix.Translation(d) @ ob.matrix_world
+    lyre["ofb_lyre_y"] = LYRE_Y
+    return shift
+
+
+def update_stage():
+    """An existing piano stage brought up to date without rebuilding it: the lyre and pedals (move_lyre), the
+    close cameras (CAMS; the over-the-shoulder one moved back by as much as the seated human had moved it,
+    concert_human._cameras) and the cameras the shots choose from (ensemble_json)."""
+    import concert_human as chm
+    moved = move_lyre()
+    rig = bpy.data.objects[KEY]
+    mw = rig.matrix_world
+    shoulder = chm.PLAYER_CAMS.get(KEY, {}).get("shoulder")
+    for name, (loc, tgt_loc, lens) in CAMS.items():
+        old = bpy.data.objects.get(name)
+        back = (old.location.x - old["loc_before_human"][0]) if old is not None and "loc_before_human" in old else 0.0
+        cam, tgt = cc._camera(name, lens)
+        cam.location, tgt.location = mw @ Vector(loc), mw @ Vector(tgt_loc)
+        if name == shoulder and back:
+            cam["loc_before_human"] = list(cam.location)
+            cam.location.x += back
+    ctrl = bpy.data.objects["Stage Controls"]
+    ens = json.loads(ctrl["ensemble_json"])
+    ens["player_cams"][KEY] = list(PLAYER_CAMS)
+    ctrl["ensemble_json"] = json.dumps(ens)
+    print(f"[piano] lyre moved {moved:+.2f} m; cameras {', '.join(CAMS)}; close shots from {len(PLAYER_CAMS)} cameras")
 
 
 LOGO_FONT = "/usr/share/fonts/urw-base35/Z003-MediumItalic.otf"   # no blackletter installed; the nearest script
@@ -484,7 +542,15 @@ def main():
     argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
     p = argparse.ArgumentParser()
     p.add_argument("--out", default="Alcorcon_Piano.blend")
+    p.add_argument("--update", action="store_true",
+                   help="bring the open .blend up to date (update_stage) and save it as --out, instead of building")
     args = p.parse_args(argv)
+    if args.update:
+        update_stage()
+        out = str((REPO_DIR / args.out).resolve()) if not Path(args.out).is_absolute() else args.out
+        bpy.ops.wm.save_as_mainfile(filepath=out)
+        print(f"[piano] saved {out}")
+        return
 
     cp.load_layout()
     sk.LAYOUT[KEY] = {"pos": list(PLAYER_POS), "seated": True, "facing": list(FACING)}
@@ -525,8 +591,7 @@ def main():
     yz = cc.DOLLY_CAMS["Cam 50 Dolly Front Row"]
     ens = {
         "players": [KEY],
-        "player_cams": {KEY: ["Cam 66 Piano Keys (along the keyboard)", "Cam 62 Piano Over the Shoulder",
-                              "Cam 60 Piano Full (lid side)", "Cam 63 Piano Face"]},
+        "player_cams": {KEY: list(PLAYER_CAMS)},
         "group_cams": {name: [[KEY], az, el, lens] for name, (az, el, lens) in FIT_CAMS.items()},
         "wide_cams": WIDE,
         "dolly_cams": {"Cam 50 Dolly Front Row": [yz[0], yz[1], yz[2], yz[3], DOLLY_RUN[0], DOLLY_RUN[1], yz[6]]},

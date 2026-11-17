@@ -32,6 +32,11 @@ import numpy as np
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 VENUE = "Teatro Buero Vallejo, Alcorcon (Madrid)"
+# Cycles samples for a recital: one piano, no brass. 64 against 256 (17 Nov 2026, the ponytail pianist, Cycles on
+# fs1's CPU): the face, hair and keys indistinguishable (mean difference 0.3-0.6 of 255), frame-to-frame change
+# 0.32% of pixels against 0.22%, and 2.5-3x faster. The full stage keeps concert_stage's 256: its brass
+# highlights shimmered at 64.
+RECITAL_SAMPLES = 64
 
 
 def length(path):
@@ -143,7 +148,7 @@ def main():
     print("render (copy the three files to the PVC first):")
     print(f"  PER_CARD=2 SCRIPT=concert_stage.py BLEND=Alcorcon_Recital.blend ./render_farm.sh --npy {args.out}.npy "
           f"--tempo 60 --duration {end:.2f} --out frames_{os.path.basename(args.out)}_v1 --engine cycles "
-          f"--cycles-hw-rt --title none")
+          f"--cycles-hw-rt --samples {RECITAL_SAMPLES} --title none")
     print(f"mux:  ./concert_mux.sh frames_{os.path.basename(args.out)}_v1 {args.out} {os.path.basename(args.out)}_v1.mp4")
 
 

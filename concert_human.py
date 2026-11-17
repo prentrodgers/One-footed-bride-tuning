@@ -53,7 +53,7 @@ PROFILE = Path.home() / ".local/share/ofb-mpfb/userres"      # MPFB 2.0.18 + ass
 # her by MPFB) - the suit in concert black and the hair as strands, by dress().
 LOOK = {
     "Piano": dict(sex="female", age=0.66, race="caucasian", muscle=0.5, weight=0.5, height=0.55, proportions=0.6,
-                  skin="middleage_caucasian_female", hair="long01", hair_colour=None, eyebrows="eyebrow006",
+                  skin="middleage_caucasian_female", hair="ponytail01", hair_colour=None, eyebrows="eyebrow006",
                   clothes=["toigo_male_suit_3", "shoes01"], brown_eyes=False),
 }
 # (saturation, value, multiply) on a hairstyle's own texture; None leaves it as the pack made it
@@ -740,6 +740,17 @@ DIGIT_BONE = {0: 2, 1: 3, 2: 4, 3: 5, 4: 1}     # the plan's digit (0-3 index..p
 # the thigh bone. On the way the hand first lifts off the keys (LAP_LIFT), then comes back toward the body and
 # only then down, so it never passes through the front of the keyboard; coming back it goes up first.
 LAP_ALONG, LAP_IN, LAP_UP, LAP_LIFT = 0.62, 0.22, 0.105, 0.035
+# The feet (17 Nov 2026; until then they hung 2.4 cm off the floor, 40 cm short of the pedals): heels on the floor,
+# the right foot's ball over the sustain pedal (Piano Pedal 3), a hover above it, and on it taking it down
+# (PianoPlayer.pedals); the left foot flat beside the una corda (Piano Pedal 1), and onto it when that is down.
+ANKLE_H = 0.075            # the ankle above the floor with the heel down (measured on the seated pianist's shoe)
+BALL = 0.040               # the ball of the foot this far back from a pedal's tip, along it
+PEDAL_HOVER = 0.008        # the right foot's sole above the sustain pedal when it is up
+PEDAL_DIP = 0.012          # how far a pedal's tip goes down
+SOLE = 0.039               # the toe joint (toe3-1) over a pedal it rests on (measured: the shoe just touches)
+SOLE_FLOOR = 0.021         # ... and over the floor, the foot flat (measured)
+PEDAL_ABOVE_FLOOR = 0.06   # a pedal's centre over the floor, as concert_piano builds it (FLOOR + 0.06)
+LEFT_REST = (0.11, 0.02)   # the left foot at rest: this far further left of the una corda, and back toward her
 
 
 class HumanPianist:
@@ -758,6 +769,7 @@ class HumanPianist:
         self.s_hand = sum(fk.len[f"finger3-{i}.L"] for i in (1, 2, 3)) / cp.HAND_STYLE[key]["flen"][1]
         self._static()
         self.static = dict(fk.basis)
+        self._pedal_setup()
         knees = {s: fk.head(f"lowerleg01.{s}") for s in "LR"}
         self.lap = {}
         for s, o in (("L", "R"), ("R", "L")):
@@ -789,6 +801,64 @@ class HumanPianist:
 
     def A(self, v):
         return self.Mi @ Vector(v)                           # a world point, in armature space
+
+    # --- the feet: on the floor and the pedals
+    def _pedal_setup(self):
+        """Each pedal's ball point (where the ball of a foot presses it) and the floor, in armature space, and
+        the pedals' rest heights (kept on the objects, so a pose saved in the .blend is never taken for rest)."""
+        self.pedal_obs, self.ball = {}, {}
+        for side, name in (("R", "Piano Pedal 3"), ("L", "Piano Pedal 1")):
+            ob = bpy.data.objects.get(name)
+            if ob is None:
+                continue
+            if "ofb_rest_z" not in ob:
+                ob["ofb_rest_z"] = ob.location.z
+            self.pedal_obs[side] = ob
+            c = ob.matrix_world.translation.copy()
+            c.z += ob["ofb_rest_z"] - ob.location.z          # where it is at rest
+            half = ob.dimensions.y / 2                       # the pedal runs along the piano's y, tip toward her
+            P = self.A(c) - self.yk * (half - BALL) + self.zk * (ob.dimensions.z / 2 + SOLE)
+            self.ball[side] = P
+        if self.ball:                                        # the pedals stand PEDAL_ABOVE_FLOOR up (concert_piano)
+            ob = next(iter(self.pedal_obs.values()))
+            c = ob.matrix_world.translation.copy()
+            c.z += ob["ofb_rest_z"] - ob.location.z - PEDAL_ABOVE_FLOOR
+            self.floor_pt = self.A(c)
+        self.foot_len = self.fk.dist("foot.L", "toe3-1.L")
+
+    def _legs(self, st):
+        """Thighs, shins and feet for this moment: each ankle at ANKLE_H over the floor, heel down, the foot
+        reaching forward to its ball point (on or over a pedal, or on the floor), the knee out ahead."""
+        if not self.ball:
+            return
+        fk, yk, zk = self.fk, self.yk, self.zk
+        ped = st.get("pedals") or {}
+        sus, soft = float(ped.get("sustain", 0.0)), float(ped.get("soft", 0.0))
+        floor_z = self.floor_pt.dot(zk)
+        rest_l = self.ball["L"] - self.xk * LEFT_REST[0] - yk * LEFT_REST[1]
+        rest_l = rest_l - zk * (rest_l.dot(zk) - (floor_z + SOLE_FLOOR))    # flat on the floor
+        balls = {"R": self.ball["R"] + zk * (PEDAL_HOVER * (1 - sus) - PEDAL_DIP * sus)}
+        lift = zk * 0.03 * math.sin(math.pi * min(1.0, soft))               # over the pedal's edge, then down
+        balls["L"] = rest_l.lerp(self.ball["L"] - zk * PEDAL_DIP * soft, soft) + lift
+        for s, sx in (("L", 1.0), ("R", -1.0)):
+            B = balls[s]
+            dz = (floor_z + ANKLE_H) - B.dot(zk)
+            back = math.sqrt(max(self.foot_len ** 2 - dz * dz, 0.0))
+            W = B - yk * back + zk * dz                      # the ankle: behind the ball, at its height
+            hip = fk.head(f"upperleg01.{s}")
+            Lt, Ls = fk.dist(f"upperleg01.{s}", f"lowerleg01.{s}"), fk.dist(f"lowerleg01.{s}", f"foot.{s}")
+            pole = yk + zk * 0.6                             # knees forward and up
+            names = [f"{b}.{s}" for b in ("upperleg01", "lowerleg01", "foot")]
+            fk.forget(names)
+            K, W = two_bone(hip, W, pole, Lt, Ls)
+            fk.aim(f"upperleg01.{s}", K, tip=fk.head(f"lowerleg01.{s}"))
+            fk.aim(f"lowerleg01.{s}", W, tip=fk.head(f"foot.{s}"))
+            fk.aim(f"foot.{s}", B, tip=fk.head(f"toe3-1.{s}"))
+        for s in ("R", "L"):                                 # the pedals themselves
+            ob = self.pedal_obs.get(s)
+            if ob is not None:
+                down = sus if s == "R" else soft
+                ob.location.z = ob["ofb_rest_z"] - PEDAL_DIP * down
 
     # --- one hand: arm, forearm twist and wrist for the knuckle centre kc
     def _place_hand(self, s, sgn, kc, T):
@@ -1020,6 +1090,7 @@ class HumanPianist:
             fk.turn(n, (1, 0, 0), math.radians(base.get(n, 0.0)) + pitch * share)
             fk.turn(n, (0, 0, 1), yaw * share)
         self._hands(st)
+        self._legs(st)
         # The keys, last (_solve looked at other instants). A key is down as far as a fingertip has it down, and
         # not otherwise: the plan's own "dips" keep a key down for the whole note, up to 1.2 s, though the hand
         # has long gone to the next one - with real hands on the keys, a key held down by nobody.
