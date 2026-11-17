@@ -25465,9 +25465,7 @@ _______________________
       Quodlibet:
             python WreckingCrew_v2.py --chorale bwv988q --temperament werckmeister_III --velocity_random 4 --accent 1 --tempo 96 --velocity 74 --ornaments --trill_glide 0.2
                   Created: Uploads/b988qa_werck3_d00_46_t096.npy
-      Repeat of the Aria:
-            python WreckingCrew_v2.py --chorale bwv988-a --temperament werckmeister_III --velocity_random 4 --accent 1 --tempo 56 --velocity 68 --ornaments --trill_glide 0.2
-                  Created: Uploads/b988-aa_werck3_d03_32_t056.npy
+      
                   
       I'd like to run them all again in case they can pick up the glissando ornamentations. 
       Set --ornaments # turns on the pitch bends replacing keyboard pressed noted 
@@ -25484,3 +25482,198 @@ _______________________
             scp Uploads/b988qa_werck3_d00_46_t096.npy   one-footed-bride-pod:Repos/One-footed-bride-tuning/Uploads/
             scp Uploads/b988qa_werck3_d00_46_t096.mp3   one-footed-bride-pod:Repos/One-footed-bride-tuning/Uploads/
             
+      Claude started the render with this command:
+            SHARE=1 PER_CARD="2 fs5=1 fs6=1" ARC_MAX="fs5=2000 fs6=2000" SCRIPT=concert_stage.py BLEND=Alcorcon_Recital.blend ./render_farm.sh --npy Uploads/b988r_recital.npy --tempo 60 --duration 672.48 --out frames_b988r_recital_v2 --engine cycles --cycles-hw-rt --title none 
+      watch:  
+            watch -n 20 "./render_farm.sh --status && ./render_farm.sh --progress"
+      count:  
+            watch -n 60 "kubectl -n default exec deploy/one-footed-bride -c pod-ssh -- ls /home/prent/Repos/One-footed-bride-tuning/frames_b988r_recital_v2 | wc -l"
+                  364 # at 12:47 pm 11/15/26 
+                  19273 # 5:47 am 11/16/26
+      stop:   
+            ./render_farm.sh --stop
+      20,175 frames. Biggest yet. 11 minutes of video in 14 hours. When it's done, mux with:
+            ./concert_mux.sh frames_b988r_recital_v2 Uploads/b988r_recital b988r_recital_v2.mp4
+      Specifically, when did it start and when did it finish?
+            ssh one-footed-bride-pod ls -lth Repos/One-footed-bride-tuning/frames_b988r_recital_v2 | head -n 2
+                  total 22G
+                  -rw-r--r--. 1 root prent  1.2M Nov 16 06:33 frame_020159.png
+            ssh one-footed-bride-pod ls -lth Repos/One-footed-bride-tuning/frames_b988r_recital_v2 | tail -n 1
+                  -rw-r--r--. 1 root prent  1.2M Nov 15 12:32 frame_000000.png 
+      About 18 hours.  (and one minute)
+      Now get it saved on dropbox. 
+            ssh one-footed-bride-pod ls -lth Repos/One-footed-bride-tuning/b988r_recital_v2.mp4
+            scp one-footed-bride-pod:Repos/One-footed-bride-tuning/b988r_recital_v2.mp4 ~/Dropbox/Uploads/goldberg
+      _________________            
+      There are awesome parts and bad parts. Some glitches that need correcting.
+      1. We need more different camera angles on the keyboard. I want to see it from different angles, from the left of the player, from above but close.
+      -- Cameras 67 and 68 added, and Cam 62 moved back,
+      2. The above the player angle shows the mirror image of the keyboard, but the red felt is distracting. If you move the camera back from the piano a bit, the red felt will be clearly seen as the gap between the keyboard and the reflection. I only realized that after thinking that the red line was a anomaly.
+      3. The player's feet don't reach the floor. Have her right foot poised over the sustain pedal, pressed down when playing a legato passage. Her left foot used on the soft (una corda) pedal when the random velocity indicates the quietest note, but only 10% of the time. I don't want excessive number of pedal movements distracting from the keyboard work. 
+      4. The hair style isn't worth the time, switch to a shorter hair style, or one that takes less GPU time. 18 hours is just too much to handle. 
+      The following are completed:
+      5. I wonder what Victorian Rational Well Temperment would do the WTC and Goldberg. 
+            Look for Secor-VRWT.scl That's the one George Secore prefers to the one that Aaron Krister Johnson proposed: johnson_ratwell.scl
+            I've had a couple of days to decide whether or not I prefer this to
+            my rationalized Ellis #2 (Secor-VRWT.scl).  It's not an easy call,
+            but I think I would have to go with the VRWT because of:
+            1) its higher key contrast (more consonant C major triad), and
+            2) my personal preference for slightly tempered (vs. just) fifths on
+            the worst triads -- which is to say, I prefer to have the total error
+            of the fifths of the worst triads distributed more or less equally,
+            as opposed to putting all of that error on 1 or 2 of the fifths.
+      6. The Aria and all variations should be played without repeats, and with the next step down in velocity. 
+            --velocity 66 # instead of 68
+            --velocity_random 5 # instead of 4.
+            --chorale bwv988-a --measures 1-16,33-48 # it removes the duplicates of those measures. These may be hard to find...
+11/17/26 Try out --temperament vrwt from George Secor.
+      In the scala files zip it's here: My files/Downloads/scales/scl/secor_vrwt.scl on the Chromebook. Or in ~/Downloads/scl/secor_vrwt.scl on fs1.
+      ! secor_vrwt.scl
+      !
+      George Secor's Victorian rational well-temperament (based on Ellis #2)
+      12
+      !
+      545/516
+      6071/5418
+      707447/595980
+      755/602
+      30118/22575
+      30535/21672
+      451/301
+      34315/21672
+      1514/903
+      2755/1548
+      20365/10836
+      2/1
+
+      You can now use --temperament vrwt. I added it to the TEMPERAMENTS table in WreckingCrew_v2.py, next to the Werckmeister tunings, and its output files are tagged vrwt, e.g. b988-26a_vrwt_d00_59_t108.mp3.
+
+      The values, converted from the scale file's ratios to cents above C:
+
+      ┌────┬───────┬────────┬────────┬────────┬────────┬────────┬────────┬────────┬────────┬────────┬──────────┐
+      │  C │  C♯   │   D    │  E♭    │   E    │   F    │  F♯    │   G    │  G♯    │   A    │  B♭    │    B     │
+      ├────┼───────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼──────────┤
+      │ 0  │94.662 │197.009 │296.830 │392.056 │499.080 │593.558 │700.037 │795.608 │894.681 │997.976 │ 1092.311 │
+      └────┴───────┴────────┴────────┴────────┴────────┴────────┴────────┴────────┴────────┴────────┴──────────┘
+
+      Checks
+      - Fifths: every fifth is narrow. G–D, A–E and D–A are narrowed most (about 4.3–5.0 cents) and the rest by 0.7–1.9 cents. The narrowings add up to 23.45 cents, the Pythagorean comma, which is right for a closed circle of fifths. No fifth is a wolf.
+      - Major thirds: C and G are the best, about 6 cents wide of pure. F, D, B♭ and A are 9–14 cents wide. The remote keys (C♯, F♯, G♯, B, E♭, E) are 17–18 cents wide, just under the Pythagorean third's 21.5. Werckmeister III has the same kind of key-to-key contrast, but it has four pure fifths and puts the whole comma on the other eight; Secor spreads it more evenly.
+      - Ornaments: a trill or mordent's neighbour note is tuned with this temperament's own interval, as it is for Werckmeister.
+      - Test run: Variation 26 with your usual settings and --no_csound ran cleanly: 838 notes, 0:55, both mordents found. I didn't render audio.
+
+      To make the mp3s, swap the flag in your usual commands:
+            python WreckingCrew_v2.py --chorale bwv988-26 --temperament vrwt --velocity_random 4 --accent 1 --tempo 84 --velocity 76 --ornaments --trill_glide 0.2 # a little more reasonable 70 seconds.
+
+      Add a pseudo rubato:
+            python WreckingCrew_v2.py --chorale bwv988-25 --temperament vrwt --velocity_random 5 --accent 1 --tempo 30 --velocity 67 --ornaments --trill_glide 0.2 --rubato_ms 25
+                  bwv988-25: 2 parts, 3 rows, on a grid of 64ths
+                  part                     rows  instrument             voice  pan   note
+                  Piano                       1  piano                     29   8.0  p4 67: the velocity-63 recordings
+                  Piano                       2  piano                     29   8.0  p4 67: the velocity-63 recordings
+                  tuning: vrwt, C0 C#94.662 D197.009 Eb296.83 E392.056 F499.08 F#593.558 G700.037 G#795.608 A894.681 Bb997.976 B1092.31
+                  ending: the last chord sounds to beat 102, then dies away over 1500 ms
+                  velocity: +-5 (seed 0), downbeats +1: 62x69 (vel-31), 63x56 (vel-39), 64x54 (vel-39), 65x56 (vel-47), 66x62 (vel-47), 67x73 (vel-63), 68x344 (vel-63)
+                  714 score notes -> 714 Csound notes (0 by continuo and other parts with two players), 102.773 beats at 30 BPM = 03:26
+                  rubato: 513 onsets each 0-25 ms late at random, chords together (--rubato_ms; at most 0.4 of the way to the next onset)
+                  glides: 0 at chord changes in held notes, widest 0.0 cents, 0 over 45; 1 tables
+                  ornaments: 1 inverted mordent, played as pitch steps in the glide table, 8 trill notes a beat (--trill_rate; --no-ornaments plays the written notes plain)
+                  wrote /home/prent/Repos/One-footed-bride-tuning/new_output_v2.csd: b988-25a_vrwt_d03_30_t030
+      Add --measures to the aria:
+      How it works
+      - You list bars by the score's own bar numbers, as ranges and single bars, e.g. 1-16,33-48 or 1-8,12,20-24.
+      - The listed bars are played in the order given, back to back, with no gaps.
+      - At the start of each range it reapplies the clef, key and time signature in force at that point, in case the cut skipped a change.
+      - A note tied into a bar you left out simply ends.
+      - It needs --temperament. The adaptive tuning files cover the whole score, so they can't be cut to match yet; with a tuning file, the run stops and says so.
+      - Without --measures, nothing changes. I compared the Aria's notes with the committed version, and they are identical.
+      - The other three pieces don't need it: Variations 25 and 26 and the Quodlibet already play once through.
+            python WreckingCrew_v2.py --chorale bwv988-a --measures 1-16,33-48 --temperament vrwt --velocity_random 5 --accent 1 --tempo 56 --velocity 66 --ornaments --trill_glide 0.2
+      Claude also idenfies a problem with a test he's been running: One older test fails, test_short_notes_get_a_finer_grid on bwv848f. What is that about?
+
+      Revise the videos based on the new audio files with vwrt tuning and different settings, no repeats. I'm thinking of using this opportunity to outsource to a service provider who rents Nvidia GPU by the hour to test performance and cost with a real render.
+
+      Be sure to rerun all the necessary Goldberg variations you want:
+            bwv988-a - area without the repeats
+                  python WreckingCrew_v2.py --chorale bwv988-a --measures 1-16,33-48 --temperament vrwt --velocity_random 5 --accent 1 --tempo 56 --velocity 66 --ornaments --trill_glide 0.2 --rubato_ms 25
+            bwv988-25 - the slow wandering one
+                  python WreckingCrew_v2.py --chorale bwv988-25 --temperament vrwt --velocity_random 5 --accent 1 --tempo 30 --velocity 67 --ornaments --trill_glide 0.2 --rubato_ms 25
+            bwv988-26 - the speedy one at a slightly slower tempo
+                  python WreckingCrew_v2.py --chorale bwv988-26 --temperament vrwt --velocity_random 4 --accent 1 --tempo 84 --velocity 76 --ornaments --trill_glide 0.2 --rubato_ms 15
+            bwv988q - Quodlibet
+                  python WreckingCrew_v2.py --chorale bwv988q --temperament vrwt --velocity_random 5 --accent 1 --tempo 96 --velocity 74 --ornaments --trill_glide 0.2 --rubato_ms 25
+      Ask claude for a variation that would show the vrwt that wanders to a distant key at times. 
+      That's a good opportunity: the recital is a real job with a known size, and you already have the launcher for it. render_cloud.sh (with render_cloud_box.sh) was written on 14 Nov for exactly this: any rented Linux machine with NVIDIA GPUs that you can reach over ssh (RunPod, Vast.ai, a cloud VM). It has only been tested against fs1 on the CPU, so the first real run will probably need a fix or two. The untested parts are the OptiX rendering path, the apt package names and the Blender 5.3 download.
+
+      What it does
+      - Copies only what the render needs: the concert_*.py scripts, the .blend and the recital's files, about 20 MB instead of the 3.7 GB repo.
+      - Installs Blender 5.3 on the machine if it's missing, and runs PER_GPU processes on every card. The processes share the frames the same way SHARE=1 does on the farm.
+      - Makes the mp4 on the machine, and --fetch brings it home.
+      - Can stop the machine when it's finished, through AFTER=. Without that, it keeps running and billing until you stop it.
+
+      Suggested approach
+      1. Rent one fast consumer card first. An RTX 4090 or 5090 is usually the best price for rendering in Cycles. They tend to rent for well under $1 an hour on RunPod or Vast.ai, but check current prices. Use a machine with a recent driver so OptiX works; otherwise run with DEVICE=cuda.
+      2. Run a short timing test, the first 300–600 frames, to shake out first-run problems and measure seconds per frame. That should cost about a dollar.
+      3. Work out the full price: frames × seconds per frame × hourly rate. Then decide between one card and several. Several cards finish sooner for about the same total cost.
+      4. Run the whole recital there, with AFTER='runpodctl stop pod $RUNPOD_POD_ID' (or the other provider's equivalent) so billing stops
+      when it's done.
+
+      Comparison with the farm
+      - At 64 samples, the farm should do the new recital in roughly 6–7 hours, running fs2–fs9 for the whole time. The time saving comes from samples. Measured on fs1, the hair was only 6–20% of each frame. At 64 samples her face, hair and the keys look the same as at 256, frame-to-frame flicker barely changes, and each frame renders 2.5–3× faster. So the next recital render should take about 6–7 hours instead of 18.
+      - Your 14 Nov power figures put each kWh at about $0.21. The farm's share of a 6-hour render is a few dollars of electricity, so the cloud wins mainly on time, plus not loading the UPSes. It won't win on cost unless the B580 servers are sold.
+      - The real comparison will be the cloud machine's seconds per frame and price against what the farm costs to keep.
+
+      What you'd do: create the account, add your ssh public key and start the machine. Then give me its address and port (HOST=root@… PORT=…), and I'll run the timing test and send you the numbers before starting the full render.
+
+      When the audio is done, I'll build the recital as usual, so the same files can go to the farm or the cloud.
+      Copy the files to the pod:
+            scp Uploads/ one-footed-bride-pod:Repos/One-footed-bride-tuning/Uploads/.
+            ls -1t Uploads | head -n 8
+                  scp Uploads/b988qa_vrwt_d00_46_t096.npy    one-footed-bride-pod:Repos/One-footed-bride-tuning/Uploads/. 
+                  scp Uploads/b988qa_vrwt_d00_46_t096.mp3    one-footed-bride-pod:Repos/One-footed-bride-tuning/Uploads/. 
+                  scp Uploads/b988-26a_vrwt_d01_14_t084.npy  one-footed-bride-pod:Repos/One-footed-bride-tuning/Uploads/.   
+                  scp Uploads/b988-26a_vrwt_d01_14_t084.mp3  one-footed-bride-pod:Repos/One-footed-bride-tuning/Uploads/.   
+                  scp Uploads/b988-25a_vrwt_d03_30_t030.npy  one-footed-bride-pod:Repos/One-footed-bride-tuning/Uploads/.   
+                  scp Uploads/b988-25a_vrwt_d03_30_t030.mp3  one-footed-bride-pod:Repos/One-footed-bride-tuning/Uploads/.   
+                  scp Uploads/b988-aa_vrwt_d01_48_t056.npy   one-footed-bride-pod:Repos/One-footed-bride-tuning/Uploads/.  
+                  scp Uploads/b988-aa_vrwt_d01_48_t056.mp3   one-footed-bride-pod:Repos/One-footed-bride-tuning/Uploads/.  
+            ls -1t Uploads/b988t*.* Uploads/b988f*.*
+                  scp Uploads/b988f_vrwt_d01_52_t036.npy one-footed-bride-pod:Repos/One-footed-bride-tuning/Uploads/.
+                  scp Uploads/b988f_vrwt_d01_52_t036.mp3 one-footed-bride-pod:Repos/One-footed-bride-tuning/Uploads/.
+                  scp Uploads/b988t_vrwt_d00_46_t096.npy one-footed-bride-pod:Repos/One-footed-bride-tuning/Uploads/.
+                  scp Uploads/b988t_vrwt_d00_46_t096.mp3 one-footed-bride-pod:Repos/One-footed-bride-tuning/Uploads/.
+            ssh one-footed-bride-pod ls -lth Repos/One-footed-bride-tuning/Uploads | head -n 10
+
+      I bought $10 credit with Runpod. 
+      Set up Runpod for me: fetch and follow this guide https://agents.runpod.io/
+
+      First add some more variations by their spiciness.
+      My recommendation: Variations 21 and 15.
+      - Var 21: a canon at the seventh over a chromatic descending (lament) bass. It is short, 16 bars of 4/4, and almost every bar leans on the remote side of the circle, so vrwt's wide thirds on E♭, A♭ and B are heard constantly. It's the closest thing in the set to Var 25's colour, in a third of the time.
+      - Var 15: a canon at the fifth in contrary motion, marked Andante. It is the first minor variation, and it ends unresolved on an open fifth, which is striking in a recital. Its sharpest moments come in passing rather than throughout.
+      - If you'd like a major-key contrast instead: Var 13 or Var 1 are the most colourful of the G-major ones (12–15% of their thirds 16+ cents wide). They're still far milder than the minor three.
+      Use them in this order: sequence that works is Aria, 26, 21, 15, 25, Quodlibet.
+      Render 21 & 15
+            
+            python WreckingCrew_v2.py --chorale bwv988 --measures 667-682 --letter t --temperament vrwt --velocity_random 5 --accent 1 --tempo 96 --velocity 68 --ornaments --trill_glide 0.2 --rubato_ms 20
+
+            python WreckingCrew_v2.py --chorale bwv988 --measures 457-488 --letter f --temperament vrwt --velocity_random 5 --accent 1 --tempo 40 --velocity 64 --ornaments --trill_glide 0.2 --rubato_ms 25
+      
+      Use these audio and numpy files on fs1 and in the pod:
+            b988-aa_vrwt_d01_48_t056.npy   
+            b988-aa_vrwt_d01_48_t056.mp3 
+            b988-26a_vrwt_d01_14_t084.npy  
+            b988-26a_vrwt_d01_14_t084.mp3 
+            b988t_vrwt_d00_46_t096.npy 
+            b988t_vrwt_d00_46_t096.mp3  
+            b988f_vrwt_d01_52_t036.npy 
+            b988f_vrwt_d01_52_t036.mp3 
+            b988-25a_vrwt_d03_30_t030.npy  
+            b988-25a_vrwt_d03_30_t030.mp3  
+            b988qa_vrwt_d00_46_t096.npy    
+            b988qa_vrwt_d00_46_t096.mp3    
+            
+                  
+                    
+                  
+                  
