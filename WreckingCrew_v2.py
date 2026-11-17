@@ -10,6 +10,8 @@ chorale arrangements.  The one exception is a part the ensemble file gives two
 or more players: every player after the first starts each note 0 to
 --double_delay_ms (20) late, a new random delay for every note.  Two real players
 never strike together, and without the delay the two sound as one.
+--rubato_ms MAX (off by default) does the same for one player: each onset a
+random 0 to MAX ms late, every note of a chord by the same amount.
 
     score  (music21 corpus or Scores/<name>.*)  -> notes: onset, length, MIDI number, row
     tuning (<numpy_dir>/<name>-opt.npy, voices x slots, cents per pitch class;
@@ -72,6 +74,7 @@ array make_score_videos.sh and the Blender stage read.
 """
 import argparse
 import collections
+import copy
 import glob
 import logging
 import math
@@ -216,6 +219,69 @@ def load_score(version):
     return atu.parse_score(atu.score_name(version))
 
 
+def parse_measures(spec):
+    """--measures '1-16,33-48' -> [1, 2, ..., 16, 33, ..., 48]: bar numbers in the order given."""
+    out = []
+    for item in spec.replace(' ', '').split(','):
+        m = re.fullmatch(r'(\d+)(?:-(\d+))?', item)
+        if not m:
+            raise SystemExit(f'--measures: {item!r} is not a bar number or a range like 1-16')
+        a, b = int(m.group(1)), int(m.group(2) or m.group(1))
+        if b < a:
+            raise SystemExit(f'--measures: {item!r} runs backwards')
+        out += range(a, b + 1)
+    if not out:
+        raise SystemExit('--measures: no bars given')
+    return out
+
+
+def select_measures(stream, numbers):
+    """A new score of only these bars (by the score's own bar numbers), one after another with nothing
+    between them: the Aria's written-out repeats left out with --measures 1-16,33-48.  The first bar of
+    each range gets the clef, key and time signature in force at that point in the full score, so a
+    range that starts after a change the cut left out still reads it.  A tie into a bar that was left
+    out simply ends."""
+    out = m21.stream.Score()
+    out.metadata = stream.metadata
+    for part in stream.parts:
+        bars = {m.number: m for m in part.getElementsByClass(m21.stream.Measure)}
+        missing = [n for n in numbers if n not in bars]
+        if missing:
+            have = sorted(bars)
+            raise SystemExit(f'--measures: {part.partName or "a part"} has no bar {missing[0]} '
+                             f'(its bars are {have[0]}-{have[-1]})')
+        new = m21.stream.Part()
+        new.id, new.partName = part.id, part.partName
+        for inst in part.getElementsByClass(m21.instrument.Instrument):
+            new.insert(0, copy.deepcopy(inst))
+        prev = None
+        for k, n in enumerate(numbers):
+            m = copy.deepcopy(bars[n])
+            if prev is None or n != prev + 1:
+                for cls in (m21.clef.Clef, m21.key.KeySignature, m21.meter.TimeSignature):
+                    if not m.getElementsByClass(cls):
+                        ctx = bars[n].getContextByClass(cls)
+                        if ctx is not None:
+                            m.insert(0, copy.deepcopy(ctx))
+            m.number = k + 1
+            new.append(m)
+            prev = n
+        out.insert(0, new)
+    return out
+
+
+def temperament_rows(name, rows, first):
+    """temperament_tuning for a score read from rows rather than from the file (--measures): every cell
+    of every note at its pitch class's value. Only the cells under a note are read (build_notes)."""
+    last = max(b for spans, _p, _i in rows for _a, b, _m in spans)
+    table = np.asarray(TEMPERAMENTS[name], dtype=float)
+    out = np.zeros((len(rows), last - first))
+    for v, (spans, _p, _i) in enumerate(rows):
+        for a, b, midi in spans:
+            out[v, a - first:b - first] = table[midi % 12]
+    return out
+
+
 def _slot(t, spq=4):
     """atu.score_rows's grid: spq slots per quarter (atu.slots_per_quarter, 4 = sixteenths)."""
     return atu.grid_slot(t, spq)
@@ -342,6 +408,8 @@ def find_tuning(version, numpy_dir, partial):
 # Fixed temperaments, cents above C for C C# D Eb E F F# G G# A Bb B: every C# the same pitch
 # wherever it falls, in every key, as on an organ tuned once.  Werckmeister's numbers as in
 # WreckingCrew.txt (6/18/25), to the thousandth (Orgel-Probe, 1681/1698):
+RUBATO_GAP = 0.4               # --rubato_ms: an onset moves at most this share of the way to the next one
+
 TEMPERAMENTS = {
     '12-TET': [0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100],
     # I (III), "correct temperament": C-G, G-D, D-A and B-F# narrowed by 1/4 Pythagorean comma
@@ -356,12 +424,18 @@ TEMPERAMENTS = {
     # IV (VI), Septenarius: string lengths in 196ths
     'werckmeister_IV': [0, 91.700, 196.300, 298.000, 395.100, 498.000, 595.000, 698.200,
                         793.700, 893.300, 1000.000, 1097.300],
+    # George Secor's Victorian rational well-temperament (based on Ellis #2), from secor_vrwt.scl:
+    # 1/1 545/516 6071/5418 707447/595980 755/602 30118/22575 30535/21672 451/301 34315/21672
+    # 1514/903 2755/1548 20365/10836
+    'vrwt': [0, 94.662, 197.009, 296.830, 392.056, 499.080, 593.558, 700.037,
+             795.608, 894.681, 997.976, 1092.311],
 }
 
 
 # The temperament as the render's file name gives it: b846fa_werck3_d01_54_t060.mp3
 TEMPERAMENT_TAGS = {'12-TET': '12tet', 'werckmeister_I': 'werck1', 'werckmeister_II': 'werck2',
-                    'werckmeister_III': 'werck3', 'werckmeister_IV': 'werck4'}
+                    'werckmeister_III': 'werck3', 'werckmeister_IV': 'werck4',
+                    'vrwt': 'vrwt'}
 
 
 def temperament_tuning(name, midi):
@@ -702,6 +776,18 @@ def build_notes(rows, tuning, first, parts, args, glides, report, tempo=DEFAULT_
     # Its own stream, so turning the delays on or off leaves --velocity_random's draws alone.
     delay_max = float(getattr(args, 'double_delay_ms', 0) or 0) * ms
     delay_rng = np.random.default_rng([getattr(args, 'seed', 0), 1])
+    # --rubato_ms: every onset in the score (all parts, all players) a random 0 to MAX ms late, so a chord
+    # stays together, as one player's hands would; never more than RUBATO_GAP of the way to the next onset,
+    # so fast notes keep their order. Its own stream again, so it changes no other draw.
+    rubato_max = float(getattr(args, 'rubato_ms', 0) or 0) * ms
+    rubato = {}
+    if rubato_max > 0:
+        rubato_rng = np.random.default_rng([getattr(args, 'seed', 0), 2])
+        onsets = sorted({a - first for spans, _parent, _p in rows for a, _b, _m in spans})
+        for c, nxt in zip(onsets, onsets[1:] + [None]):
+            cap = rubato_max if nxt is None else min(rubato_max, RUBATO_GAP * (nxt - c) / spq)
+            rubato[c] = rubato_rng.uniform(0.0, cap)
+        report['rubato'] = len(rubato)
     downbeats = set(downbeats if downbeats is not None else (bars or ()))
     ornaments = ornaments or {}
     temperament = TEMPERAMENTS.get(getattr(args, 'temperament', None) or '')
@@ -767,6 +853,7 @@ def build_notes(rows, tuning, first, parts, args, glides, report, tempo=DEFAULT_
                 if not lo - 2 <= written <= hi + 2:
                     report['out_of_range'].setdefault(f"{part['name']} ({inst})", [lo, hi, 0])[2] += 1
                 vel = note_velocity(part['velocity'], c0, downbeats, spread, rng, accent)
+                start += rubato.get(c0, 0.0)
                 if k > 0 and delay_max > 0:
                     # A doubling player: the whole note a little late, a new delay every note.
                     start += delay_rng.uniform(0.0, delay_max)
@@ -875,6 +962,13 @@ def print_plan(parts, rows):
 def render(args):
     version = args.chorale
     stream = load_score(version)
+    measures = getattr(args, 'measures', None)
+    if measures:
+        if not getattr(args, 'temperament', None):
+            raise SystemExit('--measures needs --temperament: a tuning file is laid out on the whole score')
+        numbers = parse_measures(measures)
+        stream = select_measures(stream, numbers)
+        print(f'measures: {measures} ({len(numbers)} bars, played one after another)')
     spq = atu.slots_per_quarter(stream)
     rows = rows_by_part(stream, spq)
     if not rows:
@@ -892,11 +986,11 @@ def render(args):
     if args.list:
         return None
 
-    midi = atu.stream_to_midi_array(atu.score_name(version))[0]
     temperament = getattr(args, 'temperament', None)
+    midi = None if measures else atu.stream_to_midi_array(atu.score_name(version))[0]
     if temperament:
         tuning_path = None
-        tuning = temperament_tuning(temperament, midi)
+        tuning = temperament_rows(temperament, rows, first) if measures else temperament_tuning(temperament, midi)
         print(f'tuning: {temperament}, ' + ' '.join(
             f'{n}{c:g}' for n, c in zip(('C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'G#', 'A', 'Bb', 'B'),
                                         TEMPERAMENTS[temperament])))
@@ -947,6 +1041,9 @@ def render(args):
     seconds = beats * 60.0 / tempo
     print(f'{score_notes} score notes -> {len(notes)} Csound notes ({len(notes) - score_notes} by continuo '
           f'and other parts with two players), {beats:g} beats at {tempo} BPM = {mm_ss(seconds).replace("_", ":")}')
+    if report.get('rubato'):
+        print(f'rubato: {report["rubato"]} onsets each 0-{args.rubato_ms:g} ms late at random, chords together '
+              f'(--rubato_ms; at most {RUBATO_GAP:g} of the way to the next onset)')
     if report.get('delayed'):
         print(f'doubling: {report["delayed"]} notes of the second and later players delayed 0-'
               f'{args.double_delay_ms:g} ms at random (--double_delay_ms)')
@@ -995,6 +1092,10 @@ def main(argv=None):
     ap.add_argument('--temperament', choices=sorted(TEMPERAMENTS), default=None,
                     help='play in a fixed temperament instead of a tuning file (no --numpy_dir needed)')
     ap.add_argument('--tempo', type=int, default=None, help='quarter notes per minute')
+    ap.add_argument('--measures', default=None, metavar='BARS',
+                    help='play only these bars of the score, by its own bar numbers, one after another: '
+                         '1-16,33-48 plays the Goldberg Aria (whose repeats the score writes out) without '
+                         'its repeats. Needs --temperament (default: the whole score)')
     ap.add_argument('--letter', default='a', help='render-set letter in the file name (b262a_...)')
     ap.add_argument('--ensemble', default=None, help='ensemble YAML (default ensembles/<chorale>.yaml)')
     ap.add_argument('--instrument', action='append', default=[], metavar='PART=INSTRUMENT',
@@ -1031,8 +1132,13 @@ def main(argv=None):
                     help='in a part with two or more players, every player after the first starts each note '
                          'a random 0 to MAX ms late, drawn anew for every note, so the doubling is heard as '
                          'two players (default %(default)g; 0 = all players strike together)')
+    ap.add_argument('--rubato_ms', type=float, default=0.0, metavar='MAX',
+                    help='a touch of rubato for any part, one player or more: every onset in the score starts '
+                         'a random 0 to MAX ms late, drawn anew for each onset; notes struck together stay '
+                         'together, and no onset moves more than %g of the way to the next (default 0: '
+                         'strictly in time; 10-25 is a light touch)' % RUBATO_GAP)
     ap.add_argument('--seed', type=int, default=0,
-                    help='random seed for --velocity_random and --double_delay_ms, so a render can be '
+                    help='random seed for --velocity_random, --rubato_ms and --double_delay_ms, so a render can be '
                          'repeated (default %(default)s)')
     ap.add_argument('--merge_adjacent', action='store_true',
                     help='join a note to the one before it in its voice when they are the same pitch and '

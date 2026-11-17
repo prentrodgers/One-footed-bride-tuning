@@ -588,5 +588,35 @@ class TestOrnaments(unittest.TestCase):
         self.assertAlmostEqual(wc2.neighbour_ratio(76, 1, werck), 2 ** ((werck[5] - werck[4]) / 1200))
 
 
+
+class TestMeasures(unittest.TestCase):
+    """--measures: only the bars asked for, one after another (the Goldberg Aria's written-out repeats)."""
+
+    def test_parse(self):
+        self.assertEqual(wc2.parse_measures('1-3, 7,9-10'), [1, 2, 3, 7, 9, 10])
+        for bad in ('3-1', 'a', '1-', ''):
+            with self.assertRaises(SystemExit):
+                wc2.parse_measures(bad)
+
+    def test_aria_without_repeats(self):
+        full = wc2.load_score('bwv988-a')
+        cut = wc2.select_measures(full, wc2.parse_measures('1-16,33-48'))
+        for p in cut.parts:
+            bars = list(p.getElementsByClass('Measure'))
+            self.assertEqual([m.number for m in bars], list(range(1, 33)))
+        # the second statement of each half is the first one again, so the cut is exactly half the notes
+        count = lambda s: sum(len(sp) for sp, _p, _i in wc2.rows_by_part(s))
+        self.assertEqual(2 * count(cut), count(full))
+        # bar 17 of the cut is bar 33 of the score, at 16 bars of 3/4
+        first = lambda s, n: sorted((round(x.getOffsetInHierarchy(s.parts[0]), 4), x.pitches[0].midi)
+                                    for x in s.parts[0].measure(n).recurse().notes)[0]
+        self.assertEqual(first(cut, 17)[1], first(full, 33)[1])
+        self.assertAlmostEqual(cut.parts[0].measure(17).getOffsetInHierarchy(cut.parts[0]), 48.0)
+
+    def test_needs_a_temperament(self):
+        with self.assertRaises(SystemExit):
+            wc2.main(['--chorale', 'bwv988-a', '--measures', '1-16', '--no_csound'])
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)
