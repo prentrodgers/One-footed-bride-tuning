@@ -25673,6 +25673,11 @@ _______________________
             b988qa_vrwt_d00_46_t096.npy    
             b988qa_vrwt_d00_46_t096.mp3    
             
+      ______________________
+      Claude discovered that we had the denoiser running on CPU instead of GPU. I'd like to try a render of WTC #13 in F#.
+            From the WTC # 13 prelude & fugue
+            python WreckingCrew_v2.py --chorale bwv858p --temperament vrwt --velocity_random 5 --accent 1 --tempo 58 --velocity 66 --velocity_random 5 --accent 1 --ornaments --trill_glide 0.2 --rubato_ms 25
+            python WreckingCrew_v2.py --chorale bwv858f --temperament vrwt --velocity_random 5 --accent 1 --tempo 84 --velocity 70 --velocity_random 5 --accent 1 --ornaments --trill_glide 0.2 --rubato_ms 25
                   
                     
                   
