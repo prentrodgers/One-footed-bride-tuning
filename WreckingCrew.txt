@@ -25732,3 +25732,8 @@ _______________________
       
       Fake but almost accurate. I call it Animicrotonal Music Videos.
       Link: https://youtu.be/kgXnRnPZPIg
+
+      Check the progress on fs1 
+            ssh fs1
+            ssh -p 16714 root@157.107.19.62 -L 8080:localhost:8080
+            watch -n 20 "OUT=frames_b988v_recital_v1 bash render_cloud_box.sh --progress ; ls ~/ofb-render/frames_b988v_recital_v1 | wc -l"
