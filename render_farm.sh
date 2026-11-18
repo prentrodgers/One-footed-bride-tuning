@@ -52,6 +52,8 @@
 #                   cost per card differs from the rate table (the b858r recital with strand hair, 14 Nov
 #                   2026: fixed slices 8.3 h, shared about 4.5). If a process dies, its block is left
 #                   unfinished: launch the same command again, and only the missing frames are rendered.
+#                   The default for a recital (a .recital.json beside the .npy) with SCRIPT=concert_stage.py;
+#                   SHARE=0 turns it off there.
 #   PVC_CHECK=0     launch even if the .npy, its .mp3 or the BLEND here differ
 #                   from the PVC copy the pods read (by default nothing launches)
 #   IMAGE=...       another image tag
@@ -364,7 +366,9 @@ while [ $# -gt 0 ]; do
           done)
       grep -v '^@' <<<"$report"
       if grep -q '^@OUT' <<<"$report"; then                  # shared: the frames on disk, and one eta for all
-        read -r _ out total <<<"$(grep '^@OUT' <<<"$report" | head -1)"
+        # the total is the highest frame-end of any shared pod: hand-made tail pods with a partial
+        # range must not shrink it (b858r: "6771/6451")
+        read -r _ out total <<<"$(grep '^@OUT' <<<"$report" | sort -k3,3n | tail -1)"
         have=$(ssh -o BatchMode=yes -o LogLevel=ERROR "${PVC_HOST:-one-footed-bride-pod}" \
                  "cd Repos/One-footed-bride-tuning && find '$out' -maxdepth 1 -name 'frame_*.png' -size +0 | wc -l" 2>/dev/null || echo 0)
         awk -v h="$have" -v t="$total" -v r="$(grep '^@RATE' <<<"$report" | awk '{s += $2} END {print s + 0}')" 'BEGIN{
@@ -493,7 +497,11 @@ fi
 
 # SHARE=1: one range for everybody, claimed a block at a time. Claims left by an earlier launch (a process
 # killed halfway through a block keeps its claim) are cleared before anything starts: nothing renders then.
-SHARE=${SHARE:-0}; SHARE_BLOCK=${SHARE_BLOCK:-30}; CLAIM=()
+# A recital on the Concert Stage shares by default (fixed slices left one slow slice 3+ hours behind
+# on the b858r recital); SHARE=0 brings the fixed slices back.
+SHARE_DEFAULT=0
+[ "$RECITAL" = 1 ] && [ "$(basename "$SCRIPT")" = concert_stage.py ] && SHARE_DEFAULT=1
+SHARE=${SHARE:-$SHARE_DEFAULT}; SHARE_BLOCK=${SHARE_BLOCK:-30}; CLAIM=()
 if [ "$SHARE" = 1 ]; then
   [ "$(basename "$SCRIPT")" = concert_stage.py ] || { echo "SHARE=1 needs SCRIPT=concert_stage.py" >&2; exit 2; }
   [[ "$SHARE_BLOCK" =~ ^[1-9][0-9]*$ ]] || { echo "SHARE_BLOCK must be a whole number of frames" >&2; exit 2; }
