@@ -25677,8 +25677,8 @@ _______________________
       ______________________
       Claude discovered that we had the denoiser running on CPU instead of GPU. I'd like to try a render of WTC #13 in F#.
             From the WTC # 13 prelude & fugue
-            python WreckingCrew_v2.py --chorale bwv858p --temperament vrwt --velocity_random 5 --accent 1 --tempo 58 --velocity 66 --velocity_random 5 --accent 1 --ornaments --trill_glide 0.2 --rubato_ms 25
-            python WreckingCrew_v2.py --chorale bwv858f --temperament vrwt --velocity_random 5 --accent 1 --tempo 84 --velocity 70 --velocity_random 5 --accent 1 --ornaments --trill_glide 0.2 --rubato_ms 25
+            python WreckingCrew_v2.py --chorale bwv858p --temperament vrwt --tempo 58 --velocity 66 --velocity_random 5 --accent 1 --ornaments --trill_glide 0.2 --rubato_ms 25
+            python WreckingCrew_v2.py --chorale bwv858f --temperament vrwt --tempo 84 --velocity 70 --velocity_random 5 --accent 1 --ornaments --trill_glide 0.2 --rubato_ms 25
       Claude started it up without my involvement. 
       The WTC No. 13 vrwt recital is rendering on the farm:
       - Files: Uploads/b858v_recital.{mp3,npy,recital.json}, also on the pod.
@@ -25737,3 +25737,65 @@ _______________________
             ssh fs1
             ssh -p 16714 root@157.107.19.62 -L 8080:localhost:8080
             watch -n 20 "OUT=frames_b988v_recital_v1 bash render_cloud_box.sh --progress ; ls ~/ofb-render/frames_b988v_recital_v1 | wc -l"
+
+      The outsourced render finished. 
+            OUT=frames_b988v_recital_v1 bash render_cloud_box.sh --progress ; ls ~/ofb-render/frames_b9...  c7d0f8eff28f: Wed Nov 18 01:48:14 2026
+
+            frames  18835/18835 (100.0%)  elapsed 339m18s  0.89 frames/s  eta -
+            g0-1   [stage] done: 4505 frames in 19524.3s (4.334s/frame), total 19524.7s
+            g0-2   [stage] done: 4522 frames in 19570.3s (4.328s/frame), total 19570.6s
+            g0-3   [stage] done: 4520 frames in 19566.1s (4.329s/frame), total 19566.5s
+            g0-4   [stage] done: 4497 frames in 19500.7s (4.336s/frame), total 19501.2s
+            gpu 0, NVIDIA RTX PRO 5000 Blackwell, 0 %, 16 MiB, 3.97 W
+            state   finished: 18835 frames in frames_b988v_recital_v1, 18044 of them rendered in 326m17s; video frames_b988v_recital_v1.mp4
+            18835
+
+            Downloaded here:  ~/Repos/One-footed-bride-tuning/frames_b988v_recital_v1.mp4 
+            Credits are down to 5.76 now at vast.ai. I also have some at another provider.
+
+________________________
+11/18/26 Post the Goldberg latest on Youtube.
+
+      Title: Excerpts from Bach's Goldberg Variations BWV988: Aria, variations 28, 21, 15, 25, and 30, the Quodlibet
+
+      Description: This is a video rendered by Blender and Csound under the control of Claude Opus and Fable with my assistance. The piano is Prent's Microtonal Slide Bosendorfer, using George Secors Victorian Rational Well Temperament. The specific variations chosen illustrate some of the spiciest of this temperament. My favorite is number 30, subtitled Quodlibet. While all the other variations are unique and wonderful, with their use of different cannons alternated with other forms, this one is a counterpoint constructed from two German folk tunes of the time. The word Quodlibet refers to putting together multiple songs at once. The exact tunes are still in dispute. The Bach family gatherings would often involve songs over a harpsichord. The fammily might suggest tunes to play, and often with rather spicy lyrics made up on the spot, combining parts of different songs, with the harpsichord performer following along. 
+      
+      Quodlibet literally means a lighthearted medley of well-known tunes. For example, something you might hear at a Denver Bar Association Annual Dinner where my brother Freddy would lead the musicians in a rousing version of Trinidad, with lyrics showcasing their fame as the sex change capital of the world. Just for fun.
+
+      Here you will watch my favorite female pianist with a ponytail perform the theme and several variations of the Goldberg Variations by J.S. Bach in the auditorium of the Teatro Municipal Buero Vallejo in Alcorcón, Spain. The impulse response file used for the reverberation was recorded there by Angelo Farina. If you focus closely and take a sip of some delightful club soda and lime, you can feel like you are there in person. 
+
+      The video was created with the assistance of Claude Code Opus 5.5 who wrote the python code to be run by Blender. The audio was created by Csound. You might hear that the trills and mordents are actually bending the notes of the piano to sound the pitch changes. That's a little gesture that I asked Claude Opus to implement. Instead of playing trills by pressing the two keys of the trill, imagine a neural implant that the keyboard artist would use to "think" of a trill and have a massive system of levers bend the strings to increase and decrease the pitch of the note being trilled. It's all possible thanks to Csound.
+
+      Each action is created to imitate the appearance and movements of real musicians on real instruments. If you hear wrong notes, they were meant to be.
+      
+      Fake but almost accurate. I call it Animicrotonal Music Videos.
+      Link: https://youtu.be/6PkbdUHH1tw
+
+      What's next. How about a full render of the entire Goldberg. Except that would require one setting for every one of the variations, and that would eliminate the loud vs soft variations. So that's not going to work. I could ask claude to break them up into different sections:
+
+      Goldberg list: goldberg_vrwt.sh
+
+      bwv988.mxl does not write out the repeats. It holds each movement once, with repeat signs, so --measures simply picks a movement's bars. (1-16,33-48 was right only for the separate bwv988-a.mxl Aria file.)
+
+      Five movements have first and second endings (Var. 2, 4, 6, 16 and 25). For those the list skips the first ending and plays the second, so each half runs straight on. For example, Var. 2 is 65-79,81-96,98.
+
+      Every line passed a check that writes only the Csound file. The durations match your earlier renders: Aria 1:48 at 56, Var. 21 0:46 at 96, Var. 15 1:42 at 40 (1:52 at your 36), Quodlibet 0:46 at 96.
+
+      Naming: --letter=-15a gives b988-15a_vrwt_…, matching your existing b988-25a and b988-26a. The = is needed, because without it the
+      script reads -15a as an option. The Quodlibet keeps
+
+      Tempo and velocity are starting points following your rule: faster movements louder (up to 74), slower ones quieter (down to 60). Var. 15 and 21 use your values. Adjust any before rendering.
+
+      Three problems in the score:
+      - Var. 1 is commented out. Three bars are missing notes: bars 36 and 53 in the right hand and bar 52 in the left. The hands would drift up to 1.5 beats apart. I can fill in rests so they stay together, which leaves short gaps you'd hear. The better fix is the correct notes from another edition of Var. 1.
+      - Var. 26 uses its own score file. In bwv988.mxl the 18/16 bars last 4.5 beats against the left hand's 3, so the hands come apart. The list uses Scores/bwv988-26.mxl instead, the file you used before, which is still 1:14 at 84.
+      - Var. 16 has one tempo for both halves. The 3/8 fughetta plays at the same quarter-note speed as the overture. You might render the halves separately, as 489-504 and 505-535,538.
+
+      The Aria da capo (bars 959–990) is the Aria again, s
+
+      To run them all later: bash goldberg_vrwt.sh, or copmmitted yet; say when you want it, andWreckingCrew.txt will go in with it.
+
+      My notes:
+      Could you use the Glenn Gould tempi from his 1981 version. A document describing those temops is available here: /home/prent/Repos/One-footed-bride-tuning/GlennGouldGoldbergTempi.pdf This is not simply a list of tempi. It's a PhD thesis analysis of all things tempo for the 1955 and 1981 versions. Exhaustive and exhausting. 
+
+      It would be useful if we could supress the compression in final volumes of the csound render somehow. At present, when we use a lower --velocity level, it comes out just as loud as the high levels, resulting only in a change of timbre not volume. 

@@ -349,15 +349,22 @@ class TestNoteForNote(unittest.TestCase):
                 self.assertTrue(0 <= r[4] < 1200)
 
     def test_short_notes_get_a_finer_grid(self):
-        # Two 32nds in one sixteenth used to share a slot, and the second was lost.
-        for name, want in (('bwv262', 4), ('bwv846', 4), ('bwv848f', 8), ('bwv846f', 16)):
-            stream = wc2.load_score(name)
+        # Two 32nds in one sixteenth used to share a slot, and the second was lost. The grid is read
+        # after parse_score drops MuseScore's hidden playback notes (13 Nov 2026), and those held most of
+        # the short ones: bwv848f's 32nds were all hidden trill notes (8 with them, 4 without), bwv846f's
+        # 64ths too (16 with, 8 without). keep_hidden still gets the finer grid the old way.
+        for name, want, hidden in (('bwv262', 4, False), ('bwv846', 4, False), ('bwv848f', 4, False),
+                                   ('bwv846f', 8, False), ('bwv847p', 16, False),
+                                   ('bwv848f', 8, True), ('bwv846f', 16, True)):
+            stream = atu.parse_score(atu.score_name(name), keep_hidden=hidden)
             spq = atu.slots_per_quarter(stream)
-            self.assertEqual(spq, want, name)
+            self.assertEqual(spq, want, (name, hidden))
             written = sum(len(n.notes) if n.isChord else 1 for part in stream.parts for n in part.recurse().notes
                           if n.duration.quarterLength > 0)
             read = sum(len(spans) for spans, _p in atu.score_rows(stream))
-            self.assertEqual(read, written, name)
+            self.assertEqual(read, written, (name, hidden))
+            if hidden:              # the tuning array is laid out on the score as rendered: hidden notes dropped
+                continue
             midi = atu.stream_to_midi_array(name)[0]
             rows = wc2.rows_by_part(stream, spq)
             first = min(a for spans, _p, _i in rows for a, _b, _m in spans)
@@ -612,6 +619,15 @@ class TestMeasures(unittest.TestCase):
                                     for x in s.parts[0].measure(n).recurse().notes)[0]
         self.assertEqual(first(cut, 17)[1], first(full, 33)[1])
         self.assertAlmostEqual(cut.parts[0].measure(17).getOffsetInHierarchy(cut.parts[0]), 48.0)
+
+    def test_hands_stay_together(self):
+        # Goldberg Var. 1: bar 36's right hand is 1.5 beats long (the rest of it is on the bass staff),
+        # 52 and 53 are short in one hand too; every bar of the cut must start at the same time in both
+        full = wc2.load_score('bwv988')
+        cut = wc2.select_measures(full, wc2.parse_measures('33-64'))
+        starts = [[float(m.offset) for m in p.getElementsByClass('Measure')] for p in cut.parts]
+        self.assertEqual(starts[0], starts[1])
+        self.assertEqual(starts[0][-1], 31 * 3.0)
 
     def test_needs_a_temperament(self):
         with self.assertRaises(SystemExit):

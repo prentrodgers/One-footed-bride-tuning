@@ -188,6 +188,14 @@ TEMPOS = {                      # quarter notes per minute, when neither --tempo
 }
 DEFAULT_TEMPO = 60
 VELOCITY = 70                   # ball9.csd works best at 60-80
+# --level_by_velocity: trim.sh normalises every render's peak to -1 dB, so --velocity alone changes
+# only the Bosendorfer layer (the timbre), not the loudness. With the flag the peak follows the
+# velocity instead: 78 and up (the top layer) at -1 dB, 6 dB (half the amplitude) less for every 14
+# below, so 64 peaks at -7 dB and 50 at -13; never below LEVEL_FLOOR_DB. To be tuned by ear.
+LEVEL_FULL_VELOCITY = 78
+LEVEL_FULL_DB = -1.0
+LEVEL_DB_PER_VELOCITY = 6.0 / 14
+LEVEL_FLOOR_DB = -24.0
 LOUDNESS_BUDGET = 20.0          # sum of p15 over all players; trim.sh normalises the mix afterwards
 GLIDE_TABLE_START = 5000        # above every sample table in ball9.csd, as in WreckingCrew.py
 GLIDE_TABLE_SIZE = 1024         # GEN -7 points (+1 guard point)
@@ -243,6 +251,13 @@ def select_measures(stream, numbers):
     out simply ends."""
     out = m21.stream.Score()
     out.metadata = stream.metadata
+    # Each bar takes the time of its longest part, as in the full score: a hand whose notes cross onto
+    # the other staff has a short bar of its own (Goldberg Var. 1, bar 36: the right hand's last six
+    # sixteenths sit in the left hand's staff), and laying its bars end to end would let it run ahead.
+    span = {}
+    for part in stream.parts:
+        for m in part.getElementsByClass(m21.stream.Measure):
+            span[m.number] = max(span.get(m.number, 0), m.duration.quarterLength)
     for part in stream.parts:
         bars = {m.number: m for m in part.getElementsByClass(m21.stream.Measure)}
         missing = [n for n in numbers if n not in bars]
@@ -254,7 +269,7 @@ def select_measures(stream, numbers):
         new.id, new.partName = part.id, part.partName
         for inst in part.getElementsByClass(m21.instrument.Instrument):
             new.insert(0, copy.deepcopy(inst))
-        prev = None
+        prev, at = None, 0
         for k, n in enumerate(numbers):
             m = copy.deepcopy(bars[n])
             if prev is None or n != prev + 1:
@@ -264,7 +279,8 @@ def select_measures(stream, numbers):
                         if ctx is not None:
                             m.insert(0, copy.deepcopy(ctx))
             m.number = k + 1
-            new.append(m)
+            new.insert(at, m)
+            at += span[n]
             prev = n
         out.insert(0, new)
     return out
@@ -904,7 +920,13 @@ def run_csound(csd):
     return r.returncode
 
 
-def convolve_and_publish(stem, seconds, mp3=True):
+def peak_db_for(velocity):
+    """The peak trim.sh normalises to for a base velocity (--level_by_velocity)."""
+    db = LEVEL_FULL_DB - LEVEL_DB_PER_VELOCITY * max(0, LEVEL_FULL_VELOCITY - velocity)
+    return max(LEVEL_FLOOR_DB, db)
+
+
+def convolve_and_publish(stem, seconds, mp3=True, peak_db=LEVEL_FULL_DB):
     """trim.sh (alcorcon reverb, trim silence, normalise, mp3 to Uploads) on a temp copy of ball9c.csd."""
     with tempfile.TemporaryDirectory() as tmp:
         with open(CSD_C_FILE) as f:
@@ -912,7 +934,8 @@ def convolve_and_publish(stem, seconds, mp3=True):
         with open(os.path.join(tmp, 'ball9c.csd'), 'w') as f:
             f.write(text)
         cmd = ['sh', TRIM_SCRIPT, 'ball9', stem, tmp] + ([UPLOADS_DIR] if mp3 else [])
-        return subprocess.run(cmd, cwd=REPO).returncode
+        env = dict(os.environ, NORM_DB=f'{peak_db:.2f}')
+        return subprocess.run(cmd, cwd=REPO, env=env).returncode
 
 
 def mm_ss(seconds):
@@ -1074,7 +1097,13 @@ def render(args):
         raise SystemExit('csound failed; see ' + os.path.join(REPO, CSOUND_LOG))
     if args.no_convolve:
         return notes
-    if convolve_and_publish(stem, seconds + TAIL_SECONDS, mp3=not args.no_mp3) != 0:
+    peak_db = LEVEL_FULL_DB
+    if args.peak_db is not None:
+        peak_db = args.peak_db
+    elif args.level_by_velocity:
+        peak_db = peak_db_for(max(part['velocity'] for part in parts))
+    print(f'level: peak normalised to {peak_db:.1f} dB ({32767 * 10 ** (peak_db / 20):,.0f} of 32,767)')
+    if convolve_and_publish(stem, seconds + TAIL_SECONDS, mp3=not args.no_mp3, peak_db=peak_db) != 0:
         raise SystemExit('trim.sh failed')
     if not args.no_mp3:
         os.makedirs(UPLOADS_DIR, exist_ok=True)
@@ -1122,6 +1151,14 @@ def main(argv=None):
                     help='p4 for every part, over the ensemble file (default %d). The Bosendorfer picks its '
                          'recording from it: 60 or less -> the velocity-25 layer, 64 -> 39, 66 -> 47, 68 -> 63, '
                          '70 -> 78, 72 -> 85, 74 -> 99, 76 -> 113, 78+ -> 127' % VELOCITY)
+    ap.add_argument('--level_by_velocity', action='store_true',
+                    help='make --velocity change the loudness too: the mix peaks at %g dB for velocity %d and '
+                         'up, %.2f dB less for each step below (64 -> %.0f dB, half the amplitude), instead of '
+                         'every render at %g dB' % (LEVEL_FULL_DB, LEVEL_FULL_VELOCITY, LEVEL_DB_PER_VELOCITY,
+                                                    LEVEL_FULL_DB - 14 * LEVEL_DB_PER_VELOCITY, LEVEL_FULL_DB))
+    ap.add_argument('--peak_db', type=float, default=None, metavar='DB',
+                    help='normalise the mix\'s peak to this many dB (e.g. -7), over --level_by_velocity '
+                         '(default %g)' % LEVEL_FULL_DB)
     ap.add_argument('--velocity_random', type=int, default=0, metavar='N',
                     help='vary p4 around each part\'s velocity: a random value from base-N to base+N-1, '
                          'never above a downbeat (default 0: every note at base)')

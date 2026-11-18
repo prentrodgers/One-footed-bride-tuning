@@ -11,11 +11,13 @@ echo $SFDIR
 # the INPUT orchestra files — ball9.wav, ball9c.csd, ball9a-c.wav — which are unchanged;
 # only the rendered wav/mp3 that gets published is renamed.
 OUT="b$2"
+# NORM_DB: the peak the mix is normalised to, in dB below full scale (default -1, about 29,200 of
+# 32,767). WreckingCrew_v2.py --level_by_velocity / --peak_db set it so a quiet piece stays quieter.
 echo 'here are the values used in trim.sh'
 echo $@
 csound -U sndinfo $SFDIR/"$1".wav
 csound "$3"/"$1"c.csd 
-sox $SFDIR/"$1"a-c.wav -p reverse | sox -p -p silence 1 .01 .01 | sox -p -p reverse | sox -p -p silence 1 0.01 0.01 | sox -p --norm=-1 $SFDIR/"$OUT".wav 
+sox $SFDIR/"$1"a-c.wav -p reverse | sox -p -p silence 1 .01 .01 | sox -p -p reverse | sox -p -p silence 1 0.01 0.01 | sox -p --norm=${NORM_DB:--1} $SFDIR/"$OUT".wav 
 csound -U sndinfo $SFDIR/"$OUT".wav
 ls -lth $SFDIR/"$OUT".wav | head
 if [ -z "$4" ]; then
