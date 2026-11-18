@@ -25608,6 +25608,7 @@ _______________________
       What it does
       - Copies only what the render needs: the concert_*.py scripts, the .blend and the recital's files, about 20 MB instead of the 3.7 GB repo.
       - Installs Blender 5.3 on the machine if it's missing, and runs PER_GPU processes on every card. The processes share the frames the same way SHARE=1 does on the farm.
+      SHARE=1 says to have each instance pull 30 frames to render, then when that's done, another 30. Every instance does the same until all are gone. Towards the end when there are fewer left to pick, it decreases the number each node pulls so we don't end up waiting for the slowed instance. 
       - Makes the mp4 on the machine, and --fetch brings it home.
       - Can stop the machine when it's finished, through AFTER=. Without that, it keeps running and billing until you stop it.
 
@@ -25678,7 +25679,56 @@ _______________________
             From the WTC # 13 prelude & fugue
             python WreckingCrew_v2.py --chorale bwv858p --temperament vrwt --velocity_random 5 --accent 1 --tempo 58 --velocity 66 --velocity_random 5 --accent 1 --ornaments --trill_glide 0.2 --rubato_ms 25
             python WreckingCrew_v2.py --chorale bwv858f --temperament vrwt --velocity_random 5 --accent 1 --tempo 84 --velocity 70 --velocity_random 5 --accent 1 --ornaments --trill_glide 0.2 --rubato_ms 25
-                  
-                    
-                  
-                  
+      Claude started it up without my involvement. 
+      The WTC No. 13 vrwt recital is rendering on the farm:
+      - Files: Uploads/b858v_recital.{mp3,npy,recital.json}, also on the pod.
+      - Output: frames_b858v_recital_v1.
+      - Settings: 64 samples, GPU denoising, and SHARE=1.
+      When done:
+            ./concert_mux.sh frames_b858v_recital_v1 Uploads/b858v_recital b858v_recital_v1.mp4
+            ssh one-footed-bride-pod ls -lth Repos/One-footed-bride-tuning/b858v_recital_v1.mp4
+            scp one-footed-bride-pod:Repos/One-footed-bride-tuning/b858v_recital_v1.mp4 Uploads/
+      	How long did it take?
+            ssh one-footed-bride-pod ls -lth Repos/One-footed-bride-tuning/ | head -n 2
+            ssh one-footed-bride-pod ls -lth Repos/One-footed-bride-tuning/frames_b858v_recital_v1 | tail -n 2
+                  -rw-r--r--. 1 root prent  1.2M Nov 17 13:43 frame_006809.png
+                  -rw-r--r--. 1 root prent  1.2M Nov 17 12:26 frame_000000.png
+      It finished amazingly fast. 1 hour 17 minutes
+
+      Title: Bach's Prelude & Fugue No. 13 in F♯ major from the Well-Tempered Clavier, Book 1, BWV858
+
+      Description: This is a version of BWV858 for piano. All the pieces in the Well Tempered Clavier were designed to focus on the color differences in each key, there is a prelude and a fugue in each of the 12 different notes in the octave. Bach wrote WTC to showcase the differences in character and mood from each of the keys, due to the nature of a well temperament. Unlike 12 tone equal temperament, where every interval is the same across all 12 notes, the intervals in a well temperament are different for each key. 
+      
+      There were a number of well temperaments in play during Bach's lifetime from his birth in 1685 to his death in his final home in Leipzig in 1750. In 1885 Alexander J. Ellis did a survey of the tuning practices then common in England. This was 135 years after Bach's death, and well after 12 tone equal had all but eliminated Well Temperament as a method to tune pianos. But this was in England, and they like to keep up traditions.
+
+      Ellis took careful measurements of how seven English piano tuners actually set their temperaments, and published the results with his translation of Helmholtz's On the Sensations of Tone. 
+      
+      One of the tunings listed in that publication was listed as "Broadwood's Usual". That was Ellis's own piano tuner, an ordinary tuner at Broadwood. Some time in 2003, George Secor, a tuning theorist, composer, and performer on the Motorola Scalatron translated Ellis' "Broadwood's Usual" into whole-number ratios. Those were then documented in the Scala tuning archives: https://huygens-fokker.org/scala/downloads.html as Secor-VRWT.scl. 
+      
+      After comparing it with other contenders for the ideal Well Temperament, Secor settled on this one, and labeled it the Victorian Rational Well Temperament. He liked its stronger contrast between keys and its more consonant C major triad at 392 cents, compared to the ideal major third of 386 cents, only 6 cents sharp. 
+      
+      The tuning is called Victorian because the Ellis research took place in 1885 during the reign of Queen Victoria, and Rational because it uses whole number ratios. Unlike my One-footed-bride-tuning based on the work of Harry Partch, the VRWT tuning includes very high numbers for the ratios. Here are the ratios from C to C. 
+      C  1/1
+      C♯ 545/516
+      D  6071/5418
+      D♯ 707447/595980
+      E  755/602
+      F  30118/22575
+      F# 30535/21672
+      G  451/301
+      G# 34315/21672
+      A  1514/903
+      A# 2755/1548
+      B  20365/10836
+      C  2/1
+
+      They make Bach's keyboard music really sing, in my view. They are faithful to the concept that every key has a different color or character. Today's example is in F♯ major, which is one that is far distant from the more common key of C major. The ideal just ratio of a major third is 5/4, 1.25 in decimal, or 386.314 cents. The key of F♯ uses as a major third of (2755/1548)/(30535/21672) = 1.263, or 404.418 cents compared to the ideal of 1.25, at 386.3 cents. That's 18.1 cents too sharp. It's very close to 24/19, which is sometimes called Boethius' major third, after a Roman Senator who pronounced it as agreeable. It's the spice in this tuning that makes F# sound unique. 
+
+      Here you will watch my favorite female pianist with a ponytail perform WTC #13 Prelude and Fugue in the auditorium of the Teatro Municipal Buero Vallejo in Alcorcón, Spain. The impulse response file used for the reverberation was recorded there by Angelo Farina. If you focus closely and take a sip of some delightful club soda and lime, you can feel like you are there in person. 
+
+      The video was created with the assistance of Claude Code Opus 5.5 who wrote the python code to be run by Blender. The audio was created by Csound. You might hear that the trills and mordents are actually bending the notes of the piano to sound the pitch changes. That's a little gesture that I asked Claude Opus to implement. Instead of playing trills by pressing the two keys of the trill, imagine a neural implant that the keyboard artist would use to "think" of a trill and have a massive system of levers bend the strings to increase and decrease the pitch of the note being trilled. It's all possible thanks to Csound.
+
+      Each action is created to imitate the appearance and movements of real musicians on real instruments. If you hear wrong notes, they were meant to be.
+      
+      Fake but almost accurate. I call it Animicrotonal Music Videos.
+      Link: https://youtu.be/kgXnRnPZPIg
