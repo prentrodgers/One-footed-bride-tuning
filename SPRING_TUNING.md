@@ -242,6 +242,7 @@ The directory name is the recipe: `h32s4` is `--harmony 32 --septimal 4`; `d15h3
 | **`h32s4`** | **all 44 preludes and fugues of WTC I Nos. 1–22, and the Aria** | `--harmony 32 --septimal 4`, pace auto, limit 40, no fold (made before it; remake with the fold if used again) | Every array matches its score exactly; the furthest note is 39.1 cents from 12-TET |
 | **`d15h32`** | `bwv988-00` (the Aria) | `--diamond 15 --harmony 32`, exponent 2, width 15, pace auto, limit 40, fold | remade with the fold, 20 Nov |
 | `d15h64` | `bwv988-00` | as `d15h32`, harmony 64 | remade with the fold |
+| **`d7h32`** | the Aria and all 30 variations (`bwv988-00`, `bwv988v01`–`v30` with `v16a`, `v16b`, and `bwv988-26`) | `--diamond 7 --harmony 32`, pace auto, limit 40, fold | made by `goldberg_diamond.sh`, 20 Nov. Thirds 2.7–8.9 cents from just, whole steps 176–222, no split pitch classes |
 | `h2`, `h8`, `h32` | `bwv846f`, `bwv847f` | harmony 2, 8, 32; no seventh springs, no pace, no limit | the first experiment |
 | `h2s1`, `h2s4`, `h2s16` | `bwv846f`, `bwv847f` | harmony 2, septimal 1, 4, 16; no pace, no limit | seventh springs at low harmony |
 | `h32s0.25`, `h32s1` | `bwv846f`, `bwv847f` | harmony 32, septimal 0.25, 1; no pace, no limit | |
@@ -341,5 +342,7 @@ All committed: 10f773e (19 Nov), 6f2c19b (20 Nov: diamond, ornaments, arpeggio) 
 | `WreckingCrew_v2.py` | grace notes, turns, `--arpeggio`, `--arpeggio_ms`; the refusal of a mismatched array counts the chords |
 | `test_wreckingcrew_v2.py` | 43 tests, five of them for the graces, turns and arpeggio |
 | `split_score.py`, `wtc1_vrwt.sh`, `Scores/bwv8*[pf].mxl` | the Book I scores (Nos. 1–24) and render list |
-| `Scores/bwv988-00.mxl` | the Goldberg Aria on its own |
+| `Scores/bwv988-00.mxl`, `Scores/bwv988vNN.mxl` | the Goldberg Aria and Vars. 1–30 (16 as `v16a` and `v16b`; 26 is the separate `bwv988-26.mxl`), each its own score, cut from `bwv988.mxl` without repeats or first endings |
+| `goldberg_diamond.sh` | the Goldberg, every movement tuned with `--diamond N --harmony 32` (default 7) and rendered; `--diamond 9 bwv988v16a bwv988v16b` does only those |
+| `split_score.py` | several bar ranges into one piece (`65-79,81-96,98:out.mxl`), dropping repeat signs and endings |
 | `goldberg_vrwt.sh` | not committed: has stray `# ` inside ten comments, not made here |

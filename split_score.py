@@ -11,6 +11,10 @@ clefs in force there, so a fugue starts with its own signature.  An upbeat bar
 (MuseScore's implicit X1) becomes bar 0 of its piece.
 
     split_score.py Scores/prelude-and-fugue-6-openwtc.mxl 1-26:Scores/bwv851p.mxl 27-70:Scores/bwv851f.mxl
+
+Several ranges make one piece of the bars listed, in order (20 Nov): the Goldberg's Var. 2 without
+its first endings is 65-79,81-96,98:Scores/bwv988v02.mxl.  Its repeat signs and endings are then
+taken out, since the bars left no longer repeat.
 """
 import copy
 import io
@@ -37,7 +41,20 @@ def state_key(el):
     return (el.tag, el.get('number'))
 
 
-def cut(xml, first, last):
+def parse_bars(spec):
+    """'65-79,81-96,98' -> [65, ..., 79, 81, ..., 96, 98]."""
+    out = []
+    for item in spec.split(','):
+        a, _, b = item.partition('-')
+        out += range(int(a), int(b or a) + 1)
+    return out
+
+
+def cut(xml, first, last=None):
+    """The bars first..last, or with `first` a list, those bars (ascending, gaps allowed)."""
+    bars = set(first) if isinstance(first, list) else set(range(first, last + 1))
+    first, last = min(bars), max(bars)
+    gaps = len(bars) != last - first + 1
     tree = ET.ElementTree(ET.fromstring(xml))
     for part in tree.getroot().findall('part'):
         state = {}                               # the attributes in force, by setting
@@ -53,8 +70,12 @@ def cut(xml, first, last):
                 for a in m.findall('attributes'):
                     for child in a:
                         state[state_key(child)] = child
-            if first <= n <= last:
+            if n in bars:
                 kept.append(m)
+                if gaps:                         # the endings and repeats no longer apply
+                    for bl in m.findall('barline'):
+                        for el in bl.findall('repeat') + bl.findall('ending'):
+                            bl.remove(el)
             else:
                 part.remove(m)
         if not kept:
@@ -87,6 +108,5 @@ if __name__ == '__main__':
     xml = read(sys.argv[1])
     for spec in sys.argv[2:]:
         bars, out = spec.split(':', 1)
-        a, b = (int(x) for x in bars.split('-'))
-        write(out, cut(xml, a, b))
-        print(f'{out}: bars {a}-{b}')
+        write(out, cut(xml, parse_bars(bars)))
+        print(f'{out}: bars {bars}')

@@ -1,0 +1,14 @@
+version: bwv988v12
+method: spring_tuning
+reference: vrwt
+harmony: 32.0
+diamond: 7
+exponent: 2.0
+width: 15.0
+melody: 1.0
+memory: 1.0
+limit: 40.0
+pace: 0.5
+fold: True
+voices: 6
+rests: honored
