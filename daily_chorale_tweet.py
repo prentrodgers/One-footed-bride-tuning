@@ -538,6 +538,51 @@ FILENAME_RE = re.compile(
 # (three or four digits, or <work>.<movement>).
 BUCKET_FILE_RE = re.compile(r"^b(?:\d{1,4}\.\d{1,2}|\d{3,4})[A-Za-z]?_.*\.mp3$")
 
+# Whole keyboard works, rendered movement by movement (Goldberg Variations,
+# 19 Nov 2026).  None of the tuning-search tokens -- just the movement, the
+# temperament, duration and tempo:
+#   b988-01a_vrwt_d01_03_t100.mp3   Variation 1
+#   b988-aa_vrwt_d01_48_t056.mp3    the Aria
+#   b988qa_vrwt_d00_46_t096.mp3     the Quodlibet (the dash is optional)
+# BUCKET_FILE_RE above rejects all three (the dash; two letters), so without
+# this the whole album was invisible to list_albums() and never became newest.
+# Mirrors WORK_RE / movementOf() in file-service/src/lib/chorale.ts.
+WORK_RE = re.compile(
+    r"^b(\d{3,4})-?"                  # BWV number
+    r"([0-9a-z]+?)_"                  # movement token: 01a, 16b, aa, qa
+    r"([a-z]+)_"                      # temperament tag, e.g. vrwt
+    r"d(\d+)_(\d+)_"                  # duration mm_ss
+    r"t(\d+)"                         # tempo
+    r"\.mp3$"
+)
+
+WORK_TITLES = {"988": "Goldberg Variations"}
+TEMPERAMENTS = {"vrwt": "Victorian Rational Well Temperament"}
+GOLDBERG_CANONS = {
+    3: "Canone all'Unisono", 6: "Canone alla Seconda", 9: "Canone alla Terza",
+    12: "Canone alla Quarta", 15: "Canone alla Quinta", 18: "Canone alla Sesta",
+    21: "Canone alla Settima", 24: "Canone all'Ottava", 27: "Canone alla Nona",
+}
+
+
+def movement_title(bwv, token):
+    """'aa' is the Aria, 'qa' the Quodlibet (Variation 30), NN+letter a
+    variation; Variation 16, the Ouverture, is two files, 16a and 16b."""
+    if bwv == "988":
+        if token == "aa":
+            return "Aria"
+        if token == "qa":
+            return "Variatio 30. Quodlibet"
+        m = re.fullmatch(r"(\d+)([a-z]?)", token)
+        if m:
+            n = int(m.group(1))
+            if n == 16:
+                name = "Ouverture (second part)" if m.group(2) == "b" else "Ouverture"
+            else:
+                name = GOLDBERG_CANONS.get(n)
+            return f"Variatio {n}. {name}" if name else f"Variatio {n}"
+    return token
+
 
 def load_env():
     """Load credentials from env file if environment vars are not set."""
@@ -563,7 +608,18 @@ def parse_filename(fname, url):
     """Parse an mp3 filename into (bwv, tweet text)."""
     m = FILENAME_RE.match(fname)
     if not m:
-        return None, f"{fname}\n{url}"
+        w = WORK_RE.match(fname)
+        if not w:
+            return None, f"{fname}\n{url}"
+        bwv, token, temperament, dur_m, dur_s, tempo = w.groups()
+        desc = (
+            f"Bach BWV {bwv} – {WORK_TITLES.get(bwv, 'Bach')}, {movement_title(bwv, token)}\n"
+            f"{TEMPERAMENTS.get(temperament, temperament)}.\n"
+            f"{int(dur_m)}:{dur_s} at {int(tempo)} BPM.\n"
+            f"Rendered by Prent Rodgers, with the help of Claude Code Opus 5.\n"
+            f"{url}"
+        )
+        return bwv, desc
 
     # Group order follows the filename: lm and r moved to the tail on 9/24/26.
     bwv, variant, detail_value, tol, dur_m, dur_s, tempo, _primes, limit, ratio = m.groups()
@@ -624,7 +680,8 @@ def list_albums(bucket=None):
         for page in s3.get_paginator("list_objects_v2").paginate(Bucket=bucket):
             for obj in page.get("Contents", []):
                 album, _, fname = obj["Key"].partition("/")
-                if not fname or "/" in fname or not BUCKET_FILE_RE.match(fname):
+                if not fname or "/" in fname or not (
+                        BUCKET_FILE_RE.match(fname) or WORK_RE.match(fname)):
                     continue
                 # LastModified is UTC; shown in local time, as the cron log is read.
                 when = obj["LastModified"].astimezone()
