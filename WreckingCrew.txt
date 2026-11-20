@@ -26015,8 +26015,8 @@ _____________________________
 
       Yes, both are right:
 
-      - ((3+2)/5)^−2 = (5/5)^−2 = 1^−2 = 1
-      - ((7+4)/5)^−2 = (11/5)^−2 = 2.2^−2 = 1/4.84 ≈ 0.207
+      - ((3+2)/5)^−2 = (5/5)^−2 = 1^−2 = 1 # hard pull
+      - ((7+4)/5)^−2 = (11/5)^−2 = 2.2^−2 = 1/4.84 ≈ 0.207 # less hard pull 
 
       So at p = 2 a 7/4 pulls about a fifth as hard as a 3/2.
 
@@ -26058,7 +26058,7 @@ _____________________________
       To try a limit, change only N and the folder name:
             python spring_tuning.py --chorale bwv988-00 --diamond 7 --harmony 32 --out_dir Archive/spring/d7h32
             python WreckingCrew_v2.py --chorale bwv988-00 --numpy_dir Archive/spring/d7h32 --letter d7h32 --tempo 56 --velocity 62 --rubato_ms 25 --velocity_random 5 --accent 1 --ornaments --trill_glide 0.2 --level_by_velocity
-            
+
       Each run prints which ratio each interval chose, so you can see the effect of N before you listen.
 
       Just so I'm getting this correctly, are we building a temperament for every one of the 12 notes, or rather a cent value for each note in the piece?
@@ -26083,3 +26083,21 @@ _____________________________
       It also changes two other things. The anchor springs are scaled down by the same factor, so chords and anchors keep the same balance with each other. Only the melody and memory springs keep their full strength. The memory window and the gap that still counts as one line are stretched, so in a slow piece they cover the same number of notes as in a fast one.
 
       You can still compare h values within a piece, since h 64 always pulls twice as hard as h 32. Across pieces, the same h now gives about the same evenness of line, whatever the note lengths. To use h unscaled, pass --pace off.
+
+      Me: I'm a bit concerned about this issue: "two F♯s in the same chord when they are in different octaves or voices." I think that would sound jarring. In Straw_man_tuning_v2.py we have a method that prevents that, where we fold every note into the same octave, and compress out duplicates, restoring afterwords. Can you implement that, or if it makes more sense correct it after the fact if it is discovered that two of the same pitch class have different tunings? Make a sensible decision about who wins.
+
+      Claude: The diamond arrays are fine, with the worst split at 0.7 cents, but the older method reaches up to 21 cents, so I'm fixing it inside the solver by sharing one pitch variable across same-pitch-class notes that sound together.
+      How big the problem was:
+      ┌────────────────────────┬─────────────────────────────────────────────────────────┬───────┐
+      │         Array          │                   Worst split before                    │ After │
+      ├────────────────────────┼─────────────────────────────────────────────────────────┼───────┤
+      │ Aria, diamond 15, h 32 │ 0.7¢ (inaudible: octaves pull very hard in the diamond) │ 0     │
+      ├────────────────────────┼─────────────────────────────────────────────────────────┼───────┤
+      │ Aria, h32s4            │ 10.4¢                                                   │ 0     │
+      ├────────────────────────┼─────────────────────────────────────────────────────────┼───────┤
+      │ Fugue 1, h32s4         │ 14.7¢                                                   │ 0     │
+      ├────────────────────────┼─────────────────────────────────────────────────────────┼───────┤
+      │ bwv849f, h32s4         │ 21.2¢, during half the piece                            │ 0     │
+      └────────────────────────┴─────────────────────────────────────────────────────────┴───────┘
+
+      The fold costs almost nothing. Thirds move by 0.2 cents at most, and the range of step sizes widens by a cent or two.

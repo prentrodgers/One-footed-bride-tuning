@@ -9,5 +9,6 @@ melody: 1.0
 memory: 1.0
 limit: 40.0
 pace: 1.0
+fold: True
 voices: 7
 rests: honored
