@@ -556,6 +556,21 @@ WORK_RE = re.compile(
     r"\.mp3$"
 )
 
+# Spring-tuned renders (goldberg_diamond.sh, 20 Nov 2026): the score name, then
+# the tuning tag with no separator.  BUCKET_FILE_RE rejects these too.
+#   b988-00d7h32_d01_48_t056.mp3    Aria (score bwv988-00)
+#   b988v16ad7h32_d01_10_t060.mp3   Variation 16, first part
+#   b988v32d7h32_d01_48_t056.mp3    Aria da capo
+# d7h32 = VRWT pulled toward the 7-limit tonality diamond at harmony 32.
+SPRING_RE = re.compile(
+    r"^b(\d{3,4})"                   # BWV number
+    r"(?:-|v)(\d{2}[a-z]?)"           # movement: -00, v01, v16a, -26
+    r"(d\d+h\d+)_"                   # spring tag: diamond, harmony
+    r"d(\d+)_(\d+)_"                 # duration mm_ss
+    r"t(\d+)"                        # tempo
+    r"\.mp3$"
+)
+
 WORK_TITLES = {"988": "Goldberg Variations"}
 TEMPERAMENTS = {"vrwt": "Victorian Rational Well Temperament"}
 GOLDBERG_CANONS = {
@@ -563,6 +578,15 @@ GOLDBERG_CANONS = {
     12: "Canone alla Quarta", 15: "Canone alla Quinta", 18: "Canone alla Sesta",
     21: "Canone alla Settima", 24: "Canone all'Ottava", 27: "Canone alla Nona",
 }
+
+
+def temperament_label(tag):
+    """'vrwt' by name; a spring tag d<N>h<H> as what it does."""
+    m = re.fullmatch(r"d(\d+)h(\d+)", tag)
+    if m:
+        return (f"Victorian Rational Well Temperament, spring-tuned toward the "
+                f"{m.group(1)}-limit tonality diamond")
+    return TEMPERAMENTS.get(tag, tag)
 
 
 def movement_title(bwv, token):
@@ -576,6 +600,13 @@ def movement_title(bwv, token):
         m = re.fullmatch(r"(\d+)([a-z]?)", token)
         if m:
             n = int(m.group(1))
+            # Spring renders number the Aria 00 and its da capo 32.
+            if n == 0:
+                return "Aria"
+            if n == 32:
+                return "Aria da capo"
+            if n == 30:
+                return "Variatio 30. Quodlibet"
             if n == 16:
                 name = "Ouverture (second part)" if m.group(2) == "b" else "Ouverture"
             else:
@@ -608,13 +639,13 @@ def parse_filename(fname, url):
     """Parse an mp3 filename into (bwv, tweet text)."""
     m = FILENAME_RE.match(fname)
     if not m:
-        w = WORK_RE.match(fname)
+        w = WORK_RE.match(fname) or SPRING_RE.match(fname)
         if not w:
             return None, f"{fname}\n{url}"
         bwv, token, temperament, dur_m, dur_s, tempo = w.groups()
         desc = (
             f"Bach BWV {bwv} – {WORK_TITLES.get(bwv, 'Bach')}, {movement_title(bwv, token)}\n"
-            f"{TEMPERAMENTS.get(temperament, temperament)}.\n"
+            f"{temperament_label(temperament)}.\n"
             f"{int(dur_m)}:{dur_s} at {int(tempo)} BPM.\n"
             f"Rendered by Prent Rodgers, with the help of Claude Code Opus 5.\n"
             f"{url}"
@@ -681,7 +712,8 @@ def list_albums(bucket=None):
             for obj in page.get("Contents", []):
                 album, _, fname = obj["Key"].partition("/")
                 if not fname or "/" in fname or not (
-                        BUCKET_FILE_RE.match(fname) or WORK_RE.match(fname)):
+                        BUCKET_FILE_RE.match(fname) or WORK_RE.match(fname)
+                        or SPRING_RE.match(fname)):
                     continue
                 # LastModified is UTC; shown in local time, as the cron log is read.
                 when = obj["LastModified"].astimezone()
