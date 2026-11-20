@@ -26101,3 +26101,14 @@ _____________________________
       └────────────────────────┴─────────────────────────────────────────────────────────┴───────┘
 
       The fold costs almost nothing. Thirds move by 0.2 cents at most, and the range of step sizes widens by a cent or two.
+            python spring_tuning.py --chorale bwv988-00 --diamond 7 --harmony 32 --out_dir Archive/spring/d7h32
+            python WreckingCrew_v2.py --chorale bwv988-00 --numpy_dir Archive/spring/d7h32 --letter d7h32 --tempo 56 --velocity 62 --rubato_ms 25 --velocity_random 5 --accent 1 --ornaments --trill_glide 0.2 --level_by_velocity
+      Arguments across all:
+      for spring_tuning.py: --diamond 7 --harmony 32
+      for WreckingCrew_v2.py: --rubato_ms 25 --velocity_random 5 --accent 1 --ornaments --trill_glide 0.2 --level_by_velocity
+      The tuning with --diamond 7 may be rough as some major seconds could end up with the 8/7. The first limit diamond that has a 9/8 and 10/9 is number 9. You might want to try that.
+            python spring_tuning.py --chorale bwv988-00 --diamond 9 --harmony 32 --out_dir Archive/spring/d9h32
+            python WreckingCrew_v2.py --chorale bwv988-00 --numpy_dir Archive/spring/d9h32 --letter d9h32 --tempo 56 --velocity 62 --rubato_ms 25 --velocity_random 5 --accent 1 --ornaments --trill_glide 0.2 --level_by_velocity
+      Try that with variation 16
+            python spring_tuning.py --chorale bwv988-16 --diamond 9 --harmony 32 --out_dir Archive/spring/d9h32
+            python WreckingCrew_v2.py --chorale bwv988-16 --numpy_dir Archive/spring/d9h32 --letter d9h32 --tempo 56 --velocity 62 --rubato_ms 25 --velocity_random 5 --accent 1 --ornaments --trill_glide 0.2 --level_by_velocity

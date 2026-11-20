@@ -498,6 +498,9 @@ class TestNames(unittest.TestCase):
         self.assertEqual(atu.score_name('bwv245.14'), 'bwv245.14')
         self.assertEqual(atu.score_name('bwv244.62'), 'bwv244.62')
         self.assertEqual(atu.score_name('bwv262_t3_r1.500_lm19'), 'bwv262')
+        with self.assertRaises(SystemExit) as e:      # not cut to bwv988, the whole Goldberg set
+            atu.score_name('bwv988-16')
+        self.assertIn('bwv988v16a', str(e.exception.code))
         a = atu.stream_to_midi_array('bwv244.62')[0]
         b = atu.assign_chorale('bwv244.62')[0]
         self.assertTrue(a.shape == b.shape and (a == b).all())

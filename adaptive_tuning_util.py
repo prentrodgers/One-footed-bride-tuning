@@ -1409,8 +1409,22 @@ def score_name(version):
     Until Nov 2026 the corpus check was missing, so every decimal-numbered
     chorale of nine characters or more was cut too: bwv245.14 was read as
     bwv245 (a different chorale) and bwv244.15 .. bwv244.62 all as bwv244.10.
+
+    A name with no underscore is never cut: it is a score's own name, and if
+    nothing has it that is a typo, so it stops with the nearest names.  Until
+    20 Nov 2026 it was cut too, and bwv988-16 (the files are bwv988v16a and
+    bwv988v16b) silently tuned and rendered all of bwv988, 54 minutes.
     """
-    if len(version) > 8 and score_file(version) is None and not corpus_has(version):
+    if score_file(version) is not None or corpus_has(version):
+        return version
+    if '_' not in version:
+        import difflib
+        names = sorted({os.path.splitext(f)[0] for f in os.listdir(SCORES_DIR)
+                        if f.endswith(tuple(SCORE_SUFFIXES))})
+        near = difflib.get_close_matches(version, names, n=6, cutoff=0.6)
+        raise SystemExit(f'no score named {version!r} in {SCORES_DIR} or the music21 corpus'
+                         + (f'; did you mean {", ".join(near)}?' if near else ''))
+    if len(version) > 8:
         return version[:6]
     return version
 
@@ -1871,9 +1885,10 @@ def assign_chorale(version, save_midi_file = False):        #, quantization = 4)
     if score_name(version) != version:
         # Said out loud: a misspelt file name in SCORES_DIR lands here and would
         # otherwise tune whatever corpus work the first six characters find.
-        print(f'WARNING: no {version}.* in {SCORES_DIR} or the corpus; reading corpus work {version[:6]} instead')
-        logging.warning(f'no score file for {version}; using corpus work {version[:6]}')
-        version = version[:6]
+        name = score_name(version)
+        print(f'WARNING: no {version}.* in {SCORES_DIR} or the corpus; reading {name} instead')
+        logging.warning(f'no score file for {version}; using {name}')
+        version = name
     chorale, root, mode, time_sig, s = stream_to_midi_array(version, save_midi_file = save_midi_file)
     scale = _get_scale(root, mode.lower())
     accidentals, flats = get_keysig(root, mode)
