@@ -25799,3 +25799,158 @@ ________________________
       Could you use the Glenn Gould tempi from his 1981 version. A document describing those temops is available here: /home/prent/Repos/One-footed-bride-tuning/GlennGouldGoldbergTempi.pdf This is not simply a list of tempi. It's a PhD thesis analysis of all things tempo for the 1955 and 1981 versions. Exhaustive and exhausting. 
 
       It would be useful if we could supress the compression in final volumes of the csound render somehow. At present, when we use a lower --velocity level, it comes out just as loud as the high levels, resulting only in a change of timbre not volume. 
+
+      When you want to push on fs1 and pull on the pod:
+            opsignin
+            git push
+            ssh one-footed-bride-pod "cd Repos/One-footed-bride-tuning ; git pull --ff-only"
+      Easy-peasy. 
+      I'm downloading the open WTC from here: https://musescore.com/user/9836/sets/669666
+      I made it from 1 to 22, but I can't get 23 & 24. It says I'm violating terms of service. I read the terms and I don't see any that refer to quantity. I waited overnight before trying again, then bought additional credits, and I still can't get the last two. The chat service on MuseScore is worthless. 
+
+      I purchased 5 credits but I don't see the "1 credit" on the score I'd like. Claude says there is a 20 score limit per day, and I hit the limit. Wait 24 hours from the last download Wednesday at around 4:11 pm.
+            ls -lth Scores/prelude*.mxl
+                  -rw-r--r--. 1 prent prent 25K Nov 18 16:11 Scores/prelude-and-fugue-22-openwtc.mxl
+      Work with what you have for now. 
+
+____________________
+11/19/26 Start tunings for the preludes, and try to figure out why the fugues won't tune. 
+      Actually, start with the fugues. Dig into what we can do about that.
+      Take a look at some examples of the fugues already tuned. 72 attempts here:
+            ssh one-footed-bride-pod ls -lth Repos/One-footed-bride-tuning/Archive/straw-man/*/bwv84?f-opt.txt
+            python select_best_and_render.py --numpy_dir_root Archive/straw-man --chorale_list bwv{846..848}f --suffix="-opt.npy" --sort_by p90 > summary_fugues_best.txt 
+            scp one-footed-bride-pod:/home/prent/Repos/One-footed-bride-tuning/summary_fugues_best.txt .
+
+      Then listen to it. 
+            # python select_best_and_render.py --numpy_dir_root Archive/straw-man --chorale_list bwv{846..848}f --suffix="-opt.npy" --sort_by p90 --render --short_repeats
+      Except this one is way too slow. It rendered this 16 minute monstrocity: 
+                  srate 44100, stereo, 24 bit WAV, 966.572 seconds
+      Try one that made it to best-tunings:
+            python WreckingCrew_v2.py --chorale bwv846f --temperament werckmeister_III --velocity_random 4 --accent 1 --tempo 58 --velocity 76
+      But that one is werckmeister.
+            python WreckingCrew_v2.py --chorale bwv846f --tempo 58 --letter l
+      Consider some other ideas:
+      - Adams tuning. If you want a difference across keys, this gives it in spades.
+      - I suspect the touble is caused by the contrapuntal nature of the fugue, where the melody is primary, and the harmony sometimes is less important. 
+      - What if we decrease the importance of score and alter the Viterbi optimization hyperparameters to seek different results.
+      Ask claude fable 5.2 for help. I'll have to watch the time that I'm engaged with this one. I think it has a five hour limit. So starting at 9:00 am I might get cut off at 2:00 pm.
+
+      I think the problem is more fundamental. I listened to the results for the two fugues 846 and 847, and both have lots of very ugly horizontal pitch problems. Chorales have a much higher focus on the harmony of each chord, and they sound wonderful, once any horizontal movements are addressed with Viterbi optimization. But the fugues are less about harmonies of individual chords, and more about the flow of the melodies between voices. I'm stuck on how I can do a better job than the two temperaments Werckmeister III and Victorian Rational Well Temperament, or even 12-tone equal. All three sound wonderful, and my best attempts with one-footed-bride-tuning are a terrible disappointment. I'm open to any ideas. Perhaps we should focus more on the horizontal consistency and less on the score of simultaneous chordal harmony. But I'm at a loss as to how to do that.
+
+      I'm thinking I might switch to the Art of the Fugue. The whole idea of WTC is one temperament that sounds good in each key, and my claim is minimzing ratios can optimize for every key. But Bach wanted the difference to remain, so I'm going against the master's wishes. 
+
+      Meanwhile Claude Fable 5.2 is looking at a spring tuning method. 
+      He quantifies the problem:
+
+┌─────────────────────────────────────────────────┬─────────────────────────────┬─────────────────────────┐
+│                                                 │       Fugues 1 and 2        │ Chorales bwv262, bwv425 │
+├─────────────────────────────────────────────────┼─────────────────────────────┼─────────────────────────┤
+│ Average length of a sonority                    │ about 0.3 of a quarter note │ 0.5 to 0.75             │
+├─────────────────────────────────────────────────┼─────────────────────────────┼─────────────────────────┤
+│ Time with a second, seventh or tritone sounding │ 52% and 37%                 │ 31% and 40%             │
+├─────────────────────────────────────────────────┼─────────────────────────────┼─────────────────────────┤
+│ Held notes retuned mid-note                     │ 50 and 23                   │ 1 and 2                 │
+└─────────────────────────────────────────────────┴─────────────────────────────┴─────────────────────────┘
+      More: The experiment
+
+      spring_tuning.py gives every note one pitch, so a held note never moves. It solves for all the pitches at once from three pulls:
+
+      - Anchor: each note toward its VRWT pitch.
+      - Melody: each step toward its VRWT size, and a pitch class toward where it was a moment ago.
+      - Harmony: notes sounding together toward 3/2, 5/4, 6/5 and their inversions, weighted by how long they overlap. Seconds, sevenths and tritones get no pull, so a passing note is placed by its line.
+
+      One dial, --harmony, sets the trade: 0 is VRWT exactly, and higher values buy purer chords at the cost of less even steps. It runs in under a second per fugue, with no cluster.
+
+      Results for Fugue 1 (bwv846f), all in cents:
+
+┌───────────────────────────┬──────────────────────────────┬─────────────┬────────────┬────────────────────────────────────┐
+│          Tuning           │ Thirds and sixths, from just │ Whole steps │ Half steps │ Movement of a pitch class, average │
+├───────────────────────────┼──────────────────────────────┼─────────────┼────────────┼────────────────────────────────────┤
+│ 12-TET                    │ 14.8                         │ 200         │ 100        │ 0                                  │
+├───────────────────────────┼──────────────────────────────┼─────────────┼────────────┼────────────────────────────────────┤
+│ Werckmeister III          │ 11.9                         │ 192–204     │ 96–108     │ 0                                  │
+├───────────────────────────┼──────────────────────────────┼─────────────┼────────────┼────────────────────────────────────┤
+│ VRWT                      │ 9.9                          │ 195–202     │ 94–108     │ 0                                  │
+├───────────────────────────┼──────────────────────────────┼─────────────┼────────────┼────────────────────────────────────┤
+│ Your best (t2_r1.50_lm19) │ 8.9                          │ 119–267     │ 57–165     │ 78                                 │
+├───────────────────────────┼──────────────────────────────┼─────────────┼────────────┼────────────────────────────────────┤
+│ Spring, harmony 2         │ 6.0                          │ 190–204     │ 88–115     │ 6                                  │
+├───────────────────────────┼──────────────────────────────┼─────────────┼────────────┼────────────────────────────────────┤
+│ Spring, harmony 8         │ 3.7                          │ 187–209     │ 79–118     │ 10                                 │
+├───────────────────────────┼──────────────────────────────┼─────────────┼────────────┼────────────────────────────────────┤
+│ Spring, harmony 32        │ 2.2                          │ 182–221     │ 65–126     │ 17                                 │
+└───────────────────────────┴──────────────────────────────┴─────────────┴────────────┴────────────────────────────────────┘
+
+      At harmony 8 the thirds are less than half as far from just as VRWT's, with whole steps about as even as Werckmeister III's. Fugue 2 behaves the same way: thirds go from 14.6 in VRWT to 5.0.
+
+      The 8.9 for your tuning is measured against 5/4 and 6/5 only. Your tuner chooses other ratios on purpose, so that figure understates it on its own terms.
+
+      To listen
+
+      The files are on fs1, in Archive/spring/h2, h8 and h32, for both fugues:
+
+            for h in 2 8 32 ; do echo $h; python WreckingCrew_v2.py --chorale bwv846f --tempo 58 --numpy_dir Archive/spring/h$h --letter h$h ; done
+
+      Change h8 in both places for the other strengths, and use bwv847f for Fugue 2. A dry run of the h8 file loads all 736 notes with no glides; I have not rendered audio.
+
+      What your ears will decide - I like them all. But prefer the harmony 2. 
+
+      - If one strength beats VRWT: the next step is to feed your tuner's chosen ratios in as the harmony targets, so the 7-limit and higher chords come back where a chord lasts long enough to hear them. The experiment only knows 5-limit intervals.
+      - If none does: a fixed temperament is the ceiling for this music, and the best remaining option is a temperament fitted to each fugue.
+
+      The approach is not new: as I recall, John deLaubenfels described it on the tuning list around 2000. I have not checked that reference. I found several references to John on Facebook, including these examples of his method realized by Kevin Russel James https://kevinrusselljames.bandcamp.com/album/interpretations-i-the-western-tradition Especially the Ricercar à 6. 
+      And this from 2017 that uses what he calls adaptive just intonation:
+      https://drive.google.com/file/d/16hcVwoAU2fDbXHNYW-SJ6okqTZo2cCDJ/view?pli=1
+
+      It includes this description of the algorithm: How does it work? The adaptive JI algorithm that I use takes into account all simultaneous notes, to preserve just harmony. It also strives to maintain repetitions of the same note at the same pitch, to avoid sudden shifts in pitch that can be jarring. When a note cannot be tuned exactly because of multiple competing demands to be more sharp or flat, it tunes the notes all around it in order to make it work. The harmonic function is based on Paul Hindemith's work in "The Craft of Musical Composition", where he explains a simple way to find the root and just intonation of any combination of the 12 tones, whereas the algorithm itself is loosely based on the work of microtonal theorist John deLaubenfels.
+
+      Who is John deLaubenfels and is he still alive, or are there some of his writings still available. Here is some of his improvisations based on 13-limit Just Intonation: https://www.youtube.com/watch?v=yzczLnP3WIs
+
+      And his web page here: https://www.adaptune.com/ It has examples, most of which showcase the spicy stuff.
+
+      And his work with Paul Erlich are described here: http://tonalsoft.com/linkto.aspx?http://groups.yahoo.com/group/tuning/message/7890 and here: http://tonalsoft.com/linkto.aspx?http://groups.yahoo.com/group/tuning/message/12668
+      
+      Both links are dead, because groups.yahoo.com/group/tuning is dead. Do a search for 7890 and 12668. This found them: https://yahootuninggroupsultimatebackup.github.io/search/?q=7890&author=&after=&before=
+
+
+      This got me thinking. What if we tuned to the overtones of the major keys up to x-limit. Just the overtones, not a tonality diamond. Then the minor keys use the utonality. 
+
+      In a tonality diamond, the overtone series provides 8,9,10,11,12,13,14,15,16... to an arbitrary limit. But to get a good minor chord, like F minor, you take an undertone series 3:2 above F (namely C) and use its undertone series. So F minor using the C undertones you get 4:3 16:11 8:5 16:9 1:1 16:15 8:7 16:13 4:3. Then transform the ratios to be relative to F as 1:1, and you get this at limit 15:
+                undertones transposed
+            note    of C   of F    cents
+            F        4:3    1:1      0.0
+            G      16:11  12:11    150.6
+            Ab       8:5    6:5    315.6
+            Bb      16:9    4:3    498.0
+            C        1:1    3:2    702.0
+            Db     16:15    8:5    813.7
+            Eb       8:7   12:7    933.1
+            E      16:13  24:13   1061.4
+            F        4:3    2:1   1200.0
+      That's a nice minor scale, and I've used it a lot. Hardly diatonic. A major scale on the overtones to the 15 limit.
+            limit 15
+            note    n    of C    cents  12-TET   error
+            C       1     1:1      0.0       0    +0.0
+            D       9     9:8    203.9     200    +3.9
+            E       5     5:4    386.3     400   -13.7
+            F      11    11:8    551.3     500   +51.3
+            G       3     3:2    702.0     700    +2.0
+            A      13    13:8    840.5     900   -59.5
+            Bb      7     7:4    968.8    1000   -31.2
+            B      15    15:8   1088.3    1100   -11.7
+            max |error| 59.5 cents, rms 30.6 cents
+
+      Back to claude:
+      spring_tuning.py and Archive/spring/ are new and uncommitted, so the pod does not have them.
+
+      I asked him to add springs to pull to the 7:4 to major keys and 12:7 to minor scales.
+            for s in 1 4 16; do python WreckingCrew_v2.py --chorale bwv846f --tempo 58 --numpy_dir Archive/spring/h2s$s --letter h2s$s; done
+      And with the pull and harmony levels spring power:
+            for s in 0.25 1 4; do python WreckingCrew_v2.py --chorale bwv846f --tempo 58 --numpy_dir Archive/spring/h32s$s --letter h32s$s; done 
+      Simplified if you like the max on all: Uploads/b846fh32s4_d01_58_t058.mp3
+      To do this in the future, first created the tuning formula:
+            python spring_tuning.py --chorale bwv848f --harmony 32 --septimal 4 --out_dir Archive/spring/h32s4
+      Then do the render:
+            # python WreckingCrew_v2.py --chorale bwv848f --tempo 100 --numpy_dir Archive/spring/h32s4 --letter h32s4 --velocity_random 5 --accent 1 --ornaments --trill_glide 0.2 --rubato_ms 25
+      He's worried about 849, the C# minor fugue.   
+            python WreckingCrew_v2.py --chorale bwv849f --tempo 90 --numpy_dir Archive/spring/h32s4 --letter h32s4 --velocity_random 5 --accent 1 --ornaments --trill_glide 0.2 --rubato_ms 25 --velocity 66 --level_by_velocity

@@ -1,0 +1,11 @@
+version: bwv855f
+method: spring_tuning
+reference: vrwt
+harmony: 32.0
+septimal: 4.0
+melody: 1.0
+memory: 1.0
+limit: 40.0
+pace: 0.25
+voices: 2
+rests: honored

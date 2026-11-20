@@ -1024,7 +1024,10 @@ def render(args):
             raise SystemExit(f'{tuning_path}: shape {tuning.shape}, but the score reads as {midi.shape}')
         match = atu.tuning_matches_score(tuning, midi)
         if match < 1.0 and not args.force:
-            raise SystemExit(f'{tuning_path} plays only {match:.0%} of the score\'s chords; --force to render anyway')
+            # Counted, not rounded: 8 chords out of 1840 used to print as "plays only 100%".
+            wrong = max(1, round((1.0 - match) * midi.shape[1]))
+            raise SystemExit(f'{tuning_path}: {wrong} of the score\'s {midi.shape[1]} chords have a note more than 50 cents '
+                             f'from the written one ({math.floor(match * 1000) / 10:.1f}% match); --force to render anyway')
         print(f'tuning {tuning_path} ({atu.rests_mode_from_sidecar(tuning_path)} rests in the tuner)')
 
     tempo = int(args.tempo or ensemble.get('tempo') or TEMPOS.get(version, DEFAULT_TEMPO))
