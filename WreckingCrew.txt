@@ -25954,3 +25954,132 @@ ____________________
             # python WreckingCrew_v2.py --chorale bwv848f --tempo 100 --numpy_dir Archive/spring/h32s4 --letter h32s4 --velocity_random 5 --accent 1 --ornaments --trill_glide 0.2 --rubato_ms 25
       He's worried about 849, the C# minor fugue.   
             python WreckingCrew_v2.py --chorale bwv849f --tempo 90 --numpy_dir Archive/spring/h32s4 --letter h32s4 --velocity_random 5 --accent 1 --ornaments --trill_glide 0.2 --rubato_ms 25 --velocity 66 --level_by_velocity
+      
+_____________________________
+11/20/26 Pick up the idea I had on yesterday's walk for the Goldberg variations.
+      I plan to use the spring technique on the Goldberg variations next. I like the idea of springs all competing to pull cent values to their proper place. Would it be possible to have them pull towards ideal just values based on the sum of the numerator and denominator of the ratios of a tonality diamond, with stronger springs towards lower sums and weaker springs towards higher sums?
+
+      He's working on it now. As a bonus, the claude in the pod coded up a cell in undertones.ipynb that builds and prints to the console a diamond of arbitrary size. You can ask for 1 more than a prime limit and get an octave. Handy. Something I never discovered when I was using Excel. 
+
+      He's implemented the whole shooting match, and explained the h and s arguments:
+
+      h and s say how hard different springs pull. The diamond limit says which ratios the chords are allowed to aim for. Every note sits in a tug of war between the two kinds of spring.
+
+      By "line" I mean one voice moving through time: the horizontal flow, like the soprano of a chorale or one voice of a fugue. The program knows nothing about themes. It doesn't know which notes are the fugue subject, the countersubject or a free voice, and treats every voice alike.
+
+      Where the voices come from. The voices are the ones MuseScore engraved. Each one becomes a row of the tuning array. The Aria has 7 rows, because the right and left hands are split into separate voices where the engraving splits them.
+
+      The three line springs:
+
+      - Anchor. One spring per note, pulling it toward its VRWT pitch. It doesn't connect notes, but it keeps every voice close to the temperament.
+      - Melody. This is the true horizontal spring. It joins each note to the next one in the same voice, and pulls the step between them toward its size in VRWT.
+      - In a key where VRWT's step from G to A is 197¢, a melodic G–A is pulled toward 197¢ even when the chords would like it to be 182 or 204.
+      - It only joins notes that follow within about a beat; a long rest breaks the line. It ignores a repeated note.
+      - Memory. Joins a note to a later note of the same pitch class within about a bar, in any voice, and pulls them toward the same pitch. This is what stops the F♯ in bar 3 from sitting 15¢ away from the F♯ in bar 4. The pull fades the further apart the two notes are.
+
+      The chord springs are the vertical ones: harmony, seventh and diamond. They join notes sounding at the same moment in different voices.
+
+      What this means for a fugue subject. Each entry of the subject keeps the step sizes of VRWT in its own key. Because VRWT steps differ slightly from key to key, an answer on the dominant isn't tuned identically to the subject in the tonic. That matches Bach's temperament. If you want every entry of a theme to sound alike, that would take a new kind of spring that links matching notes of each entry. The program doesn't have one, but it could be added if you mark where the entries are.
+
+      The line springs have fixed strength 1 and are the same in every run:
+      - anchor: each note pulls toward its VRWT pitch.
+      - melody: each step of a line pulls toward its VRWT size.
+      - memory: a pitch class pulls toward where it was a moment ago.
+
+      The chord springs pull notes sounding together toward a just interval.
+
+      h, --harmony sets how strong the chord springs are against the line springs, which are always 1.
+      - h 0: the chords don't pull at all, and you get plain VRWT.
+      - Raising h: the chords win more of the tug of war, so chords get purer and lines get less even.
+      - In the Aria at h 32: thirds are 3.5¢ from just, and whole steps run 187–202¢.
+      - At h 64: thirds are 2.5¢ from just, and whole steps run 185–203¢.
+      - With --pace auto: h is scaled (adjusted, not overriding --harmony specified) to the piece's ordinary note length, so a slow movement isn't pulled harder than a fast one.
+
+      s, --septimal applies only to the method I used on the WTC.
+      - It multiplies h for the seventh-chord springs alone: in h32s4, the pull toward 7/4 or 12/7 is 4 × 32.
+      - With --diamond, s is ignored.
+
+      With --diamond, three settings take over from s:
+
+      ┌──────────────┬───────────────────────────────────────────────────────────────────────────────────────────┬──────────┐
+      │   Setting    │                                         Controls                                          │ Aria run │
+      ├──────────────┼───────────────────────────────────────────────────────────────────────────────────────────┼──────────┤
+      │ --diamond N  │ which ratios are on offer                                                                 │ 15       │
+      ├──────────────┼───────────────────────────────────────────────────────────────────────────────────────────┼──────────┤
+      │ --exponent p │ how h is shared among the ratios: ((n+d)/5)^−p, so simpler ratios pull harder             │ 2        │
+      ├──────────────┼───────────────────────────────────────────────────────────────────────────────────────────┼──────────┤
+      │ --width      │ how a pair chooses its ratio: how far, in cents, a ratio can reach to capture an interval │ 15¢      │
+      └──────────────┴───────────────────────────────────────────────────────────────────────────────────────────┴──────────┘
+
+      Higher p values pull harder for lower (numerator + denominator)/5^-p values. then p=2 ((n+d)/5)^-2. ((3+2)/5)^-2 = 1? ((7+4)/5)^-2 = 0.207
+
+      Yes, both are right:
+
+      - ((3+2)/5)^−2 = (5/5)^−2 = 1^−2 = 1
+      - ((7+4)/5)^−2 = (11/5)^−2 = 2.2^−2 = 1/4.84 ≈ 0.207
+
+      So at p = 2 a 7/4 pulls about a fifth as hard as a 3/2.
+
+      On "higher p pulls harder": 3/2 stays at exactly 1 whatever p is, so raising p doesn't strengthen the simple ratios. It weakens every ratio whose n+d is above 5, and the more complex ratios lose the most. The one exception is 1/1, with n+d of 2, which gets stronger as p rises. Raising p therefore makes the simple ratios dominate.
+
+      The folder names follow the settings: h32s4 is harmony 32, septimal 4; d15h32 is diamond 15, harmony 32, with exponent 2 and width 15 left at their defaults.
+
+      What each diamond limit offers (ratios within 40¢ of a key; each limit adds these to the one above):
+
+      ┌─────┬────────┬───────────────────────────────────────────────┐
+      │  N  │ Ratios │              Added at this limit              │
+      ├─────┼────────┼───────────────────────────────────────────────┤
+      │ 5   │ 7      │ 1/1 6/5 5/4 4/3 3/2 8/5 5/3                   │
+      ├─────┼────────┼───────────────────────────────────────────────┤
+      │ 7   │ 13     │ 8/7 7/6 7/5 10/7 12/7 7/4                     │
+      ├─────┼────────┼───────────────────────────────────────────────┤
+      │ 9   │ 19     │ 10/9 9/8 9/7 14/9 16/9 9/5                    │
+      ├─────┼────────┼───────────────────────────────────────────────┤
+      │ 11  │ 23     │ 11/10 14/11 11/7 20/11                        │
+      ├─────┼────────┼───────────────────────────────────────────────┤
+      │ 13  │ 31     │ 14/13 13/12 13/11 18/13 13/9 22/13 24/13 13/7 │
+      ├─────┼────────┼───────────────────────────────────────────────┤
+      │ 15  │ 37     │ 16/15 15/14 15/11 22/15 28/15 15/8            │
+      ├─────┼────────┼───────────────────────────────────────────────┤
+      │ 17  │ 51     │ 14 ratios of 17                               │
+      ├─────┼────────┼───────────────────────────────────────────────┤
+      │ 19  │ 65     │ 14 ratios of 19                               │
+      ├─────┼────────┼───────────────────────────────────────────────┤
+      │ 21  │ 77     │ 12 ratios of 21 or 7/3                        │
+      └─────┴────────┴───────────────────────────────────────────────┘
+
+      What to expect from each limit:
+      - 5: the old 5-limit table. Seconds, sevenths and tritones have no spring, so they're placed only by their lines.
+      - 7: probably the most interesting one. 7/4 is the only minor seventh on offer, so every minor seventh is pulled toward it. That gets you septimal sevenths without a special chord rule. The catch: 8/7 (231¢) is the only major second on offer, so whole-step clashes get pulled wide, though only weakly (strength 0.11).
+      - 9: adds 9/8 and 9/5, which the Aria picked at 15, so the sevenths go back to 9/5. I expect it to come out much like 15.
+      - 11, 13, 15: mostly add ratios with large n+d. These are weak springs whose wells rarely win.
+      - 17 and up: 14 new ratios per limit, all weak. I'd expect little change from 15.
+
+      To try a limit, change only N and the folder name:
+            python spring_tuning.py --chorale bwv988-00 --diamond 7 --harmony 32 --out_dir Archive/spring/d7h32
+            python WreckingCrew_v2.py --chorale bwv988-00 --numpy_dir Archive/spring/d7h32 --letter d7h32 --tempo 56 --velocity 62 --rubato_ms 25 --velocity_random 5 --accent 1 --ornaments --trill_glide 0.2 --level_by_velocity
+            
+      Each run prints which ratio each interval chose, so you can see the effect of N before you listen.
+
+      Just so I'm getting this correctly, are we building a temperament for every one of the 12 notes, or rather a cent value for each note in the piece?
+
+      A cent value for each note in the piece, not a temperament of 12 pitches.
+
+      - What gets solved: every note gets its own pitch. In the Aria that's 399 values, one for each note, held for that note's whole length. Two F♯s in different bars can come out a few cents apart, and so can two F♯s in the same chord when they are in different octaves or voices.
+      - Where VRWT comes in: the 12-note temperament is only the starting point and the anchor. Each note is pulled toward its VRWT pitch, and the chord springs pull it away. At --harmony 0 every note sits exactly on VRWT, so the result is the temperament.
+      - How far notes drift: the report line's "a pitch class moves" figure measures how far one pitch class spreads across the piece. In the Aria at diamond 15, harmony 32, that's 8.4¢ on average and 13.5¢ at most. VRWT is 0, and the WTC method (h32s4) gave 28.8 and 42.0.
+      - The array: the saved .npy is laid out like the score, one row per voice and one column per time slot, so WreckingCrew can read each note's cents. Every slot under a note holds that note's single value, which is why a held note never bends.
+      - The other methods: the adaptive chorale tunings in Archive/straw-man are per-note too. Only --temperament vrwt (and 12-TET, Werckmeister III) gives the same 12 pitches throughout.
+
+      Does --pace auto override the --harmony value?
+
+      No, it doesn't override it. --pace auto rescales --harmony, and your value still sets the strength.
+
+      - The formula: the chords pull with harmony × 0.5 ÷ the piece's ordinary note length (in quarters). 0.5, an eighth note, is the ordinary note of WTC Fugue 1, where the settings were first chosen by ear.
+      - In the Aria: the ordinary note is a quarter, so --harmony 32 pulls as hard as 16 would with --pace off. The run prints this on its "pace:" line. That line uses the default harmony of 2 rather than the value you passed, so it reads "--harmony 2 pulls as 1 would".
+      - In a piece in eighths: like Fugue 1, nothing changes.
+      - In a piece in half notes: like bwv849f, h 32 pulls as 8 would.
+
+      It also changes two other things. The anchor springs are scaled down by the same factor, so chords and anchors keep the same balance with each other. Only the melody and memory springs keep their full strength. The memory window and the gap that still counts as one line are stretched, so in a slow piece they cover the same number of notes as in a fast one.
+
+      You can still compare h values within a piece, since h 64 always pulls twice as hard as h 32. Across pieces, the same h now gives about the same evenness of line, whatever the note lengths. To use h unscaled, pass --pace off.

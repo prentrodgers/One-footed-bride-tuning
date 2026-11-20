@@ -31,6 +31,16 @@ of spring:
             seventh, D F Ab C.  Every pair in such a chord takes its size from the chord, so the
             seventh's 7/6 and 7/5 to its neighbours replace the 6/5 it would otherwise be pulled to.
 
+  diamond   (--diamond 15, 20 Nov) in place of the fixed table above, every ratio of the tonality
+            diamond with identities (N+1)/2 to N (diamond_music_utils.build_all_ratios) is a target, so
+            seconds, sevenths and tritones get springs too.  A ratio's spring is as strong as
+            ((n+d)/5)^-p (--exponent p, 2): 3/2 is 1, 5/4 0.31, 7/4 0.21, 16/15 0.03, 1/1 6.25.
+            Springs on one pair of notes would only average, so each pair chooses ONE ratio: the
+            deepest well where the pair now stands, a well being its strength times
+            exp(-(cents away / --width)^2 / 2).  The piece is solved, every pair chooses again, and so
+            on until none changes its mind.  The seventh-chord rule is not used: 7/4, 7/5 and 12/7
+            compete like the rest.  Only ratios within --limit of their 12-TET size are offered.
+
 --harmony 0 gives the reference temperament exactly.  Raising it buys purer thirds and fifths and
 pays in less even steps; the report line shows both, so the dial can be set by ear with the numbers
 beside it.  The idea is John deLaubenfels's (vertical, horizontal and grounding springs, tuning list
@@ -69,6 +79,38 @@ LIMIT_ROUNDS = 40            # how many times the anchors of notes past --limit 
 MEMORY_QUARTERS = 4.0        # the same pitch class is tied to itself this far back
 MEMORY_DECAY = 2.0           # ... with a weight that falls by e every this many quarters
 STEP_GAP = 1.0               # two notes of a line are a step when at most this many quarters apart
+DIAMOND_ROUNDS = 40          # how many times the pairs may choose their ratios again
+
+
+def diamond_targets(odd_limit, exponent=2.0, limit=40.0):
+    """The tonality diamond as spring targets: {semitones: [(cents from the 12-TET size, strength, 'n/d')]},
+    each ratio reduced to the octave and filed under the step it is nearest, those further than `limit`
+    from it left out.  Strength ((n+d)/5)^-exponent, so 3/2 is 1."""
+    from fractions import Fraction
+    import diamond_music_utils as dmu
+    seen = set()
+    for r in dmu.build_all_ratios(limit_value=odd_limit):
+        f = Fraction(r).limit_denominator(1000)
+        while f >= 2:
+            f /= 2
+        while f < 1:
+            f *= 2
+        seen.add(f)
+    out = {}
+    for f in sorted(seen):
+        cents = 1200.0 * math.log2(f)
+        size = int(round(cents / 100.0))
+        off = cents - 100.0 * size
+        if limit is None or abs(off) <= limit:
+            out.setdefault(size % 12, []).append((off, ((f.numerator + f.denominator) / 5.0) ** -exponent,
+                                                  f'{f.numerator}/{f.denominator}'))
+    return out
+
+
+def choose(candidates, offset, width):
+    """The ratio whose well is deepest at this interval (cents from its 12-TET size): its index."""
+    depth = [w * math.exp(-0.5 * ((offset - t) / width) ** 2) for t, w, _r in candidates]
+    return int(np.argmax(depth))
 
 
 def load(name):
@@ -130,9 +172,10 @@ def ordinary_note(score):
 
 
 def solve(score, reference='vrwt', harmony=2.0, melody=1.0, memory=1.0, anchor=1.0, septimal=1.0, limit=40.0,
-          pace=None):
+          pace=None, diamond=None, width=15.0):
     """One offset from 12-TET per note, in cents, none further than `limit`.  score['held'] counts
-    the notes whose anchors had to be stiffened to keep them inside it."""
+    the notes whose anchors had to be stiffened to keep them inside it.  With `diamond` (from
+    diamond_targets) the pairs choose their ratios, and score['chosen'] has {ratio: quarters} by size."""
     notes, spq = score['notes'], score['spq']
     ref = reference_offsets(reference)
     if limit is not None and limit <= np.abs(ref).max():
@@ -171,6 +214,18 @@ def solve(score, reference='vrwt', harmony=2.0, melody=1.0, memory=1.0, anchor=1
             if overlap <= 0 and mi % 12 == mj % 12:       # the same pitch class again
                 spring(i, j, 0.0, memory * math.exp(-(aj - bi) / spq / memory_decay))
 
+    lines = {}
+    for i, (v, a, b, m) in enumerate(notes):
+        lines.setdefault(v, []).append(i)
+    for v, idx in lines.items():
+        for i, j in zip(idx, idx[1:]):
+            if notes[j][1] - notes[i][2] <= step_gap * spq and notes[i][3] != notes[j][3]:
+                spring(i, j, ref[notes[j][3] % 12] - ref[notes[i][3] % 12], melody)
+
+    if diamond is not None:
+        return solve_diamond(score, ri, ci, val, rhs, n, harmony, limit, diamond, width,
+                             np.array([ref[m % 12] for _v, _a, _b, m in notes]))
+
     together = {}                                         # sounding together, a stretch at a time
     for now, _c, length in segments(score) if harmony > 0 else ():
         chord = seventh_chord({notes[i][3] % 12 for i in now}) if septimal > 0 else None
@@ -184,19 +239,56 @@ def solve(score, reference='vrwt', harmony=2.0, melody=1.0, memory=1.0, anchor=1
                     together[key] = together.get(key, 0.0) + harmony * (septimal if seventh else weight) * length / spq
     for (lo, hi, target), weight in together.items():
         spring(lo, hi, target, weight)
+    x, held = limited_solve(ri, ci, val, rhs, n, limit)
+    score['held'] = int(held.sum())
+    return x
 
-    lines = {}
-    for i, (v, a, b, m) in enumerate(notes):
-        lines.setdefault(v, []).append(i)
-    for v, idx in lines.items():
-        for i, j in zip(idx, idx[1:]):
-            if notes[j][1] - notes[i][2] <= step_gap * spq and notes[i][3] != notes[j][3]:
-                spring(i, j, ref[notes[j][3] % 12] - ref[notes[i][3] % 12], melody)
 
+def solve_diamond(score, ri, ci, val, rhs, n, harmony, limit, diamond, width, start):
+    """The harmony springs of --diamond added to the line springs already in ri..rhs, the pairs choosing
+    their ratios afresh after each solve until none changes."""
+    notes, spq = score['notes'], score['spq']
+    pairs = {}                                            # (lo, hi): quarters sounding together
+    for now, _c, length in segments(score) if harmony > 0 else ():
+        for x, i in enumerate(now):
+            for j in now[x + 1:]:
+                lo, hi = (i, j) if notes[i][3] <= notes[j][3] else (j, i)
+                if (notes[hi][3] - notes[lo][3]) % 12 in diamond:
+                    pairs[(lo, hi)] = pairs.get((lo, hi), 0.0) + length / spq
+    keys = list(pairs)
+    size = [(notes[hi][3] - notes[lo][3]) % 12 for lo, hi in keys]
+    lo_i = np.array([k[0] for k in keys], int)
+    hi_i = np.array([k[1] for k in keys], int)
+    quarters = np.array([pairs[k] for k in keys])
+    base = len(rhs)
+    x, picks, rounds, settled = start, None, 0, False
+    for rounds in range(1, DIAMOND_ROUNDS + 1):
+        got = x[hi_i] - x[lo_i]
+        new = [choose(diamond[s], g, width) for s, g in zip(size, got)]
+        if new == picks:
+            settled = True
+            break
+        picks = new
+        r = np.arange(base, base + len(keys))
+        w = np.sqrt([harmony * diamond[s][k][1] * q for s, k, q in zip(size, picks, quarters)])
+        t = np.array([diamond[s][k][0] for s, k in zip(size, picks)])
+        x, held = limited_solve(ri + list(r) + list(r), ci + list(lo_i) + list(hi_i),
+                                list(val) + list(-w) + list(w), list(rhs) + list(w * t), n, limit)
+    chosen = {}
+    for s, k, q in zip(size, picks or [], quarters):
+        label = diamond[s][k][2]
+        chosen.setdefault(s, {}).setdefault(label, 0.0)
+        chosen[s][label] += q
+    score.update(held=int(held.sum()), chosen=chosen, rounds=rounds, settled=settled)
+    return x
+
+
+def limited_solve(ri, ci, val, rhs, n, limit):
+    """Least squares for the springs, with the limit kept: (offsets, which notes had to be held)."""
     # The anchors are the first n springs, one a note and in note order, so val[i] and rhs[i]
     # are note i's.  A note past the limit gets an anchor four times as stiff, and all the notes
     # are solved again: its neighbours give way with it, which clipping it alone would not do.
-    val, rhs = np.asarray(val), np.asarray(rhs)
+    val, rhs = np.array(val, dtype=float), np.array(rhs, dtype=float)
     held = np.zeros(n, bool)
     for _ in range(LIMIT_ROUNDS):
         A = coo_matrix((val, (ri, ci)), shape=(len(rhs), n)).tocsr()
@@ -209,8 +301,7 @@ def solve(score, reference='vrwt', harmony=2.0, melody=1.0, memory=1.0, anchor=1
         rhs[over] *= 2.0
     else:
         raise SystemExit(f'--limit {limit:g}: {over.size} notes are still past it after {LIMIT_ROUNDS} rounds')
-    score['held'] = int(held.sum())
-    return x
+    return x, held
 
 
 def to_array(score, offsets, reference='vrwt'):
@@ -279,6 +370,21 @@ def line(label, r):
             f'furthest note {r["furthest"]:4.1f} from 12-TET')
 
 
+STEP_NAMES = ['unisons and octaves', 'minor seconds', 'major seconds', 'minor thirds', 'major thirds', 'fourths',
+              'tritones', 'fifths', 'minor sixths', 'major sixths', 'minor sevenths', 'major sevenths']
+
+
+def chosen_table(chosen):
+    """Which ratios the pairs chose, by interval, as shares of the time that interval sounds."""
+    out = []
+    for s in sorted(chosen):
+        total = sum(chosen[s].values())
+        parts = sorted(chosen[s].items(), key=lambda kv: -kv[1])
+        out.append(f'  {STEP_NAMES[s]:20s} {total:6.1f} q  ' +
+                   '  '.join(f'{r} {100 * q / total:.0f}%' for r, q in parts))
+    return '\n'.join(out)
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--chorale', required=True, help='score name, as for WreckingCrew_v2')
@@ -295,6 +401,13 @@ def main():
                          "'off': against an eighth whatever the piece")
     ap.add_argument('--limit', type=float, default=40.0,
                     help='no note may be further than this many cents from its equal-tempered pitch')
+    ap.add_argument('--diamond', type=int, default=None, metavar='N',
+                    help='pull toward the ratios of the tonality diamond of identities (N+1)/2 to N (15: 8 to 15) '
+                         'instead of the fixed 5-limit table and --septimal')
+    ap.add_argument('--exponent', type=float, default=2.0,
+                    help='with --diamond: a ratio n/d pulls with strength ((n+d)/5)^-exponent, 3/2 being 1')
+    ap.add_argument('--width', type=float, default=15.0,
+                    help='with --diamond: the width of each ratio\'s well in cents, for choosing between ratios')
     ap.add_argument('--out_dir', help='write <chorale>-opt.npy and .txt here')
     ap.add_argument('--sweep', action='store_true', help='print the trade-off for a range of --harmony')
     ap.add_argument('--compare', nargs='*', default=[], help='other tuning files to report beside it')
@@ -313,19 +426,33 @@ def main():
         print(line(name, report(score, wc.temperament_tuning(name, score['midi']))))
     for path in args.compare:
         print(line(os.path.basename(os.path.dirname(path)) or path, report(score, np.load(path))))
+    diamond = diamond_targets(args.diamond, args.exponent, args.limit) if args.diamond else None
+    if diamond:
+        print(f'diamond {args.diamond}: {sum(map(len, diamond.values()))} ratios within {args.limit:g} cents of a step, '
+              f'strength ((n+d)/5)^-{args.exponent:g}, wells {args.width:g} cents wide')
     for h in ([0.25, 0.5, 1, 2, 4, 8, 16, 64] if args.sweep else [args.harmony]):
-        x = solve(score, args.reference, h, args.melody, args.memory, septimal=args.septimal, limit=args.limit, pace=pace)
+        x = solve(score, args.reference, h, args.melody, args.memory, septimal=args.septimal, limit=args.limit, pace=pace,
+                  diamond=diamond, width=args.width)
         T = to_array(score, x, args.reference)
-        print(line(f'spring, h {h:g} s {args.septimal:g}', report(score, T)))
+        label = f'diamond {args.diamond} h {h:g} e {args.exponent:g}' if diamond else f'spring, h {h:g} s {args.septimal:g}'
+        print(line(label, report(score, T)))
         if score['held']:
             print(f'  --limit {args.limit:g}: {score["held"]} of {len(x)} notes were held inside it')
+        if diamond:
+            print(f'  the pairs settled after {score["rounds"]} rounds' if score['settled'] else
+                  f'  the pairs were still changing their minds after {DIAMOND_ROUNDS} rounds')
+            if not args.sweep:
+                print(chosen_table(score['chosen']))
     if args.out_dir and not args.sweep:
         os.makedirs(args.out_dir, exist_ok=True)
         path = os.path.join(args.out_dir, f'{args.chorale}-opt.npy')
         np.save(path, T)
         with open(os.path.splitext(path)[0] + '.txt', 'w') as f:
             f.write(f'version: {args.chorale}\nmethod: spring_tuning\nreference: {args.reference}\n'
-                    f'harmony: {args.harmony}\nseptimal: {args.septimal}\nmelody: {args.melody}\nmemory: {args.memory}\nlimit: {args.limit}\npace: {pace}\n'
+                    f'harmony: {args.harmony}\n'
+                    + (f'diamond: {args.diamond}\nexponent: {args.exponent}\nwidth: {args.width}\n' if diamond else
+                       f'septimal: {args.septimal}\n')
+                    + f'melody: {args.melody}\nmemory: {args.memory}\nlimit: {args.limit}\npace: {pace}\n'
                     f'voices: {T.shape[0]}\nrests: honored\n')
         print(f'wrote {path}')
         if atu.tuning_matches_score(T, score['midi']) < 1.0:

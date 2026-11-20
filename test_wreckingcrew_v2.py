@@ -533,9 +533,9 @@ class TestOrnaments(unittest.TestCase):
     def test_the_score_has_three(self):
         p = self.render()
         slot = lambda beat: atu.grid_slot(beat, p.spq)  # noqa: E731
-        self.assertEqual(p.written, {(0, slot(51.0), 71): ('trill', 1),
-                                     (0, slot(71.5), 79): ('inverted mordent', 2),
-                                     (0, slot(73.0), 76): ('trill', 1)})
+        self.assertEqual(p.written, {(0, slot(51.0), 71): ('trill', 1, ()),
+                                     (0, slot(71.5), 79): ('inverted mordent', 2, ()),
+                                     (0, slot(73.0), 76): ('trill', 1, ())})
         self.assertEqual(p.report['ornaments'], {'trill': 2, 'inverted mordent': 1})
 
     def ornamented(self, p, beat, midi):
@@ -594,6 +594,56 @@ class TestOrnaments(unittest.TestCase):
         self.assertAlmostEqual(wc2.neighbour_ratio(71, 1, werck), 2 ** ((werck[0] + 1200 - werck[11]) / 1200))
         self.assertAlmostEqual(wc2.neighbour_ratio(76, 1, werck), 2 ** ((werck[5] - werck[4]) / 1200))
 
+
+
+class TestGraceNotesAndTurns(unittest.TestCase):
+    """The Goldberg Aria (bwv988-00): bar 2 has grace G5 before F#5 and E5 before D5, bar 6 a turn
+    on F#5, bar 8 a grace F#4 before a G4 with a mordent."""
+
+    def test_the_aria_reads_them(self):
+        stream = wc2.load_score('bwv988-00')
+        spq = atu.slots_per_quarter(stream)
+        w = wc2.ornaments(stream, spq)
+        at = lambda bar, beat: atu.grid_slot(3 * (bar - 1) + beat, spq)  # noqa: E731
+        self.assertEqual(w[(0, at(2, 0.5), 78)], (None, 0, ((1, 0.25),)))      # G5 a sixteenth
+        self.assertEqual(w[(0, at(2, 1.0), 74)], (None, 0, ((2, 0.25),)))      # E5
+        self.assertEqual(w[(0, at(4, 1.0), 62)], (None, 0, ((2, 0.5),)))       # E4 an eighth
+        self.assertEqual(w[(0, at(6, 2.5), 78)], ('turn', (1, -2), ()))        # G5, E5
+        self.assertEqual(w[(0, at(8, 1.0), 67)], ('mordent', -1, ((-1, 0.5),)))
+
+    def test_grace_on_the_beat_at_written_value(self):
+        ratio = lambda st: 2 ** (st / 12)  # noqa: E731
+        pts = wc2.ornament_points((None, 0, ((1, 0.25),)), ratio, 0.5, 8, 0.5)
+        self.assertAlmostEqual(pts[0][1], 2 ** (1 / 12))           # starts on the grace
+        change = next(x for x, m in pts if m == 1.0)
+        self.assertAlmostEqual(change, 0.5 + 1.0 / wc2.GLIDE_TABLE_SIZE)   # half the eighth, then the note
+        self.assertEqual(pts[-1], (1.0, 1.0))
+
+    def test_long_graces_take_at_most_half(self):
+        pts = wc2.ornament_points((None, 0, ((2, 1.0),)), lambda st: 1.1, 0.5, 8, 0.5)
+        hold = [x for x, m in pts if m == 1.1]
+        self.assertAlmostEqual(max(hold), 0.5)
+
+    def test_turn_is_upper_main_lower_main(self):
+        ratio = {1: 1.06, -2: 0.89}.get
+        pts = wc2.ornament_points(('turn', (1, -2), ()), lambda st: ratio(st, 1.0), 0.5, 8, 0.5)
+        values = [m for _x, m in pts]
+        order = [v for k, v in enumerate(values) if k == 0 or v != values[k - 1]]
+        self.assertEqual(order, [1.06, 1.0, 0.89, 1.0])
+        inv = wc2.ornament_points(('inverted turn', (1, -2), ()), lambda st: ratio(st, 1.0), 0.5, 8, 0.5)
+        values = [m for _x, m in inv]
+        self.assertEqual([v for k, v in enumerate(values) if k == 0 or v != values[k - 1]], [0.89, 1.0, 1.06, 1.0])
+
+
+class TestArpeggio(unittest.TestCase):
+    """The Aria's bar 11: an arpeggio sign on the right hand's G4 B4 E5 G5, spread over three voices."""
+
+    def test_rolled_from_the_top(self):
+        stream = wc2.load_score('bwv988-00')
+        spq = atu.slots_per_quarter(stream)
+        at = atu.grid_slot(30.0, spq)
+        self.assertEqual(wc2.arpeggios(stream, spq), {(0, at, 79): 0, (0, at, 76): 1, (0, at, 71): 2, (0, at, 67): 3})
+        self.assertEqual(wc2.arpeggios(stream, spq, 'up')[(0, at, 67)], 0)
 
 
 class TestMeasures(unittest.TestCase):

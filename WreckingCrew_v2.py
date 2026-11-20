@@ -4,7 +4,7 @@ WreckingCrew_v2.py - play a tuned score note for note.
 
 Each note Bach wrote is played once, at his rhythm, by the instrument of its
 part, at the pitch the tuner gave it.  Nothing is added: no doubling, no
-arpeggios, no chord masking, no repeats, no octave drop, no random timbre
+arpeggios but the ones he marked, no chord masking, no repeats, no octave drop, no random timbre
 or stereo.  WreckingCrew.py is untouched and still does all of that for the
 chorale arrangements.  The one exception is a part the ensemble file gives two
 or more players: every player after the first starts each note 0 to
@@ -38,7 +38,17 @@ the two as on a keyboard, or slides with --trill_glide F (1: a continuous sweep)
 score's (music21 reads the key signature and accidentals), a just interval from
 the tuned main note: 16/15 for a semitone, 9/8 for a whole tone, or the
 temperament's own interval under --temperament.  --no-ornaments plays the
-written note plain.  Turns and grace notes are not played.
+written note plain.  A turn is upper neighbour, note, lower neighbour, note, the first three each a
+trill note long (or a quarter of the written note if that is shorter); an inverted turn starts below.
+Grace notes (20 Nov) are taken on the beat at their written value, out of the main note's time, as
+appoggiaturas: the Aria's bar 2 plays A5 G5 F#5 E5 D5 in sixteenths.  They are pitch steps on the main
+note's strike too, tuned like a neighbour (16/15, 9/8, else the temperament's or 12-TET's interval),
+and graces that would take more than half the main note are shortened to fit in half.
+
+Arpeggio signs (the wavy line before a chord; 20 Nov) roll the chord: every note of that staff struck
+on that beat, a separate strike each, --arpeggio_ms (50) apart, top to bottom by default as Glenn Gould
+plays the Aria's bar 11 (--arpeggio up: bottom to top; off: struck together).  A sign the score marks
+up or down keeps its own direction.  Each note still ends where it would have.
 
 Legato: ball9.csd's envelopes scale with the note (p3) and fade over its last
 part (f293, e5, the last 12.5%), so a note played at its written length fades
@@ -200,7 +210,9 @@ LOUDNESS_BUDGET = 20.0          # sum of p15 over all players; trim.sh normalise
 GLIDE_TABLE_START = 5000        # above every sample table in ball9.csd, as in WreckingCrew.py
 GLIDE_TABLE_SIZE = 1024         # GEN -7 points (+1 guard point)
 JUST_STEPS = {1: 16 / 15, 2: 9 / 8}  # an ornament's neighbour, by semitones, as a ratio to the main note
-ORNAMENTS = {'Trill': 'trill', 'Mordent': 'mordent', 'InvertedMordent': 'inverted mordent'}
+ORNAMENTS = {'Trill': 'trill', 'Mordent': 'mordent', 'InvertedMordent': 'inverted mordent',
+             'Turn': 'turn', 'InvertedTurn': 'inverted turn'}
+GRACE_SHARE = 0.5               # grace notes take at most this share of the main note
 TAIL_SECONDS = 4.0              # room for the last note's release and the reverb
 # Where each envelope (p9) starts to fade, as a fraction of p3, from its ball9.csd table:
 # f298 (e0) is 1 1 496 496 of 1024, then the release; f293 (e5) is 1 1 447 447.
@@ -320,30 +332,80 @@ def tie_continuations(part, spq=4):
 
 
 def ornaments(stream, spq=4):
-    """{(part index, slot, midi): (kind, semitones)} for each trill or mordent on a single note.
+    """{(part index, slot, midi): (kind, semitones, graces)} for each ornamented single note.
 
-    kind is 'trill', 'mordent' (lower neighbour) or 'inverted mordent' (upper
-    neighbour, the one written without a slash); semitones is the signed
-    interval to the neighbour, which music21 reads from the key signature and the
-    measure's accidentals (bwv846f: B4 trills with C5, E5 with F5, G5's mordent
-    goes to A5).  Ornaments on chords, turns and grace notes are left out.
+    kind is 'trill', 'mordent' (lower neighbour), 'inverted mordent' (upper neighbour, the one written
+    without a slash), 'turn', 'inverted turn', or None for a note with grace notes only.  semitones is
+    the signed interval to the neighbour, or (upper, lower) for a turn, which music21 reads from the key
+    signature and the measure's accidentals (bwv846f: B4 trills with C5, E5 with F5, G5's mordent goes
+    to A5).  graces: ((semitones from the main note, written length in beats), ...), in playing order.
+    Ornaments on chords are left out; grace notes before a chord go to the chord note nearest them.
     """
     out = {}
     for i, part in enumerate(stream.parts):
+        pending = []
         for n in part.recurse().notes:
-            if n.isChord:
+            if n.duration.isGrace:
+                if not n.isChord:
+                    pending.append(n)
                 continue
-            for e in n.expressions:
+            at = n.getOffsetInHierarchy(part)
+            graces = [g for g in pending if g.activeSite is n.activeSite
+                      and abs(g.getOffsetInHierarchy(part) - at) < 1e-6]
+            pending = []
+            main = n
+            if n.isChord:
+                if not graces:
+                    continue
+                main = min(n.notes, key=lambda x: abs(x.pitch.midi - graces[-1].pitch.midi))
+            kind, semitones = None, 0
+            for e in ([] if n.isChord else n.expressions):
                 kind = ORNAMENTS.get(type(e).__name__)
                 if kind is None:
                     continue
                 try:
                     e.resolveOrnamentalPitches(n, keySig=n.getContextByClass(m21.key.KeySignature))
-                    aux = e.ornamentalPitches[0].midi
+                    aux = [p.midi - n.pitch.midi for p in e.ornamentalPitches]
                 except Exception:                 # music21 could not read it: a whole step up or down
-                    aux = n.pitch.midi + (-2 if kind == 'mordent' else 2)
-                a = _slot(n.getOffsetInHierarchy(part), spq)
-                out[(i, a, n.pitch.midi)] = (kind, aux - n.pitch.midi)
+                    aux = [2, -2] if 'turn' in kind else [-2 if kind == 'mordent' else 2]
+                semitones = tuple(aux[:2]) if 'turn' in kind else aux[0]
+                break
+            g = tuple((x.pitch.midi - main.pitch.midi,
+                       float(m21.duration.Duration(type=x.duration.type, dots=x.duration.dots).quarterLength))
+                      for x in graces)
+            if kind or g:
+                out[(i, _slot(at, spq), main.pitch.midi)] = (kind, semitones, g)
+    return out
+
+
+def arpeggios(stream, spq=4, direction='down'):
+    """{(part index, slot, midi): place in the roll, 0 first} for each chord under an arpeggio sign.
+
+    A sign on a note (music21's ArpeggioMark) rolls every note of that part (staff) starting on that
+    beat, whichever voice it is in; a sign across staves (ArpeggioMarkSpanner) rolls the notes it spans.
+    direction 'down' rolls from the top, 'up' from the bottom; a sign marked up or down overrides it."""
+    groups = []
+    for i, part in enumerate(stream.parts):
+        notes = [(n, n.getOffsetInHierarchy(part)) for n in part.recurse().notes if not n.duration.isGrace]
+        for n, at in notes:
+            for e in n.expressions:
+                if type(e).__name__ == 'ArpeggioMark' and e.type != 'non-arpeggio':
+                    struck = {(i, _slot(at, spq), x.midi) for m, t in notes if abs(t - at) < 1e-6 for x in m.pitches}
+                    groups.append((e.type, struck))
+    for sp in stream.recurse().getElementsByClass('ArpeggioMarkSpanner'):
+        if sp.type == 'non-arpeggio':
+            continue
+        struck = set()
+        for n in sp.getSpannedElements():
+            for i, part in enumerate(stream.parts):
+                if n in part.recurse().notes:
+                    struck |= {(i, _slot(n.getOffsetInHierarchy(part), spq), x.midi) for x in n.pitches}
+        groups.append((sp.type, struck))
+    out = {}
+    for kind, struck in groups:
+        way = kind if kind in ('up', 'down') else direction
+        for k, key in enumerate(sorted(struck, key=lambda key: key[2], reverse=(way == 'down'))):
+            out.setdefault(key, k)
     return out
 
 
@@ -644,28 +706,47 @@ def neighbour_ratio(midi, semitones, temperament=None):
     return ratio if semitones > 0 else 1 / ratio
 
 
-def ornament_points(kind, ratio, written, rate, dur, glide=0.0):
+def ornament_points(ornament, ratio, written, rate, dur, glide=0.0):
     """[(position 0..1 of the note, multiplier)]: the ornament as pitch steps across a note.
 
-    written: the note's written length in beats; dur: its Csound length (p3),
-    which the positions are fractions of; rate: trill notes per beat.  A trill
-    starts on the neighbour and alternates to the end of the written note, an
-    even number of notes so it ends on the main note.  A mordent is main,
-    neighbour, main, the first two each half a trill note long (or a third of the
-    written note if that is shorter).
+    ornament: (kind, semitones, graces) from ornaments(); ratio(semitones): the frequency ratio to a
+    neighbour that far away.  written: the note's written length in beats; dur: its Csound length (p3),
+    which the positions are fractions of; rate: trill notes per beat.  The grace notes come first, on
+    the beat, at their written lengths (together at most GRACE_SHARE of the note).  Then a trill starts
+    on the neighbour and alternates to the end of the written note, an even number of notes so it ends
+    on the main note.  A mordent is main, neighbour, main, the first two each half a trill note long
+    (or a third of what is left of the note if that is shorter).  A turn is upper, main, lower, main
+    (inverted: lower first), the first three each a trill note long or a quarter of what is left.
 
     glide: the fraction of each ornament note spent sliding to the next pitch,
     centred on the change.  0 is a keyboard's step (one table point); 1 slides
     the whole time, the continuous sweep of the Goldberg Aria's trill tables.
     """
+    kind, semitones, graces = ornament
     eps = 1.0 / GLIDE_TABLE_SIZE
+    segments, t = [], 0.0
+    total = sum(b for _s, b in graces)
+    scale = min(1.0, GRACE_SHARE * written / total) if total else 1.0
+    for st, beats in graces:
+        segments.append((t, beats * scale, ratio(st)))
+        t += beats * scale
+    rest = written - t
     if kind == 'trill':
-        n = max(2, int(written * rate) - int(written * rate) % 2)
-        length = written / n
-        segments = [(k * length, length, ratio if k % 2 == 0 else 1.0) for k in range(n)]
+        n = max(2, int(rest * rate) - int(rest * rate) % 2)
+        length = rest / n
+        up = ratio(semitones)
+        segments += [(t + k * length, length, up if k % 2 == 0 else 1.0) for k in range(n)]
+    elif kind in ('mordent', 'inverted mordent'):
+        step = min(0.5 / rate, rest / 3)
+        segments += [(t, step, 1.0), (t + step, step, ratio(semitones)), (t + 2 * step, rest - 2 * step, 1.0)]
+    elif kind in ('turn', 'inverted turn'):
+        upper, lower = semitones
+        first, second = (upper, lower) if kind == 'turn' else (lower, upper)
+        step = min(1.0 / rate, rest / 4)
+        segments += [(t, step, ratio(first)), (t + step, step, 1.0), (t + 2 * step, step, ratio(second)),
+                     (t + 3 * step, rest - 3 * step, 1.0)]
     else:
-        step = min(0.5 / rate, written / 3)
-        segments = [(0.0, step, 1.0), (step, step, ratio), (2 * step, written - 2 * step, 1.0)]
+        segments.append((t, rest, 1.0))
     pts = [(0.0, segments[0][2])]
     for (beat, length, _prev), (_b, nxt_len, mult) in zip(segments, segments[1:]):
         change = beat + length
@@ -762,7 +843,7 @@ def note_velocity(base, slot, downbeats, spread, rng, accent=None):
 
 
 def build_notes(rows, tuning, first, parts, args, glides, report, tempo=DEFAULT_TEMPO, bars=None,
-                downbeats=None, ending=None, spq=4, ornaments=None):
+                downbeats=None, ending=None, spq=4, ornaments=None, arpeggios=None):
     """The (n, 15) p-field array, one row per note per player, sorted by start time.
 
     Columns as in WreckingCrew.py's features array (ball9.csd p1..p15):
@@ -806,6 +887,8 @@ def build_notes(rows, tuning, first, parts, args, glides, report, tempo=DEFAULT_
         report['rubato'] = len(rubato)
     downbeats = set(downbeats if downbeats is not None else (bars or ()))
     ornaments = ornaments or {}
+    arpeggios = arpeggios or {}
+    roll = float(getattr(args, 'arpeggio_ms', 50) or 0) * ms
     temperament = TEMPERAMENTS.get(getattr(args, 'temperament', None) or '')
     trill_rate = float(getattr(args, 'trill_rate', 8) or 8)
     trill_glide = min(max(float(getattr(args, 'trill_glide', 0) or 0), 0.0), 1.0)
@@ -859,17 +942,25 @@ def build_notes(rows, tuning, first, parts, args, glides, report, tempo=DEFAULT_
                         if step > args.max_glide:
                             report['wide_glides'] += 1
                     if ornament:
-                        kind, semitones = ornament
-                        steps = ornament_points(kind, neighbour_ratio(midi, semitones, temperament),
+                        kind, _semitones, graces = ornament
+                        steps = ornament_points(ornament, lambda st: neighbour_ratio(midi, st, temperament),
                                                 (c1 - c0) / spq, trill_rate, dur, trill_glide)
                         pts = multiply_points(pts, steps)
-                        played[kind] = played.get(kind, 0) + 1
+                        if kind:
+                            played[kind] = played.get(kind, 0) + 1
+                        if graces:
+                            played['grace note'] = played.get('grace note', 0) + len(graces)
                     table = glides.table_for(pts)
                 written = (midi * 100 + shift) / 100 - 12 * CSD_OCTAVE_OFFSET   # in ball9.csd's numbering
                 if not lo - 2 <= written <= hi + 2:
                     report['out_of_range'].setdefault(f"{part['name']} ({inst})", [lo, hi, 0])[2] += 1
                 vel = note_velocity(part['velocity'], c0, downbeats, spread, rng, accent)
                 start += rubato.get(c0, 0.0)
+                if (p, a, midi) in arpeggios:
+                    # A rolled chord: this note struck its place in the roll later, ending where it would.
+                    late = arpeggios[(p, a, midi)] * roll
+                    start, dur = start + late, max(dur - late, 0.01)
+                    report['rolled'] = report.get('rolled', 0) + 1
                 if k > 0 and delay_max > 0:
                     # A doubling player: the whole note a little late, a new delay every note.
                     start += delay_rng.uniform(0.0, delay_max)
@@ -1048,7 +1139,8 @@ def render(args):
     written = ornaments(stream, spq)
     notes = build_notes(rows, tuning, first, parts, args, glides, report, tempo=tempo, bars=bars,
                         downbeats=downbeats, ending=ending, spq=spq,
-                        ornaments=written if args.ornaments else None)
+                        ornaments=written if args.ornaments else None,
+                        arpeggios=arpeggios(stream, spq, args.arpeggio) if args.arpeggio != 'off' else None)
     struck = any(INSTRUMENTS[i][1] == 0 for x in parts for i in x['instruments'])
     print(f'ending: the last chord {"has a fermata, held %gx, " % args.fermata if ending["fermata"] else ""}'
           f'sounds to beat {ending["end"] + ending["extra"]:g}'
@@ -1075,8 +1167,14 @@ def render(args):
               f'{args.double_delay_ms:g} ms at random (--double_delay_ms)')
     print(f'glides: {report["glides"]} at chord changes in held notes, widest {report["max_glide"]:.1f} cents, '
           f'{report["wide_glides"]} over {args.max_glide:g}; {len(glides.tables)} tables')
+    if report.get('rolled'):
+        print(f'arpeggio: {report["rolled"]} notes in rolled chords, {args.arpeggio_ms:g} ms apart, '
+              f'{"top to bottom" if args.arpeggio == "down" else "bottom to top"} unless the sign says otherwise '
+              f'(--arpeggio, --arpeggio_ms)')
     if written:
-        kinds = collections.Counter(kind for kind, _s in written.values())
+        kinds = collections.Counter(kind for kind, _s, _g in written.values() if kind)
+        kinds['grace note'] += sum(len(g) for _k, _s, g in written.values())
+        kinds = +kinds
         what = ', '.join(f'{n} {k}{"s" if n > 1 else ""}' for k, n in sorted(kinds.items()))
         if args.ornaments:
             print(f'ornaments: {what}, played as pitch steps in the glide table, {args.trill_rate:g} trill '
@@ -1187,7 +1285,13 @@ def main(argv=None):
                     help='glide a held note to its new value at a chord change (--no-glides holds the first)')
     ap.add_argument('--glide_slots', type=int, default=1, help='glide length in sixteenths')
     ap.add_argument('--ornaments', action=argparse.BooleanOptionalAction, default=True,
-                    help='play trills and mordents as pitch steps in the glide table (--no-ornaments: plain)')
+                    help='play trills, mordents, turns and grace notes as pitch steps in the glide table '
+                         '(--no-ornaments: plain)')
+    ap.add_argument('--arpeggio', choices=['down', 'up', 'off'], default='down',
+                    help='roll a chord under an arpeggio sign from the top (down, the default, as Glenn Gould '
+                         'does in the Goldberg Aria), from the bottom (up), or strike it together (off)')
+    ap.add_argument('--arpeggio_ms', type=float, default=50.0, metavar='MS',
+                    help='time between the notes of a rolled chord (default %(default)s)')
     ap.add_argument('--trill_rate', type=float, default=8.0, metavar='N',
                     help='trill notes per beat (8: 32nd notes); a mordent\'s notes are half that long')
     ap.add_argument('--trill_glide', type=float, default=0.0, metavar='F',

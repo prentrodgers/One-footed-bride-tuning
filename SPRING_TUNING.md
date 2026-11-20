@@ -71,6 +71,36 @@ from 12-TET.
   pulls as 8 would (its ordinary note is a half note), and its whole steps run 160 to 236. For Fugue 1,
   whose ordinary note is an eighth, nothing changes. 26 of the 44 pieces are unchanged by it.
 
+### The diamond springs (20 Nov)
+
+`--diamond 15` replaces the fixed table and `--septimal` with every ratio of the 15-limit tonality
+diamond (identities 8 to 15, from `diamond_music_utils.build_all_ratios`). Of its 49 ratios, 37 lie
+within `--limit` of a 12-TET step and are offered. Each pulls with strength `((n+d)/5)^-p`
+(`--exponent`, 2), so 3/2 is 1, 5/4 0.31, 7/4 0.21, 16/15 0.03 and 1/1 6.25.
+
+Two springs on one pair would only average, so each pair chooses one ratio: the deepest well where the
+pair stands, a well being the ratio's strength times a bell curve `--width` cents wide (15). The piece
+is solved, every pair chooses again, and so on until none changes; the Aria settles in 3 or 4 rounds.
+The run prints which ratios were chosen, by interval.
+
+In the Aria (`Scores/bwv988-00.mxl`, bars 1–32 of `bwv988`) at harmony 32 the pairs chose 1/1, 3/2,
+4/3, 5/4, 6/5, 5/3 and 8/5 throughout, 9/5 for every minor seventh, 15/8 for the major sevenths, 9/8
+(86%) or 10/9 for seconds, 7/5 (68%) or 10/7 for tritones. 7/4 was never chosen: at 31 cents below
+12-TET its well is too far from where the lines hold a seventh, and 9/5 (18 above) wins.
+
+| Aria | thirds/sixths from just | fifths | whole steps | a pitch class moves (avg / max) |
+|---|---|---|---|---|
+| vrwt | 9.8 | 3.5 | 195–202 | 0 |
+| `d15h32` (diamond 15, harmony 32) | 3.5 | 2.1 | 187–202 | 8.4 / 13.5 |
+| `d15h64` | 2.5 | 1.7 | 185–203 | 10.8 / 18.7 |
+| `h32s4` (the WTC method) | 2.8 | 2.4 | 173–230 | 28.8 / 42.0 |
+
+```
+python spring_tuning.py --chorale bwv988-00 --diamond 15 --harmony 32 --out_dir Archive/spring/d15h32
+python WreckingCrew_v2.py --chorale bwv988-00 --numpy_dir Archive/spring/d15h32 --letter d15h32 --tempo 56 \
+    --velocity 62 --rubato_ms 25 --velocity_random 5 --accent 1 --ornaments --trill_glide 0.2 --level_by_velocity
+```
+
 ## Archive/spring/
 
 The directory name is the recipe: `h32s4` is `--harmony 32 --septimal 4`.
