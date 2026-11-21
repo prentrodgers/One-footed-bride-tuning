@@ -96,15 +96,35 @@ def run_cell(k, fresh, task_id):
 
     env = dict(os.environ, FRESH='1' if fresh else '0')
     env.setdefault('VITERBI_WORKERS', '4')
+    # A pass normally takes 1-2 minutes.  On 21 Nov 2026 one hung for 15 minutes
+    # when a replaced worker in the tuner's multiprocessing pool deadlocked, and
+    # the run waited on it.  After PASS_TIMEOUT seconds (default 600) the whole
+    # process group (bash, the tuner and its pool workers) is killed and the pass
+    # fails, so the launcher retries it like any other failure.  A ratcheting
+    # pass keeps its saved tuning (the tuner writes it only at the end); a fresh
+    # pass has already deleted it, and its retry is fresh again.
+    limit = float(os.environ.get('PASS_TIMEOUT', '600'))
     t0 = time.time()
-    proc = subprocess.run(
+    proc = subprocess.Popen(
         ['bash', 'grid_search.sh',
          '--limit_max', str(k.lm), '--tolerance', str(k.t), '--ratio', k.r,
          '--chorale', k.chorale, '--job_id', task_id],
-        env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+        start_new_session=True)
+    try:
+        out, _ = proc.communicate(timeout=limit)
+    except subprocess.TimeoutExpired:
+        import signal
+        try:
+            os.killpg(proc.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        out, _ = proc.communicate()
+        tail = '\n'.join(out.splitlines()[-25:])
+        raise RuntimeError(f'grid_search.sh timed out after {limit:.0f}s (PASS_TIMEOUT); killed\n{tail}')
     seconds = time.time() - t0
     if proc.returncode != 0:
-        tail = '\n'.join(proc.stdout.splitlines()[-25:])
+        tail = '\n'.join(out.splitlines()[-25:])
         raise RuntimeError(f'grid_search.sh exited {proc.returncode} after {seconds:.0f}s\n{tail}')
 
     after = read_sidecar(sidecar)
