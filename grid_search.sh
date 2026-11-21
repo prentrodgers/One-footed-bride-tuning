@@ -55,6 +55,11 @@ SPREAD=7
 INITIAL_TEMP=3.0
 MAX_GAP=33 # tried 12 but that caused unrelated problems with enforce_continuity
 
+# --dedupe_chords (21 Nov 2026): each distinct chord is annealed once and every slot
+# holding it gets those candidates.  bwv261 has 85 chords in 308 slots; a pass went from
+# ~330 s to ~100 s and, holding repeated chords still, ended with GapSum 13-15 where the
+# per-slot draws ended at 36-62 (two cells, four passes each).
+
 # Viterbi threads.  16 is the workstation default.  In the Kubernetes job this
 # MUST equal the pod's cpu limit (4): workers above the limit only contend, so
 # the template sets VITERBI_WORKERS=4 in its env block next to the resources,
@@ -167,7 +172,8 @@ run_cell() {
         --viterbi_verbose_threshold 80 \
         --detect_phrases \
         --phrase_horizontal_weight 8.0 \
-        --viterbi_workers "$VITERBI_WORKERS"
+        --viterbi_workers "$VITERBI_WORKERS" \
+        --dedupe_chords
 
     # Step 2: spread analysis
     # (The old horizontal_transpose.py pass is gone: the Viterbi DP now

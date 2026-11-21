@@ -14,6 +14,7 @@ import logging
 import multiprocessing
 import multiprocessing.pool
 import time
+import os
 import numpy as np
 from collections import defaultdict
 import adaptive_tuning_util as atu
@@ -376,6 +377,33 @@ def compute_transition_cost(prev_cents, curr_cents, prev_midi, curr_midi,
     return total_penalty
 
 
+def _transition_costs(prev_cents, variants, unique_pitch_classes=False):
+    """compute_transition_cost(prev_cents, v) for every row v of `variants` at once, for
+    penalty_type 'pitch_class_jump'.  The rows are pitch-class-preserving shifts of one
+    candidate (NaN in the same voices), so they share their pitch classes and only the
+    distances change.  The arithmetic and the order of the sums are those of
+    compute_transition_cost, so the costs are the same floats and the DP picks the same path."""
+    prev = np.asarray(prev_cents, dtype=float)
+    V = np.asarray(variants, dtype=float)
+    prev = prev[~np.isnan(prev)]
+    V = V[:, ~np.isnan(V[0])]
+    if unique_pitch_classes and V.shape[1]:
+        _, inv = atu.unique_pitch_class_chord(V[0])
+        V = V[:, np.unique(inv, return_index=True)[1]]
+    prev_pcs = atu.pitch_class_from_cents(prev)
+    curr_pcs = atu.pitch_class_from_cents(V[0]) if V.shape[1] else []
+    total = np.zeros(V.shape[0])
+    for j, pc in enumerate(curr_pcs):
+        same = prev[prev_pcs == pc]
+        if not same.size:
+            continue
+        diff = np.abs(V[:, j:j + 1] - same[None, :]) % 1200
+        d = np.minimum(diff, 1200 - diff).min(axis=1)
+        total = total + d
+        total = total + np.where(d > GAP_HINGE, GAP_HINGE_WEIGHT * (d - GAP_HINGE) ** 2, 0.0)
+    return total
+
+
 def viterbi_select_path(all_candidates, chorale_midi, vertical_weight=1.0,
                        horizontal_weight=0.5, penalty_type='pitch_class_jump',
                        mad_weight=0.0, verbose=False, verbose_threshold=None,
@@ -412,6 +440,9 @@ def viterbi_select_path(all_candidates, chorale_midi, vertical_weight=1.0,
     # used_cents is the actual chord cents committed to at this state — may differ
     # from the raw candidate if a MAD-reducing transposition was applied.
     dp = [[None for _ in range(len(all_candidates[i]))] for i in range(n_chords)]
+    # The vectorised transition step serves the default objective; the MAD term and the
+    # other penalty types keep the original loop.
+    fast = penalty_type == 'pitch_class_jump' and mad_weight <= 0 and os.environ.get('VITERBI_SLOW') != '1'
 
     # Initialise first chord.  When this trellis is one phrase of a larger piece,
     # prev_chord_cents is the last chord of the previous phrase, so the seam gets
@@ -456,6 +487,20 @@ def viterbi_select_path(all_candidates, chorale_midi, vertical_weight=1.0,
             # horizontal and MAD terms.  These depend only on the candidate, so
             # build them once here instead of once per predecessor.
             variants = [curr_cents] + _sounding_shifts(curr_cents)
+
+            if fast:
+                # The same search as the loop below, a candidate's variants at a time.
+                for k_prev in range(K_prev):
+                    prev_cost, _, prev_accum, prev_used = dp[i-1][k_prev]
+                    totals = (prev_cost + vertical_weight * curr_v_score
+                              + horizontal_weight * _transition_costs(prev_used, variants, unique_pitch_classes))
+                    v = int(np.argmin(totals))
+                    if totals[v] < min_cost:
+                        min_cost, best_prev, best_used_cents = float(totals[v]), k_prev, variants[v]
+                dp[i][k_curr] = (min_cost, best_prev,
+                                 _update_pc_accum(dp[i-1][best_prev][2], pcs_once(best_used_cents)),
+                                 best_used_cents)
+                continue
 
             for k_prev in range(K_prev):
                 prev_cost, _, prev_accum, prev_used = dp[i-1][k_prev]
@@ -549,7 +594,8 @@ def hierarchical_viterbi_optimization(chorale, cent_value_chorale,
                                      n_workers=1,
                                      build_chord_sa_func=None,
                                      incumbent=None,
-                                     sounding=None):
+                                     sounding=None,
+                                     dedupe=False):
     """
     Apply Viterbi optimization hierarchically at phrase and piece levels.
 
@@ -662,9 +708,23 @@ def hierarchical_viterbi_optimization(chorale, cent_value_chorale,
         })
 
         base_seed = int(rng.integers(0, 2**31))
-        tasks = [(i, search_cols[i], base_seed + i,
-                  None if search_inc is None else np.array(search_inc[i], copy=True))
-                 for i in range(n_chords)]
+        if dedupe:
+            # A chord's candidates depend only on its 12-TET notes (the workers start
+            # every chord from zeros, not from the chord before), and a chorale's slots
+            # repeat their chord while it sounds: bwv261 has 308 slots and 85 chords.
+            # Anneal each distinct chord once and hand every slot that copy, then add
+            # that slot's own incumbent after it as generate_k_candidates would.
+            first_of, slot_key = {}, []
+            for i in range(n_chords):
+                key = tuple(np.round(np.asarray(search_cols[i], dtype=float), 3))
+                first_of.setdefault(key, i)
+                slot_key.append(key)
+            tasks = [(i, search_cols[i], base_seed + i, None) for i in sorted(first_of.values())]
+            logging.info(f'dedupe_chords: {len(tasks)} distinct chords in {n_chords} slots')
+        else:
+            tasks = [(i, search_cols[i], base_seed + i,
+                      None if search_inc is None else np.array(search_inc[i], copy=True))
+                     for i in range(n_chords)]
         # imap_unordered, one chord per task, so the parent can report progress
         # (the workers' logging is switched off after fork) and a slow chord does
         # not hold a whole chunk of others behind it.  Each chord's seed is fixed
@@ -672,18 +732,30 @@ def hierarchical_viterbi_optimization(chorale, cent_value_chorale,
         ctx = multiprocessing.get_context('fork')
         results_list = []
         t0 = time.time()
-        step = max(1, n_chords // 10)
+        step = max(1, len(tasks) // 10)
         with multiprocessing.pool.Pool(processes=n_workers, context=ctx,
                                        initializer=_worker_log_reinit) as pool:
             for result in pool.imap_unordered(_parallel_candidate_worker, tasks):
                 results_list.append(result)
                 done = len(results_list)
-                if done % step == 0 or done == n_chords:
-                    msg = (f'  candidates: {done}/{n_chords} chords, '
+                if done % step == 0 or done == len(tasks):
+                    msg = (f'  candidates: {done}/{len(tasks)} chords, '
                            f'{time.time() - t0:.0f}s')
                     print(msg, flush=True)
                     logging.info(msg)
-        all_candidates = [expand(i, cands) for i, cands in sorted(results_list, key=lambda r: r[0])]
+        if dedupe:
+            by_first = dict(results_list)
+            cands = []
+            for i in range(n_chords):
+                chosen = list(by_first[first_of[slot_key[i]]])
+                if search_inc is not None and len(search_cols[i]):
+                    inc = np.asarray(search_inc[i], dtype=float) % 1200.0
+                    if tuple(np.round(inc, 1)) not in {tuple(np.round(c, 1)) for c, _ in chosen}:
+                        chosen.append((inc, float(chord_scorer.score_chord(inc, tolerance=tolerance))))
+                cands.append(expand(i, chosen))
+            all_candidates = cands
+        else:
+            all_candidates = [expand(i, cands) for i, cands in sorted(results_list, key=lambda r: r[0])]
         logging.info(f'Generated candidates for {n_chords} chords on {n_workers} workers')
 
     # Level 1: Optimize within phrases

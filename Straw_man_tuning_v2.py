@@ -854,6 +854,10 @@ def parse_args():
                         help='Auto-detect phrase boundaries for hierarchical Viterbi optimization')
     parser.add_argument('--phrase_horizontal_weight', type=float, default=1.0,
                         help='Horizontal weight for phrase-level Viterbi optimization (default: 1.0)')
+    parser.add_argument('--dedupe_chords', action=argparse.BooleanOptionalAction, default=False,
+                        help='Viterbi: anneal each distinct chord once and give every slot that '
+                             'holds it the same candidates (bwv261: 85 chords in 308 slots). '
+                             'Needs --viterbi_workers > 1 (default: off)')
     parser.add_argument('--viterbi_workers', type=int, default=1,
                         help='Number of parallel workers for Viterbi candidate generation (default: 1). '
                              'Set to the number of CPU cores available to parallelise across chords '
@@ -1129,7 +1133,8 @@ def main():
                 n_workers=args.viterbi_workers,
                 build_chord_sa_func=build_straw_man_chord_sa,
                 incumbent=incumbent,
-                sounding=sounding)
+                sounding=sounding,
+                dedupe=args.dedupe_chords)
 
             # Update final results with Viterbi-optimized tuning
             final_cent_value_chorale = fill(viterbi_tuning)
