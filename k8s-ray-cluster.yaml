@@ -39,15 +39,15 @@
 #   fs8         14.2 / 17.1Gi       12 /  9Gi     3     2.2 / 8.1Gi
 #   fs3          9.7 / 16.9Gi        8 /  6Gi     2     1.7 / 11Gi   (lost ~4.5 CPU since 10/21)
 #   fs4         11.4 / 34.8Gi        8 /  6Gi     2     3.4 / 29Gi   (mds-b, mgr-b, 3 OSDs, toolbox: 2 CPU)
-#   fs5         16.1 /  8.7Gi        8 /  6Gi     2     8.1 / 2.7Gi  (ONLY with the llama.cpp server at 0:
+#   fs5         16.1 /  8.7Gi        8 /  6Gi     2     8.1 / 2.7Gi  (ONLY with the LLM server at 0:
 #                                                              jupyter 16Gi + 4 OSDs 16.4 + immich-ml 4)
 #   fs10        11.5 / 29.0Gi        8 /  6Gi     2     3.5 / 23Gi   (added 7 Nov 2026: Prometheus, zot, open-webui)
 #   fs11        11.5 / 29.3Gi        8 /  6Gi     2     3.5 / 23Gi   (added 7 Nov 2026)
 #                                                    29 concurrent tasks
 #   (w16 2 x 4 + w12 3 x 3 + w8 6 x 2; 25 before fs10/fs11, after fs6 moved to w8)
 #   plus the head (0.5 CPU / 1.5Gi requested) on fs1, fs4 or fs9 -- see the
-#   headGroupSpec comment.  ray-ratchet.sh scales vllm/llama-qwen3-coder-next
-#   to 0 for the run (it holds 4 CPU / 8Gi on fs5) and back afterwards.
+#   headGroupSpec comment.  ray-ratchet.sh scales vllm/strata-flash-next
+#   to 0 for the run (it holds 4 CPU / 12Gi on fs5) and back afterwards.
 #
 # fs6 vs fs9 (10/21 run): per physical core the two Ryzens tuned identically
 # (2.63 / 8 cores = 4.00 / 12 cores = 0.33); fs6's faster passes came from

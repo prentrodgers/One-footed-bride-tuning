@@ -26112,3 +26112,26 @@ _____________________________
       Try that with variation 16
             python spring_tuning.py --chorale bwv988-16 --diamond 9 --harmony 32 --out_dir Archive/spring/d9h32
             python WreckingCrew_v2.py --chorale bwv988-16 --numpy_dir Archive/spring/d9h32 --letter d9h32 --tempo 56 --velocity 62 --rubato_ms 25 --velocity_random 5 --accent 1 --ornaments --trill_glide 0.2 --level_by_velocity
+
+      See what chord_report can show you:
+            python chord_report.py --chorale bwv988-00.mxl --input_numpy_file Archive/spring/d7h32/bwv988-00-opt.npy
+      The program chord_report.py is really not up to it. Maybe with tolerance 3 or limit_max 47. It runs with those values, but each time slice has too many notes to really analyze. For example, chord 8: 
+                  8:  701  197  700 1092  197  701 1092   
+                  G♮ (D♮) (G♮) (B♮) (D♮) G♮ B♮    97.0
+                  # Fr/To Cents Ratio     # Fr/To Cents Ratio     # Fr/To Cents Ratio
+                  1 G♮ B♮   391 54/43 *
+      There's the score, but it doesn't have room for all the ratios. Claude came up with a better report, showing what percent of notes fall within 5¢ of just.
+                  ┌────────────────────────────┬────────┬────────┬─────────┬────────┬────────┬──────┬───────────┐
+                  │       Aria tuned in        │ m3 6/5 │ M3 5/4 │ 4th/5th │ m6 8/5 │ M6 5/3 │ all  │ within 5¢ │
+                  ├────────────────────────────┼────────┼────────┼─────────┼────────┼────────┼──────┼───────────┤
+                  │ 12-TET                     │ 15.6   │ 13.7   │ 2.0     │ 13.7   │ 15.6   │ 10.5 │ 33%       │
+                  ├────────────────────────────┼────────┼────────┼─────────┼────────┼────────┼──────┼───────────┤
+                  │ vrwt                       │ 10.8   │ 8.2    │ 3.5     │ 7.8    │ 11.7   │ 7.7  │ 33%       │
+                  ├────────────────────────────┼────────┼────────┼─────────┼────────┼────────┼──────┼───────────┤
+                  │ d7h32 as played            │ 5.3    │ 2.9    │ 2.0     │ 3.7    │ 5.8    │ 3.7  │ 74%       │
+                  ├────────────────────────────┼────────┼────────┼─────────┼────────┼────────┼──────┼───────────┤
+                  │ d7h32 frozen to 12 notes   │ 8.2    │ 4.5    │ 4.2     │ 5.0    │ 8.9    │ 5.9  │ 46%       │
+                  ├────────────────────────────┼────────┼────────┼─────────┼────────┼────────┼──────┼───────────┤
+                  │ best fixed 12 for the Aria │ 4.6    │ 1.6    │ 5.6     │ 1.7    │ 4.5    │ 4.0  │ 67%       │
+                  └────────────────────────────┴────────┴────────┴─────────┴────────┴────────┴──────┴───────────┘
+      The labels are for the specific interval. Minor third distance from a ratio of 6:5. Major 3rd from 5:4, so on. This shows that the closeness of the thirds and 5ths are what make this tuning sound so good. The best fixed 12 is meantone shifted to optimize for the Aria from Goldberg. It sound nice. I'm going to leave this for now.

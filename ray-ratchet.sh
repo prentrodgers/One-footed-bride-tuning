@@ -14,7 +14,7 @@
 #     KEEP_CLUSTER=1 ./ray-ratchet.sh ...                    # leave the cluster up afterwards
 #     POWER=0        ./ray-ratchet.sh ...                    # don't touch the tuned profiles
 #     CAP_W=55       ./ray-ratchet.sh ...                    # Intel nodes capped at 55 W (default 50 since 8 Nov 2026, 40 before; 0 = turbo off, as before 22 Oct 2026)
-#     LLM_DEPLOY=none ./ray-ratchet.sh ...                   # don't scale the llama.cpp server off fs5 for the run
+#     LLM_DEPLOY=none ./ray-ratchet.sh ...                   # don't scale the LLM server (Strata) off fs5 for the run
 #
 # Chorale names take the bwv prefix (bwv428, not 428), space-separated after
 # one --chorales.  Every cell x chorale becomes a task, so one run over many
@@ -98,11 +98,12 @@ fi
 kubectl get --raw /readyz --request-timeout=10s >/dev/null 2>&1 \
     || { echo "kubectl cannot reach the cluster (kubectl get nodes to see why)" >&2; exit 2; }
 
-# The llama.cpp server on fs5 (OpenClaw's model) holds 4 CPU and 8Gi there; with
-# it up, fs5's worker cannot fit and sits Pending (10/24/26). Scaled to 0 for the
+# The LLM server on fs5 (OpenClaw's model: Strata with Qwen3.8-Flash-Next since 21 Nov 2026,
+# llama.cpp with Qwen3-Coder-Next before; manifests in ~/Repos/home-llm) holds 4 CPU and 12Gi
+# there; with it up, fs5's worker cannot fit and sits Pending (10/24/26). Scaled to 0 for the
 # run -- OpenClaw falls back to its next model -- and back up by teardown().
 # LLM_DEPLOY=none to leave it alone.
-LLM_DEPLOY="${LLM_DEPLOY:-vllm/llama-qwen3-coder-next}"
+LLM_DEPLOY="${LLM_DEPLOY:-vllm/strata-flash-next}"
 LLM_NS=${LLM_DEPLOY%%/*}; LLM_NAME=${LLM_DEPLOY#*/}
 
 # The RayCluster goes, and the LLM comes back to the replica count the run noted

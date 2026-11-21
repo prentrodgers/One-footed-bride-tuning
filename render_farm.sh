@@ -42,7 +42,7 @@
 #                   instead of powersave-gpu; the Ryzens stay on powersave-gpu.
 #                   Default 0 = powersave-gpu everywhere, until a render's wall
 #                   power has been measured (see the Power block below)
-#   LLM_DEPLOY=none leave the llama.cpp server on fs5 running (by default it is
+#   LLM_DEPLOY=none leave the LLM server (Strata) on fs5 running (by default it is
 #                   scaled to 0 for the render and back when the farm finishes)
 #   STAGGER=45      seconds between pod launches
 #   SHARE=1         every process gets the WHOLE frame range and they share it out in blocks of
@@ -264,11 +264,12 @@ arc_restore() {
   for h in $(arc_hosts); do arc_max "$h" | sed 's/^/  /'; done
 }
 
-# The llama.cpp server for OpenClaw / Open WebUI holds ~45 GiB across both fs5
-# B70s, which the b70a/b70b slices need. A launch scales it to 0 and notes the
+# The LLM server for OpenClaw / Open WebUI (Strata with Qwen3.8-Flash-Next since 21 Nov 2026,
+# llama.cpp before; manifests in ~/Repos/home-llm) holds most of both fs5 B70s' VRAM, which the
+# b70a/b70b slices need. A launch scales it to 0 and notes the
 # old replica count on the Deployment itself, so the waiter or --stop (from any
 # shell, any time later) can put it back. LLM_DEPLOY=none leaves it alone.
-LLM_DEPLOY=${LLM_DEPLOY:-vllm/llama-qwen3-coder-next}
+LLM_DEPLOY=${LLM_DEPLOY:-vllm/strata-flash-next}
 LLM_NOTE=render-farm-replicas
 llm_off() {
   [ "$LLM_DEPLOY" != none ] || return 0
@@ -378,7 +379,7 @@ while [ $# -gt 0 ]; do
       exit 0;;
     # Stopping ends the load, so the fleet goes back to balanced here too
     # (the waiter spawned at launch would do it, but not if POWER=0), and the
-    # llama.cpp server comes back once the B70 pods have let go of the cards.
+    # LLM server comes back once the B70 pods have let go of the cards.
     --stop) kubectl -n "$NS" delete po -l job=blender-farm --wait=false
             echo "== Arc cards back to full clocks"; arc_restore
             [ "${POWER:-1}" = 1 ] && ./power-balanced.sh
@@ -386,7 +387,7 @@ while [ $# -gt 0 ]; do
             llm_back; exit 0;;
     # Spawned detached by a launch: waits for every farm pod to finish, prints
     # each slice's timing, returns the fleet to balanced (unless POWER=0) and
-    # brings back the llama.cpp server if the launch scaled it down.
+    # brings back the LLM server if the launch scaled it down.
     --wait-then-balanced)
       while kubectl -n "$NS" get po -l job=blender-farm --no-headers 2>/dev/null \
               | awk '{print $3}' | grep -qE "Running|Pending|ContainerCreating|Init"; do

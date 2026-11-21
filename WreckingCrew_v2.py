@@ -507,13 +507,20 @@ TEMPERAMENTS = {
     # 1514/903 2755/1548 20365/10836
     'vrwt': [0, 94.662, 197.009, 296.830, 392.056, 499.080, 593.558, 700.037,
              795.608, 894.681, 997.976, 1092.311],
+    # Quarter-comma meantone: every fifth 696.578, a quarter of the syntonic comma (81/80) narrow, so
+    # four fifths make a pure 5/4 third (C-E 386.314).  The chain runs F C G D A E B F# C# G# D# A#,
+    # sharps rather than the usual Eb..G#, for pieces in sharp keys: the Goldberg Aria spells D#, never
+    # Eb, and an Eb in its place would be 41 cents flat.  The wolf is A#-F (737.6, 35.6 wide); the
+    # thirds that cross it (e.g. A#-D, F#-A#, D#-G) are 427 cents, 41 wide, and unusable.
+    'meantone': [0, 76.049, 193.157, 269.206, 386.314, 503.422, 579.471, 696.578,
+                 772.627, 889.735, 965.784, 1082.892],
 }
 
 
 # The temperament as the render's file name gives it: b846fa_werck3_d01_54_t060.mp3
 TEMPERAMENT_TAGS = {'12-TET': '12tet', 'werckmeister_I': 'werck1', 'werckmeister_II': 'werck2',
                     'werckmeister_III': 'werck3', 'werckmeister_IV': 'werck4',
-                    'vrwt': 'vrwt'}
+                    'vrwt': 'vrwt', 'meantone': 'mt4'}
 
 
 def temperament_tuning(name, midi):
