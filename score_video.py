@@ -81,8 +81,9 @@ def build_ly(version, prop_denominator, paper_height_mm=80.0):
     (1-based) to (part_index, onset in quarter notes) for every note."""
     import logging
     logging.disable(logging.CRITICAL)
-    from music21 import corpus, note, chord
-    s = corpus.parse(f'bach/{version}')
+    from music21 import note, chord
+    import adaptive_tuning_util as atu
+    s = atu.parse_score(atu.score_name(version))   # the loader every program shares
     key = s.analyze('key')
     parts = list(s.parts)[:4]
     names = ['S', 'A', 'T', 'B']

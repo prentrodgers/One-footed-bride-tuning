@@ -27,7 +27,7 @@ logging.disable(logging.CRITICAL)
 
 def score_grid(version, spq):
     """(4, slots) MIDI numbers straight from the parts, -1 where a part rests; spq slots a beat."""
-    s = corpus.parse(f'bach/{version}')
+    s = atu.parse_score(version)
     parts = [list(p.flatten().notesAndRests) for p in s.parts]
     total = max(n.offset + n.duration.quarterLength for p in parts for n in p)
     grid = -np.ones((4, math.ceil(total * spq)), dtype=int)
@@ -45,7 +45,7 @@ def score_grid(version, spq):
 # The grid is the score's: sixteenths, but 32nds for bwv432, whose soprano has two
 # 32nd passing notes (bars 4 and 6) that the sixteenth grid lost until Nov 2026.
 for version, spq in [('bwv262', 4), ('bwv437', 4), ('bwv432', 8), ('bwv424', 4)]:
-    assert atu.slots_per_quarter(corpus.parse(f'bach/{version}')) == spq, version
+    assert atu.slots_per_quarter(atu.parse_score(version)) == spq, version
     chorale, *_ = atu.stream_to_midi_array(version)
     grid = score_grid(version, spq)
     assert chorale.shape == grid.shape, (version, chorale.shape, grid.shape)
@@ -83,7 +83,7 @@ print('ok tuning_matches_score')
 # The score sets the number of rows.  bwv846 has one right-hand line, two
 # left-hand voices in one staff, and chords in its last bar.
 chorale, *_ = atu.stream_to_midi_array('bwv846')
-rows = atu.score_rows(corpus.parse('bach/bwv846'))
+rows = atu.score_rows(atu.parse_score('bwv846'))
 assert chorale.shape[0] == len(rows) >= 3, chorale.shape
 assert chorale.shape[1] == 136 * 4, chorale.shape
 assert (chorale > 0).all()
@@ -126,7 +126,7 @@ with tempfile.TemporaryDirectory() as atu.SCORES_DIR:
     # Ties are merged first: music21's own MIDI round trip keeps only the first
     # note of a tie (bwv846's tied C2 pedal in bars 32-33 comes back half as
     # long), which is the writer's problem, not this reader's.
-    corpus.parse('bach/bwv846').stripTies().write('midi', fp=os.path.join(atu.SCORES_DIR, 'wtc1c.mid'))
+    atu.parse_score('bwv846').stripTies().write('midi', fp=os.path.join(atu.SCORES_DIR, 'wtc1c.mid'))
 
     def sounding(score):
         slots = collections.defaultdict(set)
@@ -136,7 +136,7 @@ with tempfile.TemporaryDirectory() as atu.SCORES_DIR:
                     slots[k].add(midi)
         return slots
 
-    from_score = sounding(corpus.parse('bach/bwv846'))
+    from_score = sounding(atu.parse_score('bwv846'))
     from_midi = sounding(atu.parse_score('wtc1c'))
     differ = [k for k in sorted(set(from_score) | set(from_midi)) if from_score[k] != from_midi[k]]
     assert not differ, (len(differ), differ[:5], from_midi[differ[0]], from_score[differ[0]])

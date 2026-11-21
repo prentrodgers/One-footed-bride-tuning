@@ -60,15 +60,17 @@ from music21.lily import translate as lily_translate
 
 
 def load(name_or_path: str):
-    """A music21 score for a corpus name (bwv267 or bach/bwv267) or a file."""
+    """A music21 score for a file, or a name the way every other program reads it
+    (adaptive_tuning_util.parse_score): Scores/{name}.* first, then the corpus,
+    MusicXML before Humdrum (bwv277, bwv281, bwv366 have both)."""
     p = Path(name_or_path)
     if p.suffix and p.exists():
         return converter.parse(p), p.stem
-    name = name_or_path if "/" in name_or_path else f"bach/{name_or_path}"
-    try:
-        return corpus.parse(name), Path(name).name
-    except Exception as exc:   # music21 raises several types for a bad name
-        sys.exit(f"{name_or_path}: not a file and not in music21's corpus ({exc})")
+    import adaptive_tuning_util as atu
+    name = name_or_path.removeprefix("bach/")
+    if atu.score_file(name) is None and not atu.corpus_has(name):
+        sys.exit(f"{name_or_path}: not a file, not in {atu.SCORES_DIR} and not in music21's corpus")
+    return atu.parse_score(name), name
 
 
 def title_block(score, stem: str) -> None:

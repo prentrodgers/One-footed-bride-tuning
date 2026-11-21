@@ -25,7 +25,7 @@ diamond = atu.build_tonal_diamond(19)[:-1]
 
 def score_grid(version):
     """(4, sixteenths) MIDI numbers straight from the parts, -1 where a part rests."""
-    s = corpus.parse(f'bach/{version}')
+    s = atu.parse_score(version)
     parts = [list(p.flatten().notesAndRests) for p in s.parts]
     total = max(n.offset + n.duration.quarterLength for p in parts for n in p)
     grid = -np.ones((4, math.ceil(total * 4)), dtype=int)

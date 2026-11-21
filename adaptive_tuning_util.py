@@ -582,7 +582,7 @@ def muspy_to_sample_root_mode(music, quantizer = 4):
 
 def read_from_corpus(work, quantizer = 4):
     """Read a chorale from the music21 corpus and convert it to a chorale array."""
-    s = m21.corpus.parse(work) # use music21 to pull a chorale from the corpus. For example Herzliebster is 'bwv244.3'
+    s = parse_score(work) # Scores/ or the music21 corpus (MusicXML first). For example Herzliebster is 'bwv244.3'
     # then immediately convert it to a muspy object. 
     
     muspy_object = muspy.from_music21(s)
@@ -1408,7 +1408,32 @@ def corpus_has(name):
     if isinstance(found, (str, os.PathLike)):
         return True
     stems = {os.path.splitext(os.path.basename(str(p)))[0] for p in found or ()}
-    return stems == {name}
+    return stems == {os.path.basename(name)}   # bach/bwv366 as well as bwv366
+
+
+MUSICXML_SUFFIXES = ('.mxl', '.musicxml', '.xml')
+
+
+def corpus_path(name):
+    """The corpus file to read for this work: the MusicXML one when there is a choice.
+
+    bwv277, bwv281 and bwv366 come as both .krn and .mxl, and corpus.parse takes
+    the .krn.  The Humdrum copies have no part names or clefs and mark repeats
+    where the MusicXML writes them out, so the same name gave a different score
+    depending on which program read it (bwv366: 16 bars with a repeat against
+    24).  Since 21 Nov 2026 every loader reads the MusicXML.  Returns None when
+    getWork finds nothing; a str or Path otherwise.
+    """
+    try:
+        found = m21.corpus.getWork(name)
+    except Exception:
+        return None
+    if not isinstance(found, (list, tuple)):
+        return found or None
+    if not found:
+        return None
+    xml = [f for f in found if os.path.splitext(str(f))[1] in MUSICXML_SUFFIXES]
+    return (xml or list(found))[0]
 
 
 def score_name(version):
@@ -1451,7 +1476,11 @@ def parse_score(name, keep_hidden=False):
     corpus has none.
     """
     path = score_file(name)
-    score = m21.converter.parse(path) if path else m21.corpus.parse(name)
+    if path:
+        score = m21.converter.parse(path)
+    else:
+        found = corpus_path(name) if corpus_has(name) else None
+        score = m21.converter.parse(found) if found else m21.corpus.parse(name)
     if not keep_hidden:
         drop_hidden_notes(score)
     return score
