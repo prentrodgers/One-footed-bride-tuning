@@ -98,7 +98,9 @@ spec:
             level: s0
         # The head shares a node with one of the workers, so it can only go
         # where the table's arithmetic leaves room for it after that worker:
-        # fs1 (2.3 CPU, 16Gi left), fs4 (3.4, 29Gi) and fs9 (3.1, 4.6Gi).
+        # fs4 (3.4 CPU, 29Gi left) and fs9 (3.1, 4.6Gi).  Not fs1 since 21 Nov 2026: its
+        # desktop holds ~21 GiB of 30 that the kubelet does not see, and the head was
+        # OOM-killed there with the w12 worker (see w12 below).
         # Not fs6 (0.1 CPU left since its 3rd slot, 10/24/26), fs2 (0.8Gi),
         # fs7, fs8, fs3 or fs5.
         # Anywhere else it takes the CPU the node's worker needed and that
@@ -110,7 +112,7 @@ spec:
               - matchExpressions:
                 - key: kubernetes.io/hostname
                   operator: In
-                  values: [fs1, fs4, fs9]
+                  values: [fs4, fs9]
         containers:
         - name: ray-head
           image: quay.io/prentrodgers/python-music:0.11
@@ -276,10 +278,13 @@ spec:
         imagePullSecrets:
         - name: regcred
 
+  # fs1 left w12 on 21 Nov 2026: its desktop session holds ~20 GiB of its 30, which the
+  # kubelet does not count, and three tasks on top ran it out of memory (desktop frozen,
+  # node NotReady for five minutes, Grafana OOM-killed).
   - groupName: w12
-    replicas: 3
-    minReplicas: 3
-    maxReplicas: 3
+    replicas: 2
+    minReplicas: 2
+    maxReplicas: 2
     rayStartParams:
       num-cpus: "12"
       object-store-memory: "500000000"
@@ -298,7 +303,7 @@ spec:
               - matchExpressions:
                 - key: kubernetes.io/hostname
                   operator: In
-                  values: [fs1, fs2, fs8]   # fs6 to w8: 11.4 CPU free since Ceph's mds-b and mgr-a landed there (3 Nov 2026)
+                  values: [fs2, fs8]        # fs1 out: see above.  fs6 to w8: 11.4 CPU free since Ceph's mds-b and mgr-a landed there (3 Nov 2026)
           podAntiAffinity: *one-per-node
         containers:
         - name: ray-worker

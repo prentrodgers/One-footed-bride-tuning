@@ -208,6 +208,13 @@ fi
 log "cluster up: 1 head + $want workers"
 rayx ray status 2>/dev/null | sed -n '/Resources/,/Demands/p' | grep -E "CPU|memory" | sed 's/^/    /'
 echo "    dashboard:  http://192.168.68.14:30265   grafana: http://192.168.68.14:30814 (search \"Ray:\")"
+# Ready pods are not a ready job API: on 21 Nov 2026 the submit 2 s after "cluster up"
+# got 500 from /api/version and the run tore itself down.  Wait for it (3 min at most).
+for i in $(seq 1 36); do
+    rayx curl -sf -o /dev/null "$DASH/api/version" 2>/dev/null && break
+    [ "$i" -eq 1 ] && log "waiting for the dashboard's job API..."
+    sleep 5
+done
 
 # 4. the job — on the head, detached from this shell
 id="ratchet-$(date +%Y%m%d-%H%M%S)"

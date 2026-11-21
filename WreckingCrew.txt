@@ -26137,9 +26137,58 @@ _____________________________
       The labels are for the specific interval. Minor third distance from a ratio of 6:5. Major 3rd from 5:4, so on. This shows that the closeness of the thirds and 5ths are what make this tuning sound so good. The best fixed 12 is meantone shifted to optimize for the Aria from Goldberg. It sound nice. I'm going to leave this for now.
 
 _______________________
-11/21/26 I mentioned to claude that the Qwen3.8-Flash-Next found a way to add gradient descent to the simulated annealing algorithm, and he responded that he's already using a better method for the spring algorithm. 
+11/21/26 I mentioned to claude that the Qwen3.8-Flash-Next found a way to add gradient descent to the simulated annealing algorithm.
+      Claude responded that he's already using a better method for the spring algorithm. 
       I like the spring algorithm becuase it does a much better job on Fugues, and a nice job on Preludes in WTC, and all of the Goldberg variations. I haven't tried the One-footed-bride-tuning on the Goldberg, mostly becauese it takes so long. In fact it's taking too long and producing less than stellar results on the most recent chorale set (354-365) in 5 hours. 
       
       Claude has accepted the challenge and is trying the first cause of long runtimes: duplicate chords getting tuned sequentially. Instead he's running a deduplication first. I did that before, and the trouble with that approach is that that leads to the inability to test tuned chorales against gaps during the Simulated Annealing. At one point a few months ago I would force another SA run if there was a large gap in the same pitch class in adjacent chords, and only accepted the gap if I couldn't find a way to reduce it. But with the addition of Viterbi Optimization, we have a way to reduce gaps after the tuning, instead of during the SA. So Claude is at work now trying to find a way to use the spring method, deduplication, SA, VO, and gradient descent in a more modern method used today in the spring method.
 
       Claude: spring_tuning.py is the polishing step, done exactly. Its springs make the total error a sum of squares. That kind of function has a single lowest point. Gradient descent would roll downhill toward it in thousands of small steps. limited_solve jumps straight there with scipy.sparse.linalg.lsqr, which is a conjugate-gradient method, a faster relative of gradient descent. So gradient descent would only reproduce the result more slowly.
+
+      Results: Each ratchet pass on bwv261 now takes about 100 seconds instead of about 330, and the tunings came out better, not just the same. That rests on two cells with one run each, so it's encouraging but not yet proof.
+
+      Two changes, both in viterbi_optimization.py:
+
+      1. A faster Viterbi step. The path search now computes each candidate's transposition costs together instead of one at a time. On real bwv261 chords, with rests, whole and fractional cents, and with and without the repeated-pitch rule, it picked the identical path at the identical cost, 11–23× faster. It's on by default, because the result doesn't change. VITERBI_SLOW=1 restores the old loop.
+      2. --dedupe_chords, off by default. bwv261's 308 time slots hold only 85 distinct chords, so this anneals each distinct chord once and gives every slot holding it the same candidates. Each slot still gets its own saved tuning as an extra candidate, so the ratchet works as before.
+
+      Test on bwv261: I ran the exact grid_search.sh tuner command in scratch directories, for 4 passes (the first fresh, then ratcheted), and scored each pass with ray_ratchet.py's own metrics. Four runs shared fs1's 16 cores, with 3 workers each.
+
+      ┌───────────────┬──────────────┬───────────────────────┬─────────┬───────────────┬────────┬─────────────┐
+      │     Cell      │   Version    │   Seconds per pass    │  Total  │ Chord average │ GapSum │ Largest gap │
+      ├───────────────┼──────────────┼───────────────────────┼─────────┼───────────────┼────────┼─────────────┤
+      │ t3_r1.25_lm17 │ today's code │ 330, 271*, 239*, 233* │  18 min │          51.1 │     36 │        13 ¢ │
+      ├───────────────┼──────────────┼───────────────────────┼─────────┼───────────────┼────────┼─────────────┤
+      │ t3_r1.25_lm17 │ dedupe       │ 150, 104, 94, 99      │ 7.5 min │          51.2 │     13 │         3 ¢ │
+      ├───────────────┼──────────────┼───────────────────────┼─────────┼───────────────┼────────┼─────────────┤
+      │ t1_r1.50_lm19 │ today's code │ 340, 250*, 230*, 246* │  18 min │          51.5 │     62 │        18 ¢ │
+      ├───────────────┼──────────────┼───────────────────────┼─────────┼───────────────┼────────┼─────────────┤
+      │ t1_r1.50_lm19 │ dedupe       │ 153, 107, 96, 106     │ 7.7 min │          51.7 │     15 │         5 ¢ │
+      └───────────────┴──────────────┴───────────────────────┴─────────┴───────────────┴────────┴─────────────┘
+
+      * These passes already had the faster Viterbi step, because each pass reloads the code and I added it while the test was running. That alone took passes from about 335 s to about 245 s.
+      What it means:
+      - Chord averages are the same to within 0.2.
+      - The gaps between neighbouring chords are much smaller with dedupe, on every pass of both cells. When a repeated chord has the same candidates in every slot, the search can keep it exactly in place. Before, each slot drew its own random candidates, so the chord could shift a few cents from one slot to the next.
+      - Passes are about 3× faster. Better results in fewer passes should also let the ratchet's patience rule retire cells sooner. Together I'd expect the 3–4 hour runs to drop to about an hour, but a real run is needed to say.
+
+      Caveats:
+      - Small sample. Two cells with one random draw each, on one chorale, is a strong signal but not proof. Your September best for bwv261 was tuned before rests were honored, so its scores can't be compared with these.
+      - One pre-existing test failure. test_viterbi.py passes 3 of 4. The failing test's stand-in function doesn't accept max_no_improve. The last commit fails it the same way, so my changes didn't cause it.
+      - Nothing committed or pushed. I didn't add --dedupe_chords to grid_search.sh. The Ray workers run from origin/main, so it has no effect on the cluster until it's committed, added to grid_search.sh and pushed.
+
+      The test results are in /tmp/claude-1000/-home-prent-Repos-One-footed-bride-tuning/de694f48-9775-4f6c-85b6-7aeabb27768d/scratchpad/exp/.
+
+      Next step, if you agree: add --dedupe_chords to grid_search.sh, commit (with WreckingCrew.txt) and push. Then run ./ray-ratchet.sh --chorales bwv261 --fresh_first across all 24 cells, so you can compare the winner and its time against what you're used to, and listen to it. Shall I go ahead? Yes. 
+
+      Listen:
+            python WreckingCrew_v2.py --ensemble ensembles/bwv262-octet.yaml
+            python select_best_and_render.py --numpy_dir_root Archive/straw-man --chorale_list bwv261 --suffix=-opt.npy --sort_by best --render --short_repeats
+      This one using the ensemble:
+            python WreckingCrew_v2.py --chorale bwv261 --ensemble ensembles/bwv262-octet.yaml --numpy_dir Archive/straw-man/t3_r1.50_lm17 --letter o
+      This one without the rests:
+            python WreckingCrew.py --chorale bwv261 --hold_rests --numpy_dir Archive/straw-man/t3_r1.50_lm17 --short_repeats --cent_file_partial='-opt.npy'
+      
+      What would happen if I use ray_ratchet.sh on the preludes in the WTC. I don't want to do that because that would violate the whole idea of the name WTC, which includes the two words Well Tempered. My tuning is not a temperament. 
+
+      First, let's document the changes: Can you create a markdown file in the repo on this latest change to ray_ratchet.sh and the python code it calls? Was the scipy.sparse.linalg.lsqr algorithm used in this new arrangement? Or just in the spring algorithm? Include the value of dedup and how with Viterbi Optimization, the need to keep the order of the chords in the original source material (from music21 or music xml) is no longer necessary. I had use dedup in the past, but it caused problems in chord to chord gaps, so I abandonded it. Now that we have VO able to pick it's way through the alternative tunings to find a gap-free path or one close to it, the order of the chords during tuning is no longer relevant.
