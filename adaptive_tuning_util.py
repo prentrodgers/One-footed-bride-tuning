@@ -1394,11 +1394,21 @@ def score_file(name):
 
 
 def corpus_has(name):
-    """True when the music21 corpus holds exactly one work by this name (bwv244.10, bwv262)."""
+    """True when the music21 corpus holds exactly one work by this name (bwv244.10, bwv262).
+
+    One work may come in more than one format: bwv366 is bwv366.krn and bwv366.mxl,
+    and getWork returns both.  That counts.  A name that matches several works
+    (bwv244: bwv244.10.mxl, bwv244.15.mxl, ...) does not.  Until 21 Nov 2026 only a
+    single file counted, and score_name stopped bwv366 as a typo.
+    """
     try:
-        return isinstance(m21.corpus.getWork(name), (str, os.PathLike))
+        found = m21.corpus.getWork(name)
     except Exception:
         return False
+    if isinstance(found, (str, os.PathLike)):
+        return True
+    stems = {os.path.splitext(os.path.basename(str(p)))[0] for p in found or ()}
+    return stems == {name}
 
 
 def score_name(version):
