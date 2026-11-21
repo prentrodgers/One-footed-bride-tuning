@@ -26192,3 +26192,7 @@ _______________________
       What would happen if I use ray_ratchet.sh on the preludes in the WTC. I don't want to do that because that would violate the whole idea of the name WTC, which includes the two words Well Tempered. My tuning is not a temperament. 
 
       First, let's document the changes: Can you create a markdown file in the repo on this latest change to ray_ratchet.sh and the python code it calls? Was the scipy.sparse.linalg.lsqr algorithm used in this new arrangement? Or just in the spring algorithm? Include the value of dedup and how with Viterbi Optimization, the need to keep the order of the chords in the original source material (from music21 or music xml) is no longer necessary. I had use dedup in the past, but it caused problems in chord to chord gaps, so I abandonded it. Now that we have VO able to pick it's way through the alternative tunings to find a gap-free path or one close to it, the order of the chords during tuning is no longer relevant.
+
+      Test it out on bwv366, which was left out between the {354..365} and {367..378} runs:
+            ./ray-ratchet.sh --chorales bwv366 --fresh_first
+      Then post the chaconne version of 366 and all the others to microtonalnotes.net listen. 
