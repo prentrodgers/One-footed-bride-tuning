@@ -800,16 +800,42 @@ def twitter_client():
     )
 
 
+TWEET_LIMIT = 280
+TCO_LENGTH = 23          # X counts every link as 23 characters (t.co), however long
+
+
+def tweet_length(text):
+    """The length X counts: each http(s) link as TCO_LENGTH."""
+    return len(re.sub(r"https?://\S+", "x" * TCO_LENGTH, text))
+
+
+def fit_tweet(text):
+    """The text cut to X's limit, the link never cut.
+
+    Until 22 Nov 2026 this cut the raw text at 280 from the end, where the link
+    is: the first Goldberg tweet (327 raw characters, 259 as X counts them)
+    went out linking to https://audio.microtonalnotes.net/goldberg... -- a 404.
+    Now the length is X's, and if it is still over, the lines above the link
+    are shortened instead.
+    """
+    if tweet_length(text) <= TWEET_LIMIT:
+        return text
+    m = re.search(r"\s*(https?://\S+)\s*$", text)
+    if not m:
+        return text[:TWEET_LIMIT - 3] + "..."
+    head, link = text[:m.start()], m.group(1)
+    room = TWEET_LIMIT - TCO_LENGTH - 1 - 3          # newline before the link, "..."
+    return head[:room].rstrip() + "...\n" + link
+
+
 def post_tweet(key, description, dry_run=False):
     """Post a text tweet with a link to the mp3 on R2."""
-    tweet_text = description
-    if len(tweet_text) > 280:
-        tweet_text = tweet_text[:277] + "..."
+    tweet_text = fit_tweet(description)
 
     if dry_run:
         print("=== DRY RUN ===")
         print(f"Object: {key}")
-        print(f"Tweet ({len(tweet_text)} chars):\n{tweet_text}")
+        print(f"Tweet ({tweet_length(tweet_text)} chars as X counts them, {len(tweet_text)} raw):\n{tweet_text}")
         return True
 
     client = twitter_client()
