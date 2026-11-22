@@ -26198,3 +26198,308 @@ _______________________
       Then post the chaconne version of 366 and all the others to microtonalnotes.net listen. 
       Next render all the WTC with vrwt.
             ./wtc1_vrwt.sh
+
+__________________________
+11/22/26 Idea for Tuning methods.
+      Please review with me the pipeline for tuning with Straw_man_tuning_v2.py. A lot has changed since I started writing Straw_man
+      Why not apply the spring method to do the initial tuning instead of the straw man algorithm? Instead of the spread? After the spread? What would make sense? After the full tuning?
+      Start from a real decent tuning, which spring tuned from Victorian Rational Well Temperament. It has already proven it's value in Goldberg. Unlike almost any straw man tuning with the exception of simple major or minor chords, which get a perfect score of 43 almost every time, the VRWT-Spring method provides a predictably good result. It sounds good anyway. But how does it score. Ask Claude to consider this. I did that just now, after switching to the Fable 5.2 model. He's thinking extra hard on this prompt (xhard, just below Ultracode). 
+
+      His answer:
+      I've read the Straw_man pipeline end to end. Now I'm measuring how the spring tunings score under the straw-man scorer, so the review comes with numbers.
+
+      Short answer: spring can't usefully be fed into the front of the straw-man pipeline, because the straw-man score decides every choice, and that score disagrees with your ear on exactly the chords that bothered you in bwv366. The placement that makes sense is after the full tuning, or instead of it.
+
+      The pipeline today (one ratchet pass)
+
+      1. Start: every note at its 12-TET pitch. 
+      2. Candidates: each distinct chord is annealed up to 30 times to get 15 tunings.
+      - --spread is not a tuning step: it adds about 7 ¢ of random noise at the start of each roll, so the 15 candidates differ.
+      - The anneal sets intervals to exact diamond ratios and keeps what scores best.
+      - Each result is then nudged by up to 6 ¢ per pass (the "polish" step). # why 6 ¢?
+      3. Viterbi: picks one candidate per slot, plus a whole-chord shift, to trade chord score against gaps. # just one alternate candidate?
+      4. Continuity enforcement (max_gap 33), then keep or discard against the saved tuning.
+
+      How spring scores
+
+      I scored the spring tuning with the straw-man scorer, using each ratchet leader's own diamond and tolerance. The bwv366 column is the d7h32 tuning you rendered; for bwv261 I made a d19h32 one.
+
+      ┌───────────────────────────────────────────────────────────────┬──────────────────┬──────────────────┐
+      │                                                               │      bwv366      │      bwv261      │
+      ├───────────────────────────────────────────────────────────────┼──────────────────┼──────────────────┤
+      │ Ratchet leader, ChordAvg                                      │             56.9 │             51.4 │
+      ├───────────────────────────────────────────────────────────────┼──────────────────┼──────────────────┤
+      │ Spring as is, ChordAvg                                        │             2038 │             1609 │
+      ├───────────────────────────────────────────────────────────────┼──────────────────┼──────────────────┤
+      │ Slots where spring is already a diamond chord                 │              37% │              47% │
+      ├───────────────────────────────────────────────────────────────┼──────────────────┼──────────────────┤
+      │ The same after the pipeline's own nudge                       │ 91% (262 of 288) │ 81% (250 of 308) │
+      ├───────────────────────────────────────────────────────────────┼──────────────────┼──────────────────┤
+      │ Of those, slots with the identical score to the ratchet       │              224 │              223 │
+      ├───────────────────────────────────────────────────────────────┼──────────────────┼──────────────────┤
+      │ Of those, slots where the ratchet scores lower / spring lower │           30 / 8 │          14 / 13 │
+      ├───────────────────────────────────────────────────────────────┼──────────────────┼──────────────────┤
+      │ Ratchet's average on the slots spring misses                  │             85.6 │             72.0 │
+      └───────────────────────────────────────────────────────────────┴──────────────────┴──────────────────┘
+
+      - The raw score is meaningless. One interval a few cents outside the tolerance costs 1000.
+      - On about three quarters of the slots the two methods choose the same chords. After a nudge averaging 1.3 ¢ per note, spring's chords there score what the ratchet's do. These are the simple chords.
+      - The difference is all in the hard slots. These are the dissonances and passing tones, where the ratchet reaches for complex ratios and spring stays near the temperament.
+      - The scorer prefers the chords you disliked. On C#–E–G the ratchet's septimal version scores 105 and 60, against 140 and 104 for spring's. Three of the E–G–B♭ chords in spring's version aren't diamond chords at all.
+
+      Where spring could go
+
+      Placement:                                               Verdict:
+      Instead of straw man                                     Works, as bwv366 showed. You give up exact ratios and the high-prime chords.
+
+      Instead of the spread, as the starting point             Little effect. The anneal picks ratios at random while it's hot and forgets its 
+                                                               start, and the score makes the final choice.      
+
+      After the spread                                         Doesn't apply. Spring takes no starting point; it solves from the temperament.
+
+      As a seed for pass 1 (the nudged spring tuning as the    Easy, and might save a pass. But Viterbi would still pick the septimal chords,
+      saved tuning)                                            since they score lower.                       
+
+      After the full tuning                                    The one I'd build: the ratchet chooses the ratios and spring places the notes.
+
+
+      In the last option each pair is pulled to the ratio the ratchet chose, weighted by how long it sounds, and every note gets one pitch. Gaps then disappear by construction, and continuity enforcement is no longer needed. It needs spring_tuning.py --diamond to accept a starting tuning. I haven't written or tested that.
+
+      Neither placement changes the straw man's taste, though. A 7/6 the ratchet chose stays a 7/6. What makes spring predictable is that it prefers a ratio near where the temperament puts the interval: 6/5 is 16 ¢ from a tempered minor third and 7/6 is 33 ¢. The straw-man scorer has no such term. Adding one, as a weight in Viterbi's chord cost that is off by default, would be the direct fix.
+
+      My answer to this: Do what you can to preserve the quality with fewer electrons. 
+      Keep in mind, the current ray_ratchet.sh method still takes about an hour of time on 104 cores across my kubernetes kube-ray implementation, and one of my objectives is to find ways to reduce that time and electricity draw. I'm always on the edge of the 15 amp circuit. Claude Opus found that deduplication had a very high payoff, for which I'm very grateful. If some combination of Spring from VRWT and Straw_man_tuning_v2.py could reduce the time significantly without significantly reducing the quality of results, I'd take that trade. So perhaps we could reduce the number of times the ray_ratchet.sh keeps trying to improve, if a close-enough tuning can be obtained, then polished by spring. This would take your recommendation to insert the spring after the full tuning, but cut back how long and hard the Straw_man_tuning_v2.py keeps throwing more cycles that are no longer useful. Does that make sense? 
+
+      Claude's response:
+
+      Yes, it makes sense, and a first test supports it. One pass plus a spring placement step came out gap-free on both test chorales, with 95–97% of the chord slots left intact. I haven't changed anything in the repo.
+
+      The test
+
+      I ran one fresh pass on fs1 for each chorale's leading cell, then a prototype placement step on the result. Placement gives every note one pitch and pulls each pair of sounding notes to the interval the ratchet chose. It also pulls the same pitch class in neighbouring slots to one pitch. It takes under a second.
+
+      ┌────────────────────────────────────────────────┬──────────────────────────┬──────┬────────┬─────────────┐
+      │                                                │      Chord average       │ Gaps │ GapSum │ Largest gap │
+      ├────────────────────────────────────────────────┼──────────────────────────┼──────┼────────┼─────────────┤
+      │ bwv366 full ratchet (4 passes)                 │                     56.9 │    6 │     25 │         9 ¢ │
+      ├────────────────────────────────────────────────┼──────────────────────────┼──────┼────────┼─────────────┤
+      │ bwv366 pass 1 only                             │                     57.2 │    8 │     47 │        10 ¢ │
+      ├────────────────────────────────────────────────┼──────────────────────────┼──────┼────────┼─────────────┤
+      │ bwv366 pass 1 + placement                      │ 55.8 on 278 of 288 slots │    0 │      0 │           0 │
+      ├────────────────────────────────────────────────┼──────────────────────────┼──────┼────────┼─────────────┤
+      │ bwv261 full ratchet (7 passes over three runs) │                     51.4 │    4 │      8 │         2 ¢ │
+      ├────────────────────────────────────────────────┼──────────────────────────┼──────┼────────┼─────────────┤
+      │ bwv261 pass 1 only                             │                     50.9 │    9 │     77 │        14 ¢ │
+      ├────────────────────────────────────────────────┼──────────────────────────┼──────┼────────┼─────────────┤
+      │ bwv261 pass 1 + placement                      │ 49.8 on 294 of 308 slots │    0 │      0 │           0 │
+      └────────────────────────────────────────────────┴──────────────────────────┴──────┴────────┴─────────────┘
+
+      - What placement costs: the gaps are absorbed by bending a few chords. In bwv366, 10 slots end up more than the 2 ¢ tolerance from their ratios, the worst by 7 ¢. In bwv261 it is 14 slots past 3 ¢, the worst by 13 ¢. The average interval moves 0.2–0.3 ¢.
+      - What it saves: pass 1 was 26% of the tuning compute in yesterday's bwv366 run, so stopping there would cut that chorale's compute roughly fourfold. Pass counts vary by chorale, so "an hour down to about a quarter" is an estimate, not a measurement.
+
+      Caveats
+
+      - This is two chorales, one cell each, one random draw, and nobody has listened yet.
+      - All 24 cells would still run their one pass. Running fewer cells is a separate saving I haven't looked at.
+      - The reports would need a change. The current scorer charges 1000 for any slot bent past tolerance, so a placed tuning's ChordAvg would look terrible when only a handful of slots are a few cents off.
+      - It doesn't change the straw man's taste: bwv366's septimal diminished chords stay as they are.
+
+      Listen to the results of these two chorales:
+            python WreckingCrew_v2.py --chorale bwv366 --ensemble ensembles/bwv262-octet.yaml --numpy_dir Archive/placed-test/t2_r1.50_lm19 --letter p1
+                  Uploads/b366p1_t2_d01_17_t060_lm19_r1.50.mp3 # sounds angry
+            python WreckingCrew_v2.py --chorale bwv366 --ensemble ensembles/bwv262-octet.yaml --numpy_dir Archive/straw-man/best-tunings --letter p2
+      I can't compare with this one which was a full ratchet, because we don't have one. All we have is the Archive/spring to compare to. 
+
+      This one was the best sounding:
+            python WreckingCrew_v2.py --chorale bwv261 --ensemble ensembles/bwv262-octet.yaml --numpy_dir Archive/placed-test/t3_r1.50_lm17 --letter p1
+                  Uploads/b261p1_t3_d01_22_t060_lm17_r1.50.mp3 # Compared to the next few, it's better but still a bit spotty.
+      Compare with this one which was a full ratchet Archive/straw-man/best-tunings/bwv261_t3_r1.250_lm17-opt.npy
+            python WreckingCrew_v2.py --chorale bwv261 --ensemble ensembles/bwv262-octet.yaml --numpy_dir Archive/straw-man/best-tunings --letter p2
+                  Uploads/b261p2_t3_d01_22_t060_lm17_r1.25.mp3 # ugly 
+            python WreckingCrew_v2.py --chorale bwv261 --ensemble ensembles/bwv262-octet.yaml --numpy_dir Archive/straw-man/t3_r1.50_lm17 --letter p3
+                  Uploads/b261p3_t3_d01_22_t060_lm17_r1.50.mp3 # better than the other one in best_tunings, but still a bit ugly
+      
+      Claude took the comparison I made and proceeded to accept that this was definitive. Not sure that was the right thing to do based on one sample. But I appreciate the opportunity to save some CPU time.
+
+      What I'm doing
+
+      I took your verdict as the go-ahead and built the pieces, uncommitted:
+
+      - spring_tuning.py --place: the placement step, giving the same result as the prototype you heard.
+      - select_best_and_render.py: two new columns, Bent and Bend, for chords that placement pushed off their ratios. Existing tunings show the same numbers as before.
+      - ray_ratchet.py --place: places each cell after every pass into Archive/placed/, and stops a cell once its placed tuning is good.
+
+      A real test is running on fs1: one fresh pass of bwv261 in all 24 cells, into the scratchpad. Of the first 8 cells, 3 are good once placed, and two of those have no gaps and no bent chords at all:
+
+      ┌────────────────┬───────────────┬───────────────┬─────────────┬───────────────┐
+      │      Cell      │ Pass 1 GapSum │ Placed GapSum │ Bent chords │ Chord average │
+      ├────────────────┼───────────────┼───────────────┼─────────────┼───────────────┤
+      │ t1_r1.25_lm17  │            26 │             0 │           0 │          51.8 │
+      ├────────────────┼───────────────┼───────────────┼─────────────┼───────────────┤
+      │ t1_r1.625_lm17 │            20 │             0 │           0 │          52.2 │
+      ├────────────────┼───────────────┼───────────────┼─────────────┼───────────────┤
+      │ t1_r1.50_lm17  │            82 │             0 │           3 │          51.9 │
+      └────────────────┴───────────────┴───────────────┴─────────────┴───────────────┘
+
+      The full-ratchet leader, after 7 passes, has GapSum 8 and average 51.4.
+
+      The bwv261 test is finished: one pass of all 24 cells plus placement gave 16 good cells, 9 of them with no gaps and no bent chords. The two leaders are on the pod for you to hear. A second run on bwv366 has just started (5 of 24 cells done) and I'll report it when it ends.
+
+      bwv261: one fresh pass in all 24 cells, then placement
+
+      ┌────────────────────────────────────────────────────────┬────────────────────────────┬─────────────────────────────┐
+      │                                                        │ Cells with GapSum under 10 │     Cells with GapSum 0     │
+      ├────────────────────────────────────────────────────────┼────────────────────────────┼─────────────────────────────┤
+      │ After pass 1, as tuned                                 │                          2 │                           1 │
+      ├────────────────────────────────────────────────────────┼────────────────────────────┼─────────────────────────────┤
+      │ After pass 1, placed (counting bent chords against it) │                         16 │ 9 with no bent chord either │
+      └────────────────────────────────────────────────────────┴────────────────────────────┴─────────────────────────────┘
+
+      The leading placed cells, against the full-ratchet leader:
+
+      ┌────────────────────────────────────────┬───────────────┬─────────────┬────────┬─────────────┐
+      │                 Tuning                 │ Chord average │ High primes │ GapSum │ Bent chords │
+      ├────────────────────────────────────────┼───────────────┼─────────────┼────────┼─────────────┤
+      │ t3_r1.25_lm17, one pass, placed        │          51.4 │        4.3% │      0 │ 1, by 0.3 ¢ │
+      ├────────────────────────────────────────┼───────────────┼─────────────┼────────┼─────────────┤
+      │ t3_r1.625_lm19, one pass, placed       │          51.3 │        4.6% │      0 │           0 │
+      ├────────────────────────────────────────┼───────────────┼─────────────┼────────┼─────────────┤
+      │ t3_r1.50_lm17, full ratchet (7 passes) │          51.4 │        4.8% │      8 │           0 │
+      └────────────────────────────────────────┴───────────────┴─────────────┴────────┴─────────────┘
+
+      - The cell you heard: t3_r1.50_lm17 comes out 21st of 24 once placed, with three bent chords. The leaders should not have its spots.
+      - Cost: the run was 24 passes and took 13 minutes on fs1 alone, using 8 threads. The three cluster runs of bwv261 on 21 Nov took 171 passes, and yesterday's bwv366 run took 94.
+      - Placement itself: 0.1 s per cell.
+
+      Listening
+
+      Run these in the pod. The letters are new, so nothing is overwritten:
+
+            python WreckingCrew_v2.py --chorale bwv261 --ensemble ensembles/bwv262-octet.yaml --numpy_dir Archive/placed-test/t3_r1.25_lm17 --letter q1
+                  Uploads/b261q1_t3_d01_22_t060_lm17_r1.25.mp3 # nice - 2nd phrase seems odd - rest is ok
+            python WreckingCrew_v2.py --chorale bwv261 --ensemble ensembles/bwv262-octet.yaml --numpy_dir Archive/placed-test/t3_r1.625_lm19 --letter q2
+                  Uploads/b261q2_t3_d01_22_t060_lm19_r1.62.mp3 # much better 2nd phrase. Still spicy, which I like for the full WreckingCrew.py render.
+      Claude suggested on more to listen to:
+            python WreckingCrew.py --chorale bwv261 --hold_rests --numpy_dir Archive/placed-test/t3_r1.625_lm19 --short_repeats --cent_file_partial='-opt.npy'
+                  Uploads/b261a_df3_t3_d03_57_t020_lm19_r1.62.mp3 # nice bends between measures 3 & 4. The someone glides down to a beating chord, then measure starts with a beating chord that moves into just. Interesting. I like interesting slides like this. 
+      Without the --short_repeats:
+            python WreckingCrew.py --chorale bwv261 --hold_rests --numpy_dir Archive/placed-test/t3_r1.625_lm19 --ap 1 --cent_file_partial='-opt.npy'
+                  Uploads/b261a_df3_t3_d08_41_t110_ap1_lm19_r1.62.mp3 # the glides are gone, probably because the jump from D on 227 in measure 3 and the D on 209 in measure 4 is only noticed by the two notes that span the measure, which are only a small percentage of the D's that stay on 227, and those that stay on 209. It's impreceptible. 
+
+      What is built (not committed)
+
+      - spring_tuning.py --place: places a Straw_man tuning and writes it to --out_dir. It refuses to write over its source.
+      - select_best_and_render.py: new Bent and Bend columns, and best now ranks on GapSum + Bend. Tunings in whole cents show the same numbers as before.
+      - ray_ratchet.py --place: after every pass, each cell is also placed into Archive/placed/<cell>/; Archive/straw-man is left as the tuner made it. A cell stops as soon as its placed tuning is good, and the final report is of Archive/placed.
+
+      The two ways to run it:
+
+            ./ray-ratchet.sh --chorales bwv367 --place                  # each cell stops once it places well
+            ./ray-ratchet.sh --chorales bwv367 --place --max_passes 1   # one pass a cell and no more
+
+      Replaying the first form on these 24 tunings took 33 passes: 16 cells stopped after one pass, the rest after two or three. I tested the driver with a stand-in for Ray, so it has not yet run on the cluster.
+
+      Caveats
+
+      - By ear: nothing here has been listened to yet. "Good" means GapSum + Bend under 10, a threshold borrowed from GapSum.
+      - Taste: placement keeps the chords the tuner chose, so bwv366's diminished chords will still sound as they did.
+      - --fresh_first: it wipes a chorale's saved tunings, so leave it off for chorales whose tunings you want to keep. --place without it only ratchets forward.
+      - Old scripts: ratchet_best.py reads this table, but it already stopped matching when the High% column went in.
+
+      The workers run from origin/main, so this needs a commit and your push before a cluster run. Say the word and I'll commit it, with WreckingCrew.txt.
+
+      The bwv366 run is done, and it holds up on the hard chorale too: three cells come out good after one pass plus placement, where four passes on the cluster left none.
+
+      bwv366: one fresh pass in all 24 cells, then placement
+
+      ┌────────────────────────────────────────────────────────┬────────────────────────────┐
+      │                                                        │ Cells with GapSum under 10 │
+      ├────────────────────────────────────────────────────────┼────────────────────────────┤
+      │ After pass 1, as tuned                                 │                          0 │
+      ├────────────────────────────────────────────────────────┼────────────────────────────┤
+      │ After pass 1, placed (counting bent chords against it) │                          3 │
+      ├────────────────────────────────────────────────────────┼────────────────────────────┤
+      │ Yesterday's cluster run, 94 passes                     │                          0 │
+      └────────────────────────────────────────────────────────┴────────────────────────────┘
+
+      ┌────────────────────────────────────────┬───────────────┬─────────────┬────────┬──────────────────────────────────────────┐
+      │                 Tuning                 │ Chord average │ High primes │ GapSum │               Bent chords                │
+      ├────────────────────────────────────────┼───────────────┼─────────────┼────────┼──────────────────────────────────────────┤
+      │ t3_r1.625_lm19, one pass, placed       │          56.5 │        7.7% │      0 │ 1 (an eighth note, 4.3 ¢ past tolerance) │
+      ├────────────────────────────────────────┼───────────────┼─────────────┼────────┼──────────────────────────────────────────┤
+      │ t2_r1.50_lm19, full ratchet (4 passes) │          56.9 │        7.6% │     25 │                                        0 │
+      └────────────────────────────────────────┴───────────────┴─────────────┴────────┴──────────────────────────────────────────┘
+
+      The 24 passes took 9 minutes on fs1.
+
+      The placed leader is on the pod if you want to hear it. Its diminished chords are still the tuner's choices, so I'd expect the same character you called angry:
+
+            python WreckingCrew_v2.py --chorale bwv366 --ensemble ensembles/bwv262-octet.yaml --numpy_dir Archive/placed-test/t3_r1.625_lm19 --letter q1
+
+      Where this leaves the time question
+
+      Across both chorales, 24 passes plus placement gave a leader at least as good on the numbers as the cluster reached in 94 to 171 passes. That is roughly a quarter of the passes or fewer, and the bwv261 q1 and q2 renders will tell you whether it holds by ear.
+
+      _________________________
+      Next video step, back to the full orchestra, what would you ask for:
+      1. More musicians closer together without overlaps. Start with more string instruments, then winds and brass.
+      2. Better faces, better fingers, better clothes.
+      3. Set the stage the Teatro Alcorcon like the piano recital.
+      4. Make the audience once, much more varied, and use it whenever you pan to them. Premade offline. Like using AI model to create the audience jpeg. Since it doesn't move, this should work.
+      4. Boost the convolution level, externalize the value to use. Explain the slap back effect from the rear wall. Is it brick? What material are the walls? Ask Claude. 
+
+      ________________________________
+      Back to the trouble with bwv366:
+      Claude says: Spring tuning fits this complaint, since its default mode leaves tritones, sevenths and the bare diminished triad close to the Victorian well temperament. The spring tunings fix the diminished chords. Here are the minor third and tritone above the root of each diminished triad. "Ratchet" means the ratchet's leader, t2_r1.50_lm19:
+                  ┌────────────────┬───────────┬────────────────────┬────────────────────┬──────────────────────────┐
+                  │  Chord (slot)  │  Ratchet  │ Spring --harmony 4 │ Spring --harmony 8 │ Goldberg setting (d7h32) │
+                  ├────────────────┼───────────┼────────────────────┼────────────────────┼──────────────────────────┤
+                  │ C#–E–G (8, 10) │ 267 / 582 │ 305 / 615          │ 307 / 618          │ 308 / 619                │
+                  ├────────────────┼───────────┼────────────────────┼────────────────────┼──────────────────────────┤
+                  │ E–G–B♭ (20)    │ 347 / 663 │ 310 / 617          │ 311 / 621          │ 306 / 618                │
+                  ├────────────────┼───────────┼────────────────────┼────────────────────┼──────────────────────────┤
+                  │ E–G–B♭ (220)   │ 267 / 582 │ 288 / 599          │ 282 / 595          │ 306 / 615                │
+                  ├────────────────┼───────────┼────────────────────┼────────────────────┼──────────────────────────┤
+                  │ E–G–B♭ (264)   │ 266 / 582 │ 308 / 617          │ 309 / 620          │ 310 / 620                │
+                  └────────────────┴───────────┴────────────────────┴────────────────────┴──────────────────────────┘
+      The spring thirds sit near 6/5 (316 ¢) or a little under, and the tritones near 10/7 (617 ¢). In the ratchet they were 7/6 thirds and 7/5 tritones, or odder. The reason is that the passing bass F no longer drives the chord: in the default springs, sevenths and tritones have no harmony spring, so a passing note is placed by its line.
+
+      How the three spring versions differ:
+      - --harmony 4: thirds and sixths average 4 ¢ from just and fifths 2 ¢. Melodic half steps run 97–114 ¢. A full dominant seventh (4:5:6:7) is still pulled septimal, but that occurs for only 1.5 quarter notes in the piece.
+      - --harmony 8: purer chords, at the cost of uneven steps (95–118 ¢).
+      - --diamond 7 --harmony 32: your Goldberg setting. Every minor seventh goes to 7/4, so it has more septimal colour on the dominants, but the diminished triads stay tame.
+
+      Run these in the pod:
+            ssh one-footed-bride pod
+            cd Repos/One-footed-bride-tuning
+            python spring_tuning.py --chorale bwv366 --harmony 4 --out_dir Archive/spring/h4
+            python spring_tuning.py --chorale bwv366 --diamond 7 --harmony 32 --out_dir Archive/spring/d7h32
+
+            python WreckingCrew_v2.py --chorale bwv366 --ensemble ensembles/bwv262-octet.yaml \
+            --numpy_dir Archive/spring/h4 --letter h4
+            python WreckingCrew_v2.py --chorale bwv366 --ensemble ensembles/bwv262-octet.yaml \
+            --numpy_dir Archive/spring/d7h32 --letter d7h32
+
+      Now try the original WreckingCrew.py with a list showing in which measure every chord can be found, phrase boundaries, appropriate rondo point suggestions, and maximum location for an insertion:
+            python rondo_plan.py bwv366 
+            python rondo_plan.py bwv366 | grep -E "rondo_section_a|chords" ; done
+                  == bwv366   3/4, 288 chords (sixteenths), no pickup; an insert-after of 271 or more is skipped
+                  --rondo_section_a 0 48 --rondo_insert_a_after 95 191 --rondo_section_b 96 144 --rondo_insert_b_after 239
+
+            python WreckingCrew.py --chorale_list bwv366 --numpy_dir Archive/spring/h4 --cent_file_partial='-opt.npy' --density_level 3 --ap 2 --articulate_gain 0.1,0.6 --rondo_section_a 0 48 --rondo_insert_a_after 95 191 --rondo_section_b 96 144 --rondo_insert_b_after 239 
+                  Uploads/b366a_df3_t1_d04_21_t073_ap2_lm17_r1.50.mp3
+      I also rendered with df2:
+                  Uploads/b366a_df2_t1_d03_41_t073_ap2_lm17_r1.50.mp3
+      And with df2 and ap1, which made a long piece at 13:51, as it sometimes does. Very nice bass line. 
+                  Uploads/b366a_df2_t1_d13_51_t110_ap1_lm17_r1.50.mp3
+      And with df2 and ap1, even longer at 14:19, but unfortunately the theme A section has a muddy bass line. 
+                  Uploads/b366a_df3_t1_d14_19_t114_ap1_lm17_r1.50.mp3
+      And with df4 ap3 and d7h32 favoring ratios of 7/4 @ 11:43 - nice bass line and lots of subthemes repeated a sensible number of times.
+            python WreckingCrew.py --chorale_list bwv366 --numpy_dir Archive/spring/d7h32 --cent_file_partial='-opt.npy' --density_level 4 --ap 3 --articulate_gain 0.1,0.6 --rondo_section_a 0 48 --rondo_insert_a_after 95 191 --rondo_section_b 96 144 --rondo_insert_b_after 239 
+                  Uploads/b366a_df4_t1_d11_43_t088_ap3_lm17_r1.50.mp3
+            ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 Uploads/b366a_df4_t1_d11_43_t088_ap3_lm17_r1.50.mp3 
+                  698.723250
+      Claude asked if there are other Chorales that could benefit from Spring tuning instead of Straw_man_tuning_v2.py? I'd prefer to have these just be both consdered part of One-footed-bride-tuning, since the Spring tuning bends towards a 15-limit tonality diamond. One is closest to just while preserving the horizontal lines, the other is hard core high primes to solve vertical problems with Viterbi Optimization to give best effort to the horizontal line, if it's not going to disturb the individual chords too much. Can we combine them somehow and get the best of both worlds?
+
+      Next tune a new set:
+            /ray-ratchet.sh --chorales bwv{342..353} --place
