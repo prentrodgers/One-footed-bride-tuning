@@ -49,7 +49,11 @@ by spring_tuning.py (one pitch a note, the gaps closed, a chord bent where two d
 written to Archive/placed/<cell>/; the tuning in Archive/straw-man is left as the tuner made it.
 A cell is then judged on its placed tuning, GapSum + Bend in place of GapSum, and stops as soon as
 that is good: most of the later passes were spent closing gaps that placing closes in a second.
-The report at the end is of Archive/placed.
+The report at the end is of Archive/placed.  It also stops sooner: a cell that is not good can be
+pruned as dominated after one pass (--prune_after 1), and a chorale with no good cell stops after
+two passes a cell (--hard_max_passes 2), for the spring fallback.  Replayed on the logged bwv342-353
+run of 22 Nov: 734 passes became 481 (tuning time 65%), every chorale that was good stayed good, and
+the leaders of bwv345 and bwv352 came out 0.6-1.8 points higher in high primes.
 
     python ray_ratchet.py --chorales bwv367 --place                 # until each cell places well, or the usual caps
     python ray_ratchet.py --chorales bwv367 --place --max_passes 1  # one pass a cell, whatever comes of it
@@ -217,10 +221,12 @@ def parse_args():
     p.add_argument('--max_passes', type=int, default=8, help='hard cap per cell (default 8)')
     p.add_argument('--good_gapsum', type=float, default=10.0,
                    help='a tuning with GapSum under this is good: its gaps are not heard (default 10)')
-    p.add_argument('--hard_max_passes', type=int, default=4,
-                   help='cap per cell while no cell of its chorale is good (default 4)')
-    p.add_argument('--prune_after', type=int, default=2,
-                   help='passes a cell gets before it can be pruned as dominated (default 2)')
+    # --place changes both defaults (22 Nov 2026, bwv342-353): a placed cell that is not good after
+    # one pass rarely becomes good, and a chorale with no good cell after two passes never did.
+    p.add_argument('--hard_max_passes', type=int, default=None,
+                   help='cap per cell while no cell of its chorale is good (default 4; 2 with --place)')
+    p.add_argument('--prune_after', type=int, default=None,
+                   help='passes a cell gets before it can be pruned as dominated (default 2; 1 with --place)')
     p.add_argument('--avg_slack', type=float, default=1.0,
                    help='a good cell stops once another good cell\'s chord average is more than '
                         'this much lower (default 1.0)')
@@ -238,6 +244,10 @@ def parse_args():
     p.add_argument('--no_report', action='store_true', help='skip select_best_and_render.py at the end')
     p.add_argument('--dry_run', action='store_true')
     a = p.parse_args()
+    if a.hard_max_passes is None:
+        a.hard_max_passes = 2 if a.place else 4
+    if a.prune_after is None:
+        a.prune_after = 1 if a.place else 2
     for c in a.chorales:
         if not c.startswith('bwv'):
             p.error(f'chorale names need the bwv prefix: got {c!r}')
