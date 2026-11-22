@@ -26196,3 +26196,5 @@ _______________________
       Test it out on bwv366, which was left out between the {354..365} and {367..378} runs:
             ./ray-ratchet.sh --chorales bwv366 --fresh_first
       Then post the chaconne version of 366 and all the others to microtonalnotes.net listen. 
+      Next render all the WTC with vrwt.
+            ./wtc1_vrwt.sh
