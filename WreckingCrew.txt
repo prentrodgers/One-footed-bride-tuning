@@ -26384,7 +26384,7 @@ __________________________
                   Uploads/b261a_df3_t3_d03_57_t020_lm19_r1.62.mp3 # nice bends between measures 3 & 4. The someone glides down to a beating chord, then measure starts with a beating chord that moves into just. Interesting. I like interesting slides like this. 
       Without the --short_repeats:
             python WreckingCrew.py --chorale bwv261 --hold_rests --numpy_dir Archive/placed-test/t3_r1.625_lm19 --ap 1 --cent_file_partial='-opt.npy'
-                  Uploads/b261a_df3_t3_d08_41_t110_ap1_lm19_r1.62.mp3 # the glides are gone, probably because the jump from D on 227 in measure 3 and the D on 209 in measure 4 is only noticed by the two notes that span the measure, which are only a small percentage of the D's that stay on 227, and those that stay on 209. It's impreceptible. 
+                  Uploads/b261a_df3_t3_d08_41_t110_ap1_lm19_r1.62.mp3 # the glides are gone, probably because the jump from D on 227 in measure 3 and the D on 209 in measure 4 is only noticed by the two notes that span the measure, which are only a small percentage of the D's that stay on 227, and those that stay on 209. It's impreceptible. Claude says he could fix this so that the gap caused by a rest is not honored. But I like it this way for now. 
 
       What is built (not committed)
 
@@ -26502,4 +26502,26 @@ __________________________
       Claude asked if there are other Chorales that could benefit from Spring tuning instead of Straw_man_tuning_v2.py? I'd prefer to have these just be both consdered part of One-footed-bride-tuning, since the Spring tuning bends towards a 15-limit tonality diamond. One is closest to just while preserving the horizontal lines, the other is hard core high primes to solve vertical problems with Viterbi Optimization to give best effort to the horizontal line, if it's not going to disturb the individual chords too much. Can we combine them somehow and get the best of both worlds?
 
       Next tune a new set:
-            /ray-ratchet.sh --chorales bwv{342..353} --place
+            ./ray-ratchet.sh --chorales bwv{342..353} --place
+      Claude suggests that it isn't worth it trying to get these chorales to tune 343 and 351, so use spring:
+            python spring_tuning.py --chorale bwv343 --diamond 7 --harmony 32 --out_dir Archive/spring/d7h32
+            python spring_tuning.py --chorale bwv351 --diamond 7 --harmony 32 --out_dir Archive/spring/d7h32
+      All the best tunings now are in Archive/placed. If you like a particular sort, use that the copy to Archive/placed/best-tunings
+
+      He recommends first listening to the two bad boys.
+            python WreckingCrew_v2.py --chorale bwv343 --ensemble ensembles/bwv262-octet.yaml --numpy_dir Archive/placed/t3_r1.25_lm19 --letter q1
+            python WreckingCrew_v2.py --chorale bwv351 --ensemble ensembles/bwv262-octet.yaml --numpy_dir Archive/placed/t3_r1.625_lm19 --letter q1
+
+      Then run this in the pod:
+            python select_best_and_render.py --numpy_dir_root Archive/placed --chorale_list bwv{342..353} --suffix="-opt.npy" --sort_by best | grep Chorale -A7  > select_best.txt
+            python select_best_and_render.py --numpy_dir_root Archive/placed --chorale_list bwv{342..353} --suffix="-opt.npy" --sort_by p90 | grep Chorale -A7  > select_p90.txt
+            python select_best_and_render.py --numpy_dir_root Archive/placed --chorale_list bwv{342..353} --suffix="-opt.npy" --sort_by score | grep Chorale -A7  > select_score.txt
+      And this on fs1:
+            scp one-footed-bride-pod:Repos/One-footed-bride-tuning/select_*.txt .
+                  select_best.txt 
+                  select_p90.txt
+                  select_score.txt
+      Use the best, it minimizes the bend+gapsum values. Bend is where to get it to work he had to bend more than the tolerance to say a cent value was a particular ratio. You can hear some weird ones. Chorales 343 and 351 sound pretty out there in the spiciness wilderness. But I'm going to keep them for now. I documented the weirdness. Good for sci-fi movies, definitely.
+            python select_best_and_render.py --numpy_dir_root Archive/placed --chorale_list bwv{342..353} --suffix="-opt.npy" --sort_by best --copy_npy_to Archive/placed/best-tunings
+      Then render the lot: (you can't pass more than one chorale to WreckingCrew_v2.py. Good to know)
+            for c in bwv{342..353} ; do python WreckingCrew_v2.py --chorale $c --ensemble ensembles/bwv262-octet.yaml --numpy_dir Archive/placed/best-tunings --letter q1 ; done
