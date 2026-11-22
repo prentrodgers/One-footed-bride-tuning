@@ -30,6 +30,15 @@ SUMMARY figure) and then the lowest chord average (which tracks High% closely, r
 cells).  A chorale with no tuning under --good_gapsum leads with its lowest GapSum instead.  The
 leading row per chorale is what --copy_npy_to and --render act on.
 
+Bent and Bend (22 Nov 2026) are for tunings whose notes are not whole cents: a placed tuning
+(spring_tuning.py --place) or a spring tuning.  Placement closes the gaps by giving every note one
+pitch, and where two chords disagreed about a note it bends one of them: the gap becomes a chord a
+few cents off its ratios.  Bent counts the chords with an interval past the tolerance, Bend adds up
+how far past (the worst interval of each, in cents), and best ranks on GapSum + Bend, so a tuning is
+not good for having traded its gaps for bent chords.  ChordAvg and ChordMax carry no 1000-point
+penalty for those chords: they score every interval as its nearest ratio.  A tuning straight from
+Straw_man_tuning_v2 has Bent 0 and the same ChordAvg as before.
+
 Usage:
     python select_best_and_render.py \
         --numpy_dir_root Archive/straw-man \
@@ -179,7 +188,48 @@ def score_array(cent_4n, tonal_diamond, tolerance, sounding=None):
     return float(np.mean(scores)), float(np.max(scores)), int(np.argmax(scores))
 
 
-GOOD_GAPSUM = 10.0          # --good_gapsum: under this, the gaps are not heard
+def chord_bends(cent_4n, tonal_diamond, tolerance, sounding=None):
+    """A tuning's chords against the diamond, judged on the true (fractional) intervals.
+
+    Returns dict(avg, mx, bent, bend, worst, chords):
+      avg, mx   the chord average and maximum with no penalty: every pair scored as its nearest ratio,
+                picked as ChordScorer picks it.  For a tuning with no bent chord, score_array's own.
+      bent      the chords with a pair past the tolerance (a chord held over several columns is one)
+      bend      for each of those, how far past the tolerance its worst pair is, in cents, summed
+      worst     the largest of those
+      chords    [(cents past, first column, columns)] for the bent chords
+    A pair counts as within tolerance up to tolerance + 0.5 cents from the exact ratio: the scorer
+    compares whole cents with the ratio rounded to a whole cent, and allows that much.  So a tuning in
+    whole cents is bent exactly where the scorer adds its 1000."""
+    import chord_report                                    # imported here: chord_report imports this module
+    cents = np.asarray(cent_4n, dtype=float)
+    whole, exact, limit_score = tonal_diamond[:, 1], 1200.0 * np.log2(tonal_diamond[:, 0]), tonal_diamond[:, 2]
+    unique = atu.unique_pitch_classes_for(cents.shape[0])
+    scores, chords = np.zeros(cents.shape[1]), []
+    prev = prev_mask = None
+    for i in range(cents.shape[1]):
+        col = cents[:, i]
+        mask = None if sounding is None else sounding[:, i]
+        score, past = 0.0, 0.0
+        for a, b in chord_report.voice_pairs(col, unique, mask):
+            d = abs(float(atu.wrap600(col[a] - col[b])))
+            if int(round(d)) > 0:
+                k = int(np.argmin(np.abs(whole - round(d))))
+                score += limit_score[k]
+                past = max(past, abs(d - exact[k]) - tolerance - 0.5)
+        scores[i] = round(score, 1)
+        held = prev is not None and np.array_equal(prev, col) and (mask is None or np.array_equal(prev_mask, mask))
+        if held and chords and chords[-1][1] + chords[-1][2] == i:
+            chords[-1][2] += 1                              # the bent chord goes on sounding
+        elif past > 1e-9 and not held:
+            chords.append([past, i, 1])
+        prev, prev_mask = col, mask
+    return dict(avg=float(scores.mean()), mx=float(scores.max()), bent=len(chords),
+                bend=float(sum(c[0] for c in chords)), worst=max([c[0] for c in chords], default=0.0),
+                chords=[tuple(c) for c in chords])
+
+
+GOOD_GAPSUM = 10.0          # --good_gapsum: under this, the gaps (and the bends of a placed tuning) are not heard
 
 
 def high_share(arr, limit_max, tolerance, sounding=None):
@@ -192,8 +242,9 @@ def high_share(arr, limit_max, tolerance, sounding=None):
 SORT_KEYS = {
     # GapSum under GOOD_GAPSUM first, then the fewest high primes, then the lowest chord average;
     # a chorale with no such tuning leads with its lowest GapSum, the most listenable of the rest
-    'best':   lambda r: ((False, r['high'], r['mean_score']) if r['g']['total'] < GOOD_GAPSUM
-                         else (True, r['g']['total'], r['mean_score'])),
+    # (GapSum + Bend for a placed tuning, whose gaps were closed by bending chords; Bend is 0 otherwise)
+    'best':   lambda r: ((False, r['high'], r['avg']) if r['rough'] < GOOD_GAPSUM
+                         else (True, r['rough'], r['avg'])),
     'high':   lambda r: (r['high'], r['mean_score']),
     'score':  lambda r: r['mean_score'],
     'gapsum': lambda r: r['g']['total'],
@@ -234,7 +285,8 @@ def main():
                              'score=mean chord score, gapsum=total gap cents, maxgap, p90, '
                              'over20=count of gaps above 20¢, name (default: best)')
     parser.add_argument('--good_gapsum', type=float, default=10.0,
-                        help='GapSum below which gaps are not heard; best ranks these first (default: 10)')
+                        help='GapSum (plus Bend, for a placed tuning) below which gaps are not heard; '
+                             'best ranks these first (default: 10)')
     parser.add_argument('--top_gaps', type=int, default=10,
                         help='List this many largest individual gaps per detailed directory; '
                              '0 disables the detail section (default: 10)')
@@ -272,6 +324,10 @@ def main():
     root = (args.numpy_dir_root if os.path.isabs(args.numpy_dir_root)
             else os.path.join(base_dir, args.numpy_dir_root))
 
+    if not os.path.isdir(root):
+        print(f'No such directory: {root}')
+        return
+
     suffixes = [args.suffix] + ([args.alt_suffix] if args.alt_suffix else [])
 
     # Any subdirectory holding a matching file is reportable.  Directories whose
@@ -298,7 +354,7 @@ def main():
 
     for version in args.chorale_list:
         print(f'\n{"=" * 108}')
-        order = (f'best: GapSum < {args.good_gapsum:g} first, then fewest high primes, then lowest ChordAvg'
+        order = (f'best: GapSum + Bend < {args.good_gapsum:g} first, then fewest high primes, then lowest ChordAvg'
                  if args.sort_by == 'best' else f'{args.sort_by} (ordering only, not a ranking)')
         print(f'Chorale: {version}   sorted by {order}')
         print(f'{"=" * 108}')
@@ -325,11 +381,15 @@ def main():
                     sounding = atu.sounding_for_tuning(path, version, arr.shape)
                     mean_sc, max_sc, max_ch = score_array(arr, tonal_diamond_cache[lm], tol, sounding)
                     gaps = collect_gaps(arr, sounding)
+                    g = summarize_gaps(gaps, args.max_cents_slide)
+                    b = chord_bends(arr, tonal_diamond_cache[lm], tol, sounding)
                     rows.append({
                         'dir': d, 'suffix': sfx, 'path': path, 'params': fparams,
                         'mean_score': mean_sc, 'max_score': max_sc, 'max_chord': max_ch,
                         'high': high_share(arr, lm, tol, sounding),
-                        'gaps': gaps, 'g': summarize_gaps(gaps, args.max_cents_slide),
+                        'gaps': gaps, 'g': g,
+                        'avg': b['avg'], 'mx': b['mx'], 'bent': b['bent'], 'bend': b['bend'],
+                        'bent_chords': b['chords'], 'rough': g['total'] + b['bend'],
                     })
 
         if not rows:
@@ -340,10 +400,10 @@ def main():
 
         ms = int(args.max_cents_slide)
         print(f'  {"Directory":<30} {"sfx":<6} {"t":>2} {"ratio":>6} {"lm":>3} '
-              f'{"ChordAvg":>8} {"ChordMax":>8} {"High%":>6} |'
+              f'{"ChordAvg":>8} {"ChordMax":>8} {"High%":>6} {"Bent":>4} {"Bend":>5} |'
               f' {"N":>4} {"GapSum":>7} {"Avg":>6} {"Med":>6} {"p90":>6} {"Max":>6} |'
               f' {">10":>4} {">20":>4} {">30":>4} {">=" + str(ms):>5}')
-        print(f'  {"-" * 30} {"-" * 6} {"-" * 2} {"-" * 6} {"-" * 3} {"-" * 8} {"-" * 8} {"-" * 6} |'
+        print(f'  {"-" * 30} {"-" * 6} {"-" * 2} {"-" * 6} {"-" * 3} {"-" * 8} {"-" * 8} {"-" * 6} {"-" * 4} {"-" * 5} |'
               f' {"-" * 4} {"-" * 7} {"-" * 6} {"-" * 6} {"-" * 6} {"-" * 6} |'
               f' {"-" * 4} {"-" * 4} {"-" * 4} {"-" * 5}')
         for r in rows:
@@ -351,7 +411,7 @@ def main():
             sfx_label = 'trans' if 'trans' in r['suffix'] else 'opt'
             print(f'  {os.path.basename(r["dir"])[:30]:<30} {sfx_label:<6} '
                   f'{p["tolerance"]:>2} {p["ratio_factor"]:>6.3f} {p["limit_max"]:>3} '
-                  f'{r["mean_score"]:>8.1f} {r["max_score"]:>8.0f} {r["high"]:>6.1f} |'
+                  f'{r["avg"]:>8.1f} {r["mx"]:>8.0f} {r["high"]:>6.1f} {r["bent"]:>4} {r["bend"]:>5.1f} |'
                   f' {g["n"]:>4} {g["total"]:>7.0f} {g["mean"]:>6.1f} {g["median"]:>6.1f} '
                   f'{g["p90"]:>6.1f} {g["mx"]:>6.1f} |'
                   f' {g["over10"]:>4} {g["over20"]:>4} {g["over30"]:>4} {g["at_slide"]:>5}')
@@ -359,22 +419,27 @@ def main():
         if args.top_gaps > 0:
             for r in rows[:max(0, args.detail_dirs)]:
                 worst = sorted(r['gaps'], reverse=True)[:args.top_gaps]
-                if not worst:
-                    continue
-                print(f'\n  Largest gaps — {os.path.basename(r["dir"])} '
-                      f'[{"trans" if "trans" in r["suffix"] else "opt"}]')
-                print(f'    {"chord":>6} {"voice":>6} {"note":<5} {"prev":>8} {"curr":>8} {"gap":>7}')
-                for gap, chord_idx, voice, pc, prev_c, curr_c in worst:
-                    print(f'    {chord_idx:>6} {voice:>6} {NOTE_NAMES[pc]:<5} '
-                          f'{prev_c:>8.1f} {curr_c:>8.1f} {gap:>7.1f}')
+                label = f'{os.path.basename(r["dir"])} [{"trans" if "trans" in r["suffix"] else "opt"}]'
+                if worst:
+                    print(f'\n  Largest gaps — {label}')
+                    print(f'    {"chord":>6} {"voice":>6} {"note":<5} {"prev":>8} {"curr":>8} {"gap":>7}')
+                    for gap, chord_idx, voice, pc, prev_c, curr_c in worst:
+                        print(f'    {chord_idx:>6} {voice:>6} {NOTE_NAMES[pc]:<5} '
+                              f'{prev_c:>8.1f} {curr_c:>8.1f} {gap:>7.1f}')
+                bent = sorted(r['bent_chords'], reverse=True)[:args.top_gaps]
+                if bent:
+                    print(f'\n  Most bent chords — {label}  (cents past tolerance {r["params"]["tolerance"]})')
+                    print(f'    {"chord":>6} {"columns":>8} {"past":>7}')
+                    for past, first, columns in bent:
+                        print(f'    {first:>6} {columns:>8} {past:>7.1f}')
 
         leaders.append((version, rows[0]['dir'], rows[0]['params'], rows[0]['suffix'],
                         rows[0]['path']))
 
     print(f'\n{"=" * 108}')
     if args.sort_by == 'best':
-        print(f'Leading row per chorale: GapSum < {args.good_gapsum:g} with the fewest high primes, '
-              f'or, where none is, the lowest GapSum.')
+        print(f'Leading row per chorale: GapSum + Bend < {args.good_gapsum:g} with the fewest high primes, '
+              f'or, where none is, the lowest GapSum + Bend.')
     else:
         print('Report only — no winner was chosen. Row order reflects --sort_by.')
 

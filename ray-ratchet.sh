@@ -7,6 +7,9 @@
 #     ./ray-ratchet.sh                                       # 24 cells x bwv415..426
 #     ./ray-ratchet.sh --chorales bwv428 bwv429 bwv430       # several chorales, one run
 #     ./ray-ratchet.sh --chorales bwv415 --patience 3        # anything ray_ratchet.py takes (--help lists it)
+#     ./ray-ratchet.sh --chorales bwv367 --place             # the short way: each pass is also placed by spring_tuning.py
+#                                                            #   (Archive/placed), and a cell stops once that is good
+#     ./ray-ratchet.sh --chorales bwv367 --place --max_passes 1   # one pass a cell and no more
 #     ./ray-ratchet.sh --dry_run                             # the plan only; no cluster
 #     ./ray-ratchet.sh --attach                              # follow a run this shell lost
 #     ./ray-ratchet.sh --stop                                # tear down a cluster a run left up

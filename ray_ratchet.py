@@ -44,6 +44,16 @@ functions select_best_and_render.py and chord_report.py use) and logged to
 Archive/straw-man/ray-ratchet-<start>.tsv, one line per pass.  At the end
 select_best_and_render.py --sort_by best reports each chorale's leader.
 
+--place (22 Nov 2026) is the short way round.  After every pass the cell's tuning is also placed
+by spring_tuning.py (one pitch a note, the gaps closed, a chord bent where two disagreed) and
+written to Archive/placed/<cell>/; the tuning in Archive/straw-man is left as the tuner made it.
+A cell is then judged on its placed tuning, GapSum + Bend in place of GapSum, and stops as soon as
+that is good: most of the later passes were spent closing gaps that placing closes in a second.
+The report at the end is of Archive/placed.
+
+    python ray_ratchet.py --chorales bwv367 --place                 # until each cell places well, or the usual caps
+    python ray_ratchet.py --chorales bwv367 --place --max_passes 1  # one pass a cell, whatever comes of it
+
 Ratios are strings, spelled as the cell directory is named: 1.50, not 1.5.
 """
 import argparse
@@ -56,6 +66,7 @@ import time
 
 REPO = os.path.dirname(os.path.abspath(__file__))
 RESULTS = os.path.join(REPO, 'Archive', 'straw-man')
+PLACED = os.path.join(REPO, 'Archive', 'placed')        # --place: the same cell directories, placed
 
 Key = collections.namedtuple('Key', 'lm t r chorale')
 
@@ -79,9 +90,10 @@ def read_sidecar(path):
 
 
 # ── The task ─────────────────────────────────────────────────────────────────
-def run_cell(k, fresh, task_id):
+def run_cell(k, fresh, task_id, place=False):
     """Runs on a worker.  One pass of grid_search.sh for one cell and chorale,
-    then the pass's metrics.  Raises if the tuner failed."""
+    then the pass's metrics.  Raises if the tuner failed.  With `place`, the
+    tuning is then placed as well (place_cell) and its p_* metrics added."""
     import numpy as np
     os.chdir(REPO)
     sys.path.insert(0, REPO)
@@ -133,10 +145,42 @@ def run_cell(k, fresh, task_id):
     sounding = atu.sounding_for_tuning(npy, k.chorale, arr.shape)   # rests as the tuner scored them
     mean_sc, max_sc, _ = sbr.score_array(arr, diamond, k.t, sounding)
     g = sbr.summarize_gaps(sbr.collect_gaps(arr, sounding), 33.0)
-    return dict(accepted=after.get('last_improved') != before, seconds=seconds,
-                chordavg=mean_sc, chordmax=max_sc,
-                high=chord_report.high_prime_share(arr, k.lm, k.t, sounding=sounding)[0],
-                n=g['n'], gapsum=g['total'], p90=g['p90'], mx=g['mx'])
+    m = dict(accepted=after.get('last_improved') != before, seconds=seconds,
+             chordavg=mean_sc, chordmax=max_sc,
+             high=chord_report.high_prime_share(arr, k.lm, k.t, sounding=sounding)[0],
+             n=g['n'], gapsum=g['total'], p90=g['p90'], mx=g['mx'])
+    if place:
+        m.update(place_cell(k, npy, diamond))
+    return m
+
+
+def place_cell(k, npy, diamond):
+    """The cell's tuning placed by spring_tuning.py (one pitch a note, the gaps closed) into
+    Archive/placed/<cell>/, and measured: its GapSum, its bent chords and Bend (how far past
+    tolerance, summed), its chord average without penalties and its high-prime share.  If placing
+    fails the pass still counts: p_error says why, and the cell is judged on the tuning as it is."""
+    import select_best_and_render as sbr
+    import adaptive_tuning_util as atu
+    import chord_report
+    try:
+        import spring_tuning
+        T, _R, path = spring_tuning.place_file(npy, k.chorale, os.path.join(PLACED, cell_dir(k)))
+        sounding = atu.sounding_for_tuning(path, k.chorale, T.shape)
+        g = sbr.summarize_gaps(sbr.collect_gaps(T, sounding), 33.0)
+        b = sbr.chord_bends(T, diamond, k.t, sounding)
+        return dict(p_gapsum=g['total'], p_n=g['n'], p_mx=g['mx'], p_bent=b['bent'], p_bend=b['bend'], p_avg=b['avg'],
+                    p_high=chord_report.high_prime_share(T, k.lm, k.t, sounding=sounding)[0])
+    except (Exception, SystemExit) as e:
+        lines = [l for l in str(e).strip().splitlines() if l.strip()]
+        return dict(p_error=lines[-1].strip()[:200] if lines else type(e).__name__)
+
+
+def judged(m):
+    """(roughness, chord average, high-prime share) a cell is judged on: its placed tuning's when it
+    has one, GapSum + Bend being what GapSum is to an unplaced tuning; else the tuning's own."""
+    if m.get('p_gapsum') is not None:
+        return m['p_gapsum'] + m['p_bend'], m['p_avg'], m['p_high']
+    return m['gapsum'], m['chordavg'], m['high']
 
 
 # ── The plan ─────────────────────────────────────────────────────────────────
@@ -180,6 +224,10 @@ def parse_args():
     p.add_argument('--avg_slack', type=float, default=1.0,
                    help='a good cell stops once another good cell\'s chord average is more than '
                         'this much lower (default 1.0)')
+    p.add_argument('--place', action='store_true',
+                   help='after every pass, place the tuning with spring_tuning.py into Archive/placed/<cell>/ '
+                        '(one pitch a note, the gaps closed), judge each cell on that (GapSum + Bend) and stop '
+                        'it once it is good.  The report at the end is of Archive/placed.')
     p.add_argument('--fresh_first', action='store_true',
                    help='FRESH=1 on each cell\'s FIRST pass: wipe its saved tuning and start over. '
                         'Later passes ratchet as usual.  Default keeps what is on disk.')
@@ -242,7 +290,9 @@ def main():
     print(f'  patience {a.patience}, max_passes {a.max_passes} ({a.hard_max_passes} while a chorale '
           f'has no GapSum < {a.good_gapsum:g}), prune after {a.prune_after} at avg slack {a.avg_slack:g}, '
           f'{a.task_cpus} CPU + {a.task_memory_gb}GiB per task'
-          + (', FRESH=1 on first pass' if a.fresh_first else ''))
+          + (', FRESH=1 on first pass' if a.fresh_first else '')
+          + (f'\n  --place: each pass placed into Archive/placed; a cell stops once GapSum + Bend < {a.good_gapsum:g} placed'
+             if a.place else ''))
     missing, how = missing_scores(chorales)
     print(f'  scores:   checked {how}')
     if missing:
@@ -267,7 +317,9 @@ def main():
     tsv_path = os.path.join(RESULTS, f'ray-ratchet-{start:%Y%m%d-%H%M}.tsv')
     tsv = open(tsv_path, 'w', buffering=1)
     # high is last so the earlier columns keep their places for older readers of these logs
-    tsv.write('time\tchorale\tcell\tpass\taccepted\tseconds\tchordavg\tn\tgapsum\tp90\tmax\tstatus\thigh\n')
+    # ... and the placed tuning's columns (--place) after that, empty without it
+    tsv.write('time\tchorale\tcell\tpass\taccepted\tseconds\tchordavg\tn\tgapsum\tp90\tmax\tstatus\thigh'
+              '\tplaced_gapsum\tplaced_bent\tplaced_bend\tplaced_avg\tplaced_high\n')
 
     # Per-key state.  A key sits in exactly one of: ready (deque), inflight
     # (dict ref->key), or retired (reason set).
@@ -286,19 +338,20 @@ def main():
         s = st[k]
         fresh = a.fresh_first and s['passes'] == 0
         task_id = f'ray-{k.chorale}-{cell_dir(k)}-p{s["passes"] + 1}'
-        ref = remote.options(name=task_id).remote(k, fresh, task_id)
+        ref = remote.options(name=task_id).remote(k, fresh, task_id, a.place)
         inflight[ref] = k
 
     def retire(k, reason):
         st[k]['retired'] = reason
 
     def good(m):
-        return m is not None and m['gapsum'] < a.good_gapsum
+        return m is not None and judged(m)[0] < a.good_gapsum
 
     def rank(m):
         """select_best_and_render's 'best' order: good first, by high primes then average;
-        the rest by GapSum."""
-        return (False, m['high'], m['chordavg']) if good(m) else (True, m['gapsum'], m['chordavg'])
+        the rest by GapSum (+ Bend, placed)."""
+        rough, avg, high = judged(m)
+        return (False, high, avg) if good(m) else (True, rough, avg)
 
     def pruned(k):
         """Why k should stop now although it is neither stalled nor capped, or None.  s['last'] is
@@ -306,14 +359,14 @@ def main():
         replaces with a better one)."""
         s = st[k]
         mates = [st[kk]['last'] for kk in keys if kk.chorale == k.chorale and kk != k]
-        good_avgs = [m['chordavg'] for m in mates if good(m)]
+        good_avgs = [judged(m)[1] for m in mates if good(m)]
         if not good_avgs and not good(s['last']) and s['passes'] >= a.hard_max_passes:
             return f'hard chorale, {a.hard_max_passes} passes'
         if good_avgs and s['passes'] >= a.prune_after:
             best_avg = min(good_avgs)
-            if not good(s['last']) and best_avg <= s['last']['chordavg']:
+            if not good(s['last']) and best_avg <= judged(s['last'])[1]:
                 return f'dominated (good cell avg {best_avg:.1f})'
-            if good(s['last']) and best_avg < s['last']['chordavg'] - a.avg_slack:
+            if good(s['last']) and best_avg < judged(s['last'])[1] - a.avg_slack:
                 return f'outclassed (good cell avg {best_avg:.1f})'
         return None
 
@@ -321,8 +374,11 @@ def main():
         active = sum(1 for s in st.values() if s['retired'] is None)
         print(f'\n-- {datetime.datetime.now():%H:%M:%S}  passes done {done_passes}, '
               f'inflight {len(inflight)}, ready {len(ready)}, cells active {active}/{len(keys)}')
-        print(f'   {"chorale":<8} {"best cell":<18} {"GapSum":>6} {"n":>3} {"p90":>5} {"max":>5} {"avg":>5} '
-              f'{"high%":>5}  good  active  retired')
+        if a.place:
+            print('   (each cell as placed: GapSum, and Bend for the chords bent to close the gaps)')
+        print(f'   {"chorale":<8} {"best cell":<18} {"GapSum":>6} '
+              + (f'{"Bend":>5} {"bent":>4} ' if a.place else f'{"n":>3} {"p90":>5} {"max":>5} ')
+              + f'{"avg":>5} {"high%":>5}  good  active  retired')
         for c in chorales:
             rows = [(k, s) for k, s in st.items() if k.chorale == c and s['last']]
             act = sum(1 for k, s in st.items() if k.chorale == c and s['retired'] is None)
@@ -333,8 +389,14 @@ def main():
                 continue
             k, s = min(rows, key=lambda ks: rank(ks[1]['last']))
             m = s['last']
-            print(f'   {c:<8} {cell_dir(k):<18} {m["gapsum"]:>6.0f} {m["n"]:>3} {m["p90"]:>5.1f} '
-                  f'{m["mx"]:>5.1f} {m["chordavg"]:>5.1f} {m["high"]:>5.1f}  {n_good:>4}  {act:>6}  {ret:>7}')
+            _rough, avg, high = judged(m)
+            if a.place and m.get('p_gapsum') is not None:
+                middle = f'{m["p_gapsum"]:>6.0f} {m["p_bend"]:>5.1f} {m["p_bent"]:>4} '
+            elif a.place:                               # placing failed: the tuning as it is
+                middle = f'{m["gapsum"]:>6.0f} {"-":>5} {"-":>4} '
+            else:
+                middle = f'{m["gapsum"]:>6.0f} {m["n"]:>3} {m["p90"]:>5.1f} {m["mx"]:>5.1f} '
+            print(f'   {c:<8} {cell_dir(k):<18} {middle}{avg:>5.1f} {high:>5.1f}  {n_good:>4}  {act:>6}  {ret:>7}')
         print(flush=True)
 
     while ready or inflight:
@@ -387,7 +449,10 @@ def main():
                 s['stall'] += 1
 
             why = pruned(k)
-            if s['stall'] >= a.patience:
+            if a.place and good(m):
+                # close enough: what further passes would buy, placing has already done
+                retire(k, 'good once placed')
+            elif s['stall'] >= a.patience:
                 retire(k, f'stalled {s["stall"]}')
             elif s['passes'] >= a.max_passes:
                 retire(k, f'max passes {a.max_passes}')
@@ -399,13 +464,20 @@ def main():
             delta = f'{prev["gapsum"]:.0f}->' if prev else ''
             verdict = 'accepted' if m['accepted'] else f'rejected ({s["stall"]}/{a.patience})'
             tail = f'  RETIRED: {s["retired"]}' if s['retired'] else ''
+            placed = cols = ''
+            if m.get('p_gapsum') is not None:
+                placed = (f' | placed: GapSum {m["p_gapsum"]:.0f} Bend {m["p_bend"]:.1f} ({m["p_bent"]} bent) '
+                          f'avg {m["p_avg"]:.1f} high {m["p_high"]:.1f}%')
+                cols = f'{m["p_gapsum"]:.1f}\t{m["p_bent"]}\t{m["p_bend"]:.1f}\t{m["p_avg"]:.1f}\t{m["p_high"]:.1f}'
+            elif m.get('p_error'):
+                placed = f' | NOT placed: {m["p_error"]}'
             print(f'{label}: {verdict:<15} GapSum {delta}{m["gapsum"]:.0f} n {m["n"]} '
                   f'p90 {m["p90"]:.1f} max {m["mx"]:.1f} avg {m["chordavg"]:.1f} high {m["high"]:.1f}%'
-                  f'  ({m["seconds"]:.0f}s){tail}', flush=True)
+                  f'{placed}  ({m["seconds"]:.0f}s){tail}', flush=True)
             tsv.write(f'{datetime.datetime.now():%F %T}\t{k.chorale}\t{cell_dir(k)}\t{s["passes"]}'
                       f'\t{int(m["accepted"])}\t{m["seconds"]:.0f}\t{m["chordavg"]:.1f}\t{m["n"]}'
                       f'\t{m["gapsum"]:.0f}\t{m["p90"]:.1f}\t{m["mx"]:.1f}\t{s["retired"] or "active"}'
-                      f'\t{m["high"]:.1f}\n')
+                      f'\t{m["high"]:.1f}\t{cols or (chr(9) * 4)}\n')
 
     tsv.close()
     status()
@@ -417,10 +489,12 @@ def main():
     print(f'per-pass log: {os.path.relpath(tsv_path, REPO)}')
 
     if not a.no_report:
-        print(f'\nselect_best_and_render.py --sort_by best: GapSum < {a.good_gapsum:g} first, '
+        root = 'Archive/placed' if a.place else 'Archive/straw-man'
+        print(f'\nselect_best_and_render.py --numpy_dir_root {root} --sort_by best: GapSum'
+              f'{" + Bend" if a.place else ""} < {a.good_gapsum:g} first, '
               f'then fewest high primes, then lowest average:\n', flush=True)
         subprocess.run([sys.executable, 'select_best_and_render.py',
-                        '--numpy_dir_root', 'Archive/straw-man',
+                        '--numpy_dir_root', root,
                         '--chorale_list', *chorales,
                         '--suffix=-opt.npy', '--sort_by', 'best', '--good_gapsum', str(a.good_gapsum),
                         '--top_gaps', '0'],

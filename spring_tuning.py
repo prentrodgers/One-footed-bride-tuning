@@ -47,6 +47,19 @@ of spring:
             solve.  The shared pitch is solved with every spring on every note of the group, so no
             note "wins".  --no-fold gives each note its own pitch, as the arrays of 19 Nov were made.
 
+  place     (--place TUNING, 22 Nov) no temperament at all: the chords come from a tuning Straw_man_tuning_v2
+            made, and the springs only put them together.  Every pair of notes sounding together is
+            pulled to the interval that tuning gave it there, for as long as it sounds (--harmony, 32
+            here); every note is held weakly to the pitch it had (--anchor); and the same pitch class
+            in neighbouring chords is pulled to one pitch (--join).  Each note gets one pitch, so a held
+            note no longer moves.  The tuner's gaps go: most were slack between chords that agreed, and
+            close for nothing.  Where two chords really disagreed about a note, the shorter one is bent
+            to meet the other, and select_best_and_render.py counts it (Bent, Bend).  bwv261, one fresh
+            pass of all 24 cells: 2 had GapSum under 10 as tuned, 16 once placed (GapSum + Bend), 9 of
+            them with no gap and no bent chord.  bwv366, where four passes left every cell at GapSum 25
+            or more: 3 cells under 10 after one pass, placed.  ray_ratchet.py --place does this after
+            every pass.
+
 --harmony 0 gives the reference temperament exactly.  Raising it buys purer thirds and fifths and
 pays in less even steps; the report line shows both, so the dial can be set by ear with the numbers
 beside it.  The idea is John deLaubenfels's (vertical, horizontal and grounding springs, tuning list
@@ -55,6 +68,7 @@ c. 2000); Stange, Wick and Hinrichsen, Computer Music Journal 2018, solve the sa
     spring_tuning.py --chorale bwv846f --sweep                      # the trade-off, nothing written
     spring_tuning.py --chorale bwv846f --harmony 2 --out_dir Archive/spring/h2
     WreckingCrew_v2.py --chorale bwv846f --numpy_dir Archive/spring/h2 --letter s --tempo 58
+    spring_tuning.py --chorale bwv261 --place Archive/straw-man/t3_r1.50_lm17 --out_dir Archive/placed/t3_r1.50_lm17
 """
 import argparse
 import math
@@ -86,6 +100,10 @@ MEMORY_QUARTERS = 4.0        # the same pitch class is tied to itself this far b
 MEMORY_DECAY = 2.0           # ... with a weight that falls by e every this many quarters
 STEP_GAP = 1.0               # two notes of a line are a step when at most this many quarters apart
 DIAMOND_ROUNDS = 40          # how many times the pairs may choose their ratios again
+PLACE_HARMONY = 32.0         # --place: the pull of each pair toward the interval the tuner gave it
+PLACE_ANCHOR = 0.25          # ... of each note toward the pitch the tuner gave it
+PLACE_JOIN = 640.0           # ... of the same pitch class in neighbouring chords toward one pitch
+PLACE_LIMIT = 49.4           # ... and no note this far from 12-TET: past 50 it would read as its neighbour
 
 
 def diamond_targets(odd_limit, exponent=2.0, limit=40.0):
@@ -339,6 +357,134 @@ def limited_solve(ri, ci, val, rhs, group, limit):
     return x, held
 
 
+def place(score, tuning, harmony=PLACE_HARMONY, anchor=PLACE_ANCHOR, join=PLACE_JOIN, fold=True, limit=PLACE_LIMIT):
+    """A chord-by-chord tuning (Straw_man_tuning_v2's, a (rows, slots) array of cents) put together with
+    springs: the same chords, one pitch for each note.  Returns the placed array.
+
+    harmony   each pair of notes sounding together toward the interval `tuning` gives it in that slot,
+              slot by slot, so a pair the tuner retuned halfway is pulled to both sizes in turn
+    anchor    each note toward the pitch `tuning` gives it (the mean, where it moved during the note)
+    join      the same pitch class in neighbouring slots toward one pitch: the gaps GapSum adds up
+    Notes of one pitch class sounding together share a pitch (fold_groups), as the tuner has them."""
+    notes, spq, midi = score['notes'], score['spq'], score['midi']
+    tuning = np.asarray(tuning, dtype=float) % 1200.0
+    if tuning.shape != midi.shape or atu.tuning_matches_score(tuning, midi) < 1.0:
+        raise SystemExit(f'--place: the tuning {tuning.shape} does not play {score["name"]} {midi.shape} note for note: '
+                         f'it was made from another reading of the score')
+    n, slots = len(notes), midi.shape[1]
+    off = (tuning - 100.0 * (midi % 12) + 600.0) % 1200.0 - 600.0       # cents from 12-TET, cell by cell
+    group = fold_groups(score) if fold else np.arange(n)
+    ri, ci, val, rhs = [], [], [], []
+
+    def spring(i, j, target, weight):
+        if weight <= 0 or (i is not None and group[i] == group[j]):
+            return
+        w = math.sqrt(weight)
+        r = len(rhs)
+        if i is not None:
+            ri.append(r); ci.append(group[i]); val.append(-w)
+        ri.append(r); ci.append(group[j]); val.append(w)
+        rhs.append(w * target)
+
+    reach = limit - 0.4                                   # an anchor at the limit itself could never be met
+    for i, (v, a, b, _m) in enumerate(notes):             # the first n springs, as limited_solve expects
+        spring(None, i, float(np.clip(off[v, a:b].mean(), -reach, reach)), anchor * (b - a) / spq)
+    on = [[] for _ in range(slots)]
+    for i, (_v, a, b, _m) in enumerate(notes):
+        for c in range(a, b):
+            on[c].append(i)
+    joined = set()
+    for c in range(slots - 1):
+        for i in on[c]:
+            for j in on[c + 1]:
+                if i != j and notes[i][3] % 12 == notes[j][3] % 12 and (i, j) not in joined:
+                    joined.add((i, j))
+                    spring(i, j, 0.0, join)
+    together = {}
+    for c, now in enumerate(on):
+        for x, i in enumerate(now):
+            for j in now[x + 1:]:
+                key = (i, j, round(float(off[notes[j][0], c] - off[notes[i][0], c]), 2))
+                together[key] = together.get(key, 0.0) + harmony / spq
+    for (i, j, target), weight in together.items():
+        spring(i, j, target, weight)
+    x, held = limited_solve(ri, ci, val, rhs, group, limit)
+    score['held'] = int(held.sum())
+    sounding = np.zeros(midi.shape, bool)
+    T = tuning.copy()
+    for (v, a, b, m), xi in zip(notes, x):
+        T[v, a:b] = ((m % 12) * 100.0 + xi) % 1200.0
+        sounding[v, a:b] = True
+    return atu.fill_rests(T, midi, sounding) % 1200.0     # a rest's placeholder follows its note
+
+
+def sidecar(path):
+    """The 'name: value' lines beside a tuning, as a dict (empty when there is none)."""
+    out = {}
+    try:
+        with open(os.path.splitext(path)[0] + '.txt') as f:
+            for row in f:
+                if ':' in row:
+                    name, value = row.split(':', 1)
+                    out[name.strip()] = value.strip()
+    except OSError:
+        pass
+    return out
+
+
+def place_file(source, chorale, out_dir=None, score=None, **dials):
+    """place() for a saved tuning: (the placed array, the source array, the path written or None).
+    With out_dir, writes <chorale>-opt.npy there and a .txt that carries over how the source was
+    made (its rests, tolerance and limit, which the reports read) and says what it was placed from."""
+    import datetime
+    score = score or load(chorale)
+    R = np.load(source).astype(float) % 1200.0
+    T = place(score, R, **dials)
+    path = None
+    if out_dir:
+        os.makedirs(out_dir, exist_ok=True)
+        path = os.path.join(out_dir, f'{chorale}-opt.npy')
+        if os.path.exists(path) and os.path.samefile(path, source):
+            raise SystemExit(f'--out_dir would overwrite the tuning being placed ({source}): give another directory')
+        np.save(path, T)
+        was = sidecar(source)
+        d = {**dict(harmony=PLACE_HARMONY, anchor=PLACE_ANCHOR, join=PLACE_JOIN, fold=True, limit=PLACE_LIMIT), **dials}
+        with open(os.path.splitext(path)[0] + '.txt', 'w') as f:
+            f.write(f'version: {chorale}\nmethod: Straw_man_tuning_v2, placed by spring_tuning\n'
+                    f'placed: {datetime.datetime.now():%F %T}\nplaced_from: {source}\n'
+                    f'source_last_improved: {was.get("last_improved", "")}\n'
+                    f'harmony: {d["harmony"]}\nanchor: {d["anchor"]}\njoin: {d["join"]}\n'
+                    f'limit: {d["limit"]}\nfold: {d["fold"]}\n'
+                    + ''.join(f'{k}: {was[k]}\n' for k in ('tolerance', 'limit_max', 'ratio_factor', 'scoring') if k in was)
+                    + f'voices: {T.shape[0]}\nrests: {was.get("rests", "held")}\n')
+    return T, R, path
+
+
+def placement_summary(chorale, T, R, source):
+    """What placing cost and bought, as select_best_and_render.py counts it: [(label, text)] for the
+    tuning as it was and as placed.  The chord columns need the source's tolerance and limit, from its
+    .txt or its directory name (t3_r1.50_lm17); without them only the gaps are given."""
+    import select_best_and_render as sbr
+    was = sidecar(source)
+    named = sbr.parse_dir_params(os.path.dirname(os.path.abspath(source))) or {}
+    tolerance = int(float(was['tolerance'])) if 'tolerance' in was else named.get('tolerance')
+    limit_max = int(float(was['limit_max'])) if 'limit_max' in was else named.get('limit_max')
+    sounding = atu.sounding_for_tuning(source, chorale, R.shape)
+    out = []
+    for label, A in (('as tuned', R), ('placed', T)):
+        g = sbr.summarize_gaps(sbr.collect_gaps(A, sounding), 33.0)
+        text = f'gaps {g["n"]:3d}  GapSum {g["total"]:5.1f}  largest {g["mx"]:4.1f}'
+        if tolerance is not None and limit_max is not None:
+            b = sbr.chord_bends(A, atu.build_tonal_diamond(limit_max)[:-1], tolerance, sounding)
+            text += (f' | chord average {b["avg"]:5.1f}  bent chords {b["bent"]:3d}  '
+                     f'Bend {b["bend"]:5.1f} (cents past tolerance {tolerance}, the worst {b["worst"]:.1f})')
+        out.append((label, text))
+    moved = np.abs((T - R + 600.0) % 1200.0 - 600.0)
+    moved = moved if sounding is None else moved[sounding]
+    out.append(('notes moved', f'{moved.mean():.1f} cents on average, {moved.max():.1f} at most'))
+    return out
+
+
 def to_array(score, offsets, reference='vrwt'):
     """The (rows, slots) array of cents within the octave that WreckingCrew_v2 plays."""
     midi = score['midi']
@@ -431,7 +577,9 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--chorale', required=True, help='score name, as for WreckingCrew_v2')
     ap.add_argument('--reference', default='vrwt', choices=sorted(wc.TEMPERAMENTS))
-    ap.add_argument('--harmony', type=float, default=2.0, help='pull toward just intervals (0: the reference itself)')
+    ap.add_argument('--harmony', type=float, default=None,
+                    help='pull toward just intervals (default 2; 0: the reference itself).  With --place: toward '
+                         f'the intervals of the tuning being placed (default {PLACE_HARMONY:g})')
     ap.add_argument('--melody', type=float, default=1.0, help='pull of each melodic step toward its reference size')
     ap.add_argument('--memory', type=float, default=1.0, help='pull of a pitch class toward where it just was')
     ap.add_argument('--septimal', type=float, default=1.0,
@@ -453,12 +601,36 @@ def main():
     ap.add_argument('--fold', action=argparse.BooleanOptionalAction, default=True,
                     help='notes of the same pitch class sounding together share one pitch, in any octave or '
                          'voice (default); --no-fold: each note its own, as the arrays of 19 Nov')
+    ap.add_argument('--place', metavar='TUNING',
+                    help='put together a tuning Straw_man_tuning_v2 made, in place of solving from --reference: '
+                         'its -opt.npy, or the directory that holds this chorale\'s (Archive/straw-man/t3_r1.50_lm17). '
+                         'Only --harmony, --anchor, --join, --fold and --out_dir apply')
+    ap.add_argument('--anchor', type=float, default=PLACE_ANCHOR,
+                    help='with --place: pull of each note toward the pitch the tuner gave it')
+    ap.add_argument('--join', type=float, default=PLACE_JOIN,
+                    help='with --place: pull of the same pitch class in neighbouring chords toward one pitch; '
+                         'lower leaves small gaps and bends the chords less')
     ap.add_argument('--out_dir', help='write <chorale>-opt.npy and .txt here')
     ap.add_argument('--sweep', action='store_true', help='print the trade-off for a range of --harmony')
     ap.add_argument('--compare', nargs='*', default=[], help='other tuning files to report beside it')
     args = ap.parse_args()
 
     score = load(args.chorale)
+    if args.place:
+        source = args.place if os.path.isfile(args.place) else wc.find_tuning(args.chorale, args.place, '-opt.npy')
+        T, R, path = place_file(source, args.chorale, args.out_dir, score=score, anchor=args.anchor, join=args.join,
+                                fold=args.fold, harmony=PLACE_HARMONY if args.harmony is None else args.harmony)
+        print(f'{args.chorale}: {len(score["notes"])} notes, {score["midi"].shape[0]} rows, placing {source}')
+        print(line('as tuned', report(score, R)))
+        print(line('placed', report(score, T)))
+        for label, text in placement_summary(args.chorale, T, R, source):
+            print(f'{label:12s} {text}')
+        if score['held']:
+            print(f'  {score["held"]} of {len(score["notes"])} notes were held inside {PLACE_LIMIT:g} cents of 12-TET')
+        print(f'wrote {path}' if path else 'nothing written (no --out_dir)')
+        return
+    if args.harmony is None:
+        args.harmony = 2.0
     print(f'{args.chorale}: {len(score["notes"])} notes, {score["midi"].shape[0]} rows, reference {args.reference}')
     found = report(score, wc.temperament_tuning(args.reference, score['midi']))['sevenths']
     print(f'seventh chords: 4:5:6:7 sounds for {found["4:5:6:7"][1]:.1f} quarters, 1/(4:5:6:7) for '
