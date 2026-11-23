@@ -47,8 +47,10 @@ and graces that would take more than half the main note are shortened to fit in 
 
 Arpeggio signs (the wavy line before a chord; 20 Nov) roll the chord: every note of that staff struck
 on that beat, a separate strike each, --arpeggio_ms (50) apart, top to bottom by default as Glenn Gould
-plays the Aria's bar 11 (--arpeggio up: bottom to top; off: struck together).  A sign the score marks
-up or down keeps its own direction.  Each note still ends where it would have.
+plays the Aria's bar 11 (--arpeggio up: bottom to top; rand: each chord one way or the other at
+random, from --seed; rdown_lup: chords whose sign is on the right hand's (upper) staff top to bottom,
+the left hand's bottom to top; off: struck together; --arp_dir is the same argument).  A sign the
+score marks up or down keeps its own direction.  Each note still ends where it would have.
 
 Legato: ball9.csd's envelopes scale with the note (p3) and fade over its last
 part (f293, e5, the last 12.5%), so a note played at its written length fades
@@ -380,12 +382,22 @@ def ornaments(stream, spq=4):
     return out
 
 
-def arpeggios(stream, spq=4, direction='down'):
+ARP_DIRS = ['down', 'up', 'rand', 'rdown_lup', 'off']
+ARP_WAYS = {'down': 'top to bottom', 'up': 'bottom to top', 'rand': 'each chord up or down at random',
+            'rdown_lup': 'right hand top to bottom, left hand bottom to top'}
+
+
+def arpeggios(stream, spq=4, direction='down', seed=0):
     """{(part index, slot, midi): place in the roll, 0 first} for each chord under an arpeggio sign.
 
     A sign on a note (music21's ArpeggioMark) rolls every note of that part (staff) starting on that
     beat, whichever voice it is in; a sign across staves (ArpeggioMarkSpanner) rolls the notes it spans.
-    direction 'down' rolls from the top, 'up' from the bottom; a sign marked up or down overrides it."""
+    direction 'down' rolls from the top, 'up' from the bottom, 'rand' picks one of the two for each chord
+    (from seed), 'rdown_lup' rolls from the top when the sign is on the right hand's staff (the upper
+    half of the parts; for a sign across staves, the staff of its first note) and from the bottom on the
+    left hand's.  A sign marked up or down overrides it."""
+    right = lambda i: i < len(stream.parts) / 2
+    rng = np.random.default_rng([seed, 3])
     groups = []
     for i, part in enumerate(stream.parts):
         notes = [(n, n.getOffsetInHierarchy(part)) for n in part.recurse().notes if not n.duration.isGrace]
@@ -393,19 +405,27 @@ def arpeggios(stream, spq=4, direction='down'):
             for e in n.expressions:
                 if type(e).__name__ == 'ArpeggioMark' and e.type != 'non-arpeggio':
                     struck = {(i, _slot(at, spq), x.midi) for m, t in notes if abs(t - at) < 1e-6 for x in m.pitches}
-                    groups.append((e.type, struck))
+                    groups.append((e.type, struck, i))
     for sp in stream.recurse().getElementsByClass('ArpeggioMarkSpanner'):
         if sp.type == 'non-arpeggio':
             continue
-        struck = set()
+        struck, first = set(), None
         for n in sp.getSpannedElements():
             for i, part in enumerate(stream.parts):
                 if n in part.recurse().notes:
+                    first = i if first is None else first
                     struck |= {(i, _slot(n.getOffsetInHierarchy(part), spq), x.midi) for x in n.pitches}
-        groups.append((sp.type, struck))
+        groups.append((sp.type, struck, first or 0))
     out = {}
-    for kind, struck in groups:
-        way = kind if kind in ('up', 'down') else direction
+    for kind, struck, staff in groups:
+        if kind in ('up', 'down'):
+            way = kind
+        elif direction == 'rand':
+            way = 'down' if rng.random() < 0.5 else 'up'
+        elif direction == 'rdown_lup':
+            way = 'down' if right(staff) else 'up'
+        else:
+            way = direction
         for k, key in enumerate(sorted(struck, key=lambda key: key[2], reverse=(way == 'down'))):
             out.setdefault(key, k)
     return out
@@ -1149,7 +1169,7 @@ def render(args):
     notes = build_notes(rows, tuning, first, parts, args, glides, report, tempo=tempo, bars=bars,
                         downbeats=downbeats, ending=ending, spq=spq,
                         ornaments=written if args.ornaments else None,
-                        arpeggios=arpeggios(stream, spq, args.arpeggio) if args.arpeggio != 'off' else None)
+                        arpeggios=arpeggios(stream, spq, args.arpeggio, args.seed) if args.arpeggio != 'off' else None)
     struck = any(INSTRUMENTS[i][1] == 0 for x in parts for i in x['instruments'])
     print(f'ending: the last chord {"has a fermata, held %gx, " % args.fermata if ending["fermata"] else ""}'
           f'sounds to beat {ending["end"] + ending["extra"]:g}'
@@ -1178,8 +1198,7 @@ def render(args):
           f'{report["wide_glides"]} over {args.max_glide:g}; {len(glides.tables)} tables')
     if report.get('rolled'):
         print(f'arpeggio: {report["rolled"]} notes in rolled chords, {args.arpeggio_ms:g} ms apart, '
-              f'{"top to bottom" if args.arpeggio == "down" else "bottom to top"} unless the sign says otherwise '
-              f'(--arpeggio, --arpeggio_ms)')
+              f'{ARP_WAYS[args.arpeggio]} unless the sign says otherwise (--arpeggio, --arpeggio_ms)')
     if written:
         kinds = collections.Counter(kind for kind, _s, _g in written.values() if kind)
         kinds['grace note'] += sum(len(g) for _k, _s, g in written.values())
@@ -1286,7 +1305,7 @@ def main(argv=None):
                          'together, and no onset moves more than %g of the way to the next (default 0: '
                          'strictly in time; 10-25 is a light touch)' % RUBATO_GAP)
     ap.add_argument('--seed', type=int, default=0,
-                    help='random seed for --velocity_random, --rubato_ms and --double_delay_ms, so a render can be '
+                    help='random seed for --velocity_random, --rubato_ms, --double_delay_ms and --arpeggio rand, so a render can be '
                          'repeated (default %(default)s)')
     ap.add_argument('--merge_adjacent', action='store_true',
                     help='join a note to the one before it in its voice when they are the same pitch and '
@@ -1297,9 +1316,11 @@ def main(argv=None):
     ap.add_argument('--ornaments', action=argparse.BooleanOptionalAction, default=True,
                     help='play trills, mordents, turns and grace notes as pitch steps in the glide table '
                          '(--no-ornaments: plain)')
-    ap.add_argument('--arpeggio', choices=['down', 'up', 'off'], default='down',
+    ap.add_argument('--arpeggio', '--arp_dir', dest='arpeggio', choices=ARP_DIRS, default='down',
                     help='roll a chord under an arpeggio sign from the top (down, the default, as Glenn Gould '
-                         'does in the Goldberg Aria), from the bottom (up), or strike it together (off)')
+                         'does in the Goldberg Aria), from the bottom (up), one way or the other at random for '
+                         'each chord (rand, from --seed), the right hand\'s from the top and the left hand\'s '
+                         'from the bottom (rdown_lup), or strike it together (off)')
     ap.add_argument('--arpeggio_ms', type=float, default=50.0, metavar='MS',
                     help='time between the notes of a rolled chord (default %(default)s)')
     ap.add_argument('--trill_rate', type=float, default=8.0, metavar='N',
