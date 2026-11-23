@@ -26526,13 +26526,6 @@ __________________________
       Then render the lot: (you can't pass more than one chorale to WreckingCrew_v2.py. Good to know)
             for c in bwv{342..353} ; do python WreckingCrew_v2.py --chorale $c --ensemble ensembles/bwv262-octet.yaml --numpy_dir Archive/placed/best-tunings --letter q1 ; done
 
-      _________________________
-      Next video step, back to the full orchestra, what would you ask for:
-      1. More musicians closer together without overlaps. Start with more 2 string instruments, then 1 more winds and brass instruments and players if they fit.
-      2. Better faces, better fingers, better clothes.
-      3. Set the stage the Teatro Alcorcon like the piano recital.
-      4. Make the audience once, much more varied, and use it whenever you pan to them. Premade offline. Like using AI model to create the audience jpeg. Since it doesn't move, this should work.
-      4. Boost the convolution level, externalize the value to use. Explain the slap back effect from the rear wall. Is it brick? What material are the walls? Ask Claude. 
 
       First do these easy ones: 
       1. Fix wtc1_vrwt.sh so the renders include the same thing that's in goldberg_diamond.sh:
@@ -26540,8 +26533,7 @@ __________________________
       That argument was already there. 
       2. Check the duration of each of the prelude and fugues in WTC in professional recordings like Richter and others. Build a table of the durations of each segment. Give that to claude to calculate the proper tempos. Some of the very slow preludes and fugues are in cut time, 2/2 so a half note gets one beat. That might have thrown Claude off when he set the tempos. In any case, find a consensus and use it in wtc1_vrwt.sh
       3. Explain the comments towards the end of that bash script. I don't want to be leaving any key out of the final version.
-      4. See what other notes I recorded on my walk yesterday. 
-      Tempos, for when you collect the data: --tempo always counts quarter notes. In this edition only two fugues are in cut time:
+      4. Boost the convolution level, externalize the value to use. Explain the slap back effect from the rear wall. Is it brick? What material are the walls? Done.
 
       ┌──────────────────────────────────┬──────┬──────────────┬───────────────┐
       │              Fugue               │ Time │ Script tempo │ Per half note │
@@ -26555,5 +26547,42 @@ __________________________
 
 ________________________ 
 11/23/26 Finish what you started yesterday.
-      1. get the placed tunings (vrwt-spring) from the pod into the repo. Get them from the pod into fs1 then commit and push.
+      Get the placed tunings (vrwt-spring) from the pod into the repo. Get them from the pod into fs1 then commit and push.
             kubectl exec deploy/one-footed-bride -c one-footed-bride -- tar -C /home/prent/Repos/One-footed-bride-tuning -cf - Archive/placed Archive/placed-test | tar -xf -
+      
+      Before you run ./wtc1_vrwt.sh, decide on a reverb level and arpeggio behavior. First for a prelude, then a louder fugue:
+            for r in 1:0.005 2:0.009 3:0.02 4:0.04; do python WreckingCrew_v2.py --chorale bwv853p --temperament vrwt --velocity_random 5 --accent 1 --ornaments --trill_glide 0.2 --level_by_velocity --tempo 67 --velocity 54 --rubato_ms 30 --arp_dir rdown_lup --reverb ${r#*:} --letter r${r%%:*}; done
+      I like --arp_dir rdown_lup so put it in the ./wtc1_vrwt.sh at the top. I'm thinking I like the dry #1 for the prelude. Maybe #2, which is what I've used before. 
+      Try the fugue next: 
+            #        very dry default  wet  drowned
+            for r in 1:0.005 2:0.009 3:0.02 4:0.04; do python WreckingCrew_v2.py --chorale bwv847f --temperament vrwt --velocity_random 5 --accent 1 --ornaments --trill_glide 0.2 --level_by_velocity --tempo 75 --velocity 75 --rubato_ms 30 --arp_dir rdown_lup --reverb ${r#*:} --letter r${r%%:*}; done
+      Narrow the search by discarding the high values. Those sound like you got a seat in the far back row behind a giant column in the way of the stage.
+            #        very dry slightly dry  wetter  slightly damp
+            for r in 1:0.005   2:0.075      3:0.010 4:0.015; do python WreckingCrew_v2.py --chorale bwv847f --temperament vrwt --velocity_random 5 --accent 1 --ornaments --trill_glide 0.2 --level_by_velocity --tempo 75 --velocity 75 --rubato_ms 30 --arp_dir rdown_lup --reverb ${r#*:} --letter r${r%%:*}; done
+      Hunting for the ideal:
+            #        droughty  soaking drouned
+            for r in 0:0.0025 5:0.0175 6:0.019
+      Listen to them in order from dry to drouwned:
+            ls -1 Uploads/b847*.mp3 > Playlist.m3u
+                  Uploads/b847fr0_vrwt_d01_44_t075.mp3 # small studio. 0.0025
+                  Uploads/b847fr1_vrwt_d01_44_t075.mp3 # bigger studio. 0.005
+                  Uploads/b847fr2_vrwt_d01_44_t075.mp3 # 0.075 At the far end of a big room
+                  Uploads/b847fr3_vrwt_d01_44_t075.mp3 # 0.010 no change from the default
+                  Uploads/b847fr7_vrwt_d01_44_t075.mp3 # 0.0125 nice in the middle
+                  Uploads/b847fr4_vrwt_d01_44_t075.mp3 # 0.015 wetter and closing in on ideal 
+                  Uploads/b847fr5_vrwt_d01_44_t075.mp3 # 0.0175 almost too wet
+                  Uploads/b847fr6_vrwt_d01_44_t075.mp3 # 0.0190
+      Back to the prelude with 0.0125
+            for r in 1:0.010 2:0.0125 3:0.0175 ; do python WreckingCrew_v2.py --chorale bwv853p --temperament vrwt --velocity_random 5 --accent 1 --ornaments --trill_glide 0.2 --level_by_velocity --tempo 67 --velocity 54 --rubato_ms 30 --arp_dir rdown_lup --reverb ${r#*:} --letter r${r%%:*}; done
+            ls -1 Uploads/b853*.mp3
+                  Uploads/b853pr1_vrwt_d03_40_t067.mp3 # 0.010 
+                  Uploads/b853pr2_vrwt_d03_40_t067.mp3 # 0.0125
+                  Uploads/b853pr3_vrwt_d03_40_t067.mp3 # 0.0175
+      _________________________
+      Next video step, back to the full orchestra, what would you ask for:
+      1. More musicians closer together without overlaps. Start with more 2 string instruments, then 1 more winds and brass instruments and players if they fit.
+      2. Better faces, better fingers, better clothes.
+      3. Set the stage the Teatro Alcorcon like the piano recital.
+      4. Make the audience once, much more varied, and use it whenever you pan to them. Premade offline. Like using AI model to create the audience jpeg. Since it doesn't move, this should work.
+      4. Boost the convolution level, externalize the value to use. Explain the slap back effect from the rear wall. Is it brick? What material are the walls? Done.
+      5. The brief woodwind accent to 0.6 I’d like to have the video indicate that the clarinet or the oboe or flute is playing a brief accent note if it’s brief and it’s accent, I want them to raise the bell of their instruments to indicate that they’re playing the accented note.
