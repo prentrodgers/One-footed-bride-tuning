@@ -15,9 +15,12 @@
 # Starting points: adjust each before rendering.  Run one line at a time, or: bash wtc1_vrwt.sh
 set -e
 cd "$(dirname "$0")"
+# Reverb (23 Nov 2026, chosen by ear on Prelude 8): 0.0175 for the preludes, 0.0125 for the fugues.
+# Rolled chords: right hand top to bottom, left hand bottom to top.  A line can override either.
 WC() { local bwv=$1; shift
+       local reverb=0.0125; [[ $bwv == *p ]] && reverb=0.0175
        .venv/bin/python WreckingCrew_v2.py --chorale "$bwv" --letter a --temperament vrwt --velocity_random 5 \
-       --accent 1 --ornaments --trill_glide 0.2 --level_by_velocity "$@"; }
+       --accent 1 --ornaments --trill_glide 0.2 --level_by_velocity --reverb $reverb --arp_dir rdown_lup "$@"; }
 
 WC bwv846p --tempo  64 --velocity 58 --rubato_ms 25  #  1 C major, prelude, was 60
 WC bwv846f --tempo  58 --velocity 68 --rubato_ms 20  #  1 C major, fugue a 4, was 72
