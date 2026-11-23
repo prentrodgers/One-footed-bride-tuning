@@ -33,9 +33,9 @@
 <CsScore>
 ;  start 
 ;  | + length in seconds plus length of impulse response file - this is replaced with the actual length needed
-;  | |         + percentage of reverb vs live sound .0075 is pretty wet now
+;  | |         + percentage of reverb vs live sound (WreckingCrew --reverb, default .009; .0075 is pretty wet now)
 ;  | |         |       + Length of impulse response file Teatro Alcorcon in Madrid is 1.811...
 ;  | |         |       |
-i1 0 @replaceme@   .0090   1.811247165532
+i1 0 @replaceme@   @reverb@   1.811247165532
 </CsScore>
 </CsoundSynthesizer>

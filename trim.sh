@@ -17,7 +17,12 @@ echo 'here are the values used in trim.sh'
 echo $@
 csound -U sndinfo $SFDIR/"$1".wav
 csound "$3"/"$1"c.csd 
-sox $SFDIR/"$1"a-c.wav -p reverse | sox -p -p silence 1 .01 .01 | sox -p -p reverse | sox -p -p silence 1 0.01 0.01 | sox -p --norm=${NORM_DB:--1} $SFDIR/"$OUT".wav 
+# Trim the silence at each end, then normalise. TRIM_DB is the trim threshold in dB below the peak
+# (default -60): the mix is first brought to full scale, so a quiet render (--velocity 64) is trimmed
+# at the same point as a loud one. Until 22 Nov 2026 the threshold was a fixed 0.01 of full scale,
+# only 10 dB under the peak of a velocity-58 prelude: it cut into the first note and dropped the
+# last 4.6 s of the hall's decay.
+sox $SFDIR/"$1"a-c.wav -p gain -n | sox -p -p reverse | sox -p -p silence 1 0.01 ${TRIM_DB:--60}d | sox -p -p reverse | sox -p -p silence 1 0.01 ${TRIM_DB:--60}d | sox -p --norm=${NORM_DB:--1} $SFDIR/"$OUT".wav
 csound -U sndinfo $SFDIR/"$OUT".wav
 ls -lth $SFDIR/"$OUT".wav | head
 if [ -z "$4" ]; then

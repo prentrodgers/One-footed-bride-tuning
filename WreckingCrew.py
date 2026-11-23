@@ -66,6 +66,8 @@ CS_LOGNAME = 'slide_tuning.log' # this doesn't need any directory.
 MIDI_DIR = '.' 
 UPLOADS_DIR = os.path.join(local_dir, 'Uploads') 
 TRIM_SCRIPT = os.path.join(local_dir, 'trim.sh')
+REVERB = 0.009       # --reverb: the convolution mix in ball9c.csd (@reverb@)
+REVERB_MAX = 0.09
 CS_SOURCE_DIR = local_dir
 numpy_dir = os.path.join(local_dir, 'Archive', 'opt')
 
@@ -2546,7 +2548,7 @@ def play_csound(csound = True, play = False):
     return result
 
 
-def trim_csound(version, duration, trim = True, mp3=True):
+def trim_csound(version, duration, trim = True, mp3=True, reverb=REVERB):
     logging.debug(f'{version = }')
     result = 0
     # Use a local variable so we don't shadow the module-level UPLOADS_DIR constant
@@ -2556,8 +2558,8 @@ def trim_csound(version, duration, trim = True, mp3=True):
 
     if trim: # replace the duration and the input directory, then convolve and convert to mp3. 
         print(f'In trim_csound. {duration = }')
-        result = os.system(f"sed -i 's/@replaceme@/{duration}/' {CSD_C_FILE}")
-        print(f"Sent this to os.system. sed -i s/@replaceme@/{duration}/ {CSD_C_FILE}. {result = }")
+        result = os.system(f"sed -i 's/@replaceme@/{duration}/; s/@reverb@/{reverb:.4f}/' {CSD_C_FILE}")
+        print(f"Sent this to os.system. sed -i s/@replaceme@/{duration}/ s/@reverb@/{reverb:.4f}/ {CSD_C_FILE}. {result = }")
         command = f'sh {TRIM_SCRIPT} ball9 {version} {CS_SOURCE_DIR} {uploads_dir or ""}'
         print(f'sending command to execute the trim script:\n{command}')
         result = os.system(command)
@@ -2667,7 +2669,7 @@ def chorale_to_wave_v4(version, album, include_sections, ratio_factor, limit_max
       limit=0, \
       cent_file_partial='-cents.npy', show_volumes=False, woodwinds_volume=15,\
     melody_sustain=15, bass_sustain=15, bass_hold_scale=1.0, bass_hold_swing=0.75, bass_hold_cycles=4,
-    mp3=True, tolerance=1,\
+    mp3=True, reverb=REVERB, tolerance=1,\
       stability_factor=0.0, max_delta=33, spread=7, fp_density_starts=None, fp_hold_scale=1.0, prime_count=8, ap=None, articulated_sections=None, articulate_cfg=None, density_level=5,
         fatigue_min_chain=2, fatigue_density_threshold=1, include_slice=None,
         deep_bass_backoff=1.0, back_off_clicks=0.0,
@@ -2917,7 +2919,7 @@ def chorale_to_wave_v4(version, album, include_sections, ratio_factor, limit_max
         if result_of_call != 0: print(f'possible failure in play_csound function. {result_of_call = }')         
     logging.info(f'about to call trim_csound. {mod = }, {duration = }')    
     if convolve: # convolve the results 
-        result_of_call = trim_csound(mod, duration, trim = True, mp3=mp3)
+        result_of_call = trim_csound(mod, duration, trim = True, mp3=mp3, reverb=reverb)
         if result_of_call != 0: print(f'possible failure in convolution using trim_csound. {result_of_call = }')
 
     if show_volumes: # show a graph of the volume function
@@ -2937,7 +2939,7 @@ def chorale_to_wave_v4(version, album, include_sections, ratio_factor, limit_max
 ################################################################################
 ################################################################################
 def mainline(chorale_override=None, short_repeats=False, just_triangle=False, include_list=None, csound=True, convolve=True, \
-             mp3=True, max_cents_slide=35, melody_sustain=3, bass_sustain=15,
+             mp3=True, reverb=REVERB, max_cents_slide=35, melody_sustain=3, bass_sustain=15,
              bass_hold_scale=1.0, bass_hold_swing=0.75, bass_hold_cycles=4, cent_file_partial='-trans-sa-opt.npy', \
              show_volumes=True, mod_letter='a', album=3, tolerance=1, ratio_factor=0.75, \
              numpy_dir_arg=None, stability_factor=0.0, max_delta=33, spread=7, limit_max=23, auto_density=False, prime_count=8, ap=None, articulated_sections=None, articulate_cfg=None, density_level=None, shuffle_density=False, auto_density_weights=None,
@@ -3095,7 +3097,7 @@ def mainline(chorale_override=None, short_repeats=False, just_triangle=False, in
                   max_cents_slide=max_cents_slide, show_volumes=show_volumes, \
                   woodwinds_volume=woodwinds_volume, melody_sustain=melody_sustain, bass_sustain=bass_sustain, \
                 bass_hold_scale=_bhs, bass_hold_swing=_bhsw, bass_hold_cycles=bass_hold_cycles,
-                  cent_file_partial=cent_file_partial, mp3=mp3,\
+                  cent_file_partial=cent_file_partial, mp3=mp3, reverb=reverb,\
                   tolerance=tolerance, stability_factor=stability_factor, max_delta=max_delta,\
                   spread=spread, fp_density_starts=_fp_starts, fp_hold_scale=_fhs, prime_count=_np, ap=ap, articulated_sections=articulated_sections, articulate_cfg=articulate_cfg, density_level=_active_level,
                                     fatigue_min_chain=fatigue_min_chain, fatigue_density_threshold=fatigue_density_threshold,
@@ -3146,6 +3148,8 @@ if __name__ == "__main__":
                           help="Generate MP3 output (default: True)")
       parser.add_argument("--no_mp3", dest="mp3", action="store_false",
                           help="Disable MP3 generation")
+      parser.add_argument("--reverb", type=float, default=REVERB,
+                          help="how much convolved hall to mix in, 0 to %g (default %g). Higher rings longer, like the hall with no audience, and brings up the one-second slap-back off the rear wall" % (REVERB_MAX, REVERB))
       parser.add_argument("--max_cents_slide", dest="max_cents_slide", type=float, default=35,
                           help="Maximum cents slide (keep under 50 to avoid annoying glides) (default: 35)")
       parser.add_argument("--melody_sustain", dest="melody_sustain", type=float, default=3,
@@ -3294,6 +3298,8 @@ if __name__ == "__main__":
                                "before Nov 2026. By default a resting voice is silent (its notes are given "
                                "octave 0), and the note after the rest starts in its own column (default: False)")
       args = parser.parse_args()
+      if not 0 <= args.reverb <= REVERB_MAX:
+          parser.error(f'--reverb must be between 0 and {REVERB_MAX}, got {args.reverb}')
 
       # --articulate's default depends on --short_repeats: a straight chorale has no
       # arpeggio figuration to hand to the winds.
@@ -3371,7 +3377,7 @@ if __name__ == "__main__":
 
       mainline(chorale_override=args.chorale_name, short_repeats=args.short_repeats,
                just_triangle=args.just_triangle, include_list=include_list, csound=args.csound, convolve=args.convolve,
-               mp3=args.mp3, max_cents_slide=args.max_cents_slide, melody_sustain=args.melody_sustain, bass_sustain=args.bass_sustain,
+               mp3=args.mp3, reverb=args.reverb, max_cents_slide=args.max_cents_slide, melody_sustain=args.melody_sustain, bass_sustain=args.bass_sustain,
                bass_hold_scale=args.bass_hold_scale, bass_hold_swing=args.bass_hold_swing, bass_hold_cycles=args.bass_hold_cycles,
                cent_file_partial=args.cent_file_partial, show_volumes=args.show_volumes,
                mod_letter=args.mod_letter, album=args.album,

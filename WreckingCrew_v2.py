@@ -109,6 +109,8 @@ import music21 as m21  # noqa: E402
 CSD_FILE = os.path.join(REPO, 'ball9.csd')
 CSD_C_FILE = os.path.join(REPO, 'ball9c.csd')
 TRIM_SCRIPT = os.path.join(REPO, 'trim.sh')
+REVERB = 0.009       # --reverb: the convolution mix in ball9c.csd (@reverb@)
+REVERB_MAX = 0.09
 UPLOADS_DIR = os.path.join(REPO, 'Uploads')
 ENSEMBLE_DIR = os.path.join(REPO, 'ensembles')
 WAVE_DIR = os.environ.get('OFB_WAVE_DIR') or os.path.expanduser(os.path.join('~', 'Music', 'sflib'))  # Csound SFDIR
@@ -1024,11 +1026,11 @@ def peak_db_for(velocity):
     return max(LEVEL_FLOOR_DB, db)
 
 
-def convolve_and_publish(stem, seconds, mp3=True, peak_db=LEVEL_FULL_DB):
+def convolve_and_publish(stem, seconds, mp3=True, peak_db=LEVEL_FULL_DB, reverb=REVERB):
     """trim.sh (alcorcon reverb, trim silence, normalise, mp3 to Uploads) on a temp copy of ball9c.csd."""
     with tempfile.TemporaryDirectory() as tmp:
         with open(CSD_C_FILE) as f:
-            text = f.read().replace('@replaceme@', f'{seconds:.1f}')
+            text = f.read().replace('@replaceme@', f'{seconds:.1f}').replace('@reverb@', f'{reverb:.4f}')
         with open(os.path.join(tmp, 'ball9c.csd'), 'w') as f:
             f.write(text)
         cmd = ['sh', TRIM_SCRIPT, 'ball9', stem, tmp] + ([UPLOADS_DIR] if mp3 else [])
@@ -1211,7 +1213,8 @@ def render(args):
     elif args.level_by_velocity:
         peak_db = peak_db_for(max(part['velocity'] for part in parts))
     print(f'level: peak normalised to {peak_db:.1f} dB ({32767 * 10 ** (peak_db / 20):,.0f} of 32,767)')
-    if convolve_and_publish(stem, seconds + TAIL_SECONDS, mp3=not args.no_mp3, peak_db=peak_db) != 0:
+    if convolve_and_publish(stem, seconds + TAIL_SECONDS, mp3=not args.no_mp3, peak_db=peak_db,
+                            reverb=args.reverb) != 0:
         raise SystemExit('trim.sh failed')
     if not args.no_mp3:
         os.makedirs(UPLOADS_DIR, exist_ok=True)
@@ -1310,8 +1313,12 @@ def main(argv=None):
     ap.add_argument('--no_csound', action='store_true', help='write the .csd only')
     ap.add_argument('--no_convolve', action='store_true', help='stop after the dry Csound render')
     ap.add_argument('--no_mp3', action='store_true', help='convolve but leave the wav in ~/Music/sflib')
+    ap.add_argument('--reverb', type=float, default=REVERB,
+                    help='how much convolved hall to mix in, 0 to %g (default %g). Higher rings longer, like the hall with no audience, and brings up the one-second slap-back off the rear wall' % (REVERB_MAX, REVERB))
     ap.add_argument('--notes_out', default=None, help='also save the note array here')
     args = ap.parse_args(argv)
+    if not 0 <= args.reverb <= REVERB_MAX:
+        ap.error(f'--reverb must be between 0 and {REVERB_MAX}, got {args.reverb}')
     if not os.path.isabs(args.numpy_dir):
         args.numpy_dir = os.path.join(REPO, args.numpy_dir) if not os.path.isdir(args.numpy_dir) else args.numpy_dir
     logging.basicConfig(level=logging.WARNING)
