@@ -26537,6 +26537,7 @@ __________________________
       First do these easy ones: 
       1. Fix wtc1_vrwt.sh so the renders include the same thing that's in goldberg_diamond.sh:
             --level_by_velocity
+      That argument was already there. 
       2. Check the duration of each of the prelude and fugues in WTC in professional recordings like Richter and others. Build a table of the durations of each segment. Give that to claude to calculate the proper tempos. Some of the very slow preludes and fugues are in cut time, 2/2 so a half note gets one beat. That might have thrown Claude off when he set the tempos. In any case, find a consensus and use it in wtc1_vrwt.sh
       3. Explain the comments towards the end of that bash script. I don't want to be leaving any key out of the final version.
       4. See what other notes I recorded on my walk yesterday. 
@@ -26551,3 +26552,8 @@ __________________________
       └──────────────────────────────────┴──────┴──────────────┴───────────────┘
 
       Both are among the slower fugues, so your suspicion fits these two. Recordings usually state tempo in half notes for these, so if a consensus value is per half note, double it for --tempo. The same goes for the compound-time pieces: they're set in quarters too (the script header gives 12/8 at 60 as a dotted quarter at 40). That covers 848p in 3/8, 854p and 856p in 12/8, 858p in 12/16, 863p and 860f in 6/8, 865p and 864f in 9/8, and 856f in 3/8.
+
+________________________ 
+11/23/26 Finish what you started yesterday.
+      1. get the placed tunings (vrwt-spring) from the pod into the repo. Get them from the pod into fs1 then commit and push.
+            kubectl exec deploy/one-footed-bride -c one-footed-bride -- tar -C /home/prent/Repos/One-footed-bride-tuning -cf - Archive/placed Archive/placed-test | tar -xf -
