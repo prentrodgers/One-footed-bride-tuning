@@ -26576,8 +26576,154 @@ ________________________
             for r in 1:0.010 2:0.0125 3:0.0175 ; do python WreckingCrew_v2.py --chorale bwv853p --temperament vrwt --velocity_random 5 --accent 1 --ornaments --trill_glide 0.2 --level_by_velocity --tempo 67 --velocity 54 --rubato_ms 30 --arp_dir rdown_lup --reverb ${r#*:} --letter r${r%%:*}; done
             ls -1 Uploads/b853*.mp3
                   Uploads/b853pr1_vrwt_d03_40_t067.mp3 # 0.010 
-                  Uploads/b853pr2_vrwt_d03_40_t067.mp3 # 0.0125
-                  Uploads/b853pr3_vrwt_d03_40_t067.mp3 # 0.0175
+                  Uploads/b853pr2_vrwt_d03_40_t067.mp3 # 0.0125 # <-- this is it for the fugues
+                  Uploads/b853pr3_vrwt_d03_40_t067.mp3 # 0.0175 # <-- this is it for the preludes
+      Claude made those updates to wtc1_vrwt.sh. Ready to roll now.
+      When discussing the VRWT, refer to the values in this chart to describe the tonic triad each key gets to use:
+Here's the combined chart, in WTC order. The first three columns are each note's pitch in cents above C. Each interval then has its nearest 19-limit ratio and the closest one on the other side, with the ratio's distance from the vrwt value in brackets: + means the ratio is wider.
+
+                  ┌──────────┬────────┬────────┬─────────┬──────────────┬──────────────────────────┐
+                  │   Key    │  Root  │  3rd   │  5th    │   Nearest    │ Root–5th (narrow of 3/2) │
+                  ├──────────┼────────┼────────┼─────────┼──────────────┼──────────────────────────┤
+                  │ C major  │ 0.0    │ 392.1  │ 700.0   │ 5/4 (−5.7)   │ 700.0 (1.9)              │
+                  ├──────────┼────────┼────────┼─────────┼──────────────┼──────────────────────────┤
+                  │ C minor  │ 0.0    │ 296.8  │ 700.0   │ 19/16 (+0.7) │ 700.0 (1.9)              │
+                  ├──────────┼────────┼────────┼─────────┼──────────────┼──────────────────────────┤
+                  │ C♯ major │ 94.7   │ 499.1  │ 795.6   │ 24/19 (0.0)  │ 700.9 (1.0)              │
+                  ├──────────┼────────┼────────┼─────────┼──────────────┼──────────────────────────┤
+                  │ C♯ minor │ 94.7   │ 392.1  │ 795.6   │ 19/16 (+0.1) │ 700.9 (1.0)              │
+                  ├──────────┼────────┼────────┼─────────┼──────────────┼──────────────────────────┤
+                  │ D major  │ 197.0  │ 593.6  │ 894.7   │ 24/19 (+7.9) │ 697.7 (4.3)              │
+                  ├──────────┼────────┼────────┼─────────┼──────────────┼──────────────────────────┤
+                  │ D minor  │ 197.0  │ 499.1  │ 894.7   │ 19/16 (−4.6) │ 697.7 (4.3)              │
+                  ├──────────┼────────┼────────┼─────────┼──────────────┼──────────────────────────┤
+                  │ E♭ major │ 296.8  │ 700.0  │ 998.0   │ 24/19 (+1.2) │ 701.1 (0.8)              │
+                  ├──────────┼────────┼────────┼─────────┼──────────────┼──────────────────────────┤
+                  │ D♯ minor │ 296.8  │ 593.6  │ 998.0   │ 19/16 (+0.8) │ 701.1 (0.8)              │
+                  ├──────────┼────────┼────────┼─────────┼──────────────┼──────────────────────────┤
+                  │ E major  │ 392.1  │ 795.6  │ 1092.3  │ 24/19 (+0.9) │ 700.3 (1.7)              │
+                  ├──────────┼────────┼────────┼─────────┼──────────────┼──────────────────────────┤
+                  │ E minor  │ 392.1  │ 700.0  │ 1092.3  │ 6/5 (+7.7)   │ 700.3 (1.7)              │
+                  ├──────────┼────────┼────────┼─────────┼──────────────┼──────────────────────────┤
+                  │ F major  │ 499.1  │ 894.7  │ 0.0     │ 24/19 (+8.8) │ 700.9 (1.0)              │
+                  ├──────────┼────────┼────────┼─────────┼──────────────┼──────────────────────────┤
+                  │ F minor  │ 499.1  │ 795.6  │ 0.0     │ 19/16 (+1.0) │ 700.9 (1.0)              │
+                  ├──────────┼────────┼────────┼─────────┼──────────────┼──────────────────────────┤
+                  │ F♯ major │ 593.6  │ 998.0  │ 94.7    │ 24/19 (0.0)  │ 701.1 (0.9)              │
+                  ├──────────┼────────┼────────┼─────────┼──────────────┼──────────────────────────┤
+                  │ F♯ minor │ 593.6  │ 894.7  │ 94.7    │ 19/16 (−3.6) │ 701.1 (0.9)              │
+                  ├──────────┼────────┼────────┼─────────┼──────────────┼──────────────────────────┤
+                  │ G major  │ 700.0  │ 1092.3 │ 197.0   │ 5/4 (−6.0)   │ 697.0 (5.0)              │
+                  ├──────────┼────────┼────────┼─────────┼──────────────┼──────────────────────────┤
+                  │ G minor  │ 700.0  │ 998.0  │ 197.0   │ 19/16 (−0.4) │ 697.0 (5.0)              │
+                  ├──────────┼────────┼────────┼─────────┼──────────────┼──────────────────────────┤
+                  │ A♭ major │ 795.6  │ 0.0    │ 296.8   │ 24/19 (0.0)  │ 701.2 (0.7)              │
+                  ├──────────┼────────┼────────┼─────────┼──────────────┼──────────────────────────┤
+                  │ G♯ minor │ 795.6  │ 1092.3 │ 296.8   │ 19/16 (+0.8) │ 701.2 (0.7)              │
+                  ├──────────┼────────┼────────┼─────────┼──────────────┼──────────────────────────┤
+                  │ A major  │ 894.7  │ 94.7   │ 392.1   │ 24/19 (+4.5) │ 697.4 (4.6)              │
+                  ├──────────┼────────┼────────┼─────────┼──────────────┼──────────────────────────┤
+                  │ A minor  │ 894.7  │ 0.0    │ 392.1   │ 19/16 (−7.8) │ 697.4 (4.6)              │
+                  ├──────────┼────────┼────────┼─────────┼──────────────┼──────────────────────────┤
+                  │ B♭ major │ 998.0  │ 197.0  │ 499.1   │ 24/19 (+5.4) │ 701.1 (0.9)              │
+                  ├──────────┼────────┼────────┼─────────┼──────────────┼──────────────────────────┤
+                  │ B♭ minor │ 998.0  │ 94.7   │ 499.1   │ 19/16 (+0.8) │ 701.1 (0.9)              │
+                  ├──────────┼────────┼────────┼─────────┼──────────────┼──────────────────────────┤
+                  │ B major  │ 1092.3 │ 296.8  │ 593.6   │ 24/19 (−0.1) │ 701.2 (0.7)              │
+                  ├──────────┼────────┼────────┼─────────┼──────────────┼──────────────────────────┤
+                  │ B minor  │ 1092.3 │ 197.0  │ 593.6   │ 19/16 (−7.2) │ 701.2 (0.7)              │
+                  └──────────┴────────┴────────┴─────────┴──────────────┴──────────────────────────┘
+      How would you characterize the Bach Well Tempered Clavier in comparison with his other keyboard work, especially in terms of who commissioned or to whom bach shared the work, family, royalty, clergy, other staekholders. Which ones were written to meet a paycheck and which for himself. 
+
+      Use some of this in the eventual write-up of the WTC and VRWT:
+      The WTC is the least "commissioned" of Bach's major keyboard works: nobody ordered it, it has no dedicatee, his job didn't require it, and it was never printed in his lifetime. He wrote it for his pupils, his sons and himself. (This is from memory, not looked up; I've flagged the stories that are legend.)
+
+      The WTC itself
+      - Book I (1722, Cöthen): his post there was court Kapellmeister to Prince Leopold, which meant chamber and orchestral music, so keyboard teaching pieces were outside the job. The title page says who it is for: "musical youth desirous of learning" and "the pastime of those already skilled."
+      - Family origin: eleven of the preludes first appear, in simpler versions, in the notebook he started in 1720 for his nine-year-old son Wilhelm Friedemann.
+      - How it was shared: only by hand copying. Pupils copied it as part of their study, and it stayed in manuscript until 1801; Mozart and Beethoven both learned it that way.
+      - Book II (about 1739–42, Leipzig): even more private, compiled for himself and his circle with no occasion at all.
+      - Legends and guesses: one pupil's son reported that Bach wrote Book I somewhere without an instrument, out of boredom, which may refer to his 1717 detention in Weimar. Some scholars think the 1722 fair copy doubled as a teaching credential for the Leipzig job he applied for that year.
+
+      How the other keyboard works compare
+
+      ┌───────────────────────┬─────────────────────────────────────────────────────────────────────────────────────┬──────────────────────────────────────────────────────────────────────┐
+      │        Purpose        │                                        Works                                        │                               For whom                               │
+      ├───────────────────────┼─────────────────────────────────────────────────────────────────────────────────────┼──────────────────────────────────────────────────────────────────────┤
+      │ Paycheck              │ Most organ preludes, fugues and chorale settings; Orgelbüchlein                     │ His church and court organist posts (Arnstadt, Mühlhausen, Weimar)   │
+      ├───────────────────────┼─────────────────────────────────────────────────────────────────────────────────────┼──────────────────────────────────────────────────────────────────────┤
+      │ Family and pupils     │ Inventions and Sinfonias, French Suites, organ trio sonatas, the WTC                │ Wilhelm Friedemann, Anna Magdalena, paying private students          │
+      ├───────────────────────┼─────────────────────────────────────────────────────────────────────────────────────┼──────────────────────────────────────────────────────────────────────┤
+      │ For sale              │ Partitas, Italian Concerto, French Overture, Clavier-Übung III, Goldberg Variations │ The buying public; he published the Partitas himself as his "Opus 1" │
+      ├───────────────────────┼─────────────────────────────────────────────────────────────────────────────────────┼──────────────────────────────────────────────────────────────────────┤
+      │ Royalty and nobility  │ Musical Offering; Partita 1; possibly the Goldberg and English Suites               │ Frederick the Great; a newborn Cöthen prince (dedication poem)       │
+      ├───────────────────────┼─────────────────────────────────────────────────────────────────────────────────────┼──────────────────────────────────────────────────────────────────────┤
+      │ His own performances  │ Toccatas, Chromatic Fantasia, harpsichord concertos                                 │ Himself and his sons, the concertos at the Leipzig Collegium Musicum │
+      ├───────────────────────┼─────────────────────────────────────────────────────────────────────────────────────┼──────────────────────────────────────────────────────────────────────┤
+      │ Himself and posterity │ Art of Fugue, Canonic Variations, WTC Book II                                       │ Fellow learned musicians (Mizler's society)                          │
+      └───────────────────────┴─────────────────────────────────────────────────────────────────────────────────────┴──────────────────────────────────────────────────────────────────────┘
+
+      - The Goldberg story is doubtful. The tale of Count Keyserlingk's insomnia and a goblet of gold coins comes from Forkel's 1802 biography. The print has no dedication, and Goldberg was about 14.
+      - The English Suites' "for an Englishman of rank" is likewise unverified.
+      - Clergy barely figure as stakeholders in the keyboard music. Clavier-Übung III has a theological plan (the catechism chorales), but it was his own publication, not a church commission.
+      - The Musical Offering is the one true royal piece, and as far as is known Frederick never paid for it.
+
+      So the WTC sits between the family-and-pupils works and the works for himself. It did earn him money indirectly, since private pupils paid for lessons. Its title also makes a public argument that suits your project: that a well-tempered keyboard can play in all 24 keys.
+      _________________________
+      We will need a piece as good as 366 was in order to make the next video worthwhile. I want something as good as this:
+                  Uploads/Dj-354-366-mixed/b366a_df4_t1_d11_43_t088_ap3_lm17_r1.50.mp3 # spicy!
+            python select_best_and_render.py --numpy_dir_root Archive/straw-man --chorale_list bwv366 --suffix="-opt.npy" --sort_by p90 --short_repeats --copy_mp3_to Uploads --render --copy_npy_to Archive/straw-man/best-tunings
+      What are the sort_by options:
+            -sort_by {best,gapsum,high,maxgap,name,over20,p90,score}
+                  best = GapSum under --good_gapsum first, then fewest high primes, then lowest chord average; high = fewest high primes; score=mean chord score, gapsum=total gap cents, maxgap, p90, over20=count of gaps above 20¢, name (default: best)
+            for n in 2 ; do python WreckingCrew.py --chorale_list bwv366 --numpy_dir Archive/straw-man/t1_r1.50_lm17 --cent_file_partial='-opt.npy' --density_level $n --ap 2 --articulate_gain 0.1,0.5 --rondo_section_a 0 48 --rondo_insert_a_after 95 191 --rondo_section_b 96 144 --rondo_insert_b_after 239 --reverb 0.0125; done
+      Try this one: t3_r1.25_lm19 (winner of both p90 and best with 7.7% high primes) or t3_r1.50_lm19 winner by score only 5.6% high primes
+            for n in 1 2 3 ; do python WreckingCrew.py --chorale_list bwv366 --numpy_dir Archive/straw-man/t3_r1.25_lm19 --cent_file_partial='-opt.npy' --density_level 3 --ap $n --articulate_gain 0.1,0.5 --rondo_section_a 0 48 --rondo_insert_a_after 95 191 --rondo_section_b 96 144 --rondo_insert_b_after 239 --reverb 0.0125; done
+      I'm not happy with any of these, compared to the one in Dj-354-366-mixed above. That bass line was terrific in the --rondo_section_a
+      What about a choconne? I like too many parts to make it restrictive like a chaconne to just 0 48
+            python rondo_plan.py bwv366 
+                  phrase   --rondo_section_*   measures     --rondo_insert_*_after
+                  1       0 48              0-3          47
+                  2      48 96              4-7          95  # <-- insert here
+                  3      96 144             8-11         143 # <-- insert here
+                  4     144 192             12-15        191 # <-- insert here
+                  5     192 240             16-19        239 # <-- insert here
+      Use --ap 2, which usually has short final mp3 files, but with more insertion points? 
+            --rondo_section_a 0 48 --rondo_insert_a_after 95 143 191 239
+      
+            python WreckingCrew.py --chorale_list bwv366 --numpy_dir Archive/straw-man/t3_r1.25_lm19 --cent_file_partial='-opt.npy' --density_level 3 --ap 2 --articulate_gain 0.1,0.5 --rondo_section_a 0 48 --rondo_insert_a_after 95 143 191 239 --rondo_section_b 96 144 --rondo_insert_b_after 239 --reverb 0.0125
+
+      I'm giving up on trying to get an optimla bwv366. Try the ones I tuned yesterday {342..353}
+            ls -1 Archive/placed/best-tunings/*.npy
+                  Archive/placed/best-tunings/bwv342_t3_r1.375_lm17-opt.npy
+                  ...
+                  Archive/placed/best-tunings/bwv353_t3_r1.500_lm19-opt.npy
+      Which ones were chosen? The best.
+            python select_best_and_render.py --numpy_dir_root Archive/placed --chorale_list bwv{342..353} --suffix="-opt.npy" --sort_by best
+      How do those compare with other sorts 
+            for t in best p90 score ; do echo $t ; python select_best_and_render.py --numpy_dir_root Archive/placed --chorale_list bwv{342..353} --suffix="-opt.npy" --sort_by $t | grep Chorale -A5 ; done
+      First find the phrasing of each chorale:
+            for c in bwv{342..353}; do echo $c ; python rondo_plan.py $c ;done
+
+      Try one:
+            python WreckingCrew.py --chorale_list bwv342 --numpy_dir Archive/placed/best-tunings --cent_file_partial='-opt.npy' --density_level 3 --ap 2 --articulate_gain 0.1,0.5 --rondo_section_a 0 48 --rondo_insert_a_after 91 143 235  
+            python WreckingCrew.py --chorale_list bwv343 --numpy_dir Archive/placed/best-tunings --cent_file_partial='-opt.npy' --density_level 2 --ap 3 --articulate_gain 0.1,0.5 --rondo_section_a 0 48 --rondo_insert_a_after 95 143   
+            python WreckingCrew.py --numpy_dir Archive/placed/best-tunings --cent_file_partial='-opt.npy' --articulate_gain 0.1,0.5 --chorale_list bwv344 --density_level 4 --ap 3 --rondo_section_a 0 48 --rondo_insert_a_after 95 143 191
+            python WreckingCrew.py --numpy_dir Archive/placed/best-tunings --cent_file_partial='-opt.npy' --articulate_gain 0.1,0.5 --chorale_list bwv345 --density_level 1 --ap 4 --rondo_section_a 0 32 --rondo_insert_a_after 63 95 127
+            python WreckingCrew.py --numpy_dir Archive/placed/best-tunings --cent_file_partial='-opt.npy' --articulate_gain 0.1,0.5 --chorale_list bwv346 --density_level 3 --ap 2 --rondo_section_a 0 32 --rondo_insert_a_after 75 123 143 159 175 191 --speed 1.325
+            python WreckingCrew.py --numpy_dir Archive/placed/best-tunings --cent_file_partial='-opt.npy' --articulate_gain 0.1,0.5 --chorale_list bwv347 --density_level 3 --ap 2 --rondo_section_a 0 32 --rondo_insert_a_after 63 95 127 159 --speed 1.25
+            python WreckingCrew.py --numpy_dir Archive/placed/best-tunings --cent_file_partial='-opt.npy' --articulate_gain 0.1,0.5 --chorale_list bwv348 --density_level 2 --ap 4 --rondo_section_a 0 32 --rondo_insert_a_after 63 95 127 159 --speed 1.25
+            python WreckingCrew.py --numpy_dir Archive/placed/best-tunings --cent_file_partial='-opt.npy' --articulate_gain 0.1,0.5 --chorale_list bwv349 --density_level 0 --ap 3 --rondo_section_a 0 48 --rondo_insert_a_after 95 143 159 --speed 1.0
+            python WreckingCrew.py --numpy_dir Archive/placed/best-tunings --cent_file_partial='-opt.npy' --articulate_gain 0.1,0.5 --chorale_list bwv350 --density_level 1 --ap 2 --rondo_section_a 0 48 --rondo_insert_a_after 95 143 191 --speed 1.25
+            python WreckingCrew.py --numpy_dir Archive/placed/best-tunings --cent_file_partial='-opt.npy' --articulate_gain 0.1,0.5 --chorale_list bwv351 --density_level 2 --ap 2 --rondo_section_a 0 32 --rondo_insert_a_after 63 95 111 --speed 1.0
+            python WreckingCrew.py --numpy_dir Archive/placed/best-tunings --cent_file_partial='-opt.npy' --articulate_gain 0.1,0.5 --chorale_list bwv352 --density_level 4 --ap 1 --rondo_section_a 0 32 --rondo_insert_a_after 63 95 127 159 --speed 1.0
+            python WreckingCrew.py --numpy_dir Archive/placed/best-tunings --cent_file_partial='-opt.npy' --articulate_gain 0.1,0.5 --chorale_list bwv353 --density_level 5 --ap 1 --rondo_section_a 0 40 --rondo_insert_a_after 79 119 159 191 --speed 1.0
+      Then render the octet:
+            for c in bwv{342..353} ; do python WreckingCrew_v2.py --chorale $c --ensemble ensembles/bwv262-octet.yaml --numpy_dir Archive/placed/best-tunings --letter q1 ; done
+      Claude suggests that 343 and 351 are the bad boys. That's when we added a spring to the tuning. 351 is super weird.
+
+_______________________
+11/24/26 Get fable to work:
       _________________________
       Next video step, back to the full orchestra, what would you ask for:
       1. More musicians closer together without overlaps. Start with more 2 string instruments, then 1 more winds and brass instruments and players if they fit.
